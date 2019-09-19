@@ -1,0 +1,104 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spot-termination-test
+  namespace: default
+rules:
+- apiGroups:
+  - "apps"
+  resources:
+  - "daemonsets"
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spot-termination-test
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spot-termination-test
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: spot-termination-test
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: spot-termination-test
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1beta2
+kind: DaemonSet
+metadata:
+  name: spot-termination-test
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: spot-termination-test
+  template:
+    metadata:
+      labels:
+        app: spot-termination-test
+    spec:
+      serviceAccountName: spot-termination-test
+      containers:
+      - name: node-termination-handler
+        image: node-termination-handler:customtest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: INSTANCE_METADATA_URL
+          value: "http://127.0.0.1:1338"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      - name: ec2-meta-data-proxy
+        image: ec2-meta-data-proxy:customtest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SPOT_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      nodeSelector:
+        lifecycle: Ec2Spot

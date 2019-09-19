@@ -1,0 +1,9 @@
+---
+language: minimal
+
+services:
+- docker
+
+script:
+- test/node-interrupt-test/run-node-interrupt-test.sh
+
