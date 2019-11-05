@@ -90,12 +90,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        # resources:
-        #   requests:
-        #     memory: "64Mi"
-        #     cpu: "50m"
-        #   limits:
-        #     memory: "128Mi"
-        #     cpu: "100m"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
       nodeSelector:
         lifecycle: Ec2Spot
