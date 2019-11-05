@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.12.10 as builder
+FROM golang:1.13 as builder
 
 # Copy in the go src
 WORKDIR /node-termination-handler
