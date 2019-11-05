@@ -80,6 +80,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
       - name: ec2-meta-data-proxy
         image: ec2-meta-data-proxy:customtest
         imagePullPolicy: IfNotPresent

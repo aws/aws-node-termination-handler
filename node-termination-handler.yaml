@@ -2,7 +2,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: spot-termination-handler
+  name: node-termination-handler
   namespace: default
 rules:
 - apiGroups:
@@ -38,39 +38,39 @@ rules:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: spot-termination-handler
+  name: node-termination-handler
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: spot-termination-handler
+  name: node-termination-handler
   namespace: default
 subjects:
 - kind: ServiceAccount
-  name: spot-termination-handler
+  name: node-termination-handler
   namespace: default
 roleRef:
   kind: ClusterRole
-  name: spot-termination-handler
+  name: node-termination-handler
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1beta2
 kind: DaemonSet
 metadata:
-  name: spot-termination-handler
+  name: node-termination-handler
   namespace: default
 spec:
   selector:
     matchLabels:
-      app: spot-termination-handler
+      app: node-termination-handler
   template:
     metadata:
       labels:
-        app: spot-termination-handler
+        app: node-termination-handler
     spec:
-      serviceAccountName: spot-termination-handler
+      serviceAccountName: node-termination-handler
       containers:
-      - name: spot-termination-handler
+      - name: node-termination-handler
         image: amazon/aws-node-termination-handler:v1.0.0
         imagePullPolicy: Always
         env:
@@ -90,5 +90,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        # resources:
+        #   requests:
+        #     memory: "64Mi"
+        #     cpu: "50m"
+        #   limits:
+        #     memory: "128Mi"
+        #     cpu: "100m"
       nodeSelector:
         lifecycle: Ec2Spot
