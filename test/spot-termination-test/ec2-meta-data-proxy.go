@@ -35,11 +35,13 @@ const (
 	metadataIp     = "http://169.254.169.254"
 )
 
+// InstanceActionDetail metadata structure for json parsing
 type InstanceActionDetail struct {
 	InstanceId     string `json:"instance-id"`
 	InstanceAction string `json:"instance-action"`
 }
 
+// InstanceAction metadata structure for json parsing
 type InstanceAction struct {
 	Version    string               `json:"version"`
 	Id         string               `json:"id"`
