@@ -25,14 +25,14 @@ import (
 )
 
 const (
-	AWS_ACCOUNT_ID  = "123456789012"
-	SOURCE          = "aws.ec2"
-	DETAIL          = "EC2 Spot Instance Interruption Warning"
-	REGION          = "us-east-1"
-	UUID            = "58f98edf-5234-4373-89a2-fea575e5eb34"
-	INSTANCE_ID     = "i-1234567890abcdef0"
-	INSTANCE_ACTION = "terminate"
-	META_DATA_IP    = "http://169.254.169.254"
+	awsAccountId   = "123456789012"
+	source         = "aws.ec2"
+	detail         = "EC2 Spot Instance Interruption Warning"
+	region         = "us-east-1"
+	uuid           = "58f98edf-5234-4373-89a2-fea575e5eb34"
+	instanceId     = "i-1234567890abcdef0"
+	instanceAction = "terminate"
+	metadataIp     = "http://169.254.169.254"
 )
 
 type InstanceActionDetail struct {
@@ -69,19 +69,19 @@ func getListenAddress() string {
 func handleRequest(res http.ResponseWriter, req *http.Request) {
 	log.Println("GOT REQUEST: ", req.URL.Path)
 	if req.URL.Path == "/latest/meta-data/spot/instance-action" {
-		time_plus_2_min := time.Now().Local().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
-		arn := fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", REGION, AWS_ACCOUNT_ID, INSTANCE_ID)
-		instance_action := InstanceAction{
+		timePlus2Min := time.Now().Local().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
+		arn := fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", region, awsAccountId, instanceId)
+		instanceAction := InstanceAction{
 			Version:    "0",
-			Id:         UUID,
-			DetailType: DETAIL,
-			Source:     SOURCE,
-			Account:    AWS_ACCOUNT_ID,
-			Time:       time_plus_2_min,
-			Region:     REGION,
+			Id:         uuid,
+			DetailType: detail,
+			Source:     source,
+			Account:    awsAccountId,
+			Time:       timePlus2Min,
+			Region:     region,
 			Resources:  []string{arn},
-			Detail:     InstanceActionDetail{INSTANCE_ID, INSTANCE_ACTION}}
-		js, err := json.Marshal(instance_action)
+			Detail:     InstanceActionDetail{instanceId, instanceAction}}
+		js, err := json.Marshal(instanceAction)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
@@ -90,8 +90,8 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Write(js)
 		return
 	}
-	meta_data_url, _ := url.Parse(META_DATA_IP)
-	httputil.NewSingleHostReverseProxy(meta_data_url).ServeHTTP(res, req)
+	metadataUrl, _ := url.Parse(metadataIp)
+	httputil.NewSingleHostReverseProxy(metadataUrl).ServeHTTP(res, req)
 }
 
 func main() {

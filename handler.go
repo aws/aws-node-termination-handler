@@ -27,10 +27,10 @@ import (
 )
 
 const (
-	NODE_INTERRUPTION_DURATION = 2 * time.Minute
+	nodeInterruptionDuration = 2 * time.Minute
 	// EC2 Instance Metadata is configurable mainly for testing purposes
-	INSTANCE_METADATA_URL_CONFIG_KEY = "INSTANCE_METADATA_URL"
-	DEFAULT_INSTANCE_METADATA_URL    = "http://169.254.169.254"
+	instanceMetadataUrlConfigKey = "INSTANCE_METADATA_URL"
+	defaultInstanceMetadataUrl   = "http://169.254.169.254"
 )
 
 type InstanceActionDetail struct {
@@ -51,8 +51,8 @@ type InstanceAction struct {
 }
 
 func shouldDrainNode() bool {
-	metadata_url := getEnv(INSTANCE_METADATA_URL_CONFIG_KEY, DEFAULT_INSTANCE_METADATA_URL)
-	resp, err := http.Get(metadata_url + "/latest/meta-data/spot/instance-action")
+	metadataUrl := getEnv(instanceMetadataUrlConfigKey, defaultInstanceMetadataUrl)
+	resp, err := http.Get(metadataUrl + "/latest/meta-data/spot/instance-action")
 	if err != nil {
 		log.Fatalln("Error getting response from instance metadata ", err.Error())
 	}
@@ -60,14 +60,14 @@ func shouldDrainNode() bool {
 	if resp.StatusCode != 200 {
 		return false
 	}
-	var instance_action InstanceAction
-	json.NewDecoder(resp.Body).Decode(&instance_action)
-	interruptionTime, err := time.Parse(time.RFC3339, instance_action.Time)
+	var instanceAction InstanceAction
+	json.NewDecoder(resp.Body).Decode(&instanceAction)
+	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
 	if err != nil {
 		log.Fatalln("Could not parse time from metadata json", err.Error())
 	}
 	timeUntilInterruption := time.Now().Sub(interruptionTime)
-	if timeUntilInterruption <= NODE_INTERRUPTION_DURATION {
+	if timeUntilInterruption <= nodeInterruptionDuration {
 		return true
 	}
 	return false
@@ -143,5 +143,5 @@ func main() {
 
 	// Sleep to prevent process from restarting.
 	// The node should be terminated by 2 minutes.
-	time.Sleep(NODE_INTERRUPTION_DURATION)
+	time.Sleep(nodeInterruptionDuration)
 }
