@@ -11,7 +11,7 @@ The termination handler consists of a [ServiceAccount](https://kubernetes.io/doc
 
 You can create and run all of these at once on your own Kubernetes cluster by running the following command:
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/node-termination-handler.yaml
+kubectl apply -f https://raw.github.com/aws/aws-node-termination-handler/master/node-termination-handler.yaml
 ```
 ## Development
 If you would like to build and run the project locally you can follow these steps:
