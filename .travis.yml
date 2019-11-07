@@ -5,5 +5,5 @@ services:
 - docker
 
 script:
-- test/node-interrupt-test/run-node-interrupt-test.sh
+- test/spot-termination-test/run-spot-termination-test.sh
 
