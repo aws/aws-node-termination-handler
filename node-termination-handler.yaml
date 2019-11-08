@@ -3,7 +3,6 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: node-termination-handler
-  namespace: default
 rules:
 - apiGroups:
   - "apps"
@@ -44,11 +43,9 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: node-termination-handler
-  namespace: default
 subjects:
 - kind: ServiceAccount
   name: node-termination-handler
-  namespace: default
 roleRef:
   kind: ClusterRole
   name: node-termination-handler
@@ -58,7 +55,6 @@ apiVersion: apps/v1beta2
 kind: DaemonSet
 metadata:
   name: node-termination-handler
-  namespace: default
 spec:
   selector:
     matchLabels:
