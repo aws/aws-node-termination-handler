@@ -3,7 +3,7 @@
 
 The **AWS Node Termination Handler** is an operational [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/) built to run on any Kubernetes cluster using AWS [EC2 Spot Instances](https://aws.amazon.com/ec2/spot/). When a user starts the termination handler, the handler watches the AWS [instance metadata service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for [spot instance interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html) within a customer's account. If a termination notice is received for an instance that’s running on the cluster, the termination handler begins a multi-step cordon and drain process for the node.
 
-You can run this termination handler on any Kubernetes cluster on AWS yourself by following the getting started instructions on the project Readme. For more information on Kubernetes + AWS you can explore the [EKS documentation](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html).
+You can run the termination handler on any Kubernetes cluster running on AWS, including clusters created with Amazon [Elastic Kubernetes Service](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html).
 
 ## Getting Started
 The termination handler consists of a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
@@ -12,6 +12,9 @@ You can create and run all of these at once on your own Kubernetes cluster by ru
 ```
 kubectl apply -f https://raw.github.com/aws/aws-node-termination-handler/master/node-termination-handler.yaml
 ```
+
+By default the termination handler will run on all nodes in your cluster, but will only cordon and drain your Spot instances upon receiving a termination notification.
+
 ## Development
 If you would like to build and run the project locally you can follow these steps:
 
