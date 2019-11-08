@@ -54,7 +54,7 @@ roleRef:
   name: node-termination-handler
   apiGroup: rbac.authorization.k8s.io
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: node-termination-handler
