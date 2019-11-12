@@ -15,7 +15,7 @@ kubectl apply -f https://raw.github.com/aws/aws-node-termination-handler/master/
 
 By default the termination handler will run on all nodes in your cluster, but will only cordon and drain your Spot instances upon receiving a termination notification.
 
-For build instruction please consult [BUILD.md](./BUILD.md).
+For build instructions please consult [BUILD.md](./BUILD.md).
 
 ## Communication
 * Found a bug? Please open an issue.
