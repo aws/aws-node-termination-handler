@@ -2,6 +2,7 @@
 FROM golang:1.13 as builder
 
 ## GOLANG env
+ARG GOPROXY="https://proxy.golang.org,direct"
 ARG GO111MODULE="on"
 ARG CGO_ENABLED=0
 ARG GOOS=linux 
