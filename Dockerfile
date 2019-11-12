@@ -1,12 +1,23 @@
 # Build the manager binary
 FROM golang:1.13 as builder
 
-# Copy in the go src
+## GOLANG env
+ARG GO111MODULE="on"
+ARG CGO_ENABLED=0
+ARG GOOS=linux 
+ARG GOARCH=amd64 
+
+# Copy go.mod and download dependencies
 WORKDIR /node-termination-handler
-COPY . /node-termination-handler
+COPY go.mod .
+RUN go mod download
 
 # Build
-RUN GO111MODULE="on" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o handler /node-termination-handler
+COPY . /node-termination-handler
+RUN go build -a -o handler /node-termination-handler
+# In case the target is build for testing:
+# $ docker build  --target=builder -t test .
+ENTRYPOINT ["/node-termination-handler"]
 
 # Copy the controller-manager into a thin image
 FROM amazonlinux:2 as amazonlinux
