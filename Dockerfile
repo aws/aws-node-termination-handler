@@ -15,6 +15,9 @@ RUN go mod download
 # Build
 COPY . /node-termination-handler
 RUN go build -a -o handler /node-termination-handler
+# In case the target is build for testing:
+# $ docker build  --target=builder -t test .
+ENTRYPOINT ["/node-termination-handler"]
 
 # Copy the controller-manager into a thin image
 FROM amazonlinux:2 as amazonlinux
