@@ -11,6 +11,7 @@ PRESERVE=false
 TAINT_CHECK_CYCLES=10
 TAINT_CHECK_SLEEP=10
 
+DOCKER_ARGS=""
 DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest"
 NODE_TERMINATION_HANDLER_DOCKER_IMG=""
 DEFAULT_EC2_METADATA_DOCKER_IMG="ec2-meta-data-proxy:customtest"
@@ -39,11 +40,12 @@ USAGE=$(cat << 'EOM'
             -v          K8s version to use in this test
             -n          Node Termination Handler Docker Image
             -e          EC2 Metadata Docker Image 
+            -d          use GOPROXY=direct to bypass proxy.golang.org
 EOM
 )
 
 # Process our input arguments
-while getopts "pv:i:n:e:" opt; do
+while getopts "pdv:i:n:e:" opt; do
   case ${opt} in
     p ) # PRESERVE K8s Cluster
         echo "❄️ This run will preserve the cluster as you requested"
@@ -67,6 +69,9 @@ while getopts "pv:i:n:e:" opt; do
       ;;
     e ) # EC2 Metadata Docker Image
         EC2_METADATA_DOCKER_IMG=$OPTARG
+      ;;
+    d ) # use GOPROXY=direct
+        DOCKER_ARGS="--build-arg GOPROXY=direct"
       ;;
     \? )
         echo "$USAGE" 1>&2
@@ -130,7 +135,7 @@ echo "👍 Created k8s cluster using \"kind\" and added kube config to KUBECONFI
 
 if [ -z "$NODE_TERMINATION_HANDLER_DOCKER_IMG" ]; then 
     echo "🥑 Building the node-termination-handler docker image"
-    docker build -t $DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG --no-cache --force-rm "$SCRIPTPATH/../../." 
+    docker build $DOCKER_ARGS -t $DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG --no-cache --force-rm "$SCRIPTPATH/../../." 
     NODE_TERMINATION_HANDLER_DOCKER_IMG="$DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG"
     echo "👍 Built the node-termination-handler docker image"
 else 
@@ -140,7 +145,7 @@ fi
 
 if [ -z "$EC2_METADATA_DOCKER_IMG" ]; then 
     echo "🥑 Building the ec2-meta-data-proxy docker image"
-    docker build -t $DEFAULT_EC2_METADATA_DOCKER_IMG --no-cache --force-rm "$SCRIPTPATH/."
+    docker build $DOCKER_ARGS -t $DEFAULT_EC2_METADATA_DOCKER_IMG --no-cache --force-rm "$SCRIPTPATH/."
     EC2_METADATA_DOCKER_IMG="$DEFAULT_EC2_METADATA_DOCKER_IMG"
     echo "👍 Built the ec2-meta-data-proxy docker image"
 else 
@@ -157,18 +162,25 @@ kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTE
 kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $EC2_METADATA_DOCKER_IMG
 echo "👍 Loaded both images into the cluster"
 
-echo "🥑 Applying the spot-termination-test.yaml to k8s using kubectl"
-kubectl apply -f "$SCRIPTPATH/spot-termination-test.yaml"
+echo "🥑 Applying the test overlay kustomize config to k8s using kubectl"
+kubectl apply -k "$SCRIPTPATH/../../config/overlays/test"
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if kubectl get nodes $CLUSTER_NAME-worker -o json | grep NoSchedule; then
-        END=$(date +%s)
-        echo "⏰ Took $(expr $END - $START)sec"
-        echo "✅ Spot Termination Test Passed $TEST_ID! ✅"
-        exit 0
+    if kubectl get events | grep regular-pod-test | grep Started; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        if kubectl get nodes $CLUSTER_NAME-worker -o jsonpath="{.spec.taints[].effect}" | grep NoSchedule; then
+            echo "✅ Verified the worker node was cordoned!"
+            if [ -z "$(kubectl get pods --namespace=default -o jsonpath="{.items[].spec.nodeName}" | grep worker)" ]; then
+                echo "✅ Verified the regular-pod-test pod was evicted!"
+                END=$(date +%s)
+                echo "⏰ Took $(expr $END - $START)sec"
+                echo "✅ Spot Termination Test Passed $TEST_ID! ✅"
+                exit 0
+            fi
+        fi
     fi
     sleep $TAINT_CHECK_SLEEP
 done
 
-echo "❌ Timed out after $(expr $TAINT_CHECK_CYCLES \* $TAINT_CHECK_SLEEP)sec checking for NoSchedule taint..."
+echo "❌ Timed out after $(expr $TAINT_CHECK_CYCLES \* $TAINT_CHECK_SLEEP)sec checking for assertions..."
 exit_and_fail

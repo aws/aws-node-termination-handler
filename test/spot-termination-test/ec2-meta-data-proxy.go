@@ -21,19 +21,24 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 )
 
 const (
-	awsAccountId   = "123456789012"
-	source         = "aws.ec2"
-	detail         = "EC2 Spot Instance Interruption Warning"
-	region         = "us-east-1"
-	uuid           = "58f98edf-5234-4373-89a2-fea575e5eb34"
-	instanceId     = "i-1234567890abcdef0"
-	instanceAction = "terminate"
-	metadataIp     = "http://169.254.169.254"
+	awsAccountId                     = "123456789012"
+	source                           = "aws.ec2"
+	detail                           = "EC2 Spot Instance Interruption Warning"
+	region                           = "us-east-1"
+	uuid                             = "58f98edf-5234-4373-89a2-fea575e5eb34"
+	instanceId                       = "i-1234567890abcdef0"
+	instanceAction                   = "terminate"
+	metadataIp                       = "http://169.254.169.254"
+	interruptionNoticeDelayConfigKey = "INTERRUPTION_NOTICE_DELAY"
+	interruptionNoticeDelayDefault   = "0"
 )
+
+var startTime int64 = time.Now().Unix()
 
 // InstanceActionDetail metadata structure for json parsing
 type InstanceActionDetail struct {
@@ -70,7 +75,17 @@ func getListenAddress() string {
 
 func handleRequest(res http.ResponseWriter, req *http.Request) {
 	log.Println("GOT REQUEST: ", req.URL.Path)
-	if req.URL.Path == "/latest/meta-data/spot/instance-action" {
+	requestTime := time.Now().Unix()
+	interruptionDelayEnvStr := getEnv(interruptionNoticeDelayConfigKey, interruptionNoticeDelayDefault)
+	interruptionDelay, err := strconv.Atoi(interruptionDelayEnvStr)
+	if err != nil {
+		log.Printf("Could not convert env var %s=%s to integer. Using default instead: %s\n", interruptionNoticeDelayConfigKey, interruptionDelayEnvStr, interruptionNoticeDelayDefault)
+		interruptionDelay, _ = strconv.Atoi(interruptionNoticeDelayDefault)
+	}
+	interruptionDelayRemaining := int64(interruptionDelay) - (requestTime - startTime)
+	if interruptionDelayRemaining > 0 {
+		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet, passing through to metadata", interruptionDelay, interruptionDelayRemaining)
+	} else if req.URL.Path == "/latest/meta-data/spot/instance-action" {
 		timePlus2Min := time.Now().Local().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
 		arn := fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", region, awsAccountId, instanceId)
 		instanceAction := InstanceAction{

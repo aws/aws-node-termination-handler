@@ -118,7 +118,7 @@ func main() {
 	nodeName := os.Getenv("NODE_NAME")
 	if len(nodeName) == 0 {
 		log.Fatalln("Failed to get NODE_NAME from environment. " +
-			"Check that spot-termination-handler.yaml is configured correctly")
+			"Check that the kubernetes yaml file is configured correctly")
 	}
 	helper := getDrainHelper(nodeName)
 

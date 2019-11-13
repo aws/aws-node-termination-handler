@@ -10,7 +10,7 @@ The termination handler consists of a [ServiceAccount](https://kubernetes.io/doc
 
 You can create and run all of these at once on your own Kubernetes cluster by running the following command:
 ```
-kubectl apply -f https://raw.github.com/aws/aws-node-termination-handler/master/node-termination-handler.yaml
+kubectl apply -k https://github.com/aws/aws-node-termination-handler/config/base?ref=master
 ```
 
 By default the termination handler will run on all nodes in your cluster, but will only cordon and drain your Spot instances upon receiving a termination notification.
