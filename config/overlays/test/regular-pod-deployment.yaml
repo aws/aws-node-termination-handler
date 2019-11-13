@@ -1,0 +1,36 @@
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: regular-pod-test
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: regular-pod-test
+  template:
+    metadata:
+      labels:
+        app: regular-pod-test
+    spec:
+      containers:
+      - name: ec2-meta-data-proxy
+        image: ec2-meta-data-proxy:customtest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SPOT_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
