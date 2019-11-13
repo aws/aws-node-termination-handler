@@ -10,5 +10,5 @@ function fail() {
 }
 trap fail ERR
 
-docker build -t go-report-card-cli .
+docker build --build-arg=GOPROXY=direct -t go-report-card-cli $SCRIPTPATH
 docker run -it -v $SCRIPTPATH/../../:/app go-report-card-cli /go/bin/goreportcard-cli -v -t $THRESHOLD
