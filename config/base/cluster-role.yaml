@@ -4,31 +4,36 @@ metadata:
   name: node-termination-handler
 rules:
 - apiGroups:
-  - "apps"
+    - ""
   resources:
-  - "daemonsets"
+    - nodes
   verbs:
-  - get
-  - delete
+    - get
+    - patch
+    - update
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - "*"
+    - pods
   verbs:
-  - "*"
+    - list
 - apiGroups:
-  - rbac.authorization.k8s.io
+    - ""
   resources:
-  - "*"
+    - pods/eviction
   verbs:
-  - "*"
+    - create
 - apiGroups:
-  - apiextensions.k8s.io
+    - extensions
   resources:
-  - customresourcedefinitions
+    - replicasets
+    - daemonsets
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
+    - get
+- apiGroups:
+    - apps
+  resources:
+    - daemonsets
+  verbs:
+    - get
+    - delete
