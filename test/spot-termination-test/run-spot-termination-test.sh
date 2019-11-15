@@ -94,8 +94,8 @@ mkdir -p $TMP_DIR
 
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
-        kind delete cluster --name $CLUSTER_NAME
         rm -rf $TMP_DIR
+        kind delete cluster --name $CLUSTER_NAME || :
     fi 
 }
 
