@@ -5,11 +5,11 @@ START=$(date +%s)
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
 CLUSTER_NAME_BASE="spot-termination-test"
-CLUSTER_CREATION_TIMEOUT_IN_SEC=90
+CLUSTER_CREATION_TIMEOUT_IN_SEC=300
 TEST_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 PRESERVE=false
-TAINT_CHECK_CYCLES=10
-TAINT_CHECK_SLEEP=10
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
 
 DOCKER_ARGS=""
 DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest"
@@ -24,7 +24,7 @@ NTH_OVERLAY_FILE="nth-image-overlay.yaml"
 METADATA_OVERLAY_FILE="ec2-metadata-image-overlay.yaml"
 REGULAR_POD_OVERLAY_FILE="ec2-metadata-regular-pod-image-overlay.yaml"
 
-K8_1_16="kindest/node:v1.16.2@sha256:5bbdfa140633b135672ff0e1eb1a1b37afcab36216103c0b3d97337c62c5e2a1"
+K8_1_16="kindest/node:v1.16.2@sha256:2c68d327c2833fa9c0f81b5fd36499cf969646cd50affecd21b4725d37931e21"
 K8_1_15="kindest/node:v1.15.3@sha256:27e388752544890482a86b90d8ac50fcfa63a2e8656a96ec5337b902ec8e5157"
 K8_1_14="kindest/node:v1.14.6@sha256:464a43f5cf6ad442f100b0ca881a3acae37af069d5f96849c1d06ced2870888d"
 K8_1_13="kindest/node:v1.13.10@sha256:2f5f882a6d0527a2284d29042f3a6a07402e1699d792d0d5a9b9a48ef155fa2a"
@@ -221,9 +221,9 @@ echo "🥑 Applying the test overlay kustomize config to k8s using kubectl"
 kubectl apply -k "$TMP_DIR"
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if kubectl get events | grep regular-pod-test | grep Started; then
+    if kubectl get events | grep Started; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
-        if kubectl get nodes $CLUSTER_NAME-worker -o jsonpath="{.spec.taints[].effect}" | grep NoSchedule; then
+        if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
             echo "✅ Verified the worker node was cordoned!"
             if [ -z "$(kubectl get pods --namespace=default -o jsonpath="{.items[].spec.nodeName}" | grep worker)" ]; then
                 echo "✅ Verified the regular-pod-test pod was evicted!"
