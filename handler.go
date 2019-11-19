@@ -15,10 +15,13 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,9 +33,26 @@ import (
 const (
 	nodeInterruptionDuration = 2 * time.Minute
 	// EC2 Instance Metadata is configurable mainly for testing purposes
-	instanceMetadataUrlConfigKey = "INSTANCE_METADATA_URL"
-	defaultInstanceMetadataUrl   = "http://169.254.169.254"
+	instanceMetadataUrlConfigKey       = "INSTANCE_METADATA_URL"
+	dryRunConfigKey                    = "DRY_RUN"
+	nodeNameConfigKey                  = "NODE_NAME"
+	kubernetesServiceHostConfigKey     = "KUBERNETES_SERVICE_HOST"
+	kubernetesServicePortConfigKey     = "KUBERNETES_SERVICE_PORT"
+	deleteLocalDataConfigKey           = "DELETE_LOCAL_DATA"
+	ignoreDaemonSetsConfigKey          = "IGNORE_DAEMON_SETS"
+	podTerminationGracePeriodConfigKey = "GRACE_PERIOD"
+	defaultInstanceMetadataUrl         = "http://169.254.169.254"
 )
+
+// arguments set via CLI, environment variables, or defaults
+var dryRun bool
+var nodeName string
+var metadataUrl string
+var ignoreDaemonSets bool
+var deleteLocalData bool
+var kubernetesServiceHost string
+var kubernetesServicePort string
+var podTerminationGracePeriod int
 
 // InstanceActionDetail metadata structure for json parsing
 type InstanceActionDetail struct {
@@ -54,7 +74,6 @@ type InstanceAction struct {
 }
 
 func requestMetadata() (*http.Response, error) {
-	metadataUrl := getEnv(instanceMetadataUrlConfigKey, defaultInstanceMetadataUrl)
 	return http.Get(metadataUrl + "/latest/meta-data/spot/instance-action")
 }
 
@@ -123,28 +142,83 @@ func getDrainHelper(nodeName string) *drain.Helper {
 	return &drain.Helper{
 		Client:              clientset,
 		Force:               true,
-		GracePeriodSeconds:  30, //default k8s value
-		IgnoreAllDaemonSets: true,
-		Timeout:             time.Second * 60,
+		GracePeriodSeconds:  podTerminationGracePeriod,
+		IgnoreAllDaemonSets: ignoreDaemonSets,
+		DeleteLocalData:     deleteLocalData,
+		Timeout:             nodeInterruptionDuration,
 		Out:                 os.Stdout,
 		ErrOut:              os.Stderr,
 	}
 }
 
 // Get env var or default
-func getEnv(key, fallback string) string {
+func getEnv(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
 	return fallback
 }
 
-func main() {
-	nodeName := os.Getenv("NODE_NAME")
-	if len(nodeName) == 0 {
-		log.Fatalln("Failed to get NODE_NAME from environment. " +
-			"Check that the kubernetes yaml file is configured correctly")
+// Parse env var to int if key exists
+func getIntEnv(key string, fallback int) int {
+	envStrValue := getEnv(key, "")
+	if envStrValue == "" {
+		return fallback
 	}
+	envIntValue, err := strconv.Atoi(envStrValue)
+	if err != nil {
+		log.Fatalln("Env Var " + key + " must be an integer")
+	}
+	return envIntValue
+}
+
+// Parse env var to boolean if key exists
+func getBoolEnv(key string, fallback bool) bool {
+	envStrValue := getEnv(key, "")
+	if envStrValue == "" {
+		return fallback
+	}
+	envBoolValue, err := strconv.ParseBool(envStrValue)
+	if err != nil {
+		log.Fatalln("Env Var " + key + " must be either true or false")
+	}
+	return envBoolValue
+}
+
+func parseCliArgs() {
+	flag.BoolVar(&dryRun, "dry-run", getBoolEnv(dryRunConfigKey, false), "If true, only log if a node would be drained")
+	flag.StringVar(&nodeName, "node-name", getEnv(nodeNameConfigKey, ""), "The kubernetes node name")
+	flag.StringVar(&metadataUrl, "metadata-url", getEnv(instanceMetadataUrlConfigKey, defaultInstanceMetadataUrl), "The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing.")
+	flag.BoolVar(&ignoreDaemonSets, "ignore-daemon-sets", getBoolEnv(ignoreDaemonSetsConfigKey, true), "If true, drain daemon sets when a spot interrupt is received.")
+	flag.BoolVar(&deleteLocalData, "delete-local-data", getBoolEnv(deleteLocalDataConfigKey, true), "If true, do not drain pods that are using local node storage in emptyDir")
+	flag.StringVar(&kubernetesServiceHost, "kubernetes-service-host", getEnv(kubernetesServiceHostConfigKey, ""), "[ADVANCED] The k8s service host to send api calls to.")
+	flag.StringVar(&kubernetesServicePort, "kubernetes-service-port", getEnv(kubernetesServicePortConfigKey, ""), "[ADVANCED] The k8s service port to send api calls to.")
+	flag.IntVar(&podTerminationGracePeriod, "grace-period", getIntEnv(podTerminationGracePeriodConfigKey, -1), "Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used.")
+
+	flag.Parse()
+
+	if nodeName == "" {
+		log.Fatalln("You must provide a node-name to the CLI or NODE_NAME environment variable.")
+	}
+	// client-go expects these to be set in env vars
+	os.Setenv(kubernetesServiceHostConfigKey, kubernetesServiceHost)
+	os.Setenv(kubernetesServicePortConfigKey, kubernetesServicePort)
+
+	fmt.Printf("aws-node-termination-handler arguments: \n"+
+		"\tdry-run: %t,\n"+
+		"\tnode-name: %s,\n"+
+		"\tmetadata-url: %s,\n"+
+		"\tkubernetes-service-host: %s,\n"+
+		"\tkubernetes-service-port: %s,\n"+
+		"\tdelete-local-data: %t,\n"+
+		"\tignore-daemon-sets: %t\n"+
+		"\tgrace-period: %d\n",
+		dryRun, nodeName, metadataUrl, kubernetesServiceHost, kubernetesServicePort, deleteLocalData, ignoreDaemonSets, podTerminationGracePeriod)
+}
+
+func main() {
+	var dryRunMessageSuffix = "but dry-run flag was set"
+	parseCliArgs()
 	helper := getDrainHelper(nodeName)
 
 	node, err := helper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
@@ -155,15 +229,23 @@ func main() {
 	log.Println("Kubernetes Spot Node Termination Handler has started successfully!")
 	waitForTermination()
 
-	err = drain.RunCordonOrUncordon(helper, node, true)
-	if err != nil {
-		log.Fatalf("Couldn't cordon node %q: %s\n", nodeName, err.Error())
+	if dryRun {
+		log.Printf("Node %s would have been cordoned, %s", nodeName, dryRunMessageSuffix)
+	} else {
+		err = drain.RunCordonOrUncordon(helper, node, true)
+		if err != nil {
+			log.Fatalf("Couldn't cordon node %q: %s\n", nodeName, err.Error())
+		}
 	}
 
-	// Delete all pods on the node
-	err = drain.RunNodeDrain(helper, nodeName)
-	if err != nil {
-		log.Fatalln(err.Error())
+	if dryRun {
+		log.Printf("Node %s would have been drained, %s", nodeName, dryRunMessageSuffix)
+	} else {
+		// Delete all pods on the node
+		err = drain.RunNodeDrain(helper, nodeName)
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
 	}
 
 	log.Printf("Node %q successfully drained.\n", nodeName)

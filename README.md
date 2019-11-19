@@ -10,13 +10,13 @@ The termination handler consists of a [ServiceAccount](https://kubernetes.io/doc
 
 You can create and run all of these at once on your own Kubernetes cluster by running the following command:
 ```
-kubectl apply -k https://github.com/aws/aws-node-termination-handler/config/base?ref=master
+kubectl apply -k 'https://github.com/aws/aws-node-termination-handler/config/base?ref=master'
 ```
 
 By default, the aws-node-termination-handler will run on all of your nodes (on-demand and spot). If your spot instances are labeled, you can configure aws-node-termination-handler to only run on your labeled spot nodes. If you're using the tag `lifecycle=Ec2Spot`, you can run the following to apply our spot-node-selector overlay:
 
 ```
-kubectl apply -k https://github.com/aws/aws-node-termination-handler/config/overlays/spot-node-selector?ref=master
+kubectl apply -k 'https://github.com/aws/aws-node-termination-handler/config/overlays/spot-node-selector?ref=master'
 ```
 
 If you're using a different key/value tag to label your spot nodes, you can write your own overlay to set a spot-node-selector while still receiving updates of the base kubernetes resource files. See our [spot-node-selector](https://github.com/aws/aws-node-termination-handler/tree/master/config/overlays/spot-node-selector) overlay for an example. 
