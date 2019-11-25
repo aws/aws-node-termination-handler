@@ -16,6 +16,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -52,11 +53,35 @@ type InstanceAction struct {
 	Detail     InstanceActionDetail `json:"detail"`
 }
 
-func shouldDrainNode() bool {
+func requestMetadata() (*http.Response, error) {
 	metadataUrl := getEnv(instanceMetadataUrlConfigKey, defaultInstanceMetadataUrl)
-	resp, err := http.Get(metadataUrl + "/latest/meta-data/spot/instance-action")
+	return http.Get(metadataUrl + "/latest/meta-data/spot/instance-action")
+}
+
+func retry(attempts int, sleep time.Duration) (*http.Response, error) {
+	log.Printf("Request to instance metadata failed. Retrying.\n")
+	resp, err := requestMetadata()
 	if err != nil {
+		if attempts--; attempts > 0 {
+			jitter := time.Duration(rand.Int63n(int64(sleep)))
+			sleep = sleep + jitter/2
+
+			log.Printf("Retry failed. Attempts remaining: %d\n", attempts)
+			log.Printf("Sleep for %s seconds\n", sleep)
+			time.Sleep(sleep)
+			return retry(attempts, 2*sleep)
+		}
+
 		log.Fatalln("Error getting response from instance metadata ", err.Error())
+	}
+
+	return resp, err
+}
+
+func shouldDrainNode() bool {
+	resp, err := requestMetadata()
+	if err != nil {
+		resp, err = retry(3, 2*time.Second)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
