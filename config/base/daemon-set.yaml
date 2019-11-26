@@ -2,11 +2,16 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: node-termination-handler
+  labels:
+    app: node-termination-handler
 spec:
   selector:
     matchLabels:
       app: node-termination-handler
   template:
+    metadata:
+      labels:
+        app: node-termination-handler
     spec:
       serviceAccountName: node-termination-handler
       containers:
