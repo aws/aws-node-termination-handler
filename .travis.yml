@@ -24,5 +24,5 @@ matrix:
       script: test/license-test/run-license-test.sh
       env: LICENSE_TEST=true
     - stage: Deploy
-      if: type = push AND branch = master AND env(DOCKER_USERNAME) IS present
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make docker-build && make docker-push
