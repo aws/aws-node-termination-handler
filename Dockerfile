@@ -11,14 +11,15 @@ ARG GOARCH=amd64
 # Copy go.mod and download dependencies
 WORKDIR /node-termination-handler
 COPY go.mod .
+COPY go.sum .
 RUN go mod download
 
 # Build
-COPY . /node-termination-handler
-RUN go build -a -o handler /node-termination-handler
+COPY . .
+RUN go build -a -v -o handler /node-termination-handler/cmd
 # In case the target is build for testing:
 # $ docker build  --target=builder -t test .
-ENTRYPOINT ["/node-termination-handler"]
+ENTRYPOINT ["/node-termination-handler/handler"]
 
 # Copy the controller-manager into a thin image
 FROM amazonlinux:2 as amazonlinux
