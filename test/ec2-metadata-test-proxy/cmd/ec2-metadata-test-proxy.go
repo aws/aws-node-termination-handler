@@ -112,7 +112,7 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	log.Println("The ec2 meta-data-proxy started on port ", getListenAddress())
+	log.Println("The ec2-metadata-test-proxy started on port ", getListenAddress())
 	// start server
 	http.HandleFunc("/", handleRequest)
 	if err := http.ListenAndServe(getListenAddress(), nil); err != nil {

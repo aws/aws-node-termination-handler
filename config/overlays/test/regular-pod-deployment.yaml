@@ -14,8 +14,8 @@ spec:
         app: regular-pod-test
     spec:
       containers:
-      - name: ec2-meta-data-proxy
-        image: ec2-meta-data-proxy:customtest
+      - name: ec2-metadata-test-proxy
+        image: ec2-metadata-test-proxy:customtest
         imagePullPolicy: IfNotPresent
         env:
         - name: NODE_NAME
