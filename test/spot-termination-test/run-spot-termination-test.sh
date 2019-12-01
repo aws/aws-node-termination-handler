@@ -16,6 +16,7 @@ DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest
 NODE_TERMINATION_HANDLER_DOCKER_IMG=""
 DEFAULT_EC2_METADATA_DOCKER_IMG="ec2-meta-data-proxy:customtest"
 EC2_METADATA_DOCKER_IMG=""
+OVERRIDE_PATH=0
 
 TMP_DIR=$SCRIPTPATH/tmp-$TEST_ID
 
@@ -24,14 +25,15 @@ NTH_OVERLAY_FILE="nth-image-overlay.yaml"
 METADATA_OVERLAY_FILE="ec2-metadata-image-overlay.yaml"
 REGULAR_POD_OVERLAY_FILE="ec2-metadata-regular-pod-image-overlay.yaml"
 
-K8_1_16="kindest/node:v1.16.2@sha256:2c68d327c2833fa9c0f81b5fd36499cf969646cd50affecd21b4725d37931e21"
-K8_1_15="kindest/node:v1.15.3@sha256:27e388752544890482a86b90d8ac50fcfa63a2e8656a96ec5337b902ec8e5157"
-K8_1_14="kindest/node:v1.14.6@sha256:464a43f5cf6ad442f100b0ca881a3acae37af069d5f96849c1d06ced2870888d"
-K8_1_13="kindest/node:v1.13.10@sha256:2f5f882a6d0527a2284d29042f3a6a07402e1699d792d0d5a9b9a48ef155fa2a"
-K8_1_12="kindest/node:v1.12.10@sha256:e43003c6714cc5a9ba7cf1137df3a3b52ada5c3f2c77f8c94a4d73c82b64f6f3"
-K8_1_11="kindest/node:v1.11.10@sha256:bb22258625199ba5e47fb17a8a8a7601e536cd03456b42c1ee32672302b1f909"
+K8_1_16="kindest/node:v1.16.3@sha256:bced4bc71380b59873ea3917afe9fb35b00e174d22f50c7cab9188eac2b0fb88"
+K8_1_15="kindest/node:v1.15.6@sha256:1c8ceac6e6b48ea74cecae732e6ef108bc7864d8eca8d211d6efb58d6566c40a"
+K8_1_14="kindest/node:v1.14.9@sha256:00fb7d424076ed07c157eedaa3dd36bc478384c6d7635c5755746f151359320f"
+K8_1_13="kindest/node:v1.13.12@sha256:ad1dd06aca2b85601f882ba1df4fdc03d5a57b304652d0e81476580310ba6289"
+K8_1_12="kindest/node:v1.12.10@sha256:e93e70143f22856bd652f03da880bfc70902b736750f0a68e5e66d70de236e40"
+K8_1_11="kindest/node:v1.11.10@sha256:44e1023d3a42281c69c255958e09264b5ac787c20a7b95caf2d23f8d8f3746f2"
 
-K8_VERSION="$K8_1_15"
+K8_VERSION="$K8_1_16"
+KIND_VERSION="0.6.0"
 
 USAGE=$(cat << 'EOM'
   Usage: run-spot-termination-test [-p]
@@ -50,7 +52,7 @@ EOM
 )
 
 # Process our input arguments
-while getopts "pdv:i:n:e:" opt; do
+while getopts "pdv:i:n:e:o" opt; do
   case ${opt} in
     p ) # PRESERVE K8s Cluster
         echo "❄️ This run will preserve the cluster as you requested"
@@ -78,6 +80,9 @@ while getopts "pdv:i:n:e:" opt; do
     d ) # use GOPROXY=direct
         DOCKER_ARGS="--build-arg GOPROXY=direct"
       ;;
+    o ) # Override path with your own kubectl and kind binaries
+	OVERRIDE_PATH=1
+      ;;
     \? )
         echo "$USAGE" 1>&2
         exit
@@ -87,9 +92,6 @@ done
 
 CLUSTER_NAME="$CLUSTER_NAME_BASE"-"$TEST_ID"
 echo "🐳 Using Kubernetes $K8_VERSION"
-
-## Append to the end of PATH so that the user can override the executables if they want
-export PATH=$PATH:$TMP_DIR
 mkdir -p $TMP_DIR
 
 function clean_up {
@@ -119,24 +121,32 @@ for dep in "${deps[@]}"; do
     fi
 done
 
-if [ ! -x "$TMP_DIR/kubectl" ]; then
-    echo "🥑 Downloading the \"kubectl\" binary"
-    curl -Lo $TMP_DIR/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$PLATFORM/amd64/kubectl"
-    chmod +x $TMP_DIR/kubectl
-    echo "👍 Downloaded the \"kubectl\" binary"
+## Append to the end of PATH so that the user can override the executables if they want
+if [[ OVERRIDE_PATH -eq 1 ]]; then
+   export PATH=$PATH:$TMP_DIR 
+else
+  if [ ! -x "$TMP_DIR/kubectl" ]; then
+      echo "🥑 Downloading the \"kubectl\" binary"
+      curl -Lo $TMP_DIR/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$PLATFORM/amd64/kubectl"
+      chmod +x $TMP_DIR/kubectl
+      echo "👍 Downloaded the \"kubectl\" binary"
+  fi
+
+  if [ ! -x "$TMP_DIR/kind" ]; then
+      echo "🥑 Downloading the \"kind\" binary"
+      curl -Lo $TMP_DIR/kind https://github.com/kubernetes-sigs/kind/releases/download/v$KIND_VERSION/kind-$PLATFORM-amd64
+      chmod +x $TMP_DIR/kind
+      echo "👍 Downloaded the \"kind\" binary"
+  fi
+  export PATH=$TMP_DIR:$PATH
 fi
 
-if [ ! -x "$TMP_DIR/kind" ]; then
-    echo "🥑 Downloading the \"kind\" binary"
-    curl -Lo $TMP_DIR/kind https://github.com/kubernetes-sigs/kind/releases/download/v0.5.1/kind-$PLATFORM-amd64
-    chmod +x $TMP_DIR/kind
-    echo "👍 Downloaded the \"kind\" binary"
-fi
+
 
 echo "🥑 Creating k8s cluster using \"kind\""
 kind delete cluster --name "$CLUSTER_NAME" || true
-kind create cluster --name "$CLUSTER_NAME" --image $K8_VERSION --config "$SCRIPTPATH/kind-two-node-cluster.yaml" --wait "$CLUSTER_CREATION_TIMEOUT_IN_SEC"s
-export KUBECONFIG="$(kind get kubeconfig-path --name=$CLUSTER_NAME)"
+kind create cluster --name "$CLUSTER_NAME" --image $K8_VERSION --config "$SCRIPTPATH/kind-two-node-cluster.yaml" --wait "$CLUSTER_CREATION_TIMEOUT_IN_SEC"s --kubeconfig $TMP_DIR/kubeconfig
+export KUBECONFIG="$TMP_DIR/kubeconfig"
 echo "👍 Created k8s cluster using \"kind\" and added kube config to KUBECONFIG"
 
 cat <<-EOF > $KUSTOMIZATION_FILE
@@ -173,7 +183,7 @@ fi
 
 if [ -z "$EC2_METADATA_DOCKER_IMG" ]; then 
     echo "🥑 Building the ec2-meta-data-proxy docker image"
-    docker build $DOCKER_ARGS -t $DEFAULT_EC2_METADATA_DOCKER_IMG --no-cache --force-rm "$SCRIPTPATH/."
+    docker build $DOCKER_ARGS -t $DEFAULT_EC2_METADATA_DOCKER_IMG --no-cache --force-rm "$SCRIPTPATH/../../ec2-meta-data-proxy/."
     EC2_METADATA_DOCKER_IMG="$DEFAULT_EC2_METADATA_DOCKER_IMG"
     echo "👍 Built the ec2-meta-data-proxy docker image"
 else 
@@ -236,6 +246,9 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     fi
     sleep $TAINT_CHECK_SLEEP
 done
+
+POD_ID=$(kubectl get pods --namespace kube-system --kubeconfig $TMP_DIR/kubeconfig | grep -i node-termination-handler | cut -d' ' -f1)
+kubectl logs $POD_ID --namespace kube-system -c node-termination-handler --kubeconfig $TMP_DIR/kubeconfig
 
 echo "❌ Timed out after $(expr $TAINT_CHECK_CYCLES \* $TAINT_CHECK_SLEEP)sec checking for assertions..."
 exit_and_fail
