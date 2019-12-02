@@ -21,6 +21,10 @@ kubectl apply -k 'https://github.com/aws/aws-node-termination-handler/config/ove
 
 If you're using a different key/value tag to label your spot nodes, you can write your own overlay to set a spot-node-selector while still receiving updates of the base kubernetes resource files. See our [spot-node-selector](https://github.com/aws/aws-node-termination-handler/tree/master/config/overlays/spot-node-selector) overlay for an example. 
 
+### Helm
+The [helm](https://helm.sh/) chart for this project is located in the [eks-charts](https://github.com/aws/eks-charts) repo. For instructions on how to install/configure the chart see the project's [README](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
+
+## Building
 For build instructions please consult [BUILD.md](./BUILD.md).
 
 ## Communication
