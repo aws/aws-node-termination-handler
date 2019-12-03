@@ -4,6 +4,12 @@ IMG_W_TAG = ${IMG}:${VERSION}
 DOCKER_USERNAME ?= ""
 DOCKER_PASSWORD ?= ""
 
+build:
+	go build -a -o node-termination-handler cmd/node-termination-handler.go
+
+fmt:
+	goimports -w ./
+
 docker-build:
 	docker build . -t ${IMG_W_TAG}
 
