@@ -92,7 +92,7 @@ func getDrainHelper(nthConfig config.Config) *drain.Helper {
 		GracePeriodSeconds:  nthConfig.PodTerminationGracePeriod,
 		IgnoreAllDaemonSets: nthConfig.IgnoreDaemonSets,
 		DeleteLocalData:     nthConfig.DeleteLocalData,
-		Timeout:             time.Duration(60) * time.Second,
+		Timeout:             time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second,
 		Out:                 os.Stdout,
 		ErrOut:              os.Stderr,
 	}
