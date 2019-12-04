@@ -12,8 +12,8 @@ spec:
         env:
         - name: INSTANCE_METADATA_URL
           value: "http://127.0.0.1:1338"
-      - name: ec2-meta-data-proxy
-        image: ec2-meta-data-proxy:customtest
+      - name: ec2-metadata-test-proxy
+        image: ec2-metadata-test-proxy:customtest
         imagePullPolicy: IfNotPresent
         env:
         - name: INTERRUPTION_NOTICE_DELAY
