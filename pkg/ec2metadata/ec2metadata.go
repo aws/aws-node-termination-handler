@@ -45,7 +45,7 @@ type InstanceAction struct {
 }
 
 // CheckForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func CheckForSpotInterruptionNotice(metadataURL string) bool {
+func CheckForSpotInterruptionNotice(metadataURL string, nodeTerminationGracePeriod int) bool {
 	resp, err := requestMetadata(metadataURL, spotInstanceActionPath)
 	if err != nil {
 		log.Fatalf("Unable to parse metadata response: %s", err.Error())
@@ -61,9 +61,10 @@ func CheckForSpotInterruptionNotice(metadataURL string) bool {
 		log.Fatalln("Could not parse time from metadata json", err.Error())
 	}
 	timeUntilInterruption := time.Now().Sub(interruptionTime)
-	if timeUntilInterruption <= (time.Duration(120) * time.Second) {
+	if timeUntilInterruption <= (time.Duration(nodeTerminationGracePeriod) * time.Second) {
 		return true
 	}
+	log.Printf("Termination notice received, but the time until interruption is %d and the node is configured to drain for %d sec. Waiting to drain...\n", timeUntilInterruption, nodeTerminationGracePeriod)
 	return false
 }
 

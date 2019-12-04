@@ -37,16 +37,16 @@ func main() {
 
 	// Sleep to prevent process from restarting.
 	// The node should be terminated after configured drain time
-	time.Sleep(time.Duration(120) * time.Second)
+	time.Sleep(time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second)
 }
 
-func shouldDrainNode(metadataURL string) bool {
-	return ec2metadata.CheckForSpotInterruptionNotice(metadataURL)
+func shouldDrainNode(metadataURL string, nodeTerminationGracePeriod int) bool {
+	return ec2metadata.CheckForSpotInterruptionNotice(metadataURL, nodeTerminationGracePeriod)
 }
 
 func waitForTermination(nthConfig config.Config) {
 	for range time.Tick(time.Second * 1) {
-		if shouldDrainNode(nthConfig.MetadataURL) {
+		if shouldDrainNode(nthConfig.MetadataURL, nthConfig.NodeTerminationGracePeriod) {
 			break
 		}
 	}
