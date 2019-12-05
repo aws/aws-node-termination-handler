@@ -12,7 +12,7 @@ env:
 - KUBE_VERSION=1.12
 - KUBE_VERSION=1.11
 
-script: test/spot-termination-test/run-spot-termination-test.sh -v $KUBE_VERSION
+script: test/k8s-local-cluster-test/run-test -v $KUBE_VERSION
 
 matrix:
   include: 
