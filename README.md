@@ -31,6 +31,7 @@ For build instructions please consult [BUILD.md](./BUILD.md).
 * Found a bug? Please open an issue.
 * Have a feature request? Please open an issue.
 * Want to contribute? Please submit a pull request.
+* Ask a question or chat with us in the [Kubernetes Slack](https://kubernetes.slack.com) `#provider-aws` channel
 
 ##  Contributing
 Contributions are welcome! Please read our [guidelines](https://github.com/aws/aws-node-termination-handler/blob/master/CONTRIBUTING.md) and our [Code of Conduct](https://github.com/aws/aws-node-termination-handler/blob/master/CODE_OF_CONDUCT.md)
