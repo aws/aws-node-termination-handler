@@ -57,7 +57,7 @@ func CheckForSpotInterruptionNotice(metadataURL string, nodeTerminationGracePeri
 	var instanceAction InstanceAction
 
 	json.NewDecoder(resp.Body).Decode(&instanceAction)
-    log.Printf("test")
+	log.Printf("Spot Instance Interruption Warning received. Instance metadata: %v", instanceAction)
 	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
 	if err != nil {
 		log.Fatalln("Could not parse time from metadata json", err.Error())
