@@ -1,0 +1,115 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+
+relpath() {
+  perl -e 'use File::Spec; print File::Spec->abs2rel(@ARGV) . "\n"' $1 $2
+}
+
+echo "Starting Spot Interruption Test for Node Termination Handler"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+KUSTOMIZATION_FILE="$TMP_DIR/kustomization.yaml"
+NTH_OVERLAY_FILE="nth-image-overlay.yaml"
+METADATA_OVERLAY_FILE="ec2-metadata-image-overlay.yaml"
+REGULAR_POD_OVERLAY_FILE="ec2-metadata-regular-pod-image-overlay.yaml"
+
+TEST_OVERLAY=$(relpath "$SCRIPTPATH/../../config/overlays/spot-itn-test" $TMP_DIR)
+NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
+EC2_METADATA_DOCKER_IMG=$(cat $TMP_DIR/ec2-metadata-test-proxy-docker-img)
+
+cat <<-EOF > $KUSTOMIZATION_FILE
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+- $TEST_OVERLAY
+
+patchesStrategicMerge:
+EOF
+
+cat <<-EOF > $TMP_DIR/$NTH_OVERLAY_FILE
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-termination-handler
+spec:
+  template:
+    spec:
+      containers:
+      - name: node-termination-handler
+        image: $NODE_TERMINATION_HANDLER_DOCKER_IMG
+EOF
+echo "- $NTH_OVERLAY_FILE" >> $KUSTOMIZATION_FILE
+
+cat <<-EOF > $TMP_DIR/$METADATA_OVERLAY_FILE
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-termination-handler
+spec:
+  template:
+    spec:
+      containers:
+      - name: ec2-metadata-test-proxy
+        image: $EC2_METADATA_DOCKER_IMG
+EOF
+echo "- $METADATA_OVERLAY_FILE" >> $KUSTOMIZATION_FILE
+
+cat <<-EOF > $TMP_DIR/$REGULAR_POD_OVERLAY_FILE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: regular-pod-test
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - name: ec2-metadata-test-proxy
+        image: $EC2_METADATA_DOCKER_IMG
+EOF
+echo "- $REGULAR_POD_OVERLAY_FILE" >> $KUSTOMIZATION_FILE
+
+echo "🥑 Tagging worker nodes to execute integ test"
+kubectl label nodes $CLUSTER_NAME-worker lifecycle=Ec2Spot --overwrite
+kubectl label nodes $CLUSTER_NAME-worker app=spot-termination-test --overwrite
+echo "👍 Tagged worker nodes to execute integ test"
+
+echo "🥑 Applying the test overlay kustomize config to k8s using kubectl"
+kubectl apply -k "$TMP_DIR"
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+for i in `seq 1 10`; do 
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    sleep 5
+done 
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    exit 2
+fi
+
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+          echo "✅ Verified the worker node was cordoned!"
+          if [[ $(kubectl get deployments  -o=jsonpath='{.items[0].status.unavailableReplicas}') -eq 1 ]]; then
+              echo "✅ Verified the regular-pod-test pod was evicted!"
+              echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"
+              exit 0
+          fi
+      fi
+    sleep $TAINT_CHECK_SLEEP
+done
+
+exit 1

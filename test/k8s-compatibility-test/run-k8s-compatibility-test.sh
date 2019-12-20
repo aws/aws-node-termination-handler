@@ -35,7 +35,7 @@ done
 
 for i in "${!versions[@]}"; do 
    version=${versions[$i]}
-   $SCRIPTPATH/../spot-termination-test/run-spot-termination-test.sh -i "test-$version" -v $version $PASS_THRU_ARGS $AFTER_FIRST_RUN_ARGS
+   $SCRIPTPATH/../k8s-local-cluster-test/run-test -b "test-$version" -v $version $PASS_THRU_ARGS $AFTER_FIRST_RUN_ARGS
    if [ $? -eq 0 ]; then 
       echo "✅ Passed test for K8s version $version"
    else 

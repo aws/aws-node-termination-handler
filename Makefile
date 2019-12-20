@@ -7,6 +7,9 @@ DOCKER_PASSWORD ?= ""
 build:
 	go build -a -o node-termination-handler cmd/node-termination-handler.go
 
+clean:
+	rm -rf build/
+
 fmt:
 	goimports -w ./
 
@@ -27,10 +30,10 @@ image:
 	@echo ${IMG_W_TAG}
 
 e2e-test:
-	test/spot-termination-test/run-spot-termination-test.sh -d
+	test/k8s-local-cluster-test/run-test -b e2e-test -d
 
 compatibility-test:
-	test/k8s-compatibility-test/run-k8s-compatibility-test.sh
+	test/k8s-compatibility-test/run-k8s-compatibility-test.sh -p "-d"
 
 license-test:
 	test/license-test/run-license-test.sh
