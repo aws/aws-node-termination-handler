@@ -23,6 +23,9 @@ matrix:
       if: type = push AND branch = master AND env(GITHUB_TOKEN) IS present
       script: test/license-test/run-license-test.sh
       env: LICENSE_TEST=true
+    - stage: Test
+      script: make helm-sync-test
+      env: HELM_SYNC_TEST=true
     - stage: Deploy
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make docker-build && make docker-push

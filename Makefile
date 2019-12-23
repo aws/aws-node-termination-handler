@@ -41,4 +41,7 @@ license-test:
 go-report-card-test:
 	test/go-report-card-test/run-report-card-test.sh
 
-test: e2e-test compatibility-test license-test go-report-card-test
+helm-sync-test:
+	test/helm-sync-test/run-helm-sync-test
+
+test: e2e-test compatibility-test license-test go-report-card-test helm-sync-test
