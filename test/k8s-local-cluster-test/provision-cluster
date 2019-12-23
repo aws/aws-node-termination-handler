@@ -18,6 +18,7 @@ K8_1_11="kindest/node:v1.11.10@sha256:44e1023d3a42281c69c255958e09264b5ac787c20a
 
 K8_VERSION="$K8_1_16"
 KIND_VERSION="0.6.0"
+HELM_VERSION="3.0.2"
 
 echoerr() { echo "$@" 1>&2; }
 
@@ -102,6 +103,14 @@ else
       curl -Lo $TMP_DIR/kind https://github.com/kubernetes-sigs/kind/releases/download/v$KIND_VERSION/kind-$PLATFORM-amd64
       chmod +x $TMP_DIR/kind
       echoerr "👍 Downloaded the \"kind\" binary"
+  fi
+
+  if [ ! -x "$TMP_DIR/helm" ]; then
+      echoerr "🥑 Downloading the \"helm\" binary"
+      curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $TMP_DIR
+      mv $TMP_DIR/$PLATFORM-amd64/helm $TMP_DIR/.
+      chmod +x $TMP_DIR/helm
+      echoerr "👍 Downloaded the \"helm\" binary"
   fi
   export PATH=$TMP_DIR:$PATH
 fi

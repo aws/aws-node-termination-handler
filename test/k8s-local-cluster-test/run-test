@@ -7,7 +7,7 @@ CLUSTER_NAME_BASE="nth-test"
 PRESERVE=false
 TMP_DIR=""
 DOCKER_ARGS=""
-CLUSTER_PROVISION_ARGS=""
+PROVISION_CLUSTER_ARGS=""
 DELETE_CLUSTER_ARGS=""
 DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest"
 NODE_TERMINATION_HANDLER_DOCKER_IMG=""
@@ -34,8 +34,8 @@ function exit_and_fail {
 }
 
 function reset_cluster {
-    kubectl delete daemonsets --namespace kube-system node-termination-handler || :
-    kubectl delete deployments regular-pod-test || :
+    helm del $(helm ls --all --short) || :
+    helm del $(helm ls --all --short --namespace kube-system) --namespace kube-system|| :
     for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do 
         kubectl uncordon $node
     done 
@@ -80,6 +80,7 @@ while getopts "pdn:e:oc:a:b:v:" opt; do
       ;;
     o ) # Override path with your own kubectl and kind binaries
         DELETE_CLUSTER_ARGS="$DELETE_CLUSTER_ARGS -o"
+        PROVISION_CLUSTER_ARGS="$PROVISION_CLUSTER_ARGS -o"
         OVERRIDE_PATH=1
       ;;
     c ) # Cluster context directory to operate on existing cluster
@@ -102,7 +103,7 @@ while getopts "pdn:e:oc:a:b:v:" opt; do
 done
 
 if [[ -z $TMP_DIR ]]; then 
-    TMP_DIR=$($SCRIPTPATH/../k8s-local-cluster-test/provision-cluster -b $CLUSTER_NAME_BASE -v $K8S_VERSION)
+    TMP_DIR=$($SCRIPTPATH/../k8s-local-cluster-test/provision-cluster -b $CLUSTER_NAME_BASE -v $K8S_VERSION $PROVISION_CLUSTER_ARGS)
 fi
 if [[ $OVERRIDE_PATH -eq 0 ]]; then 
   export PATH=$TMP_DIR:$PATH
@@ -138,7 +139,6 @@ kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTE
 kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $EC2_METADATA_DOCKER_IMG
 echo "👍 Loaded both images into the cluster"
 
-# KUBECONFIG_ARG="--kubeconfig=$TMP_DIR/kubeconfig"
 export KUBECONFIG="$TMP_DIR/kubeconfig"
 
 trap "exit_and_fail" INT TERM ERR
@@ -164,7 +164,7 @@ for assert_script in $ASSERTION_SCRIPTS; do
   assert_end=$(date +%s)
   echo "⏰ Took $(expr $assert_end - $assert_start)sec"
   POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1 )
-  kubectl logs $POD_ID --namespace kube-system -c node-termination-handler
+  kubectl logs $POD_ID --namespace kube-system
   ## Resets cluster to run another test on the same cluster
   reset_cluster
   echo "✅ Assertion test $assert_script PASSED! ✅"
