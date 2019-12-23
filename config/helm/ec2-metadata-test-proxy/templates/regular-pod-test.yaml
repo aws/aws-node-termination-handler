@@ -1,0 +1,27 @@
+{{- if .Values.regularPodTest.create -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.regularPodTest.label }}
+  labels:
+    app: {{ .Values.regularPodTest.label }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.regularPodTest.label }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.regularPodTest.label }}
+    spec:
+      containers:
+      - name: {{ .Values.regularPodTest.label }}
+        image: {{ .Values.ec2MetadataTestProxy.image.repository }}:{{ .Values.ec2MetadataTestProxy.image.tag }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PORT
+          value: {{ .Values.regularPodTest.port | quote }}
+{{- end -}}
+
+
+
