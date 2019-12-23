@@ -4,7 +4,7 @@
 
 image:
   repository: amazon/aws-node-termination-handler
-  tag: v1.0.0
+  tag: v1.1.0
   pullPolicy: IfNotPresent
 
 nameOverride: ""
@@ -34,9 +34,16 @@ deleteLocalData: false
 # ignoreDaemonSets causes kubectl to skip Daemon Set managed pods.
 ignoreDaemonSets: true
 
-# gracePeriod is time in seconds given to each pod to terminate gracefully.
+# gracePeriod (DEPRECATED - use podTerminationGracePeriod instead) is time in seconds given to each pod to terminate gracefully.
 # If negative, the default value specified in the pod will be used.
-gracePeriod: 30
+gracePeriod: ""
+podTerminationGracePeriod: ""
+
+# nodeTerminationGracePeriod specifies the period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.
+nodeTerminationGracePeriod: ""
+
+# instanceMetadataURL is used to override the default metadata URL (default: http://169.254.169.254:80)
+instanceMetadataURL: ""
 
 # nodeSelector tells the daemonset where to place the node-termination-handler
 # pods. By default, this value is empty and every node will receive a pod.

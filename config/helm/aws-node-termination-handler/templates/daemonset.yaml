@@ -68,6 +68,12 @@ spec:
             value: {{ .Values.ignoreDaemonSets | quote }}
           - name: GRACE_PERIOD
             value: {{ .Values.gracePeriod | quote }}
+          - name: POD_TERMINATION_GRACE_PERIOD
+            value: {{ .Values.podTerminationGracePeriod | quote }}
+          - name: INSTANCE_METADATA_URL
+            value: {{ .Values.instanceMetadataURL | quote }}
+          - name: NODE_TERMINATION_GRACE_PERIOD
+            value: {{ .Values.nodeTerminationGracePeriod | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:

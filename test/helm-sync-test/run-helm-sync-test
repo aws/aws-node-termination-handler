@@ -10,7 +10,7 @@ EXIT_CODE=0
 
 git clone https://github.com/aws/eks-charts.git
 
-DIFF_OUTPUT=$(diff -r eks-charts/stable/aws-node-termination-handler $SCRIPTPATH/../../config/helm/)
+DIFF_OUTPUT=$(diff -r eks-charts/stable/aws-node-termination-handler $SCRIPTPATH/../../config/helm/aws-node-termination-handler)
 DIFF_ECODE=$?
 echo "$DIFF_OUTPUT" > $TMP_DIR/chart-diff.txt
 
