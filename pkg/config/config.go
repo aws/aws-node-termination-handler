@@ -27,41 +27,47 @@ import (
 
 const (
 	// EC2 Instance Metadata is configurable mainly for testing purposes
-	instanceMetadataURLConfigKey        = "INSTANCE_METADATA_URL"
-	defaultInstanceMetadataURL          = "http://169.254.169.254"
-	dryRunConfigKey                     = "DRY_RUN"
-	nodeNameConfigKey                   = "NODE_NAME"
-	kubernetesServiceHostConfigKey      = "KUBERNETES_SERVICE_HOST"
-	kubernetesServicePortConfigKey      = "KUBERNETES_SERVICE_PORT"
-	deleteLocalDataConfigKey            = "DELETE_LOCAL_DATA"
-	ignoreDaemonSetsConfigKey           = "IGNORE_DAEMON_SETS"
-	gracePeriodConfigKey                = "GRACE_PERIOD"
-	podTerminationGracePeriodConfigKey  = "POD_TERMINATION_GRACE_PERIOD"
-	podTerminationGracePeriodDefault    = -1
-	nodeTerminationGracePeriodConfigKey = "NODE_TERMINATION_GRACE_PERIOD"
-	nodeTerminationGracePeriodDefault   = 120
-	webhookURLConfigKey                 = "WEBHOOK_URL"
-	webhookURLDefault                   = ""
-	webhookHeadersConfigKey             = "WEBHOOK_HEADERS"
-	webhookHeadersDefault               = `{"Content-type":"application/json"}`
-	webhookTemplateConfigKey            = "WEBHOOK_TEMPLATE"
-	webhookTemplateDefault              = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
+	instanceMetadataURLConfigKey            = "INSTANCE_METADATA_URL"
+	defaultInstanceMetadataURL              = "http://169.254.169.254"
+	dryRunConfigKey                         = "DRY_RUN"
+	nodeNameConfigKey                       = "NODE_NAME"
+	kubernetesServiceHostConfigKey          = "KUBERNETES_SERVICE_HOST"
+	kubernetesServicePortConfigKey          = "KUBERNETES_SERVICE_PORT"
+	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
+	ignoreDaemonSetsConfigKey               = "IGNORE_DAEMON_SETS"
+	gracePeriodConfigKey                    = "GRACE_PERIOD"
+	podTerminationGracePeriodConfigKey      = "POD_TERMINATION_GRACE_PERIOD"
+	podTerminationGracePeriodDefault        = -1
+	nodeTerminationGracePeriodConfigKey     = "NODE_TERMINATION_GRACE_PERIOD"
+	nodeTerminationGracePeriodDefault       = 120
+	webhookURLConfigKey                     = "WEBHOOK_URL"
+	webhookURLDefault                       = ""
+	webhookHeadersConfigKey                 = "WEBHOOK_HEADERS"
+	webhookHeadersDefault                   = `{"Content-type":"application/json"}`
+	webhookTemplateConfigKey                = "WEBHOOK_TEMPLATE"
+	webhookTemplateDefault                  = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
+	enableScheduledEventDrainingConfigKey   = "ENABLE_SCHEDULED_EVENT_DRAINING"
+	enableScheduledEventDrainingDefault     = false
+	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
+	enableSpotInterruptionDrainingDefault   = true
 )
 
 //Config arguments set via CLI, environment variables, or defaults
 type Config struct {
-	DryRun                     bool
-	NodeName                   string
-	MetadataURL                string
-	IgnoreDaemonSets           bool
-	DeleteLocalData            bool
-	KubernetesServiceHost      string
-	KubernetesServicePort      string
-	PodTerminationGracePeriod  int
-	NodeTerminationGracePeriod int
-	WebhookURL                 string
-	WebhookHeaders             string
-	WebhookTemplate            string
+	DryRun                         bool
+	NodeName                       string
+	MetadataURL                    string
+	IgnoreDaemonSets               bool
+	DeleteLocalData                bool
+	KubernetesServiceHost          string
+	KubernetesServicePort          string
+	PodTerminationGracePeriod      int
+	NodeTerminationGracePeriod     int
+	WebhookURL                     string
+	WebhookHeaders                 string
+	WebhookTemplate                string
+	EnableScheduledEventDraining   bool
+	EnableSpotInterruptionDraining bool
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -81,6 +87,8 @@ func ParseCliArgs() Config {
 	flag.StringVar(&config.WebhookURL, "webhook-url", getEnv(webhookURLConfigKey, webhookURLDefault), "If specified, posts event data to URL upon instance interruption action.")
 	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
 	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
+	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
+	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is receieved")
 
 	flag.Parse()
 
@@ -121,9 +129,11 @@ func ParseCliArgs() Config {
 			"\tkubernetes-service-host: %s,\n"+
 			"\tkubernetes-service-port: %s,\n"+
 			"\tdelete-local-data: %t,\n"+
-			"\tignore-daemon-sets: %t\n"+
-			"\tpod-termination-grace-period: %d\n"+
-			"\tnode-termination-grace-period: %d\n",
+			"\tignore-daemon-sets: %t,\n"+
+			"\tpod-termination-grace-period: %d,\n"+
+			"\tnode-termination-grace-period: %d,\n"+
+			"\tenable-scheduled-event-draining: %t,\n"+
+			"\tenable-spot-interruption-draining: %t,\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,
@@ -132,7 +142,10 @@ func ParseCliArgs() Config {
 		config.DeleteLocalData,
 		config.IgnoreDaemonSets,
 		config.PodTerminationGracePeriod,
-		config.NodeTerminationGracePeriod)
+		config.NodeTerminationGracePeriod,
+		config.EnableScheduledEventDraining,
+		config.EnableSpotInterruptionDraining,
+	)
 
 	return config
 }

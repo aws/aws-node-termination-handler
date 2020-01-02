@@ -11,9 +11,11 @@ The termination handler consists of a [ServiceAccount](https://kubernetes.io/doc
 To install:
 ```sh
 helm repo add eks https://aws.github.io/eks-charts
+
+# For helm2
 helm install --name aws-node-termination-handler --namespace kube-system eks/aws-node-termination-handler
 
-For helm3:
+# For helm3:
 helm install aws-node-termination-handler --namespace kube-system eks/aws-node-termination-handler
 ```
 

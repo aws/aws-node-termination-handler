@@ -27,6 +27,9 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
+## dryRun tells node-termination-handler to only log calls to kubernetes control plane
+dryRun: false
+
 # deleteLocalData tells kubectl to continue even if there are pods using
 # emptyDir (local data that will be deleted when the node is drained).
 deleteLocalData: false
@@ -53,6 +56,14 @@ webhookTemplate: ""
 
 # instanceMetadataURL is used to override the default metadata URL (default: http://169.254.169.254:80)
 instanceMetadataURL: ""
+
+# Enable spot interruption event handling and drain actions
+enableSpotInterruptionDraining: true 
+
+# Enable scheduled event handling and drain actions (EXPERIMENTAL)
+enableScheduledEventDraining: false
+
+procUptimeFile: "/proc/uptime"
 
 # nodeSelector tells the daemonset where to place the node-termination-handler
 # pods. By default, this value is empty and every node will receive a pod.

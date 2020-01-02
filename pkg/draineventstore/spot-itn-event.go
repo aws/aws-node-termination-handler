@@ -17,7 +17,7 @@ const (
 )
 
 // MonitorForSpotITNEvents continuously monitors metadata for spot ITNs and sends drain events to the passed in channel
-func MonitorForSpotITNEvents(drainChan chan<- drainevent.DrainEvent, nthConfig config.Config) {
+func MonitorForSpotITNEvents(drainChan chan<- drainevent.DrainEvent, cancelChan chan<- drainevent.DrainEvent, nthConfig config.Config) {
 	log.Println("Started monitoring for spot ITN events")
 	for range time.Tick(time.Second * 2) {
 		drainEvent := checkForSpotInterruptionNotice(nthConfig.MetadataURL)

@@ -58,6 +58,8 @@ Parameter | Description | Default
 `nodeTerminationGracePeriod` | Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event. | `120`
 `ignoreDaemonsSets` | Causes kubectl to skip daemon set managed pods | `true`
 `instanceMetadataURL` | The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing. | `http://169.254.169.254:80`
+`enableScheduledEventDraining` | EXPERIMENTAL: If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
+`enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is receieved | `true`
 `affinity` | node/pod affinities | None
 `podSecurityContext` | Pod Security Context | `{}`
 `podAnnotations` | annotations to add to each pod | `{}`
