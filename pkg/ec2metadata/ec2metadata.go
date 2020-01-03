@@ -14,7 +14,6 @@
 package ec2metadata
 
 import (
-	"encoding/json"
 	"log"
 	"math/rand"
 	"net/http"
@@ -22,7 +21,7 @@ import (
 )
 
 const (
-	spotInstanceActionPath = "/latest/meta-data/spot/instance-action"
+	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
 )
 
 // InstanceActionDetail metadata structure for json parsing
@@ -44,31 +43,8 @@ type InstanceAction struct {
 	Detail     InstanceActionDetail `json:"detail"`
 }
 
-// CheckForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func CheckForSpotInterruptionNotice(metadataURL string, nodeTerminationGracePeriod int) bool {
-	resp, err := requestMetadata(metadataURL, spotInstanceActionPath)
-	if err != nil {
-		log.Fatalf("Unable to parse metadata response: %s", err.Error())
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return false
-	}
-	var instanceAction InstanceAction
-	json.NewDecoder(resp.Body).Decode(&instanceAction)
-	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
-	if err != nil {
-		log.Fatalln("Could not parse time from metadata json", err.Error())
-	}
-	timeUntilInterruption := time.Now().Sub(interruptionTime)
-	if timeUntilInterruption <= (time.Duration(nodeTerminationGracePeriod) * time.Second) {
-		return true
-	}
-	log.Printf("Termination notice received, but the time until interruption is %d and the node is configured to drain for %d sec. Waiting to drain...\n", timeUntilInterruption, nodeTerminationGracePeriod)
-	return false
-}
-
-func requestMetadata(metadataURL string, contextPath string) (*http.Response, error) {
+// RequestMetadata sends an http request to IMDS at the specified path using the specified URL
+func RequestMetadata(metadataURL string, contextPath string) (*http.Response, error) {
 	httpReq := func() (*http.Response, error) {
 		return http.Get(metadataURL + contextPath)
 	}

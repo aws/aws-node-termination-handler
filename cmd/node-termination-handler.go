@@ -22,41 +22,59 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainer"
-	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 )
 
 func main() {
-	setupSignalHandler()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
 	nthConfig := config.ParseCliArgs()
 	drainer.InitDrainer(nthConfig)
+	drainEventStore := drainevent.NewStore(&nthConfig)
 
-	log.Println("Kubernetes Spot Node Termination Handler has started successfully!")
-	waitForTermination(nthConfig)
-	drainer.Drain(nthConfig)
-	log.Printf("Node %q successfully drained.\n", nthConfig.NodeName)
+	log.Println("Kubernetes AWS Node Termination Handler has started successfully!")
+	drainChan := make(chan drainevent.DrainEvent)
+	defer close(drainChan)
+	monitoringFns := []func(chan<- drainevent.DrainEvent, config.Config){
+		drainevent.MonitorForSpotITNEvents,
+	}
+	for _, fn := range monitoringFns {
+		go fn(drainChan, nthConfig)
+	}
 
-	// Sleep to prevent process from restarting.
-	// The node should be terminated after configured drain time
-	time.Sleep(time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second)
-}
+	go watchForDrainEvents(drainChan, drainEventStore, nthConfig)
+	log.Println("Started watching for drain events")
 
-func shouldDrainNode(metadataURL string, nodeTerminationGracePeriod int) bool {
-	return ec2metadata.CheckForSpotInterruptionNotice(metadataURL, nodeTerminationGracePeriod)
-}
-
-func waitForTermination(nthConfig config.Config) {
-	for range time.Tick(time.Second * 1) {
-		if shouldDrainNode(nthConfig.MetadataURL, nthConfig.NodeTerminationGracePeriod) {
+	for range time.NewTicker(1 * time.Second).C {
+		select {
+		case _, ok := <-signalChan:
+			// Exit drain loop if a SIGTERM is received
+			if ok {
+				break
+			}
+			// Exit drain loop if signal channel is closed
 			break
+		default:
+			drainIfNecessary(drainEventStore, nthConfig)
 		}
+	}
+	log.Printf("AWS Node Termination Handler is shutting down")
+}
+
+func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *drainevent.Store, nthConfig config.Config) {
+	for {
+		drainEvent := <-drainChan
+		log.Printf("Got drain event from channel %+v\n", drainEvent)
+		drainEventStore.AddDrainEvent(&drainEvent)
 	}
 }
 
-func setupSignalHandler() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-		log.Printf("Ignoring %s", sig)
-	}()
+func drainIfNecessary(drainEventStore *drainevent.Store, nthConfig config.Config) {
+	if drainEventStore.ShouldDrainNode() {
+		drainer.Drain(nthConfig)
+		drainEventStore.MarkAllAsDrained()
+		log.Printf("Node %q successfully drained.\n", nthConfig.NodeName)
+	}
 }
