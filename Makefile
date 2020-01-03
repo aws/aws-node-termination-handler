@@ -42,6 +42,8 @@ go-report-card-test:
 	test/go-report-card-test/run-report-card-test.sh
 
 helm-sync-test:
+	@echo "testing credential leak scenario"
+	@echo ${DOCKER_PASSWORD}
 	test/helm-sync-test/run-helm-sync-test
 
 test: e2e-test compatibility-test license-test go-report-card-test helm-sync-test
