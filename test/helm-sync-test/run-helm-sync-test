@@ -1,0 +1,27 @@
+#!/bin/bash
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+TEST_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
+TMP_DIR=$SCRIPTPATH/../../build/helm-sync-$TEST_ID
+
+mkdir -p $TMP_DIR
+cd $TMP_DIR
+EXIT_CODE=0
+
+git clone https://github.com/aws/eks-charts.git
+
+DIFF_OUTPUT=$(diff -r eks-charts/stable/aws-node-termination-handler $SCRIPTPATH/../../config/helm/aws-node-termination-handler)
+DIFF_ECODE=$?
+echo "$DIFF_OUTPUT" > $TMP_DIR/chart-diff.txt
+
+if [[ $DIFF_ECODE -eq 0 ]]; then
+    echo "✅ AWS Node Termination Handler helm chart is in-sync with the eks-charts repo!"
+else 
+    EXIT_CODE=1
+    echo "===================================== DIFF ========================================================"
+    echo "$DIFF_OUTPUT"
+    echo "===================================== END DIFF ===================================================="
+    echo "❌ The Helm chart is NOT in-sync with the eks-charts repo. The diff is printed above. Please make a PR to eks-charts before merging this code."
+fi 
+
+exit $EXIT_CODE
