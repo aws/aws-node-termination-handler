@@ -1,0 +1,14 @@
+# The ec2-metadata-test-proxy is for testing purposes
+ec2MetadataTestProxy:
+    create: true
+    interruptionNoticeDelay: 15
+    port: 1338
+    label: ec2-metadata-test-proxy
+    image:
+        repository: ec2-metadata-test-proxy
+        tag: customtest
+regularPodTest:
+    create: true
+    label: regular-pod-test
+    port: 1339
+        

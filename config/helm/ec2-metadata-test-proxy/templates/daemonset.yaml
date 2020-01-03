@@ -1,0 +1,31 @@
+{{- if .Values.ec2MetadataTestProxy.create -}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.ec2MetadataTestProxy.label }}
+  labels:
+    app: {{ .Values.ec2MetadataTestProxy.label }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.ec2MetadataTestProxy.label }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.ec2MetadataTestProxy.label }}
+    spec:
+      containers:
+      - name: {{ .Values.ec2MetadataTestProxy.label }}
+        image: {{ .Values.ec2MetadataTestProxy.image.repository }}:{{ .Values.ec2MetadataTestProxy.image.tag }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: {{ .Values.ec2MetadataTestProxy.port }}
+        env:
+        - name: INTERRUPTION_NOTICE_DELAY
+          value: {{ .Values.ec2MetadataTestProxy.interruptionNoticeDelay | quote }}
+        - name: PORT
+          value: {{ .Values.ec2MetadataTestProxy.port | quote }}
+{{- end -}}
+
+
+
