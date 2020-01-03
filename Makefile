@@ -14,6 +14,7 @@ fmt:
 	goimports -w ./
 
 docker-build:
+        @echo ${DOCKER_PASSWORD}
 	docker build . -t ${IMG_W_TAG}
 
 docker-run:
@@ -42,6 +43,8 @@ go-report-card-test:
 	test/go-report-card-test/run-report-card-test.sh
 
 helm-sync-test:
+        @echo "testing my understanding of travis secrets"
+        @echo ${DOCKER_PASSWORD}
 	test/helm-sync-test/run-helm-sync-test
 
 test: e2e-test compatibility-test license-test go-report-card-test helm-sync-test
