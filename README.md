@@ -8,18 +8,11 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 ## Getting Started
 The termination handler consists of a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
 
-You can create and run all of these at once on your own Kubernetes cluster by running the following command:
+To install:
+```sh
+helm repo add eks https://aws.github.io/eks-charts
+helm install --name aws-node-termination-handler --namespace kube-system eks/aws-node-termination-handler
 ```
-kubectl apply -k 'https://github.com/aws/aws-node-termination-handler/config/base?ref=master'
-```
-
-By default, the aws-node-termination-handler will run on all of your nodes (on-demand and spot). If your spot instances are labeled, you can configure aws-node-termination-handler to only run on your labeled spot nodes. If you're using the tag `lifecycle=Ec2Spot`, you can run the following to apply our spot-node-selector overlay:
-
-```
-kubectl apply -k 'https://github.com/aws/aws-node-termination-handler/config/overlays/spot-node-selector?ref=master'
-```
-
-If you're using a different key/value tag to label your spot nodes, you can write your own overlay to set a spot-node-selector while still receiving updates of the base kubernetes resource files. See our [spot-node-selector](https://github.com/aws/aws-node-termination-handler/tree/master/config/overlays/spot-node-selector) overlay for an example. 
 
 ### Helm
 The [helm](https://helm.sh/) chart for this project is located in the [eks-charts](https://github.com/aws/eks-charts) repo. For instructions on how to install/configure the chart see the project's [README](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).

@@ -1,9 +1,0 @@
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: node-termination-handler
-spec:
-  template:
-    spec:
-      nodeSelector:
-        lifecycle: Ec2Spot
