@@ -2,7 +2,7 @@
 set -euo pipefail
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-BINARY_NAME="handler"
+BINARY_NAME="node-termination-handler"
 BINARY_CONTAINER="extract"
 BINARY_IMAGE_TAG="nth"
 LICENSE_TEST_TAG="nth-license-test"
