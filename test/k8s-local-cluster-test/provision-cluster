@@ -9,15 +9,17 @@ CLUSTER_NAME_BASE=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-two-node-cluster.yaml
 
-K8_1_16="kindest/node:v1.16.3@sha256:bced4bc71380b59873ea3917afe9fb35b00e174d22f50c7cab9188eac2b0fb88"
-K8_1_15="kindest/node:v1.15.6@sha256:1c8ceac6e6b48ea74cecae732e6ef108bc7864d8eca8d211d6efb58d6566c40a"
-K8_1_14="kindest/node:v1.14.9@sha256:00fb7d424076ed07c157eedaa3dd36bc478384c6d7635c5755746f151359320f"
-K8_1_13="kindest/node:v1.13.12@sha256:ad1dd06aca2b85601f882ba1df4fdc03d5a57b304652d0e81476580310ba6289"
-K8_1_12="kindest/node:v1.12.10@sha256:e93e70143f22856bd652f03da880bfc70902b736750f0a68e5e66d70de236e40"
-K8_1_11="kindest/node:v1.11.10@sha256:44e1023d3a42281c69c255958e09264b5ac787c20a7b95caf2d23f8d8f3746f2"
+K8_1_17="kindest/node:v1.17.0@sha256:190c97963ec4f4121c3f1e96ca6eb104becda5bae1df3a13f01649b2dd372f6d"
+K8_1_16="kindest/node:v1.16.3@sha256:70ce6ce09bee5c34ab14aec2b84d6edb260473a60638b1b095470a3a0f95ebec"
+K8_1_15="kindest/node:v1.15.6@sha256:18c4ab6b61c991c249d29df778e651f443ac4bcd4e6bdd37e0c83c0d33eaae78"
+K8_1_14="kindest/node:v1.14.9@sha256:bdd3731588fa3ce8f66c7c22f25351362428964b6bca13048659f68b9e665b72"
+K8_1_13="kindest/node:v1.13.12@sha256:1fe072c080ee129a2a440956a65925ab3bbd1227cf154e2ade145b8e59a584ad"
+K8_1_12="kindest/node:v1.12.10@sha256:c5aeca1433e3230e6c1a96b5e1cd79c90139fd80242189b370a3248a05d77118"
+K8_1_11="kindest/node:v1.11.10@sha256:8ebe805201da0a988ee9bbcc2de2ac0031f9264ac24cf2a598774f1e7b324fe1"
 
 K8_VERSION="$K8_1_16"
-KIND_VERSION="0.6.0"
+KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+KIND_VERSION="0.6.1"
 HELM_VERSION="3.0.2"
 
 echoerr() { echo "$@" 1>&2; }
@@ -93,7 +95,7 @@ if [[ OVERRIDE_PATH -eq 1 ]]; then
 else
   if [ ! -x "$TMP_DIR/kubectl" ]; then
       echoerr "🥑 Downloading the \"kubectl\" binary"
-      curl -Lo $TMP_DIR/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$PLATFORM/amd64/kubectl"
+      curl -Lo $TMP_DIR/kubectl "https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/$PLATFORM/amd64/kubectl"
       chmod +x $TMP_DIR/kubectl
       echoerr "👍 Downloaded the \"kubectl\" binary"
   fi
@@ -116,7 +118,7 @@ else
 fi
 
 echoerr "🥑 Creating k8s cluster using \"kind\""
-kind create cluster --name "$CLUSTER_NAME" --image $K8_VERSION --config "$SCRIPTPATH/kind-two-node-cluster.yaml" --wait "$CLUSTER_CREATION_TIMEOUT_IN_SEC"s --kubeconfig $TMP_DIR/kubeconfig 1>&2
+kind create cluster -q --name "$CLUSTER_NAME" --image $K8_VERSION --config "$SCRIPTPATH/kind-two-node-cluster.yaml" --wait "$CLUSTER_CREATION_TIMEOUT_IN_SEC"s --kubeconfig $TMP_DIR/kubeconfig 1>&2
 echo "$CLUSTER_NAME" > $TMP_DIR/clustername
 echoerr "👍 Created k8s cluster using \"kind\""
 

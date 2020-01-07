@@ -5,6 +5,7 @@ services:
 - docker
 
 env: 
+- KUBE_VERSION=1.17
 - KUBE_VERSION=1.16
 - KUBE_VERSION=1.15
 - KUBE_VERSION=1.14
