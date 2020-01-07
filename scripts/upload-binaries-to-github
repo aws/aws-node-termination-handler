@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+VERSION=$(make -f $SCRIPTPATH/../Makefile version)
+RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+    https://api.github.com/repos/aws/aws-node-termination-handler/releases | \
+    jq --arg VERSION "$VERSION" '.[] | select(.tag_name==$VERSION) | .id')
+
+for binary in $SCRIPTPATH/../build/bin/*; do 
+    curl \
+        -H "Authorization: token $GITHUB_TOKEN" \
+        -H "Content-Type: $(file -b --mime-type $binary)" \
+        --data-binary @$binary \
+        "https://uploads.github.com/repos/aws/aws-node-termination-handler/releases/$RELEASE_ID/assets?name=$(basename $binary)"
+done
