@@ -23,6 +23,8 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainer"
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
+	"github.com/aws/aws-node-termination-handler/pkg/draineventstore"
+	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 )
 
 func main() {
@@ -32,13 +34,13 @@ func main() {
 
 	nthConfig := config.ParseCliArgs()
 	drainer.InitDrainer(nthConfig)
-	drainEventStore := drainevent.NewStore(&nthConfig)
+	drainEventStore := draineventstore.NewStore(&nthConfig)
 
 	log.Println("Kubernetes AWS Node Termination Handler has started successfully!")
 	drainChan := make(chan drainevent.DrainEvent)
 	defer close(drainChan)
 	monitoringFns := []func(chan<- drainevent.DrainEvent, config.Config){
-		drainevent.MonitorForSpotITNEvents,
+		draineventstore.MonitorForSpotITNEvents,
 	}
 	for _, fn := range monitoringFns {
 		go fn(drainChan, nthConfig)
@@ -63,7 +65,7 @@ func main() {
 	log.Printf("AWS Node Termination Handler is shutting down")
 }
 
-func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *drainevent.Store, nthConfig config.Config) {
+func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, nthConfig config.Config) {
 	for {
 		drainEvent := <-drainChan
 		log.Printf("Got drain event from channel %+v\n", drainEvent)
@@ -71,10 +73,13 @@ func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore
 	}
 }
 
-func drainIfNecessary(drainEventStore *drainevent.Store, nthConfig config.Config) {
-	if drainEventStore.ShouldDrainNode() {
+func drainIfNecessary(drainEventStore *draineventstore.Store, nthConfig config.Config) {
+	if event, ok := drainEventStore.GetActiveEvent(); ok {
 		drainer.Drain(nthConfig)
 		drainEventStore.MarkAllAsDrained()
 		log.Printf("Node %q successfully drained.\n", nthConfig.NodeName)
+		if nthConfig.WebhookURL != "" {
+			webhook.Post(event, nthConfig)
+		}
 	}
 }

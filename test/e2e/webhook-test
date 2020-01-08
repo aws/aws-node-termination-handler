@@ -1,0 +1,76 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+
+echo "Starting Webhook Test for Node Termination Handler"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
+NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
+NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
+EC2_METADATA_DOCKER_IMG=$(cat $TMP_DIR/ec2-metadata-test-proxy-docker-img)
+EC2_METADATA_DOCKER_REPO=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f1)
+EC2_METADATA_DOCKER_TAG=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f2)
+
+echo "🥑 Tagging worker nodes to execute integ test"
+kubectl label nodes $CLUSTER_NAME-worker lifecycle=Ec2Spot --overwrite
+kubectl label nodes $CLUSTER_NAME-worker app=spot-termination-test --overwrite
+echo "👍 Tagged worker nodes to execute integ test"
+
+### HELM STUFF
+
+### LOCAL ONLY TESTS FOR 200 RESPONSE FROM LOCAL CLUSTER, MASTER WILL TEST WITH TRAVIS SECRET URL
+if [[ $(env | grep "WEBHOOK_URL=" | wc -l) ]]; then
+  WEBHOOK_URL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338"
+fi
+
+helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
+  --namespace kube-system \
+  --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
+  --set webhookURL="$WEBHOOK_URL"
+
+helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
+  --namespace default \
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
+
+## END HELM
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+for i in `seq 1 10`; do
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    sleep 5
+done
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    exit 2
+fi
+
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+          echo "✅ Verified the worker node was cordoned!"
+          NTH_POD_NAME=$(kubectl get pods -n kube-system -o json | jq '.items[] | select( .metadata.name | contains("node-termination-handler") ) | .metadata.name' -r | head -n 1)
+          if kubectl logs $NTH_POD_NAME -n kube-system | grep 'Webhook Success'; then
+              echo "✅ Verified the webhook message was sent!"
+              echo "✅ Webhook Test Passed $CLUSTER_NAME! ✅"
+              exit 0
+          fi
+      fi
+    sleep $TAINT_CHECK_SLEEP
+done
+
+exit 1

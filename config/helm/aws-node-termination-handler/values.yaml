@@ -42,6 +42,15 @@ podTerminationGracePeriod: ""
 # nodeTerminationGracePeriod specifies the period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.
 nodeTerminationGracePeriod: ""
 
+# webhookURL if specified, posts event data to URL upon instance interruption action.
+webhookURL: ""
+
+# webhookHeaders if specified, replaces the default webhook headers.
+webhookHeaders: ""
+
+# webhookTemplate if specified, replaces the default webhook message template.
+webhookTemplate: ""
+
 # instanceMetadataURL is used to override the default metadata URL (default: http://169.254.169.254:80)
 instanceMetadataURL: ""
 

@@ -106,6 +106,10 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(js)
 		return
+	} else {
+		res.Header().Set("Content-Type", "application/json")
+		res.Write([]byte("{}"))
+		return
 	}
 	metadataUrl, _ := url.Parse(metadataIp)
 	httputil.NewSingleHostReverseProxy(metadataUrl).ServeHTTP(res, req)

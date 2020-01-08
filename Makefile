@@ -13,7 +13,7 @@ compile:
 	@echo ${MAKEFILE_PATH}
 	go build -a -o ${BUILD_DIR_PATH}/node-termination-handler ${MAKEFILE_PATH}/cmd/node-termination-handler.go
 
-create-build-dir: 
+create-build-dir:
 	mkdir -p ${BUILD_DIR_PATH}
 
 clean:
@@ -54,7 +54,7 @@ helm-sync-test:
 	${MAKEFILE_PATH}/test/helm-sync-test/run-helm-sync-test
 
 build-binaries:
-	${MAKEFILE_PATH}/scripts/build-binaries 
+	${MAKEFILE_PATH}/scripts/build-binaries
 
 upload-binaries-to-github:
 	${MAKEFILE_PATH}/scripts/upload-binaries-to-github
