@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ include "aws-node-termination-handler.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
 {{ include "aws-node-termination-handler.labels" . | indent 4 }}
 spec:
