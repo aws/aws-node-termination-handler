@@ -14,11 +14,15 @@
 package config
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"text/template"
+
+	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 )
 
 const (
@@ -36,6 +40,12 @@ const (
 	podTerminationGracePeriodDefault    = -1
 	nodeTerminationGracePeriodConfigKey = "NODE_TERMINATION_GRACE_PERIOD"
 	nodeTerminationGracePeriodDefault   = 120
+	webhookURLConfigKey                 = "WEBHOOK_URL"
+	webhookURLDefault                   = ""
+	webhookHeadersConfigKey             = "WEBHOOK_HEADERS"
+	webhookHeadersDefault               = `{"Content-type":"application/json"}`
+	webhookTemplateConfigKey            = "WEBHOOK_TEMPLATE"
+	webhookTemplateDefault              = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
 )
 
 //Config arguments set via CLI, environment variables, or defaults
@@ -49,6 +59,9 @@ type Config struct {
 	KubernetesServicePort      string
 	PodTerminationGracePeriod  int
 	NodeTerminationGracePeriod int
+	WebhookURL                 string
+	WebhookHeaders             string
+	WebhookTemplate            string
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -65,6 +78,9 @@ func ParseCliArgs() Config {
 	flag.IntVar(&gracePeriod, "grace-period", getIntEnv(gracePeriodConfigKey, podTerminationGracePeriodDefault), "[DEPRECATED] * Use pod-termination-grace-period instead * Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used.")
 	flag.IntVar(&config.PodTerminationGracePeriod, "pod-termination-grace-period", getIntEnv(podTerminationGracePeriodConfigKey, podTerminationGracePeriodDefault), "Period of time in seconds given to each POD to terminate gracefully. If negative, the default value specified in the pod will be used.")
 	flag.IntVar(&config.NodeTerminationGracePeriod, "node-termination-grace-period", getIntEnv(nodeTerminationGracePeriodConfigKey, nodeTerminationGracePeriodDefault), "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.")
+	flag.StringVar(&config.WebhookURL, "webhook-url", getEnv(webhookURLConfigKey, webhookURLDefault), "If specified, posts event data to URL upon instance interruption action.")
+	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
+	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
 
 	flag.Parse()
 
@@ -78,20 +94,36 @@ func ParseCliArgs() Config {
 	if config.NodeName == "" {
 		log.Fatalln("You must provide a node-name to the CLI or NODE_NAME environment variable.")
 	}
+	// fail fast if webhook template will not work
+	if config.WebhookURL != "" {
+		webhookTemplate, err := template.New("message").Parse(config.WebhookTemplate)
+		if err != nil {
+			log.Fatalf("Unable to parse webhook template - %s\n", err)
+		}
+
+		var byteBuffer bytes.Buffer
+		err = webhookTemplate.Execute(&byteBuffer, &drainevent.DrainEvent{})
+		if err != nil {
+			log.Fatalf("Unable to execute webhook template - %s\n", err)
+		}
+	}
+
 	// client-go expects these to be set in env vars
 	os.Setenv(kubernetesServiceHostConfigKey, config.KubernetesServiceHost)
 	os.Setenv(kubernetesServicePortConfigKey, config.KubernetesServicePort)
 
-	fmt.Printf("aws-node-termination-handler arguments: \n"+
-		"\tdry-run: %t,\n"+
-		"\tnode-name: %s,\n"+
-		"\tmetadata-url: %s,\n"+
-		"\tkubernetes-service-host: %s,\n"+
-		"\tkubernetes-service-port: %s,\n"+
-		"\tdelete-local-data: %t,\n"+
-		"\tignore-daemon-sets: %t\n"+
-		"\tpod-termination-grace-period: %d\n"+
-		"\tnode-termination-grace-period: %d\n",
+	// intentionally did not log webhook configuration as there may be secrets
+	fmt.Printf(
+		"aws-node-termination-handler arguments: \n"+
+			"\tdry-run: %t,\n"+
+			"\tnode-name: %s,\n"+
+			"\tmetadata-url: %s,\n"+
+			"\tkubernetes-service-host: %s,\n"+
+			"\tkubernetes-service-port: %s,\n"+
+			"\tdelete-local-data: %t,\n"+
+			"\tignore-daemon-sets: %t\n"+
+			"\tpod-termination-grace-period: %d\n"+
+			"\tnode-termination-grace-period: %d\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,

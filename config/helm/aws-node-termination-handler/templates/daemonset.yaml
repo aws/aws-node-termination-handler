@@ -74,6 +74,12 @@ spec:
             value: {{ .Values.instanceMetadataURL | quote }}
           - name: NODE_TERMINATION_GRACE_PERIOD
             value: {{ .Values.nodeTerminationGracePeriod | quote }}
+          - name: WEBHOOK_URL
+            value: {{ .Values.webhookURL | quote }}
+          - name: WEBHOOK_HEADERS
+            value: {{ .Values.webhookHeaders | quote }}
+          - name: WEBHOOK_TEMPLATE
+            value: {{ .Values.webhookTemplate | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
