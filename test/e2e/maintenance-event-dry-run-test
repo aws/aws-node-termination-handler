@@ -1,0 +1,46 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+
+echo "Starting Maintenance Events Dry-Run Test for Node Termination Handler"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
+NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
+NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
+EC2_METADATA_DOCKER_IMG=$(cat $TMP_DIR/ec2-metadata-test-proxy-docker-img)
+EC2_METADATA_DOCKER_REPO=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f1)
+EC2_METADATA_DOCKER_TAG=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f2)
+
+helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
+  --wait \
+  --namespace kube-system \
+  --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
+  --set dryRun="true"
+
+helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
+  --wait \
+  --namespace default \
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
+
+POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1)
+
+if (timeout 30 kubectl logs $POD_ID -n kube-system -f &) | grep -m1 -i -e 'would have been cordoned and drained'; then
+    echo "✅ Verified the dryrun logs were executed"
+    sleep 10
+    if kubectl get nodes $CLUSTER_NAME-worker | tail -n1 | grep -v SchedulingDisabled; then
+          echo "✅ Verified the worker node was not cordoned!"
+          echo "✅ Scheduled Maintenance Event Dry Run Test Passed $CLUSTER_NAME! ✅"
+          exit 0
+    fi
+fi
+
+exit 1

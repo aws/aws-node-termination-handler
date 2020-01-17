@@ -19,6 +19,10 @@ ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f)
 
 function timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
 
+function relpath() {
+  perl -e 'use File::Spec; print File::Spec->abs2rel(@ARGV) . "\n"' $1 $2
+}
+
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
         $SCRIPTPATH/../k8s-local-cluster-test/delete-cluster $DELETE_CLUSTER_ARGS || :
@@ -27,6 +31,8 @@ function clean_up {
 }
 
 function exit_and_fail {
+    POD_ID=$(kubectl get pods -n kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1 )
+    kubectl logs $POD_ID --namespace kube-system
     END=$(date +%s)
     echo "⏰ Took $(expr $END - $START)sec"
     echo "❌ NTH Integration Test FAILED $CLUSTER_NAME! ❌"
@@ -34,8 +40,14 @@ function exit_and_fail {
 }
 
 function reset_cluster {
-    helm del $(helm ls --all --short) || :
-    helm del $(helm ls --all --short --namespace kube-system) --namespace kube-system|| :
+    charts=$(helm ls --all --short)
+    if [[ ! -z "$charts" ]]; then 
+        helm del $charts || :
+    fi 
+    system_charts=$(helm ls --all --short --namespace kube-system)
+    if [[ ! -z "$system_charts" ]]; then 
+        helm del $system_charts --namespace kube-system || :
+    fi
     for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do 
         kubectl uncordon $node
     done 
@@ -49,7 +61,7 @@ USAGE=$(cat << 'EOM'
   Example: run-test -p -n node-termination-handler:customtest
 
           Optional:
-            -a          Assertion script 
+            -a          Assertion script (default is ALL tests in the e2e dir) 
             -b          Base name of test (will be used for cluster too)
             -c          Cluster context directory, if operating on an existing cluster
             -p          Preserve kind k8s cluster for inspection
@@ -154,6 +166,8 @@ echo "==========================================================================
 
 export TMP_DIR
 export CLUSTER_NAME
+export -f timeout
+export -f relpath
 for assert_script in $ASSERTION_SCRIPTS; do
   reset_cluster
   echo "======================================================================================================"

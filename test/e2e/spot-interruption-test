@@ -22,24 +22,28 @@ kubectl label nodes $CLUSTER_NAME-worker lifecycle=Ec2Spot --overwrite
 kubectl label nodes $CLUSTER_NAME-worker app=spot-termination-test --overwrite
 echo "👍 Tagged worker nodes to execute integ test"
 
-### HELM STUFF
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
+  --wait \
   --namespace kube-system \
   --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
-  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" 
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
+  --set enableSpotInterruptionDraining="true" \
+  --set enableScheduledEventDraining="false"
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
+  --wait \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
-
-## END HELM
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
+  --set ec2MetadataTestProxy.enableSpotITN="true" \
+  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="false" 
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
+
 for i in `seq 1 10`; do 
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"

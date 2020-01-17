@@ -26,68 +26,28 @@ import (
 	"k8s.io/kubectl/pkg/drain"
 )
 
-var drainHelper *drain.Helper
-var node *corev1.Node
-
-//InitDrainer will ensure the drainer has all the resources necessary to complete a drain
-func InitDrainer(nthConfig config.Config) {
-	if drainHelper == nil {
-		drainHelper = getDrainHelper(nthConfig)
-	}
-	node = &corev1.Node{}
-	var err error
-	if !nthConfig.DryRun {
-		node, err = drainHelper.Client.CoreV1().Nodes().Get(nthConfig.NodeName, metav1.GetOptions{})
-		if err != nil {
-			log.Fatalf("Couldn't get node %q: %s\n", nthConfig.NodeName, err.Error())
-		}
-		log.Printf("Successufully retrieved node: %s", node.Name)
-	}
+type Drainer struct {
+	nthConfig   config.Config
+	drainHelper *drain.Helper
 }
 
-//Drain will cordon the node and evict pods based on the config
-func Drain(nthConfig config.Config) {
-	if drainHelper == nil || node == nil {
-		InitDrainer(nthConfig)
+// InitDrainer will ensure the drainer has all the resources necessary to complete a drain.
+// This function must be called before any function in the drainer package.
+func New(nthConfig config.Config) (*Drainer, error) {
+	drainHelper, err := getDrainHelper(nthConfig)
+	if err != nil {
+		log.Println("Unable to construct a drainer because a kubernetes drainHelper could not be built: ", err)
+		return &Drainer{}, err
 	}
-	var err error
-	if nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned, but dry-run flag was set", nthConfig.NodeName)
-	} else {
-		err = drain.RunCordonOrUncordon(drainHelper, node, true)
-		if err != nil {
-			log.Fatalf("Couldn't cordon node %q: %s\n", node, err.Error())
-		}
-	}
-
-	if nthConfig.DryRun {
-		log.Printf("Node %s would have been drained, but dry-run flag was set", nthConfig.NodeName)
-	} else {
-		// Delete all pods on the node
-		err = drain.RunNodeDrain(drainHelper, nthConfig.NodeName)
-		if err != nil {
-			log.Fatalln(err.Error())
-		}
-	}
+	return &Drainer{
+		nthConfig:   nthConfig,
+		drainHelper: drainHelper,
+	}, nil
 }
 
-func getDrainHelper(nthConfig config.Config) *drain.Helper {
-	var clientset = &kubernetes.Clientset{}
-	if !nthConfig.DryRun {
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			log.Fatalln("Failed to create in-cluster config: ", err.Error())
-		}
-
-		// creates the clientset
-		clientset, err = kubernetes.NewForConfig(config)
-		if err != nil {
-			log.Fatalln("Failed to create kubernetes clientset: ", err.Error())
-		}
-	}
-
-	return &drain.Helper{
-		Client:              clientset,
+func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
+	drainHelper := &drain.Helper{
+		Client:              &kubernetes.Clientset{},
 		Force:               true,
 		GracePeriodSeconds:  nthConfig.PodTerminationGracePeriod,
 		IgnoreAllDaemonSets: nthConfig.IgnoreDaemonSets,
@@ -96,4 +56,67 @@ func getDrainHelper(nthConfig config.Config) *drain.Helper {
 		Out:                 os.Stdout,
 		ErrOut:              os.Stderr,
 	}
+	if nthConfig.DryRun {
+		return drainHelper, nil
+	}
+
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		log.Println("Failed to create in-cluster config: ", err)
+		return &drain.Helper{}, err
+	}
+
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		log.Println("Failed to create kubernetes clientset: ", err)
+		return &drain.Helper{}, err
+	}
+	drainHelper.Client = clientset
+
+	return drainHelper, nil
+}
+
+// FetchNode will send an http request to the k8s api server and return the corev1 model node
+func (d Drainer) FetchNode() (*corev1.Node, error) {
+	node := &corev1.Node{}
+	if d.nthConfig.DryRun {
+		return node, nil
+	}
+	return d.drainHelper.Client.CoreV1().Nodes().Get(d.nthConfig.NodeName, metav1.GetOptions{})
+}
+
+//Drain will cordon the node and evict pods based on the config
+func (d Drainer) Drain() error {
+	if d.nthConfig.DryRun {
+		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", d.nthConfig.NodeName)
+		return nil
+	}
+	err := d.cordonNode()
+	if err != nil {
+		log.Println("There was an error in the drain process while cordoning the node: ", err)
+		return err
+	}
+	// Delete all pods on the node
+	err = drain.RunNodeDrain(d.drainHelper, d.nthConfig.NodeName)
+	if err != nil {
+		log.Println("There was an error in the drain process while evicting pods: ", err)
+		return err
+	}
+	return nil
+}
+
+// Cordon will add a NoSchedule on the node
+func (d Drainer) cordonNode() error {
+	node, err := d.FetchNode()
+	if err != nil {
+		log.Println("There was an error which fetching the kubernetes node: ", err)
+		return err
+	}
+	err = drain.RunCordonOrUncordon(d.drainHelper, node, true)
+	if err != nil {
+		log.Printf("Couldn't cordon node %q: %v\n", node, err)
+		return err
+	}
+	return nil
 }

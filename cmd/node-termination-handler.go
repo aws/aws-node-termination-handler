@@ -33,21 +33,25 @@ func main() {
 	defer signal.Stop(signalChan)
 
 	nthConfig := config.ParseCliArgs()
-	drainer.InitDrainer(nthConfig)
-	drainEventStore := draineventstore.NewStore(&nthConfig)
+	nodeDrainer, err := drainer.New(nthConfig)
+	if err != nil {
+		log.Fatalln("Unable to instantiate a drainer: ", err)
+	}
+	drainEventStore := draineventstore.New(&nthConfig)
 
-	log.Println("Kubernetes AWS Node Termination Handler has started successfully!")
 	drainChan := make(chan drainevent.DrainEvent)
 	defer close(drainChan)
-	monitoringFns := []func(chan<- drainevent.DrainEvent, config.Config){
-		draineventstore.MonitorForSpotITNEvents,
-	}
+
+	monitoringFns := []func(chan<- drainevent.DrainEvent, config.Config){}
+	monitoringFns = append(monitoringFns, draineventstore.MonitorForSpotITNEvents)
+	monitoringFns = append(monitoringFns, draineventstore.MonitorForScheduledEvents)
 	for _, fn := range monitoringFns {
 		go fn(drainChan, nthConfig)
 	}
 
 	go watchForDrainEvents(drainChan, drainEventStore, nthConfig)
 	log.Println("Started watching for drain events")
+	log.Println("Kubernetes AWS Node Termination Handler has started successfully!")
 
 	for range time.NewTicker(1 * time.Second).C {
 		select {
@@ -59,10 +63,10 @@ func main() {
 			// Exit drain loop if signal channel is closed
 			break
 		default:
-			drainIfNecessary(drainEventStore, nthConfig)
+			drainIfNecessary(drainEventStore, nodeDrainer, nthConfig)
 		}
 	}
-	log.Printf("AWS Node Termination Handler is shutting down")
+	log.Println("AWS Node Termination Handler is shutting down")
 }
 
 func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, nthConfig config.Config) {
@@ -73,13 +77,13 @@ func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore
 	}
 }
 
-func drainIfNecessary(drainEventStore *draineventstore.Store, nthConfig config.Config) {
-	if event, ok := drainEventStore.GetActiveEvent(); ok {
-		drainer.Drain(nthConfig)
+func drainIfNecessary(drainEventStore *draineventstore.Store, nodeDrainer *drainer.Drainer, nthConfig config.Config) {
+	if drainEvent, ok := drainEventStore.GetActiveEvent(); ok {
+		nodeDrainer.Drain()
 		drainEventStore.MarkAllAsDrained()
 		log.Printf("Node %q successfully drained.\n", nthConfig.NodeName)
 		if nthConfig.WebhookURL != "" {
-			webhook.Post(event, nthConfig)
+			webhook.Post(drainEvent, nthConfig)
 		}
 	}
 }
