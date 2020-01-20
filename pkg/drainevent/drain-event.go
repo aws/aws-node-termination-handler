@@ -11,8 +11,8 @@ type DrainEvent struct {
 	Description string
 	State       string
 	StartTime   time.Time
-
-	Drained bool
+	EndTime     time.Time
+	Drained     bool
 }
 
 // TimeUntilEvent returns the duration until the event start time

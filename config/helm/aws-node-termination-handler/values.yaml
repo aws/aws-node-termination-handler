@@ -27,6 +27,9 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
+## dryRun tells node-termination-handler to only log calls to kubernetes control plane
+dryRun: false
+
 # deleteLocalData tells kubectl to continue even if there are pods using
 # emptyDir (local data that will be deleted when the node is drained).
 deleteLocalData: false

@@ -16,8 +16,8 @@ type Store struct {
 	atLeastOneEvent bool
 }
 
-// NewStore Create a new drain event store
-func NewStore(nthConfig *config.Config) *Store {
+// New Creates a new drain event store
+func New(nthConfig *config.Config) *Store {
 	return &Store{
 		NthConfig:       nthConfig,
 		drainEventStore: make(map[string]*drainevent.DrainEvent),
@@ -56,6 +56,18 @@ func (s *Store) GetActiveEvent() (*drainevent.DrainEvent, bool) {
 		}
 	}
 	return &drainevent.DrainEvent{}, false
+}
+
+// ShouldDrainNode returns true if there are drainable events in the internal store
+func (s *Store) ShouldDrainNode() bool {
+	s.RLock()
+	defer s.RUnlock()
+	for _, drainEvent := range s.drainEventStore {
+		if s.shouldEventDrain(drainEvent) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Store) shouldEventDrain(drainEvent *drainevent.DrainEvent) bool {
