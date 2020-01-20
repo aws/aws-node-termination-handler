@@ -41,6 +41,8 @@ const (
 	spotInstanceActionPath           = "/latest/meta-data/spot/instance-action"
 	scheduledMaintenanceEventFlag    = "ENABLE_SCHEDULED_MAINTENANCE_EVENTS"
 	scheduledMaintenanceEventPath    = "/latest/meta-data/events/maintenance/scheduled"
+	scheduledEventStatusConfigKey    = "SCHEDULED_EVENT_STATUS"
+	scheduledEventStatusDefault      = "active"
 )
 
 var startTime int64 = time.Now().Unix()
@@ -115,7 +117,7 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 	if interruptionDelayRemaining > 0 {
 		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet, passing through to metadata", interruptionDelay, interruptionDelayRemaining)
 	} else if req.URL.Path == spotInstanceActionPath {
-		if !isPathEnabled(spotInstanceActionPath) {
+		if !isPathEnabled(spotInstanceActionFlag) {
 			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
 			return
 		}
@@ -140,7 +142,7 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Write(js)
 		return
 	} else if req.URL.Path == scheduledMaintenanceEventPath {
-		if !isPathEnabled(scheduledMaintenanceEventPath) {
+		if !isPathEnabled(scheduledMaintenanceEventFlag) {
 			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
 			return
 		}
@@ -162,7 +164,7 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 			Description: "scheduled reboot",
 			EventId:     "instance-event-0d59937288b749b32",
 			NotAfter:    timePlus4Min,
-			State:       "active",
+			State:       getEnv(scheduledEventStatusConfigKey, scheduledEventStatusDefault),
 		}
 		js, err := json.Marshal([]ScheduledEventDetail{scheduledEvent})
 		if err != nil {

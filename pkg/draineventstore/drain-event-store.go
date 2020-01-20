@@ -92,3 +92,10 @@ func (s *Store) MarkAllAsDrained() {
 		drainEvent.Drained = true
 	}
 }
+
+// ShouldUncordonNode returns true if there was a drainable event but it was cancelled and the store is now empty
+func (s *Store) ShouldUncordonNode() bool {
+	s.RLock()
+	defer s.RUnlock()
+	return s.atLeastOneEvent && len(s.drainEventStore) == 0
+}
