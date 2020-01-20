@@ -21,8 +21,34 @@ import (
 )
 
 const (
+	// SpotInstanceActionPath is the context path to spot/instance-action within IMDS
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
+	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
+	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
+	// SystemRebootCode is the string signifying a scheduled system reboot maintenance code
+	SystemRebootCode = "system-reboot"
 )
+
+// [
+//   {
+//     "NotBefore" : "21 Jan 2019 09:00:43 GMT",
+//     "Code" : "system-reboot",
+//     "Description" : "scheduled reboot",
+//     "EventId" : "instance-event-0d59937288b749b32",
+//     "NotAfter" : "21 Jan 2019 09:17:23 GMT",
+//     "State" : "active"
+//   }
+// ]
+
+// ScheduledEventDetail metadata structure for json parsing
+type ScheduledEventDetail struct {
+	NotBefore   string `json:"NotBefore"`
+	Code        string `json:"Code"`
+	Description string `json:"Description"`
+	EventID     string `json:"EventId"`
+	NotAfter    string `json:"NotAfter"`
+	State       string `json:"State"`
+}
 
 // InstanceActionDetail metadata structure for json parsing
 type InstanceActionDetail struct {

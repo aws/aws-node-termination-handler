@@ -81,6 +81,8 @@ spec:
             value: {{ .Values.webhookHeaders | quote }}
           - name: WEBHOOK_TEMPLATE
             value: {{ .Values.webhookTemplate | quote }}
+          - name: DRY_RUN
+            value: {{ .Values.dryRun | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:

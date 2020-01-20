@@ -36,9 +36,24 @@ const (
 	metadataIp                       = "http://169.254.169.254"
 	interruptionNoticeDelayConfigKey = "INTERRUPTION_NOTICE_DELAY"
 	interruptionNoticeDelayDefault   = "0"
+	scheduledActionDateFormat        = "02 Jan 2006 15:04:05 GMT"
+	spotInstanceActionFlag           = "ENABLE_SPOT_ITN"
+	spotInstanceActionPath           = "/latest/meta-data/spot/instance-action"
+	scheduledMaintenanceEventFlag    = "ENABLE_SCHEDULED_MAINTENANCE_EVENTS"
+	scheduledMaintenanceEventPath    = "/latest/meta-data/events/maintenance/scheduled"
 )
 
 var startTime int64 = time.Now().Unix()
+
+// ScheduledActionDetail metadata structure for json parsing
+type ScheduledEventDetail struct {
+	NotBefore   string `json:"NotBefore"`
+	Code        string `json:"Code"`
+	Description string `json:"Description"`
+	EventId     string `json:"EventId"`
+	NotAfter    string `json:"NotAfter"`
+	State       string `json:"State"`
+}
 
 // InstanceActionDetail metadata structure for json parsing
 type InstanceActionDetail struct {
@@ -67,6 +82,20 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+func isPathEnabled(pathFlag string) bool {
+	envVar := getEnv(pathFlag, "")
+	if envVar == "" {
+		log.Printf("Environment variable \"%s\" is not set, defaulting path to true.\n", pathFlag)
+		return true
+	}
+	enabled, err := strconv.ParseBool(envVar)
+	if err != nil {
+		log.Printf("Environment variable \"%s\" is not a valid boolean. Treating value as false\n", pathFlag)
+		return false
+	}
+	return enabled
+}
+
 // Get the port to listen on
 func getListenAddress() string {
 	port := getEnv("PORT", "1338")
@@ -85,7 +114,11 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 	interruptionDelayRemaining := int64(interruptionDelay) - (requestTime - startTime)
 	if interruptionDelayRemaining > 0 {
 		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet, passing through to metadata", interruptionDelay, interruptionDelayRemaining)
-	} else if req.URL.Path == "/latest/meta-data/spot/instance-action" {
+	} else if req.URL.Path == spotInstanceActionPath {
+		if !isPathEnabled(spotInstanceActionPath) {
+			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
+			return
+		}
 		timePlus2Min := time.Now().Local().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
 		arn := fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", region, awsAccountId, instanceId)
 		instanceAction := InstanceAction{
@@ -99,6 +132,39 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 			Resources:  []string{arn},
 			Detail:     InstanceActionDetail{instanceId, instanceAction}}
 		js, err := json.Marshal(instanceAction)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(js)
+		return
+	} else if req.URL.Path == scheduledMaintenanceEventPath {
+		if !isPathEnabled(scheduledMaintenanceEventPath) {
+			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
+			return
+		}
+		// [
+		//   {
+		//     "NotBefore" : "21 Jan 2019 09:00:43 GMT",
+		//     "Code" : "system-reboot",
+		//     "Description" : "scheduled reboot",
+		//     "EventId" : "instance-event-0d59937288b749b32",
+		//     "NotAfter" : "21 Jan 2019 09:17:23 GMT",
+		//     "State" : "active"
+		//   }
+		// ]
+		timePlus2Min := time.Now().Local().Add(time.Minute * 2).Format(scheduledActionDateFormat)
+		timePlus4Min := time.Now().Local().Add(time.Minute * 4).Format(scheduledActionDateFormat)
+		scheduledEvent := ScheduledEventDetail{
+			NotBefore:   timePlus2Min,
+			Code:        "system-reboot",
+			Description: "scheduled reboot",
+			EventId:     "instance-event-0d59937288b749b32",
+			NotAfter:    timePlus4Min,
+			State:       "active",
+		}
+		js, err := json.Marshal([]ScheduledEventDetail{scheduledEvent})
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return

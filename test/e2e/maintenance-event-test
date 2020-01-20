@@ -6,7 +6,7 @@ set -euo pipefail
 #   $CLUSTER_NAME
 #   $KUBECONFIG
 
-echo "Starting Spot Interruption Test for Node Termination Handler"
+echo "Starting Maintenance Events Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
@@ -27,17 +27,15 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --namespace kube-system \
   --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
-  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
-  --set enableSpotInterruptionDraining="true" \
-  --set enableScheduledEventDraining="false"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
-  --set ec2MetadataTestProxy.enableSpotITN="true" \
-  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="false" 
+  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
+  --set ec2MetadataTestProxy.enableSpotITN="false"
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
@@ -58,14 +56,14 @@ if [[ $DEPLOYED -eq 0 ]]; then
 fi
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
-          echo "✅ Verified the worker node was cordoned!"
-          if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
-              echo "✅ Verified the regular-pod-test pod was evicted!"
-              echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"
-              exit 0
-          fi
-      fi
+    if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+        echo "✅ Verified the worker node was cordoned!"
+        if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+            echo "✅ Verified the regular-pod-test pod was evicted!"
+            echo "✅ Scheduled Maintenance Event Handling Test Passed $CLUSTER_NAME! ✅"
+            exit 0
+        fi
+    fi
     sleep $TAINT_CHECK_SLEEP
 done
 

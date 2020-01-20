@@ -4,6 +4,8 @@ ec2MetadataTestProxy:
     interruptionNoticeDelay: 15
     port: 1338
     label: ec2-metadata-test-proxy
+    enableScheduledMaintenanceEvents: false
+    enableSpotITN: true
     image:
         repository: ec2-metadata-test-proxy
         tag: customtest

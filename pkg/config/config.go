@@ -121,9 +121,9 @@ func ParseCliArgs() Config {
 			"\tkubernetes-service-host: %s,\n"+
 			"\tkubernetes-service-port: %s,\n"+
 			"\tdelete-local-data: %t,\n"+
-			"\tignore-daemon-sets: %t\n"+
-			"\tpod-termination-grace-period: %d\n"+
-			"\tnode-termination-grace-period: %d\n",
+			"\tignore-daemon-sets: %t,\n"+
+			"\tpod-termination-grace-period: %d,\n"+
+			"\tnode-termination-grace-period: %d,\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,
@@ -132,7 +132,8 @@ func ParseCliArgs() Config {
 		config.DeleteLocalData,
 		config.IgnoreDaemonSets,
 		config.PodTerminationGracePeriod,
-		config.NodeTerminationGracePeriod)
+		config.NodeTerminationGracePeriod,
+	)
 
 	return config
 }
