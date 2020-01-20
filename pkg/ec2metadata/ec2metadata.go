@@ -89,8 +89,6 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 			time.Sleep(sleep)
 			return retry(attempts, 2*sleep, httpReq)
 		}
-
-		log.Fatalln("Error getting response from instance metadata ", err.Error())
 	}
 
 	return resp, err
