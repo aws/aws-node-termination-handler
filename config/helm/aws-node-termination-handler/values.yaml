@@ -32,10 +32,10 @@ dryRun: false
 
 # deleteLocalData tells kubectl to continue even if there are pods using
 # emptyDir (local data that will be deleted when the node is drained).
-deleteLocalData: false
+deleteLocalData: ""
 
 # ignoreDaemonSets causes kubectl to skip Daemon Set managed pods.
-ignoreDaemonSets: true
+ignoreDaemonSets: ""
 
 # gracePeriod (DEPRECATED - use podTerminationGracePeriod instead) is time in seconds given to each pod to terminate gracefully.
 # If negative, the default value specified in the pod will be used.

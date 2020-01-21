@@ -5,25 +5,18 @@ set -euo pipefail
 #   $TMP_DIR
 #   $CLUSTER_NAME
 #   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $EC2_METADATA_DOCKER_REPO
+#   $EC2_METADATA_DOCKER_TAG
 
 echo "Starting Maintenance Event Cancellation Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
-NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
-NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
-EC2_METADATA_DOCKER_IMG=$(cat $TMP_DIR/ec2-metadata-test-proxy-docker-img)
-EC2_METADATA_DOCKER_REPO=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f1)
-EC2_METADATA_DOCKER_TAG=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f2)
-
-echo "🥑 Tagging worker nodes to execute integ test"
-kubectl label nodes $CLUSTER_NAME-worker lifecycle=Ec2Spot --overwrite
-kubectl label nodes $CLUSTER_NAME-worker app=spot-termination-test --overwrite
-echo "👍 Tagged worker nodes to execute integ test"
-
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
   --wait \
+  --force \
   --namespace kube-system \
   --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
@@ -31,6 +24,7 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
+  --force \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
@@ -63,6 +57,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
             echo "✅ Verified the regular-pod-test pod was evicted!"
             CORDONED=1
+            break
         fi
     fi
     sleep $TAINT_CHECK_SLEEP
@@ -75,6 +70,7 @@ fi
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
+  --force \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
