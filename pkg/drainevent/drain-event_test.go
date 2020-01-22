@@ -11,24 +11,24 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainevent
+package drainevent_test
 
 import (
+	"testing"
 	"time"
+
+	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
+	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
-// DrainEvent gives more context of the drainable event
-type DrainEvent struct {
-	EventID     string
-	Kind        string
-	Description string
-	State       string
-	StartTime   time.Time
-	EndTime     time.Time
-	Drained     bool
-}
+func TestTimeUntilEvent(t *testing.T) {
+	startTime := time.Now().Add(time.Second * 10)
+	expected := startTime.Sub(time.Now()).Round(time.Second)
 
-// TimeUntilEvent returns the duration until the event start time
-func (e *DrainEvent) TimeUntilEvent() time.Duration {
-	return e.StartTime.Sub(time.Now())
+	event := &drainevent.DrainEvent{
+		StartTime: startTime,
+	}
+
+	result := event.TimeUntilEvent()
+	h.Equals(t, expected, result.Round(time.Second))
 }
