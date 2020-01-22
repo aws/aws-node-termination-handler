@@ -27,6 +27,8 @@ spec:
           value: {{ .Values.ec2MetadataTestProxy.port | quote }}
         - name: ENABLE_SCHEDULED_MAINTENANCE_EVENTS
           value: {{ .Values.ec2MetadataTestProxy.enableScheduledMaintenanceEvents | quote }}
+        - name: SCHEDULED_EVENT_STATUS
+          value: {{ .Values.ec2MetadataTestProxy.scheduledEventStatus | quote }}
         - name: ENABLE_SPOT_ITN
           value: {{ .Values.ec2MetadataTestProxy.enableSpotITN | quote }}
 {{- end -}}

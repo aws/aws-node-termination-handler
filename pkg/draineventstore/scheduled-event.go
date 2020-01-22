@@ -20,7 +20,7 @@ const (
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
-func MonitorForScheduledEvents(drainChan chan<- drainevent.DrainEvent, nthConfig config.Config) {
+func MonitorForScheduledEvents(drainChan chan<- drainevent.DrainEvent, cancelChan chan<- drainevent.DrainEvent, nthConfig config.Config) {
 	log.Println("Started monitoring for scheduled events")
 	for range time.Tick(time.Second * 2) {
 		drainEvents := CheckForScheduledEvents(nthConfig.MetadataURL)
@@ -30,6 +30,9 @@ func MonitorForScheduledEvents(drainChan chan<- drainevent.DrainEvent, nthConfig
 				drainChan <- drainEvent
 				// cool down for the system to respond to the drain
 				time.Sleep(120 * time.Second)
+			} else if isStateCancelledOrCompleted(drainEvent.State) {
+				log.Println("Sending cancel events to the cancel channel")
+				cancelChan <- drainEvent
 			}
 		}
 	}

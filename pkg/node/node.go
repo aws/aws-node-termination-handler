@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainer
+package node
 
 import (
 	"log"
@@ -26,20 +26,20 @@ import (
 	"k8s.io/kubectl/pkg/drain"
 )
 
-type Drainer struct {
+// Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
+type Node struct {
 	nthConfig   config.Config
 	drainHelper *drain.Helper
 }
 
-// InitDrainer will ensure the drainer has all the resources necessary to complete a drain.
-// This function must be called before any function in the drainer package.
-func New(nthConfig config.Config) (*Drainer, error) {
+// New will construct a node struct to perform various node function through the kubernetes api server
+func New(nthConfig config.Config) (*Node, error) {
 	drainHelper, err := getDrainHelper(nthConfig)
 	if err != nil {
 		log.Println("Unable to construct a drainer because a kubernetes drainHelper could not be built: ", err)
-		return &Drainer{}, err
+		return nil, err
 	}
-	return &Drainer{
+	return &Node{
 		nthConfig:   nthConfig,
 		drainHelper: drainHelper,
 	}, nil
@@ -63,14 +63,14 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
 		log.Println("Failed to create in-cluster config: ", err)
-		return &drain.Helper{}, err
+		return nil, err
 	}
 
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		log.Println("Failed to create kubernetes clientset: ", err)
-		return &drain.Helper{}, err
+		return nil, err
 	}
 	drainHelper.Client = clientset
 
@@ -78,27 +78,27 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 }
 
 // FetchNode will send an http request to the k8s api server and return the corev1 model node
-func (d Drainer) FetchNode() (*corev1.Node, error) {
+func (n Node) FetchNode() (*corev1.Node, error) {
 	node := &corev1.Node{}
-	if d.nthConfig.DryRun {
+	if n.nthConfig.DryRun {
 		return node, nil
 	}
-	return d.drainHelper.Client.CoreV1().Nodes().Get(d.nthConfig.NodeName, metav1.GetOptions{})
+	return n.drainHelper.Client.CoreV1().Nodes().Get(n.nthConfig.NodeName, metav1.GetOptions{})
 }
 
 //Drain will cordon the node and evict pods based on the config
-func (d Drainer) Drain() error {
-	if d.nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", d.nthConfig.NodeName)
+func (n Node) Drain() error {
+	if n.nthConfig.DryRun {
+		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", n.nthConfig.NodeName)
 		return nil
 	}
-	err := d.cordonNode()
+	err := n.cordonNode()
 	if err != nil {
 		log.Println("There was an error in the drain process while cordoning the node: ", err)
 		return err
 	}
 	// Delete all pods on the node
-	err = drain.RunNodeDrain(d.drainHelper, d.nthConfig.NodeName)
+	err = drain.RunNodeDrain(n.drainHelper, n.nthConfig.NodeName)
 	if err != nil {
 		log.Println("There was an error in the drain process while evicting pods: ", err)
 		return err
@@ -107,15 +107,34 @@ func (d Drainer) Drain() error {
 }
 
 // Cordon will add a NoSchedule on the node
-func (d Drainer) cordonNode() error {
-	node, err := d.FetchNode()
+func (n Node) cordonNode() error {
+	node, err := n.FetchNode()
 	if err != nil {
-		log.Println("There was an error which fetching the kubernetes node: ", err)
+		log.Println("There was an error fetching the node in preparation for cordoning: ", err)
 		return err
 	}
-	err = drain.RunCordonOrUncordon(d.drainHelper, node, true)
+	err = drain.RunCordonOrUncordon(n.drainHelper, node, true)
 	if err != nil {
 		log.Printf("Couldn't cordon node %q: %v\n", node, err)
+		return err
+	}
+	return nil
+}
+
+// UncordonNode will remove the NoSchedule on the node
+func (n Node) UncordonNode() error {
+	if n.nthConfig.DryRun {
+		log.Printf("Node %s would have been uncordoned, but dry-run flag was set", n.nthConfig.NodeName)
+		return nil
+	}
+	node, err := n.FetchNode()
+	if err != nil {
+		log.Println("There was an error fetching the node in preparation for uncordoning: ", err)
+		return err
+	}
+	err = drain.RunCordonOrUncordon(n.drainHelper, node, false)
+	if err != nil {
+		log.Printf("Couldn't uncordon node %q: %s\n", node, err)
 		return err
 	}
 	return nil
