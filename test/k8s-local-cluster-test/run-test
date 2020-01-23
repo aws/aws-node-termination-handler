@@ -164,10 +164,19 @@ echo "kubectl get pods -A"
 echo "======================================================================================================"
 
 
+### exported vars and funcs that tests can use
 export TMP_DIR
 export CLUSTER_NAME
 export -f timeout
 export -f relpath
+export NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
+export NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
+export NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
+export EC2_METADATA_DOCKER_IMG=$(cat $TMP_DIR/ec2-metadata-test-proxy-docker-img)
+export EC2_METADATA_DOCKER_REPO=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f1)
+export EC2_METADATA_DOCKER_TAG=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f2)
+###
+
 for assert_script in $ASSERTION_SCRIPTS; do
   reset_cluster
   echo "======================================================================================================"

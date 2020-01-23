@@ -118,7 +118,14 @@ else
 fi
 
 echoerr "🥑 Creating k8s cluster using \"kind\""
-kind create cluster -q --name "$CLUSTER_NAME" --image $K8_VERSION --config "$SCRIPTPATH/kind-two-node-cluster.yaml" --wait "$CLUSTER_CREATION_TIMEOUT_IN_SEC"s --kubeconfig $TMP_DIR/kubeconfig 1>&2
+for i in $(seq 0 5); do
+  if [[ -z $(kind get clusters | grep $CLUSTER_NAME) ]]; then
+      kind create cluster -q --name "$CLUSTER_NAME" --image $K8_VERSION --config "$SCRIPTPATH/kind-two-node-cluster.yaml" --wait "$CLUSTER_CREATION_TIMEOUT_IN_SEC"s --kubeconfig $TMP_DIR/kubeconfig 1>&2 || :
+  else
+      break
+  fi
+done
+
 echo "$CLUSTER_NAME" > $TMP_DIR/clustername
 echoerr "👍 Created k8s cluster using \"kind\""
 
