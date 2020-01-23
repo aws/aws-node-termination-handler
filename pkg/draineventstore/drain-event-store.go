@@ -1,3 +1,16 @@
+// Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//     http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License
+
 package draineventstore
 
 import (
@@ -33,7 +46,6 @@ func (s *Store) CancelDrainEvent(eventID string) {
 
 // AddDrainEvent adds a drain event to the internal store
 func (s *Store) AddDrainEvent(drainEvent *drainevent.DrainEvent) {
-	s.atLeastOneEvent = true
 	s.RLock()
 	_, ok := s.drainEventStore[drainEvent.EventID]
 	s.RUnlock()
@@ -43,6 +55,7 @@ func (s *Store) AddDrainEvent(drainEvent *drainevent.DrainEvent) {
 	s.Lock()
 	defer s.Unlock()
 	s.drainEventStore[drainEvent.EventID] = drainEvent
+	s.atLeastOneEvent = true
 	return
 }
 
