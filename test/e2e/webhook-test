@@ -15,7 +15,7 @@ echo "Starting Webhook Test for Node Termination Handler"
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 ### LOCAL ONLY TESTS FOR 200 RESPONSE FROM LOCAL CLUSTER, MASTER WILL TEST WITH TRAVIS SECRET URL
-if [[ $(env | grep "WEBHOOK_URL=" | wc -l) ]]; then
+if [[ -z $(env | grep "WEBHOOK_URL=") ]]; then
   WEBHOOK_URL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338"
 fi
 
