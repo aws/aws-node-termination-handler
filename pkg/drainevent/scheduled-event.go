@@ -1,4 +1,4 @@
-package draineventstore
+package drainevent
 
 import (
 	"encoding/json"
@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
-func MonitorForScheduledEvents(drainChan chan<- drainevent.DrainEvent, cancelChan chan<- drainevent.DrainEvent, nthConfig config.Config) {
+func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, nthConfig config.Config) {
 	log.Println("Started monitoring for scheduled events")
 	for range time.Tick(time.Second * 2) {
 		drainEvents := CheckForScheduledEvents(nthConfig.MetadataURL)
@@ -39,8 +39,8 @@ func MonitorForScheduledEvents(drainChan chan<- drainevent.DrainEvent, cancelCha
 }
 
 // CheckForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
-func CheckForScheduledEvents(metadataURL string) []drainevent.DrainEvent {
-	events := make([]drainevent.DrainEvent, 0)
+func CheckForScheduledEvents(metadataURL string) []DrainEvent {
+	events := make([]DrainEvent, 0)
 	resp, err := ec2metadata.RequestMetadata(metadataURL, ec2metadata.ScheduledEventPath)
 	if err != nil {
 		log.Fatalf("Unable to parse metadata response: %s", err.Error())
@@ -53,16 +53,38 @@ func CheckForScheduledEvents(metadataURL string) []drainevent.DrainEvent {
 	var scheduledEvents []ec2metadata.ScheduledEventDetail
 	json.NewDecoder(resp.Body).Decode(&scheduledEvents)
 	for _, scheduledEvent := range scheduledEvents {
-		events = append(events, drainevent.DrainEvent{
-			EventID:     scheduledEvent.EventID,
-			Kind:        ScheduledEventKind,
-			Description: fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
-			State:       scheduledEvent.State,
-			StartTime:   parseScheduledEventTime(scheduledEvent.NotBefore),
-			EndTime:     parseScheduledEventTime(scheduledEvent.NotAfter),
+		var preDrainFunc preDrainTask = nil
+		if scheduledEvent.Code == ec2metadata.SystemRebootCode {
+			preDrainFunc = uncordonAfterRebootPreDrain
+		}
+		events = append(events, DrainEvent{
+			EventID:      scheduledEvent.EventID,
+			Kind:         ScheduledEventKind,
+			Description:  fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
+			State:        scheduledEvent.State,
+			StartTime:    parseScheduledEventTime(scheduledEvent.NotBefore),
+			EndTime:      parseScheduledEventTime(scheduledEvent.NotAfter),
+			PreDrainTask: preDrainFunc,
 		})
 	}
 	return events
+}
+
+func uncordonAfterRebootPreDrain(node *node.Node) error {
+	// if the node is already maked as unschedulable, then don't do anything
+	unschedulable, err := node.IsUnschedulable()
+	if err == nil && unschedulable {
+		log.Println("Node is already marked unschedulable, not taking any action to add uncordon label.")
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("Encountered an error while checking if the node is unschedulable. Not setting an uncordon label: %w", err)
+	}
+	err = node.MarkForUncordonAfterReboot()
+	if err != nil {
+		return fmt.Errorf("Unable to mark the node for uncordon: %w", err)
+	}
+	log.Println("Successfully applied uncordon after reboot action label to node.")
+	return nil
 }
 
 func isStateCancelledOrCompleted(state string) bool {
