@@ -90,6 +90,10 @@ spec:
             value: {{ .Values.webhookTemplate | quote }}
           - name: DRY_RUN
             value: {{ .Values.dryRun | quote }}
+          - name: ENABLE_SPOT_INTERRUPTION_DRAINING
+            value: {{ .Values.enableSpotInterruptionDraining | quote }}
+          - name: ENABLE_SCHEDULED_EVENT_DRAINING
+            value: {{ .Values.enableScheduledEventDraining | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:

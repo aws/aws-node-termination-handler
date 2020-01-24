@@ -43,10 +43,14 @@ func main() {
 	if err != nil {
 		log.Fatalln("Unable to instantiate a node for various kubernetes node functions: ", err)
 	}
-	err = node.UncordonIfLabeled()
-	if err != nil {
-		log.Println("Unable to complete node label actions: ", err)
+
+	if nthConfig.EnableScheduledEventDraining {
+		err = node.UncordonIfLabeled()
+		if err != nil {
+			log.Println("Unable to complete node label actions: ", err)
+		}
 	}
+
 	drainEventStore := draineventstore.New(&nthConfig)
 
 	drainChan := make(chan drainevent.DrainEvent)
@@ -54,10 +58,14 @@ func main() {
 	cancelChan := make(chan drainevent.DrainEvent)
 	defer close(cancelChan)
 
-	monitoringFns := []monitorFunc{
-		drainevent.MonitorForSpotITNEvents,
-		drainevent.MonitorForScheduledEvents,
+	monitoringFns := []monitorFunc{}
+	if nthConfig.EnableSpotInterruptionDraining {
+		monitoringFns = append(monitoringFns, drainevent.MonitorForSpotITNEvents)
 	}
+	if nthConfig.EnableScheduledEventDraining {
+		monitoringFns = append(monitoringFns, drainevent.MonitorForScheduledEvents)
+	}
+
 	for _, fn := range monitoringFns {
 		go fn(drainChan, cancelChan, nthConfig)
 	}
