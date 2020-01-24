@@ -16,6 +16,7 @@ package webhook
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"text/template"
@@ -74,4 +75,22 @@ func Post(event *drainevent.DrainEvent, nthconfig config.Config) {
 	}
 
 	log.Println("Webhook Success: Notification Sent!")
+}
+
+// ValidateWebhookConfig will check if the template provided in nthConfig with parse and execute
+func ValidateWebhookConfig(nthConfig config.Config) error {
+	if nthConfig.WebhookURL == "" {
+		return nil
+	}
+	webhookTemplate, err := template.New("message").Parse(nthConfig.WebhookTemplate)
+	if err != nil {
+		return fmt.Errorf("Unable to parse webhook template: %w", err)
+	}
+
+	var byteBuffer bytes.Buffer
+	err = webhookTemplate.Execute(&byteBuffer, &drainevent.DrainEvent{})
+	if err != nil {
+		return fmt.Errorf("Unable to execute webhook template: %w", err)
+	}
+	return nil
 }

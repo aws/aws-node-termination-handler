@@ -14,16 +14,31 @@
 package node
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/drain"
+)
+
+const (
+	// UncordonAfterRebootLabelVal is a k8s label value that can added to an action label to uncordon a node
+	UncordonAfterRebootLabelVal = "UncordonAfterReboot"
+	// ActionLabelKey is a k8s label key that can be added to the k8s node NTH is running on
+	ActionLabelKey = "aws-node-termination-handler/action"
+	// ActionLabelTimeKey is a k8s label key whose value is the secs since the epoch when an action label is added
+	ActionLabelTimeKey = "aws-node-termination-handler/action-time"
 )
 
 // Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
@@ -36,13 +51,201 @@ type Node struct {
 func New(nthConfig config.Config) (*Node, error) {
 	drainHelper, err := getDrainHelper(nthConfig)
 	if err != nil {
-		log.Println("Unable to construct a drainer because a kubernetes drainHelper could not be built: ", err)
 		return nil, err
 	}
 	return &Node{
 		nthConfig:   nthConfig,
 		drainHelper: drainHelper,
 	}, nil
+}
+
+//Drain will cordon the node and evict pods based on the config
+func (n Node) Drain() error {
+	if n.nthConfig.DryRun {
+		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", n.nthConfig.NodeName)
+		return nil
+	}
+	err := n.cordonNode()
+	if err != nil {
+		return err
+	}
+	// Delete all pods on the node
+	err = drain.RunNodeDrain(n.drainHelper, n.nthConfig.NodeName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Cordon will add a NoSchedule on the node
+func (n Node) cordonNode() error {
+	node, err := n.fetchKubernetesNode()
+	if err != nil {
+		return err
+	}
+	err = drain.RunCordonOrUncordon(n.drainHelper, node, true)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Uncordon will remove the NoSchedule on the node
+func (n Node) Uncordon() error {
+	if n.nthConfig.DryRun {
+		log.Printf("Node %s would have been uncordoned, but dry-run flag was set", n.nthConfig.NodeName)
+		return nil
+	}
+	node, err := n.fetchKubernetesNode()
+	if err != nil {
+		return fmt.Errorf("There was an error fetching the node in preparation for uncordoning: %w", err)
+	}
+	err = drain.RunCordonOrUncordon(n.drainHelper, node, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// IsUnschedulable checks if the node is marked as unschedulable
+func (n Node) IsUnschedulable() (bool, error) {
+	if n.nthConfig.DryRun {
+		log.Println("IsUnschedulable returning false since dry-run is set")
+		return false, nil
+	}
+	node, err := n.fetchKubernetesNode()
+	if err != nil {
+		return true, err
+	}
+	return node.Spec.Unschedulable, nil
+}
+
+// MarkForUncordonAfterReboot adds labels to the kubernetes node which NTH will read upon reboot
+func (n Node) MarkForUncordonAfterReboot() error {
+	// adds label to node so that the system will uncordon the node after the scheduled reboot has taken place
+	err := n.addLabel(ActionLabelKey, UncordonAfterRebootLabelVal)
+	if err != nil {
+		return fmt.Errorf("Unable to label node with action to uncordon after system-reboot: %w", err)
+	}
+	// adds label with the current time which is checked against the uptime of the node when processing labels on startup
+	err = n.addLabel(ActionLabelTimeKey, strconv.FormatInt(time.Now().Unix(), 10))
+	if err != nil {
+		// if time can't be recorded, rollback the action label
+		n.removeLabel(ActionLabelKey)
+		return fmt.Errorf("Unable to label node with action time for uncordon after system-reboot: %w", err)
+	}
+	return nil
+}
+
+// addLabel will add a label to the node given a label key and value
+func (n Node) addLabel(key string, value string) error {
+	type metadata struct {
+		Labels map[string]string `json:"labels"`
+	}
+	type patch struct {
+		Metadata metadata `json:"metadata"`
+	}
+	labels := make(map[string]string)
+	labels[key] = value
+	payload := patch{
+		Metadata: metadata{
+			Labels: labels,
+		},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("An error occured while marshalling the json to add a label to the node: %w", err)
+	}
+	if n.nthConfig.DryRun {
+		log.Printf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, n.nthConfig.NodeName)
+		return nil
+	}
+	node, err := n.fetchKubernetesNode()
+	if err != nil {
+		return err
+	}
+	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, payloadBytes)
+	if err != nil {
+		return fmt.Errorf("%v node Patch failed when adding a label to the node: %w", node.Name, err)
+	}
+	return nil
+}
+
+// removeLabel will remove a node label given a label key
+func (n Node) removeLabel(key string) error {
+	type patchRequest struct {
+		Op   string `json:"op"`
+		Path string `json:"path"`
+	}
+
+	var patchReqs []interface{}
+	patchRemove := patchRequest{
+		Op:   "remove",
+		Path: fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(key)),
+	}
+	payload, err := json.Marshal(append(patchReqs, patchRemove))
+	if err != nil {
+		return fmt.Errorf("An error occured while marshalling the json to remove a label from the node: %w", err)
+	}
+	if n.nthConfig.DryRun {
+		log.Printf("Would have removed label with key %s from node %s, but dry-run flag was set", key, n.nthConfig.NodeName)
+		return nil
+	}
+	node, err := n.fetchKubernetesNode()
+	if err != nil {
+		return err
+	}
+	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, payload)
+	if err != nil {
+		return fmt.Errorf("%v node Patch failed when removing a label from the node: %w", node.Name, err)
+	}
+	return nil
+}
+
+// UncordonIfLabeled will check for node labels to trigger an uncordon because of a system-reboot scheduled event
+func (n Node) UncordonIfLabeled() error {
+	k8sNode, err := n.fetchKubernetesNode()
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+	timeVal, ok := k8sNode.Labels[ActionLabelTimeKey]
+	if !ok {
+		log.Printf("There was no %s label found requiring action label handling\n", ActionLabelTimeKey)
+		return nil
+	}
+	timeValNum, err := strconv.ParseInt(timeVal, 10, 64)
+	if err != nil {
+		return fmt.Errorf("Cannot convert unix time: %w", err)
+	}
+	secondsSinceLabel := time.Now().Unix() - timeValNum
+	switch actionVal := k8sNode.Labels[ActionLabelKey]; actionVal {
+	case UncordonAfterRebootLabelVal:
+		uptime, err := getSystemUptime()
+		if err != nil {
+			return err
+		}
+		if secondsSinceLabel < int64(uptime) {
+			log.Println("The system has not restarted yet.")
+			return nil
+		}
+		err = n.Uncordon()
+		if err != nil {
+			return fmt.Errorf("Unable to uncordon node: %w", err)
+		}
+		log.Printf("Successfully completed action %s.\n", UncordonAfterRebootLabelVal)
+	default:
+		log.Println("There are no label actions to handle.")
+	}
+	return nil
+}
+
+// fetchKubernetesNode will send an http request to the k8s api server and return the corev1 model node
+func (n Node) fetchKubernetesNode() (*corev1.Node, error) {
+	node := &corev1.Node{}
+	if n.nthConfig.DryRun {
+		return node, nil
+	}
+	return n.drainHelper.Client.CoreV1().Nodes().Get(n.nthConfig.NodeName, metav1.GetOptions{})
 }
 
 func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
@@ -62,14 +265,12 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Println("Failed to create in-cluster config: ", err)
 		return nil, err
 	}
 
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		log.Println("Failed to create kubernetes clientset: ", err)
 		return nil, err
 	}
 	drainHelper.Client = clientset
@@ -77,65 +278,20 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 	return drainHelper, nil
 }
 
-// FetchNode will send an http request to the k8s api server and return the corev1 model node
-func (n Node) FetchNode() (*corev1.Node, error) {
-	node := &corev1.Node{}
-	if n.nthConfig.DryRun {
-		return node, nil
+func getSystemUptime() (float64, error) {
+	data, err := ioutil.ReadFile("/proc/uptime")
+	if err != nil {
+		return 0, fmt.Errorf("Not able to read /proc/uptime: %w", err)
 	}
-	return n.drainHelper.Client.CoreV1().Nodes().Get(n.nthConfig.NodeName, metav1.GetOptions{})
+
+	uptime, err := strconv.ParseFloat(strings.Split(string(data), " ")[0], 64)
+	if err != nil {
+		return 0, fmt.Errorf("Not able to parse /proc/uptime to Float64: %w", err)
+	}
+	return uptime, nil
 }
 
-//Drain will cordon the node and evict pods based on the config
-func (n Node) Drain() error {
-	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", n.nthConfig.NodeName)
-		return nil
-	}
-	err := n.cordonNode()
-	if err != nil {
-		log.Println("There was an error in the drain process while cordoning the node: ", err)
-		return err
-	}
-	// Delete all pods on the node
-	err = drain.RunNodeDrain(n.drainHelper, n.nthConfig.NodeName)
-	if err != nil {
-		log.Println("There was an error in the drain process while evicting pods: ", err)
-		return err
-	}
-	return nil
-}
-
-// Cordon will add a NoSchedule on the node
-func (n Node) cordonNode() error {
-	node, err := n.FetchNode()
-	if err != nil {
-		log.Println("There was an error fetching the node in preparation for cordoning: ", err)
-		return err
-	}
-	err = drain.RunCordonOrUncordon(n.drainHelper, node, true)
-	if err != nil {
-		log.Printf("Couldn't cordon node %q: %v\n", node, err)
-		return err
-	}
-	return nil
-}
-
-// UncordonNode will remove the NoSchedule on the node
-func (n Node) UncordonNode() error {
-	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been uncordoned, but dry-run flag was set", n.nthConfig.NodeName)
-		return nil
-	}
-	node, err := n.FetchNode()
-	if err != nil {
-		log.Println("There was an error fetching the node in preparation for uncordoning: ", err)
-		return err
-	}
-	err = drain.RunCordonOrUncordon(n.drainHelper, node, false)
-	if err != nil {
-		log.Printf("Couldn't uncordon node %q: %s\n", node, err)
-		return err
-	}
-	return nil
+func jsonPatchEscape(value string) string {
+	value = strings.Replace(value, "~", "~0", -1)
+	return strings.Replace(value, "/", "~1", -1)
 }

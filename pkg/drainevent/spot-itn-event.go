@@ -1,4 +1,4 @@
-package draineventstore
+package drainevent
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 )
 
@@ -17,10 +16,14 @@ const (
 )
 
 // MonitorForSpotITNEvents continuously monitors metadata for spot ITNs and sends drain events to the passed in channel
-func MonitorForSpotITNEvents(drainChan chan<- drainevent.DrainEvent, cancelChan chan<- drainevent.DrainEvent, nthConfig config.Config) {
+func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, nthConfig config.Config) {
 	log.Println("Started monitoring for spot ITN events")
 	for range time.Tick(time.Second * 2) {
-		drainEvent := checkForSpotInterruptionNotice(nthConfig.MetadataURL)
+		drainEvent, err := checkForSpotInterruptionNotice(nthConfig.MetadataURL)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 		if drainEvent.Kind == SpotITNKind {
 			log.Println("Sending drain event to the drain channel")
 			drainChan <- *drainEvent
@@ -31,26 +34,25 @@ func MonitorForSpotITNEvents(drainChan chan<- drainevent.DrainEvent, cancelChan 
 }
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func checkForSpotInterruptionNotice(metadataURL string) *drainevent.DrainEvent {
+func checkForSpotInterruptionNotice(metadataURL string) (*DrainEvent, error) {
 	resp, err := ec2metadata.RequestMetadata(metadataURL, ec2metadata.SpotInstanceActionPath)
 	if err != nil {
-		log.Fatalf("Unable to parse metadata response: %s", err.Error())
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		log.Println("Received an http error code when querying for spot itn events.")
-		return &drainevent.DrainEvent{}
+		return nil, fmt.Errorf("Received an http error code when querying for spot itn events: %w", err)
 	}
 	var instanceAction ec2metadata.InstanceAction
 	json.NewDecoder(resp.Body).Decode(&instanceAction)
 	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
 	if err != nil {
-		log.Fatalln("Could not parse time from spot interruption notice metadata json", err.Error())
+		return nil, fmt.Errorf("Could not parse time from spot interruption notice metadata json: %w", err)
 	}
-	return &drainevent.DrainEvent{
+	return &DrainEvent{
 		EventID:     instanceAction.Id,
 		Kind:        SpotITNKind,
 		StartTime:   interruptionTime,
 		Description: fmt.Sprintf("Spot ITN received. %s will be %s at %s \n", instanceAction.Detail.InstanceId, instanceAction.Detail.InstanceAction, instanceAction.Time),
-	}
+	}, nil
 }

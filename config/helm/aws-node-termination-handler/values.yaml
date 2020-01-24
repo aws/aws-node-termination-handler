@@ -57,6 +57,9 @@ webhookTemplate: ""
 # instanceMetadataURL is used to override the default metadata URL (default: http://169.254.169.254:80)
 instanceMetadataURL: ""
 
+# (TESTING USE): Mount path for uptime file
+procUptimeFile: "/proc/uptime"
+
 # nodeSelector tells the daemonset where to place the node-termination-handler
 # pods. By default, this value is empty and every node will receive a pod.
 nodeSelector: {}

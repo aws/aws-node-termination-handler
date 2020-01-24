@@ -15,17 +15,22 @@ package drainevent
 
 import (
 	"time"
+
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
+
+type preDrainTask func(*node.Node) error
 
 // DrainEvent gives more context of the drainable event
 type DrainEvent struct {
-	EventID     string
-	Kind        string
-	Description string
-	State       string
-	StartTime   time.Time
-	EndTime     time.Time
-	Drained     bool
+	EventID      string
+	Kind         string
+	Description  string
+	State        string
+	StartTime    time.Time
+	EndTime      time.Time
+	Drained      bool
+	PreDrainTask preDrainTask `json:"-"`
 }
 
 // TimeUntilEvent returns the duration until the event start time

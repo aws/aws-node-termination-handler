@@ -14,15 +14,11 @@
 package config
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
-	"text/template"
-
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 )
 
 const (
@@ -93,19 +89,6 @@ func ParseCliArgs() Config {
 
 	if config.NodeName == "" {
 		log.Fatalln("You must provide a node-name to the CLI or NODE_NAME environment variable.")
-	}
-	// fail fast if webhook template will not work
-	if config.WebhookURL != "" {
-		webhookTemplate, err := template.New("message").Parse(config.WebhookTemplate)
-		if err != nil {
-			log.Fatalf("Unable to parse webhook template - %s\n", err)
-		}
-
-		var byteBuffer bytes.Buffer
-		err = webhookTemplate.Execute(&byteBuffer, &drainevent.DrainEvent{})
-		if err != nil {
-			log.Fatalf("Unable to execute webhook template - %s\n", err)
-		}
 	}
 
 	// client-go expects these to be set in env vars

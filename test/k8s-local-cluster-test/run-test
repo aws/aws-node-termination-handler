@@ -186,8 +186,8 @@ for assert_script in $ASSERTION_SCRIPTS; do
   $assert_script
   assert_end=$(date +%s)
   echo "⏰ Took $(expr $assert_end - $assert_start)sec"
-  POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1 )
-  kubectl logs $POD_ID --namespace kube-system
+  POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-handler | grep -i -e Running -e CrashLoop | cut -d' ' -f1 || :)
+  kubectl logs $POD_ID --namespace kube-system || :
   ## Resets cluster to run another test on the same cluster
   reset_cluster
   echo "✅ Assertion test $assert_script PASSED! ✅"
