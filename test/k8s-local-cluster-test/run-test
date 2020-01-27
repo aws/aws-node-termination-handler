@@ -69,7 +69,7 @@ USAGE=$(cat << 'EOM'
             -e          EC2 Metadata Docker Image 
             -d          use GOPROXY=direct to bypass proxy.golang.org
             -o          Override path w/ your own kubectl and kind binaries
-            -v          Kubernetes Version (Default: 1.16) [1.11, 1.12, 1.13, 1.14, 1.15, and 1.16]
+            -v          Kubernetes Version (Default: 1.16) [1.11, 1.12, 1.13, 1.14, 1.15, 1.16, and 1.17]
             
 EOM
 )
