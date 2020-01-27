@@ -20,54 +20,62 @@ const (
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
-func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, nthConfig config.Config) {
-	log.Println("Started monitoring for scheduled events")
-	for range time.Tick(time.Second * 2) {
-		drainEvents := CheckForScheduledEvents(nthConfig.MetadataURL)
-		for _, drainEvent := range drainEvents {
-			if !isStateCancelledOrCompleted(drainEvent.State) {
-				log.Println("Sending drain events to the drain channel")
-				drainChan <- drainEvent
-				// cool down for the system to respond to the drain
-				time.Sleep(120 * time.Second)
-			} else if isStateCancelledOrCompleted(drainEvent.State) {
-				log.Println("Sending cancel events to the cancel channel")
-				cancelChan <- drainEvent
-			}
+func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, nthConfig config.Config) error {
+	drainEvents, err := checkForScheduledEvents(nthConfig.MetadataURL)
+	if err != nil {
+		return err
+	}
+	for _, drainEvent := range drainEvents {
+		if isStateCancelledOrCompleted(drainEvent.State) {
+			log.Println("Sending cancel events to the cancel channel")
+			cancelChan <- drainEvent
+		} else {
+			log.Println("Sending drain events to the drain channel")
+			drainChan <- drainEvent
+			// cool down for the system to respond to the drain
+			time.Sleep(120 * time.Second)
 		}
 	}
+	return nil
 }
 
-// CheckForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
-func CheckForScheduledEvents(metadataURL string) []DrainEvent {
-	events := make([]DrainEvent, 0)
+// checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
+func checkForScheduledEvents(metadataURL string) ([]DrainEvent, error) {
 	resp, err := ec2metadata.RequestMetadata(metadataURL, ec2metadata.ScheduledEventPath)
 	if err != nil {
-		log.Fatalf("Unable to parse metadata response: %s", err.Error())
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		log.Println("Received an http error code when querying for scheduled events.")
-		return events
+		return nil, fmt.Errorf("HTTP error code %d received when monitoring for scheduled maintenance events", resp.StatusCode)
 	}
 	var scheduledEvents []ec2metadata.ScheduledEventDetail
 	json.NewDecoder(resp.Body).Decode(&scheduledEvents)
+	events := make([]DrainEvent, 0)
 	for _, scheduledEvent := range scheduledEvents {
 		var preDrainFunc preDrainTask = nil
 		if scheduledEvent.Code == ec2metadata.SystemRebootCode {
 			preDrainFunc = uncordonAfterRebootPreDrain
+		}
+		notBefore, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotBefore)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parsed scheduled event start time: %w", err)
+		}
+		notAfter, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotAfter)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parsed scheduled event end time: %w", err)
 		}
 		events = append(events, DrainEvent{
 			EventID:      scheduledEvent.EventID,
 			Kind:         ScheduledEventKind,
 			Description:  fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
 			State:        scheduledEvent.State,
-			StartTime:    parseScheduledEventTime(scheduledEvent.NotBefore),
-			EndTime:      parseScheduledEventTime(scheduledEvent.NotAfter),
+			StartTime:    notBefore,
+			EndTime:      notAfter,
 			PreDrainTask: preDrainFunc,
 		})
 	}
-	return events
+	return events, nil
 }
 
 func uncordonAfterRebootPreDrain(node *node.Node) error {
@@ -90,12 +98,4 @@ func uncordonAfterRebootPreDrain(node *node.Node) error {
 func isStateCancelledOrCompleted(state string) bool {
 	return state == scheduledEventStateCancelled ||
 		state == scheduledEventStateCompleted
-}
-
-func parseScheduledEventTime(inputTime string) time.Time {
-	scheduledTime, err := time.Parse(scheduledEventDateFormat, inputTime)
-	if err != nil {
-		log.Fatalln("Could not parse time from scheduled event metadata json", err.Error())
-	}
-	return scheduledTime
 }
