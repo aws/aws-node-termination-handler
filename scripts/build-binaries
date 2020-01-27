@@ -3,15 +3,24 @@ set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-VERSION=$(make -f $SCRIPTPATH/../Makefile version)
+MAKEFILEPATH=$SCRIPTPATH/../Makefile
+VERSION=$(make -s -f $MAKEFILEPATH version)
 mkdir -p $SCRIPTPATH/../build/bin
 
-for os_arch in "linux-amd64" "linux-arm" "linux-arm64"; do
+if [[ -z $(env | grep "NTH_OS_ARCH=") ]]; then
+    NTH_OS_ARCH=("linux-amd64" "linux-arm" "linux-arm64")
+fi
+
+for os_arch in "${NTH_OS_ARCH[@]}"; do
     os=$(echo $os_arch | cut -d'-' -f1)
     arch=$(echo $os_arch | cut -d'-' -f2)
 
-    docker container rm extract-nth-$os-$arch || :
-    GOOS="$os" GOARCH="$arch" GOPROXY="direct" IMG=nth-$os-$arch make docker-build 
-    docker container create --rm --name extract-nth-$os-$arch nth-$os-$arch:$VERSION
-    docker container cp extract-nth-$os-$arch:/node-termination-handler $SCRIPTPATH/../build/bin/node-termination-handler-$os-$arch 
+    container_name="extract-nth-$os-$arch"
+    img_name="nth-$os-$arch"
+    bin_name="node-termination-handler-$os-$arch"
+
+    docker container rm $container_name || :
+    GOOS="$os" GOARCH="$arch" GOPROXY="direct" IMG=$img_name make -s -f $MAKEFILEPATH docker-build 
+    docker container create --rm --name $container_name "$img_name:$VERSION"
+    docker container cp $container_name:/node-termination-handler $SCRIPTPATH/../build/bin/$bin_name
 done

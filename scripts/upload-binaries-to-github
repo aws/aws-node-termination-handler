@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-VERSION=$(make -f $SCRIPTPATH/../Makefile version)
+VERSION=$(make -s -f $SCRIPTPATH/../Makefile version)
 RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
     https://api.github.com/repos/aws/aws-node-termination-handler/releases | \
     jq --arg VERSION "$VERSION" '.[] | select(.tag_name==$VERSION) | .id')
