@@ -14,6 +14,8 @@
 package config
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -23,70 +25,151 @@ import (
 
 const (
 	// EC2 Instance Metadata is configurable mainly for testing purposes
-	instanceMetadataURLConfigKey            = "INSTANCE_METADATA_URL"
 	defaultInstanceMetadataURL              = "http://169.254.169.254"
+	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
 	dryRunConfigKey                         = "DRY_RUN"
-	nodeNameConfigKey                       = "NODE_NAME"
+	enableScheduledEventDrainingConfigKey   = "ENABLE_SCHEDULED_EVENT_DRAINING"
+	enableScheduledEventDrainingDefault     = false
+	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
+	enableSpotInterruptionDrainingDefault   = true
+	gracePeriodConfigKey                    = "GRACE_PERIOD"
+	ignoreDaemonSetsConfigKey               = "IGNORE_DAEMON_SETS"
+	instanceMetadataURLConfigKey            = "INSTANCE_METADATA_URL"
 	kubernetesServiceHostConfigKey          = "KUBERNETES_SERVICE_HOST"
 	kubernetesServicePortConfigKey          = "KUBERNETES_SERVICE_PORT"
-	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
-	ignoreDaemonSetsConfigKey               = "IGNORE_DAEMON_SETS"
-	gracePeriodConfigKey                    = "GRACE_PERIOD"
-	podTerminationGracePeriodConfigKey      = "POD_TERMINATION_GRACE_PERIOD"
-	podTerminationGracePeriodDefault        = -1
+	nodeNameConfigKey                       = "NODE_NAME"
 	nodeTerminationGracePeriodConfigKey     = "NODE_TERMINATION_GRACE_PERIOD"
 	nodeTerminationGracePeriodDefault       = 120
+	podTerminationGracePeriodConfigKey      = "POD_TERMINATION_GRACE_PERIOD"
+	podTerminationGracePeriodDefault        = -1
 	webhookURLConfigKey                     = "WEBHOOK_URL"
 	webhookURLDefault                       = ""
 	webhookHeadersConfigKey                 = "WEBHOOK_HEADERS"
 	webhookHeadersDefault                   = `{"Content-type":"application/json"}`
 	webhookTemplateConfigKey                = "WEBHOOK_TEMPLATE"
 	webhookTemplateDefault                  = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
-	enableScheduledEventDrainingConfigKey   = "ENABLE_SCHEDULED_EVENT_DRAINING"
-	enableScheduledEventDrainingDefault     = false
-	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
-	enableSpotInterruptionDrainingDefault   = true
 )
 
 //Config arguments set via CLI, environment variables, or defaults
 type Config struct {
-	DryRun                         bool
-	NodeName                       string
-	MetadataURL                    string
-	IgnoreDaemonSets               bool
-	DeleteLocalData                bool
-	KubernetesServiceHost          string
-	KubernetesServicePort          string
-	PodTerminationGracePeriod      int
-	NodeTerminationGracePeriod     int
-	WebhookURL                     string
-	WebhookHeaders                 string
-	WebhookTemplate                string
-	EnableScheduledEventDraining   bool
-	EnableSpotInterruptionDraining bool
+	DeleteLocalData                bool   `json:"delete-local-data"`
+	DryRun                         bool   `json:"dry-run"`
+	EnableScheduledEventDraining   bool   `json:"enable-scheduled-event-draining"`
+	EnableSpotInterruptionDraining bool   `json:"enable-spot-interruption-draining"`
+	IgnoreDaemonSets               bool   `json:"ignore-daemon-sets"`
+	KubernetesServiceHost          string `json:"kubernetes-service-host"`
+	KubernetesServicePort          string `json:"kubernetes-service-port"`
+	MetadataURL                    string `json:"metadata-url"`
+	NodeName                       string `json:"node-name"`
+	NodeTerminationGracePeriod     int    `json:"node-termination-grace-period"`
+	PodTerminationGracePeriod      int    `json:"pod-termination-grace-period"`
+	WebhookURL                     string `json:"webhook-url"`
+	WebhookHeaders                 string `json:"webhook-headers"`
+	WebhookTemplate                string `json:"webhook-template"`
+}
+
+var flagData = map[string]map[string]interface{}{
+	"delete-local-data": map[string]interface{}{
+		"key":      deleteLocalDataConfigKey,
+		"defValue": true,
+		"usage":    "If true, do not drain pods that are using local node storage in emptyDir",
+	},
+	"dry-run": map[string]interface{}{
+		"key":      dryRunConfigKey,
+		"defValue": false,
+		"usage":    "If true, only log if a node would be drained",
+	},
+	"enable-scheduled-event-draining": map[string]interface{}{
+		"key":      enableScheduledEventDrainingConfigKey,
+		"defValue": enableScheduledEventDrainingDefault,
+		"usage":    "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event",
+	},
+	"enable-spot-interruption-draining": map[string]interface{}{
+		"key":      enableSpotInterruptionDrainingConfigKey,
+		"defValue": enableSpotInterruptionDrainingDefault,
+		"usage":    "If true, drain nodes when the spot interruption termination notice is receieved",
+	},
+	"grace-period": map[string]interface{}{
+		"key":      gracePeriodConfigKey,
+		"defValue": podTerminationGracePeriodDefault,
+		"usage": "[DEPRECATED] * Use pod-termination-grace-period instead * Period of time in seconds given to each " +
+			"pod to terminate gracefully. If negative, the default value specified in the pod will be used.",
+	},
+	"ignore-daemon-sets": map[string]interface{}{
+		"key":      ignoreDaemonSetsConfigKey,
+		"defValue": true,
+		"usage":    "If true, drain daemon sets when a spot interrupt is received.",
+	},
+	"kubernetes-service-host": map[string]interface{}{
+		"key":      kubernetesServiceHostConfigKey,
+		"defValue": "",
+		"usage":    "[ADVANCED] The k8s service host to send api calls to.",
+	},
+	"kubernetes-service-port": map[string]interface{}{
+		"key":      kubernetesServicePortConfigKey,
+		"defValue": "",
+		"usage":    "[ADVANCED] The k8s service port to send api calls to.",
+	},
+	"node-name": map[string]interface{}{
+		"key":      nodeNameConfigKey,
+		"defValue": "",
+		"usage":    "The kubernetes node name",
+	},
+	"node-termination-grace-period": map[string]interface{}{
+		"key":      nodeTerminationGracePeriodConfigKey,
+		"defValue": nodeTerminationGracePeriodDefault,
+		"usage": "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled " +
+			"based on this value to optimize the amount of compute time, but still safely drain the node before an event.",
+	},
+	"metadata-url": map[string]interface{}{
+		"key":      instanceMetadataURLConfigKey,
+		"defValue": defaultInstanceMetadataURL,
+		"usage":    "If true, only log if a node would be drained",
+	},
+	"pod-termination-grace-period": map[string]interface{}{
+		"key":      podTerminationGracePeriodConfigKey,
+		"defValue": podTerminationGracePeriodDefault,
+		"usage": "Period of time in seconds given to each POD to terminate gracefully. If negative, the default " +
+			"value specified in the pod will be used.",
+	},
+	"webhook-url": map[string]interface{}{
+		"key":      webhookURLConfigKey,
+		"defValue": webhookURLDefault,
+		"usage":    "If specified, posts event data to URL upon instance interruption action.",
+	},
+	"webhook-headers": map[string]interface{}{
+		"key":      webhookHeadersConfigKey,
+		"defValue": webhookHeadersDefault,
+		"usage":    "If specified, replaces the default webhook headers.",
+	},
+	"webhook-template": map[string]interface{}{
+		"key":      webhookTemplateConfigKey,
+		"defValue": webhookTemplateDefault,
+		"usage":    "If specified, replaces the default webhook message template.",
+	},
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
-func ParseCliArgs() Config {
+func ParseCliArgs() (Config, error) {
 	config := Config{}
-	var gracePeriod int
-	flag.BoolVar(&config.DryRun, "dry-run", getBoolEnv(dryRunConfigKey, false), "If true, only log if a node would be drained")
-	flag.StringVar(&config.NodeName, "node-name", getEnv(nodeNameConfigKey, ""), "The kubernetes node name")
-	flag.StringVar(&config.MetadataURL, "metadata-url", getEnv(instanceMetadataURLConfigKey, defaultInstanceMetadataURL), "The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing.")
-	flag.BoolVar(&config.IgnoreDaemonSets, "ignore-daemon-sets", getBoolEnv(ignoreDaemonSetsConfigKey, true), "If true, drain daemon sets when a spot interrupt is received.")
-	flag.BoolVar(&config.DeleteLocalData, "delete-local-data", getBoolEnv(deleteLocalDataConfigKey, true), "If true, do not drain pods that are using local node storage in emptyDir")
-	flag.StringVar(&config.KubernetesServiceHost, "kubernetes-service-host", getEnv(kubernetesServiceHostConfigKey, ""), "[ADVANCED] The k8s service host to send api calls to.")
-	flag.StringVar(&config.KubernetesServicePort, "kubernetes-service-port", getEnv(kubernetesServicePortConfigKey, ""), "[ADVANCED] The k8s service port to send api calls to.")
-	flag.IntVar(&gracePeriod, "grace-period", getIntEnv(gracePeriodConfigKey, podTerminationGracePeriodDefault), "[DEPRECATED] * Use pod-termination-grace-period instead * Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used.")
-	flag.IntVar(&config.PodTerminationGracePeriod, "pod-termination-grace-period", getIntEnv(podTerminationGracePeriodConfigKey, podTerminationGracePeriodDefault), "Period of time in seconds given to each POD to terminate gracefully. If negative, the default value specified in the pod will be used.")
-	flag.IntVar(&config.NodeTerminationGracePeriod, "node-termination-grace-period", getIntEnv(nodeTerminationGracePeriodConfigKey, nodeTerminationGracePeriodDefault), "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.")
-	flag.StringVar(&config.WebhookURL, "webhook-url", getEnv(webhookURLConfigKey, webhookURLDefault), "If specified, posts event data to URL upon instance interruption action.")
-	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
-	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
-	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
-	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is receieved")
 
-	flag.Parse()
+	results, err := createFlags(flagData)
+	if err != nil {
+		return config, err
+	}
+	gracePeriod := results["grace-period"].(int)
+
+	// Converts flag results into []byte
+	bytes, err := json.Marshal(results)
+	if err != nil {
+		return config, err
+	}
+
+	// Generate the config struct from []byte
+	err = json.Unmarshal(bytes, &config)
+	if err != nil {
+		return config, err
+	}
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
 		log.Println("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
@@ -96,7 +179,7 @@ func ParseCliArgs() Config {
 	}
 
 	if config.NodeName == "" {
-		log.Fatalln("You must provide a node-name to the CLI or NODE_NAME environment variable.")
+		return config, errors.New("must provide a node-name to the CLI or NODE_NAME environment variable")
 	}
 
 	// client-go expects these to be set in env vars
@@ -130,7 +213,41 @@ func ParseCliArgs() Config {
 		config.EnableSpotInterruptionDraining,
 	)
 
-	return config
+	return config, nil
+}
+
+func createFlags(flagData map[string]map[string]interface{}) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+
+	for name, data := range flagData {
+		switch data["defValue"].(type) {
+		case string:
+			value := getEnv(data["key"].(string), data["defValue"].(string))
+			var flagValue string
+			flag.StringVar(&flagValue, name, value, data["usage"].(string))
+			result[name] = flagValue
+		case int:
+			value, err := getIntEnv(data["key"].(string), data["defValue"].(int))
+			if err != nil {
+				return result, err
+			}
+			var flagValue int
+			flag.IntVar(&flagValue, name, value, data["usage"].(string))
+			result[name] = flagValue
+		case bool:
+			value, err := getBoolEnv(data["key"].(string), data["defValue"].(bool))
+			if err != nil {
+				return result, err
+			}
+			var flagValue bool
+			flag.BoolVar(&flagValue, name, value, data["usage"].(string))
+			result[name] = flagValue
+		default:
+			return result, errors.New("Unrecognized defValue type for " + name)
+		}
+	}
+	flag.Parse()
+	return result, nil
 }
 
 // Get env var or default
@@ -144,29 +261,29 @@ func getEnv(key string, fallback string) string {
 }
 
 // Parse env var to int if key exists
-func getIntEnv(key string, fallback int) int {
+func getIntEnv(key string, fallback int) (int, error) {
 	envStrValue := getEnv(key, "")
 	if envStrValue == "" {
-		return fallback
+		return fallback, nil
 	}
 	envIntValue, err := strconv.Atoi(envStrValue)
 	if err != nil {
-		log.Fatalln("Env Var " + key + " must be an integer")
+		return -1, err
 	}
-	return envIntValue
+	return envIntValue, nil
 }
 
 // Parse env var to boolean if key exists
-func getBoolEnv(key string, fallback bool) bool {
+func getBoolEnv(key string, fallback bool) (bool, error) {
 	envStrValue := getEnv(key, "")
 	if envStrValue == "" {
-		return fallback
+		return fallback, nil
 	}
 	envBoolValue, err := strconv.ParseBool(envStrValue)
 	if err != nil {
-		log.Fatalln("Env Var " + key + " must be either true or false")
+		return false, errors.New("Env Var " + key + " must be either true or false")
 	}
-	return envBoolValue
+	return envBoolValue, nil
 }
 
 func isConfigProvided(cliArgName string, envVarName string) bool {
