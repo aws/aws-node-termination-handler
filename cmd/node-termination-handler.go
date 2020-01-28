@@ -27,7 +27,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 )
 
-type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, config.Config)
+type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, config.Config) error
 
 func main() {
 	signalChan := make(chan os.Signal, 1)
@@ -58,16 +58,24 @@ func main() {
 	cancelChan := make(chan drainevent.DrainEvent)
 	defer close(cancelChan)
 
-	monitoringFns := []monitorFunc{}
+	monitoringFns := map[string]monitorFunc{}
 	if nthConfig.EnableSpotInterruptionDraining {
-		monitoringFns = append(monitoringFns, drainevent.MonitorForSpotITNEvents)
+		monitoringFns["Spot ITN"] = drainevent.MonitorForSpotITNEvents
 	}
 	if nthConfig.EnableScheduledEventDraining {
-		monitoringFns = append(monitoringFns, drainevent.MonitorForScheduledEvents)
+		monitoringFns["Scheduled Maintenance Events"] = drainevent.MonitorForScheduledEvents
 	}
 
-	for _, fn := range monitoringFns {
-		go fn(drainChan, cancelChan, nthConfig)
+	for eventType, fn := range monitoringFns {
+		go func(monitorFn monitorFunc, eventType string) {
+			log.Printf("Started monitoring for %s events", eventType)
+			for range time.Tick(time.Second * 2) {
+				err := monitorFn(drainChan, cancelChan, nthConfig)
+				if err != nil {
+					log.Printf("There was a problem monitoring for %s events: %v", eventType, err)
+				}
+			}
+		}(fn, eventType)
 	}
 
 	go watchForDrainEvents(drainChan, drainEventStore, nthConfig)
