@@ -24,13 +24,13 @@ import (
 // Store is a the drain event store data structure
 type Store struct {
 	sync.RWMutex
-	NthConfig       *config.Config
+	NthConfig       config.Config
 	drainEventStore map[string]*drainevent.DrainEvent
 	atLeastOneEvent bool
 }
 
 // New Creates a new drain event store
-func New(nthConfig *config.Config) *Store {
+func New(nthConfig config.Config) *Store {
 	return &Store{
 		NthConfig:       nthConfig,
 		drainEventStore: make(map[string]*drainevent.DrainEvent),
@@ -103,6 +103,25 @@ func (s *Store) MarkAllAsDrained() {
 	defer s.Unlock()
 	for _, drainEvent := range s.drainEventStore {
 		drainEvent.Drained = true
+	}
+}
+
+// IgnoreEvent will store an event ID so that monitor loops cannot write to the store with the same event ID
+// Drain actions are ignored on the passed in event ID by setting the Drained flag to true
+func (s *Store) IgnoreEvent(eventID string) {
+	if eventID == "" {
+		return
+	}
+	s.Lock()
+	defer s.Unlock()
+	storedDrainEvent, ok := s.drainEventStore[eventID]
+	if ok {
+		storedDrainEvent.Drained = true
+		return
+	}
+	s.drainEventStore[eventID] = &drainevent.DrainEvent{
+		EventID: eventID,
+		Drained: true,
 	}
 }
 

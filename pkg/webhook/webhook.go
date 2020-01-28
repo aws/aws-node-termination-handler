@@ -70,7 +70,7 @@ func Post(event *drainevent.DrainEvent, nthconfig config.Config) {
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		log.Printf("Webhook Error: Recieved Status Code %d\n", response.StatusCode)
+		log.Printf("Webhook Error: Received Status Code %d\n", response.StatusCode)
 		return
 	}
 

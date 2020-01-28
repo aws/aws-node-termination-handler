@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
-type preDrainTask func(*node.Node) error
+type preDrainTask func(DrainEvent, node.Node) error
 
 // DrainEvent gives more context of the drainable event
 type DrainEvent struct {

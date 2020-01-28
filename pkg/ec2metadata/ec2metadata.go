@@ -25,8 +25,6 @@ const (
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
 	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
 	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
-	// SystemRebootCode is the string signifying a scheduled system reboot maintenance code
-	SystemRebootCode = "system-reboot"
 )
 
 // [

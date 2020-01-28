@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -47,7 +45,7 @@ const (
 
 var startTime int64 = time.Now().Unix()
 
-// ScheduledActionDetail metadata structure for json parsing
+// ScheduledEventDetail metadata structure for json parsing
 type ScheduledEventDetail struct {
 	NotBefore   string `json:"NotBefore"`
 	Code        string `json:"Code"`
@@ -174,13 +172,10 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(js)
 		return
-	} else {
-		res.Header().Set("Content-Type", "application/json")
-		res.Write([]byte("{}"))
-		return
 	}
-	metadataUrl, _ := url.Parse(metadataIp)
-	httputil.NewSingleHostReverseProxy(metadataUrl).ServeHTTP(res, req)
+	res.Header().Set("Content-Type", "application/json")
+	res.Write([]byte("{}"))
+	return
 }
 
 func main() {

@@ -39,6 +39,8 @@ const (
 	ActionLabelKey = "aws-node-termination-handler/action"
 	// ActionLabelTimeKey is a k8s label key whose value is the secs since the epoch when an action label is added
 	ActionLabelTimeKey = "aws-node-termination-handler/action-time"
+	// EventIDLabelKey is a k8s label key whose value is the drainable event id
+	EventIDLabelKey = "aws-node-termination-handler/event-id"
 )
 
 // Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
@@ -120,6 +122,39 @@ func (n Node) IsUnschedulable() (bool, error) {
 	return node.Spec.Unschedulable, nil
 }
 
+// MarkWithEventID will add the drain event ID to the node to be properly ignored after a system restart event
+func (n Node) MarkWithEventID(eventID string) error {
+	err := n.addLabel(EventIDLabelKey, eventID)
+	if err != nil {
+		return fmt.Errorf("Unable to label node with event ID %s=%s: %w", EventIDLabelKey, eventID, err)
+	}
+	return nil
+}
+
+// RemoveNTHLabels will remove all the custom NTH labels added to the node
+func (n Node) RemoveNTHLabels() error {
+	for _, label := range []string{EventIDLabelKey, ActionLabelKey, ActionLabelTimeKey} {
+		err := n.removeLabel(label)
+		if err != nil {
+			return fmt.Errorf("Unable to remove %s from node: %w", label, err)
+		}
+	}
+	return nil
+}
+
+// GetEventID will retrieve the event ID valude from the node label
+func (n Node) GetEventID() (string, error) {
+	node, err := n.fetchKubernetesNode()
+	if err != nil {
+		return "", fmt.Errorf("Could not get event ID label from node: %w", err)
+	}
+	val, ok := node.Labels[EventIDLabelKey]
+	if !ok {
+		return "", fmt.Errorf("Event ID Label %s was not found on the node", EventIDLabelKey)
+	}
+	return val, nil
+}
+
 // MarkForUncordonAfterReboot adds labels to the kubernetes node which NTH will read upon reboot
 func (n Node) MarkForUncordonAfterReboot() error {
 	// adds label to node so that the system will uncordon the node after the scheduled reboot has taken place
@@ -154,7 +189,7 @@ func (n Node) addLabel(key string, value string) error {
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("An error occured while marshalling the json to add a label to the node: %w", err)
+		return fmt.Errorf("An error occurred while marshalling the json to add a label to the node: %w", err)
 	}
 	if n.nthConfig.DryRun {
 		log.Printf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, n.nthConfig.NodeName)
@@ -185,7 +220,7 @@ func (n Node) removeLabel(key string) error {
 	}
 	payload, err := json.Marshal(append(patchReqs, patchRemove))
 	if err != nil {
-		return fmt.Errorf("An error occured while marshalling the json to remove a label from the node: %w", err)
+		return fmt.Errorf("An error occurred while marshalling the json to remove a label from the node: %w", err)
 	}
 	if n.nthConfig.DryRun {
 		log.Printf("Would have removed label with key %s from node %s, but dry-run flag was set", key, n.nthConfig.NodeName)
@@ -202,8 +237,19 @@ func (n Node) removeLabel(key string) error {
 	return nil
 }
 
-// UncordonIfLabeled will check for node labels to trigger an uncordon because of a system-reboot scheduled event
-func (n Node) UncordonIfLabeled() error {
+// IsLabeledWithAction will return true if the current node is labeled with NTH action labels
+func (n Node) IsLabeledWithAction() (bool, error) {
+	k8sNode, err := n.fetchKubernetesNode()
+	if err != nil {
+		return false, fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+	_, actionLabelOK := k8sNode.Labels[ActionLabelKey]
+	_, eventIDLabelOK := k8sNode.Labels[EventIDLabelKey]
+	return actionLabelOK && eventIDLabelOK, nil
+}
+
+// UncordonIfRebooted will check for node labels to trigger an uncordon because of a system-reboot scheduled event
+func (n Node) UncordonIfRebooted() error {
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
@@ -231,6 +277,10 @@ func (n Node) UncordonIfLabeled() error {
 		err = n.Uncordon()
 		if err != nil {
 			return fmt.Errorf("Unable to uncordon node: %w", err)
+		}
+		err = n.RemoveNTHLabels()
+		if err != nil {
+			return err
 		}
 		log.Printf("Successfully completed action %s.\n", UncordonAfterRebootLabelVal)
 	default:

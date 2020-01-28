@@ -37,7 +37,7 @@ POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-han
 for i in $(seq 0 10); do 
   if [[ ! -z $(kubectl logs $POD_ID -n kube-system | grep -i -e 'would have been cordoned and drained') ]]; then
       echo "✅ Verified the dryrun logs were executed"
-      if kubectl get nodes $CLUSTER_NAME-worker | tail -n1 | grep -v SchedulingDisabled; then
+      if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep -v SchedulingDisabled; then
           echo "✅ Verified the worker node was not cordoned!"
           echo "✅ Scheduled Maintenance Event Dry Run Test Passed $CLUSTER_NAME! ✅"
           exit 0
