@@ -4,7 +4,7 @@ language: minimal
 services:
 - docker
 
-env: 
+env:
 - KUBE_VERSION=1.17
 - KUBE_VERSION=1.16
 - KUBE_VERSION=1.15
@@ -16,7 +16,13 @@ env:
 script: test/k8s-local-cluster-test/run-test -v $KUBE_VERSION
 
 matrix:
-  include: 
+  include:
+    - stage: Test
+      language: go
+      go: "1.13.x"
+      script: make unit-test
+      env: GO111MODULE=on
+      after_success: bash <(curl -s https://codecov.io/bash)
     - stage: Test
       script: test/go-report-card-test/run-report-card-test.sh
       env: GO_REPORT_CARD=true
@@ -36,3 +42,4 @@ matrix:
     - stage: Deploy
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make release
+
