@@ -25,7 +25,7 @@ import (
 )
 
 func TestAddDrainEvent(t *testing.T) {
-	store := draineventstore.New(&config.Config{})
+	store := draineventstore.New(config.Config{})
 
 	event1 := &drainevent.DrainEvent{
 		EventID:   "123",
@@ -53,7 +53,7 @@ func TestAddDrainEvent(t *testing.T) {
 }
 
 func TestCancelDrainEvent(t *testing.T) {
-	store := draineventstore.New(&config.Config{})
+	store := draineventstore.New(config.Config{})
 
 	event := &drainevent.DrainEvent{
 		EventID:   "123",
@@ -70,7 +70,7 @@ func TestCancelDrainEvent(t *testing.T) {
 }
 
 func TestShouldDrainNode(t *testing.T) {
-	store := draineventstore.New(&config.Config{})
+	store := draineventstore.New(config.Config{})
 	futureEvent := &drainevent.DrainEvent{
 		EventID:   "future",
 		StartTime: time.Now().Add(time.Second * 20),
@@ -87,7 +87,7 @@ func TestShouldDrainNode(t *testing.T) {
 }
 
 func TestMarkAllAsDrained(t *testing.T) {
-	store := draineventstore.New(&config.Config{})
+	store := draineventstore.New(config.Config{})
 	event1 := &drainevent.DrainEvent{
 		EventID:   "1",
 		StartTime: time.Now().Add(time.Second * 20),
@@ -110,7 +110,7 @@ func TestMarkAllAsDrained(t *testing.T) {
 }
 
 func TestShouldUncordonNode(t *testing.T) {
-	store := draineventstore.New(&config.Config{})
+	store := draineventstore.New(config.Config{})
 	h.Equals(t, false, store.ShouldUncordonNode())
 
 	event := &drainevent.DrainEvent{

@@ -14,6 +14,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -25,6 +26,11 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/draineventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
+)
+
+const (
+	scheduledMaintenance = "Scheduled Maintenance"
+	spotITN              = "Spot ITN"
 )
 
 type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, config.Config) error
@@ -44,14 +50,14 @@ func main() {
 		log.Fatalln("Unable to instantiate a node for various kubernetes node functions: ", err)
 	}
 
+	drainEventStore := draineventstore.New(nthConfig)
+
 	if nthConfig.EnableScheduledEventDraining {
-		err = node.UncordonIfLabeled()
+		err = handleRebootUncordon(drainEventStore, *node)
 		if err != nil {
-			log.Println("Unable to complete node label actions: ", err)
+			log.Printf("Unable to complete the uncordon after reboot workflow on startup: %v", err)
 		}
 	}
-
-	drainEventStore := draineventstore.New(&nthConfig)
 
 	drainChan := make(chan drainevent.DrainEvent)
 	defer close(drainChan)
@@ -60,10 +66,10 @@ func main() {
 
 	monitoringFns := map[string]monitorFunc{}
 	if nthConfig.EnableSpotInterruptionDraining {
-		monitoringFns["Spot ITN"] = drainevent.MonitorForSpotITNEvents
+		monitoringFns[spotITN] = drainevent.MonitorForSpotITNEvents
 	}
 	if nthConfig.EnableScheduledEventDraining {
-		monitoringFns["Scheduled Maintenance Events"] = drainevent.MonitorForScheduledEvents
+		monitoringFns[scheduledMaintenance] = drainevent.MonitorForScheduledEvents
 	}
 
 	for eventType, fn := range monitoringFns {
@@ -87,18 +93,34 @@ func main() {
 
 	for range time.NewTicker(1 * time.Second).C {
 		select {
-		case _, ok := <-signalChan:
-			// Exit drain loop if a SIGTERM is received
-			if ok {
-				break
-			}
-			// Exit drain loop if signal channel is closed
+		case _ = <-signalChan:
+			// Exit drain loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			drainIfNecessary(drainEventStore, node, nthConfig)
+			drainIfNecessary(drainEventStore, *node, nthConfig)
 		}
 	}
 	log.Println("AWS Node Termination Handler is shutting down")
+}
+
+func handleRebootUncordon(drainEventStore *draineventstore.Store, node node.Node) error {
+	isLabeled, err := node.IsLabeledWithAction()
+	if err != nil {
+		return err
+	}
+	if !isLabeled {
+		return nil
+	}
+	eventID, err := node.GetEventID()
+	if err != nil {
+		return err
+	}
+	err = node.UncordonIfRebooted()
+	if err != nil {
+		return fmt.Errorf("Unable to complete node label actions: %w", err)
+	}
+	drainEventStore.IgnoreEvent(eventID)
+	return nil
 }
 
 func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, nthConfig config.Config) {
@@ -115,15 +137,22 @@ func watchForCancellationEvents(cancelChan <-chan drainevent.DrainEvent, drainEv
 		log.Printf("Got cancel event from channel %+v\n", drainEvent)
 		drainEventStore.CancelDrainEvent(drainEvent.EventID)
 		if drainEventStore.ShouldUncordonNode() {
-			node.Uncordon()
+			log.Println("Uncordoning the node due to a cancellation event")
+			err := node.Uncordon()
+			if err != nil {
+				log.Printf("Uncordoning the node failed: %v", err)
+			}
+			node.RemoveNTHLabels()
+		} else {
+			log.Println("Another drain event is active, not uncordoning the node")
 		}
 	}
 }
 
-func drainIfNecessary(drainEventStore *draineventstore.Store, node *node.Node, nthConfig config.Config) {
+func drainIfNecessary(drainEventStore *draineventstore.Store, node node.Node, nthConfig config.Config) {
 	if drainEvent, ok := drainEventStore.GetActiveEvent(); ok {
 		if drainEvent.PreDrainTask != nil {
-			err := drainEvent.PreDrainTask(node)
+			err := drainEvent.PreDrainTask(*drainEvent, node)
 			if err != nil {
 				log.Println("There was a problem executing the pre-drain task: ", err)
 			}

@@ -26,7 +26,15 @@ function relpath() {
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
         $SCRIPTPATH/../k8s-local-cluster-test/delete-cluster $DELETE_CLUSTER_ARGS || :
+        return 
     fi 
+    labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
+    for l in "${labels_to_remove[@]}"; do 
+      for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
+        echo "Deleting label $l on node $n"
+        kubectl label node $n "$l"-
+      done
+    done
     echo "To resume test with the same cluster use: \"-c $TMP_DIR\""""
 }
 

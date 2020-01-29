@@ -17,6 +17,11 @@ const (
 	scheduledEventStateCompleted = "completed"
 	scheduledEventStateCancelled = "cancelled"
 	scheduledEventDateFormat     = "02 Jan 2006 15:04:05 GMT"
+	instanceStopCode             = "instance-stop"
+	systemRebootCode             = "system-reboot"
+	instanceRebootCode           = "instance-reboot"
+	instanceRetirementCode       = "instance-retirement"
+	systemMaintenanceCode        = "system-maintenance"
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
@@ -53,8 +58,8 @@ func checkForScheduledEvents(metadataURL string) ([]DrainEvent, error) {
 	json.NewDecoder(resp.Body).Decode(&scheduledEvents)
 	events := make([]DrainEvent, 0)
 	for _, scheduledEvent := range scheduledEvents {
-		var preDrainFunc preDrainTask = nil
-		if scheduledEvent.Code == ec2metadata.SystemRebootCode {
+		var preDrainFunc preDrainTask
+		if isRestartEvent(scheduledEvent.Code) && !isStateCancelledOrCompleted(scheduledEvent.State) {
 			preDrainFunc = uncordonAfterRebootPreDrain
 		}
 		notBefore, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotBefore)
@@ -78,8 +83,12 @@ func checkForScheduledEvents(metadataURL string) ([]DrainEvent, error) {
 	return events, nil
 }
 
-func uncordonAfterRebootPreDrain(node *node.Node) error {
-	// if the node is already maked as unschedulable, then don't do anything
+func uncordonAfterRebootPreDrain(drainEvent DrainEvent, node node.Node) error {
+	err := node.MarkWithEventID(drainEvent.EventID)
+	if err != nil {
+		return fmt.Errorf("Unable to mark node with event ID: %w", err)
+	}
+	// if the node is already marked as unschedulable, then don't do anything
 	unschedulable, err := node.IsUnschedulable()
 	if err == nil && unschedulable {
 		log.Println("Node is already marked unschedulable, not taking any action to add uncordon label.")
@@ -98,4 +107,11 @@ func uncordonAfterRebootPreDrain(node *node.Node) error {
 func isStateCancelledOrCompleted(state string) bool {
 	return state == scheduledEventStateCancelled ||
 		state == scheduledEventStateCompleted
+}
+
+func isRestartEvent(maintenanceCode string) bool {
+	return maintenanceCode == instanceStopCode ||
+		maintenanceCode == instanceRetirementCode ||
+		maintenanceCode == instanceRebootCode ||
+		maintenanceCode == systemRebootCode
 }

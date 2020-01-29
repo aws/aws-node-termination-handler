@@ -54,7 +54,7 @@ if [[ $DEPLOYED -eq 0 ]]; then
 fi
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+    if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep SchedulingDisabled; then
         echo "✅ Verified the worker node was cordoned!"
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
             echo "✅ Verified the regular-pod-test pod was evicted!"
@@ -71,7 +71,6 @@ if [[ $CORDONED -eq 0 ]]; then
 fi
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
-  --wait \
   --force \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
@@ -81,7 +80,7 @@ helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-meta
   --set ec2MetadataTestProxy.scheduledEventStatus="cancelled" 
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if kubectl get nodes $CLUSTER_NAME-worker | grep -v SchedulingDisabled; then
+    if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep -v SchedulingDisabled; then
         echo "✅ Verified the worker node was uncordoned!"
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
             echo "✅ Verified the regular-pod-test pod was rescheduled"
