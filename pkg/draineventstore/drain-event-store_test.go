@@ -15,6 +15,8 @@ package draineventstore_test
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -110,15 +112,53 @@ func TestMarkAllAsDrained(t *testing.T) {
 }
 
 func TestShouldUncordonNode(t *testing.T) {
+	eventID := "123"
 	store := draineventstore.New(config.Config{})
 	h.Equals(t, false, store.ShouldUncordonNode())
 
 	event := &drainevent.DrainEvent{
-		EventID: "123",
+		EventID: eventID,
 	}
 	store.AddDrainEvent(event)
 	h.Equals(t, false, store.ShouldUncordonNode())
 
 	store.CancelDrainEvent(event.EventID)
 	h.Equals(t, true, store.ShouldUncordonNode())
+
+	store.IgnoreEvent(eventID)
+	store.AddDrainEvent(event)
+	h.Equals(t, true, store.ShouldUncordonNode())
+}
+
+func TestIgnoreEvent(t *testing.T) {
+	eventID := "event-id-123"
+	store := draineventstore.New(config.Config{})
+	store.IgnoreEvent(eventID)
+
+	event := &drainevent.DrainEvent{
+		EventID:   eventID,
+		State:     "active",
+		StartTime: time.Now(),
+	}
+	store.AddDrainEvent(event)
+	h.Equals(t, false, store.ShouldDrainNode())
+}
+
+// BenchmarkDrainEventStore tests concurrent read/write patterns. We don't really care about the timings as long as deadlock doesn't occur
+func BenchmarkDrainEventStore(b *testing.B) {
+	idBound := 10
+	store := draineventstore.New(config.Config{})
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			store.AddDrainEvent(&drainevent.DrainEvent{
+				EventID:   strconv.Itoa(rand.Intn(idBound)),
+				StartTime: time.Now(),
+			})
+			store.IgnoreEvent(strconv.Itoa(rand.Intn(idBound)))
+			store.CancelDrainEvent(strconv.Itoa(rand.Intn(idBound)))
+			store.GetActiveEvent()
+			store.ShouldDrainNode()
+			store.ShouldUncordonNode()
+		}
+	})
 }
