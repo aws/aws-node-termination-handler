@@ -249,7 +249,7 @@ func createFlags(flagData map[string]flagData) (map[string]interface{}, error) {
 			flag.BoolVar(&flagValue, name, value, data.Usage)
 			result[name] = flagValue
 		default:
-			return result, errors.New("Unrecognized defValue type for " + name)
+			return result, fmt.Errorf("Unrecognized defValue type for: %s", name)
 		}
 	}
 	flag.Parse()
@@ -274,7 +274,7 @@ func getIntEnv(key string, fallback int) (int, error) {
 	}
 	envIntValue, err := strconv.Atoi(envStrValue)
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("Env var %s must be an integer: %w", key, err)
 	}
 	return envIntValue, nil
 }
@@ -287,7 +287,7 @@ func getBoolEnv(key string, fallback bool) (bool, error) {
 	}
 	envBoolValue, err := strconv.ParseBool(envStrValue)
 	if err != nil {
-		return false, errors.New("Env Var " + key + " must be either true or false")
+		return false, fmt.Errorf("Env var %s must be true or false: %w", key, err)
 	}
 	return envBoolValue, nil
 }
