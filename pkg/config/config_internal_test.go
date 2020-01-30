@@ -33,84 +33,84 @@ func init() {
 }
 
 func TestParseCliArgsUnmarshalFailure(t *testing.T) {
-	var saveFlagData = make(map[string]map[string]interface{})
-	for k, v := range flagData {
-		saveFlagData[k] = v
+	var saveFlags = make(map[string]flagData)
+	for k, v := range flags {
+		saveFlags[k] = v
 	}
 
-	flagData["delete-local-data"] = map[string]interface{}{
-		"key":      deleteLocalDataConfigKey,
-		"defValue": 123,
-		"usage":    "If true, do not drain pods that are using local node storage in emptyDir",
+	flags["delete-local-data"] = flagData{
+		Key:      deleteLocalDataConfigKey,
+		DefValue: 123,
+		Usage:    "If true, do not drain pods that are using local node storage in emptyDir",
 	}
 	_, err := ParseCliArgs()
 	h.Assert(t, true, "Failed to return error when unmarshal failed", err != nil)
 
-	flagData = saveFlagData
+	flags = saveFlags
 }
 
 func TestCreateFlags(t *testing.T) {
 	var key = "KEY"
 
-	var validStringValue = map[string]map[string]interface{}{
-		"test-string": map[string]interface{}{
-			"key":      key,
-			"defValue": "default",
-			"usage":    "description",
+	var validStringValue = map[string]flagData{
+		"test-string": flagData{
+			Key:      key,
+			DefValue: "default",
+			Usage:    "description",
 		},
 	}
 	result, err := createFlags(validStringValue)
 	h.Ok(t, err)
-	h.Equals(t, result["test-string"], "default")
+	h.Equals(t, "default", result["test-string"])
 
-	var validIntValue = map[string]map[string]interface{}{
-		"test-int": map[string]interface{}{
-			"key":      key,
-			"defValue": 1234,
-			"usage":    "description",
+	var validIntValue = map[string]flagData{
+		"test-int": flagData{
+			Key:      key,
+			DefValue: 1234,
+			Usage:    "description",
 		},
 	}
 	result, err = createFlags(validIntValue)
 	h.Ok(t, err)
-	h.Equals(t, result["test-int"], 1234)
+	h.Equals(t, 1234, result["test-int"])
 
-	var validBoolValue = map[string]map[string]interface{}{
-		"test-bool": map[string]interface{}{
-			"key":      key,
-			"defValue": false,
-			"usage":    "description",
+	var validBoolValue = map[string]flagData{
+		"test-bool": flagData{
+			Key:      key,
+			DefValue: false,
+			Usage:    "description",
 		},
 	}
 	result, err = createFlags(validBoolValue)
 	h.Ok(t, err)
-	h.Equals(t, result["test-bool"], false)
+	h.Equals(t, false, result["test-bool"])
 
 	os.Setenv(key, "bla")
-	var invalidDefValue = map[string]map[string]interface{}{
-		"test": map[string]interface{}{
-			"key":      key,
-			"defValue": 7.9,
-			"usage":    "description",
+	var invalidDefValue = map[string]flagData{
+		"test-string": flagData{
+			Key:      key,
+			DefValue: 7.9,
+			Usage:    "description",
 		},
 	}
 	_, err = createFlags(invalidDefValue)
 	h.Assert(t, true, "Failed to return error when defValue type unrecognized", err != nil)
 
-	var invalidIntEnvValue = map[string]map[string]interface{}{
-		"test": map[string]interface{}{
-			"key":      key,
-			"defValue": 1,
-			"usage":    "description",
+	var invalidIntEnvValue = map[string]flagData{
+		"test-string": flagData{
+			Key:      key,
+			DefValue: 1,
+			Usage:    "description",
 		},
 	}
 	_, err = createFlags(invalidIntEnvValue)
 	h.Assert(t, true, "Failed to return error when env var not integer", err != nil)
 
-	var invalidBoolEnvValue = map[string]map[string]interface{}{
-		"test": map[string]interface{}{
-			"key":      key,
-			"defValue": false,
-			"usage":    "description",
+	var invalidBoolEnvValue = map[string]flagData{
+		"test-string": flagData{
+			Key:      key,
+			DefValue: false,
+			Usage:    "description",
 		},
 	}
 	_, err = createFlags(invalidBoolEnvValue)

@@ -26,42 +26,8 @@ func resetFlagsForTest() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 }
 
-func TestParseCliArgsDefaultArgsSuccess(t *testing.T) {
+func TestParseCliArgsSuccess(t *testing.T) {
 	resetFlagsForTest()
-	os.Setenv("NODE_NAME", "bla")
-	nthConfig, err := config.ParseCliArgs()
-	h.Ok(t, err)
-
-	// Assert all the default values were set
-	h.Equals(t, nthConfig.DeleteLocalData, true)
-	h.Equals(t, nthConfig.DryRun, false)
-	h.Equals(t, nthConfig.EnableScheduledEventDraining, false)
-	h.Equals(t, nthConfig.EnableSpotInterruptionDraining, true)
-	h.Equals(t, nthConfig.IgnoreDaemonSets, true)
-	h.Equals(t, nthConfig.KubernetesServiceHost, "")
-	h.Equals(t, nthConfig.KubernetesServicePort, "")
-	h.Equals(t, nthConfig.NodeName, "bla")
-	h.Equals(t, nthConfig.NodeTerminationGracePeriod, 120)
-	h.Equals(t, nthConfig.MetadataURL, "http://169.254.169.254")
-	h.Equals(t, nthConfig.PodTerminationGracePeriod, -1)
-	h.Equals(t, nthConfig.WebhookURL, "")
-	h.Equals(t, nthConfig.WebhookHeaders, `{"Content-type":"application/json"}`)
-	h.Equals(t, nthConfig.WebhookTemplate, `{"text":"[NTH][Instance Interruption] `+
-		`EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} `+
-		`- State: {{ .State }} - Start Time: {{ .StartTime }}"}`)
-
-	// Check that env vars were set
-	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
-	h.Equals(t, true, ok)
-	h.Equals(t, "", value)
-
-	value, ok = os.LookupEnv("KUBERNETES_SERVICE_PORT")
-	h.Equals(t, true, ok)
-	h.Equals(t, "", value)
-}
-func TestParseCliArgsCustomArgsSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	os.Setenv("DELETE_LOCAL_DATA", "false")
 	os.Setenv("DRY_RUN", "true")
 	os.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
@@ -80,21 +46,21 @@ func TestParseCliArgsCustomArgsSuccess(t *testing.T) {
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
-	// Assert all the default values were set
-	h.Equals(t, nthConfig.DeleteLocalData, false)
-	h.Equals(t, nthConfig.DryRun, true)
-	h.Equals(t, nthConfig.EnableScheduledEventDraining, true)
-	h.Equals(t, nthConfig.EnableSpotInterruptionDraining, false)
-	h.Equals(t, nthConfig.IgnoreDaemonSets, false)
-	h.Equals(t, nthConfig.KubernetesServiceHost, "KUBERNETES_SERVICE_HOST")
-	h.Equals(t, nthConfig.KubernetesServicePort, "KUBERNETES_SERVICE_PORT")
-	h.Equals(t, nthConfig.NodeName, "NODE_NAME")
-	h.Equals(t, nthConfig.NodeTerminationGracePeriod, 12345)
-	h.Equals(t, nthConfig.MetadataURL, "INSTANCE_METADATA_URL")
-	h.Equals(t, nthConfig.PodTerminationGracePeriod, 12345)
-	h.Equals(t, nthConfig.WebhookURL, "WEBHOOK_URL")
-	h.Equals(t, nthConfig.WebhookHeaders, "WEBHOOK_HEADERS")
-	h.Equals(t, nthConfig.WebhookTemplate, "WEBHOOK_TEMPLATE")
+	// Assert all the values were set
+	h.Equals(t, false, nthConfig.DeleteLocalData)
+	h.Equals(t, true, nthConfig.DryRun)
+	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
+	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
+	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
+	h.Equals(t, "KUBERNETES_SERVICE_HOST", nthConfig.KubernetesServiceHost)
+	h.Equals(t, "KUBERNETES_SERVICE_PORT", nthConfig.KubernetesServicePort)
+	h.Equals(t, "NODE_NAME", nthConfig.NodeName)
+	h.Equals(t, 12345, nthConfig.NodeTerminationGracePeriod)
+	h.Equals(t, "INSTANCE_METADATA_URL", nthConfig.MetadataURL)
+	h.Equals(t, 12345, nthConfig.PodTerminationGracePeriod)
+	h.Equals(t, "WEBHOOK_URL", nthConfig.WebhookURL)
+	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
+	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -114,7 +80,7 @@ func TestParseCliArgsWithGracePeriodSuccess(t *testing.T) {
 
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
-	h.Equals(t, nthConfig.PodTerminationGracePeriod, 12)
+	h.Equals(t, 12, nthConfig.PodTerminationGracePeriod)
 }
 
 func TestParseCliArgsMissingNodeNameFailure(t *testing.T) {

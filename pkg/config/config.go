@@ -68,84 +68,90 @@ type Config struct {
 	WebhookTemplate                string `json:"webhook-template"`
 }
 
-var flagData = map[string]map[string]interface{}{
-	"delete-local-data": map[string]interface{}{
-		"key":      deleteLocalDataConfigKey,
-		"defValue": true,
-		"usage":    "If true, do not drain pods that are using local node storage in emptyDir",
+type flagData struct {
+	Key      string
+	DefValue interface{}
+	Usage    string
+}
+
+var flags = map[string]flagData{
+	"delete-local-data": flagData{
+		Key:      deleteLocalDataConfigKey,
+		DefValue: true,
+		Usage:    "If true, do not drain pods that are using local node storage in emptyDir",
 	},
-	"dry-run": map[string]interface{}{
-		"key":      dryRunConfigKey,
-		"defValue": false,
-		"usage":    "If true, only log if a node would be drained",
+	"dry-run": flagData{
+		Key:      dryRunConfigKey,
+		DefValue: false,
+		Usage:    "If true, only log if a node would be drained",
 	},
-	"enable-scheduled-event-draining": map[string]interface{}{
-		"key":      enableScheduledEventDrainingConfigKey,
-		"defValue": enableScheduledEventDrainingDefault,
-		"usage":    "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event",
+	"enable-scheduled-event-draining": flagData{
+		Key:      enableScheduledEventDrainingConfigKey,
+		DefValue: enableScheduledEventDrainingDefault,
+		Usage:    "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event",
 	},
-	"enable-spot-interruption-draining": map[string]interface{}{
-		"key":      enableSpotInterruptionDrainingConfigKey,
-		"defValue": enableSpotInterruptionDrainingDefault,
-		"usage":    "If true, drain nodes when the spot interruption termination notice is receieved",
+	"enable-spot-interruption-draining": flagData{
+		Key:      enableSpotInterruptionDrainingConfigKey,
+		DefValue: enableSpotInterruptionDrainingDefault,
+		Usage:    "If true, drain nodes when the spot interruption termination notice is receieved",
 	},
-	"grace-period": map[string]interface{}{
-		"key":      gracePeriodConfigKey,
-		"defValue": podTerminationGracePeriodDefault,
-		"usage": "[DEPRECATED] * Use pod-termination-grace-period instead * Period of time in seconds given to each " +
+	"grace-period": flagData{
+		Key:      gracePeriodConfigKey,
+		DefValue: podTerminationGracePeriodDefault,
+		Usage: "[DEPRECATED] * Use pod-termination-grace-period instead * Period of time in seconds given to each " +
 			"pod to terminate gracefully. If negative, the default value specified in the pod will be used.",
 	},
-	"ignore-daemon-sets": map[string]interface{}{
-		"key":      ignoreDaemonSetsConfigKey,
-		"defValue": true,
-		"usage":    "If true, drain daemon sets when a spot interrupt is received.",
+	"ignore-daemon-sets": flagData{
+		Key:      ignoreDaemonSetsConfigKey,
+		DefValue: true,
+		Usage:    "If true, drain daemon sets when a spot interrupt is received.",
 	},
-	"kubernetes-service-host": map[string]interface{}{
-		"key":      kubernetesServiceHostConfigKey,
-		"defValue": "",
-		"usage":    "[ADVANCED] The k8s service host to send api calls to.",
+	"kubernetes-service-host": flagData{
+		Key:      kubernetesServiceHostConfigKey,
+		DefValue: "",
+		Usage:    "[ADVANCED] The k8s service host to send api calls to.",
 	},
-	"kubernetes-service-port": map[string]interface{}{
-		"key":      kubernetesServicePortConfigKey,
-		"defValue": "",
-		"usage":    "[ADVANCED] The k8s service port to send api calls to.",
+	"kubernetes-service-port": flagData{
+		Key:      kubernetesServicePortConfigKey,
+		DefValue: "",
+		Usage:    "[ADVANCED] The k8s service port to send api calls to.",
 	},
-	"node-name": map[string]interface{}{
-		"key":      nodeNameConfigKey,
-		"defValue": "",
-		"usage":    "The kubernetes node name",
+	"node-name": flagData{
+		Key:      nodeNameConfigKey,
+		DefValue: "",
+		Usage:    "The kubernetes node name",
 	},
-	"node-termination-grace-period": map[string]interface{}{
-		"key":      nodeTerminationGracePeriodConfigKey,
-		"defValue": nodeTerminationGracePeriodDefault,
-		"usage": "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled " +
+	"node-termination-grace-period": flagData{
+		Key:      nodeTerminationGracePeriodConfigKey,
+		DefValue: nodeTerminationGracePeriodDefault,
+		Usage: "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled " +
 			"based on this value to optimize the amount of compute time, but still safely drain the node before an event.",
 	},
-	"metadata-url": map[string]interface{}{
-		"key":      instanceMetadataURLConfigKey,
-		"defValue": defaultInstanceMetadataURL,
-		"usage":    "If true, only log if a node would be drained",
+	"metadata-url": flagData{
+		Key:      instanceMetadataURLConfigKey,
+		DefValue: defaultInstanceMetadataURL,
+		Usage:    "If true, only log if a node would be drained",
 	},
-	"pod-termination-grace-period": map[string]interface{}{
-		"key":      podTerminationGracePeriodConfigKey,
-		"defValue": podTerminationGracePeriodDefault,
-		"usage": "Period of time in seconds given to each POD to terminate gracefully. If negative, the default " +
+	"pod-termination-grace-period": flagData{
+		Key:      podTerminationGracePeriodConfigKey,
+		DefValue: podTerminationGracePeriodDefault,
+		Usage: "Period of time in seconds given to each POD to terminate gracefully. If negative, the default " +
 			"value specified in the pod will be used.",
 	},
-	"webhook-url": map[string]interface{}{
-		"key":      webhookURLConfigKey,
-		"defValue": webhookURLDefault,
-		"usage":    "If specified, posts event data to URL upon instance interruption action.",
+	"webhook-url": flagData{
+		Key:      webhookURLConfigKey,
+		DefValue: webhookURLDefault,
+		Usage:    "If specified, posts event data to URL upon instance interruption action.",
 	},
-	"webhook-headers": map[string]interface{}{
-		"key":      webhookHeadersConfigKey,
-		"defValue": webhookHeadersDefault,
-		"usage":    "If specified, replaces the default webhook headers.",
+	"webhook-headers": flagData{
+		Key:      webhookHeadersConfigKey,
+		DefValue: webhookHeadersDefault,
+		Usage:    "If specified, replaces the default webhook headers.",
 	},
-	"webhook-template": map[string]interface{}{
-		"key":      webhookTemplateConfigKey,
-		"defValue": webhookTemplateDefault,
-		"usage":    "If specified, replaces the default webhook message template.",
+	"webhook-template": flagData{
+		Key:      webhookTemplateConfigKey,
+		DefValue: webhookTemplateDefault,
+		Usage:    "If specified, replaces the default webhook message template.",
 	},
 }
 
@@ -153,7 +159,7 @@ var flagData = map[string]map[string]interface{}{
 func ParseCliArgs() (Config, error) {
 	config := Config{}
 
-	results, err := createFlags(flagData)
+	results, err := createFlags(flags)
 	if err != nil {
 		return config, err
 	}
@@ -216,31 +222,31 @@ func ParseCliArgs() (Config, error) {
 	return config, nil
 }
 
-func createFlags(flagData map[string]map[string]interface{}) (map[string]interface{}, error) {
+func createFlags(flagData map[string]flagData) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 
 	for name, data := range flagData {
-		switch data["defValue"].(type) {
+		switch data.DefValue.(type) {
 		case string:
-			value := getEnv(data["key"].(string), data["defValue"].(string))
+			value := getEnv(data.Key, data.DefValue.(string))
 			var flagValue string
-			flag.StringVar(&flagValue, name, value, data["usage"].(string))
+			flag.StringVar(&flagValue, name, value, data.Usage)
 			result[name] = flagValue
 		case int:
-			value, err := getIntEnv(data["key"].(string), data["defValue"].(int))
+			value, err := getIntEnv(data.Key, data.DefValue.(int))
 			if err != nil {
 				return result, err
 			}
 			var flagValue int
-			flag.IntVar(&flagValue, name, value, data["usage"].(string))
+			flag.IntVar(&flagValue, name, value, data.Usage)
 			result[name] = flagValue
 		case bool:
-			value, err := getBoolEnv(data["key"].(string), data["defValue"].(bool))
+			value, err := getBoolEnv(data.Key, data.DefValue.(bool))
 			if err != nil {
 				return result, err
 			}
 			var flagValue bool
-			flag.BoolVar(&flagValue, name, value, data["usage"].(string))
+			flag.BoolVar(&flagValue, name, value, data.Usage)
 			result[name] = flagValue
 		default:
 			return result, errors.New("Unrecognized defValue type for " + name)
