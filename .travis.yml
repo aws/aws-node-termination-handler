@@ -22,7 +22,7 @@ matrix:
       go: "1.13.x"
       script: make unit-test
       env: GO111MODULE=on
-      after_success: bash <(curl -s https://codecov.io/bash)
+      after_success: bash <(curl -s https://codecov.io/bash) -v
     - stage: Test
       script: test/go-report-card-test/run-report-card-test.sh
       env: GO_REPORT_CARD=true
