@@ -40,8 +40,12 @@ func main() {
 	signal.Notify(signalChan, syscall.SIGTERM)
 	defer signal.Stop(signalChan)
 
-	nthConfig := config.ParseCliArgs()
-	err := webhook.ValidateWebhookConfig(nthConfig)
+	nthConfig, err := config.ParseCliArgs()
+	if err != nil {
+		log.Fatalln("Failed to parse cli args: ", err)
+	}
+
+	err = webhook.ValidateWebhookConfig(nthConfig)
 	if err != nil {
 		log.Fatalln("Webhook validation failed: ", err)
 	}
