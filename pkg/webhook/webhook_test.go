@@ -204,3 +204,22 @@ func TestPostBadResponseCode(t *testing.T) {
 	webhook.Post(event, nthconfig)
 	h.Equals(t, 1, requestCount)
 }
+
+func TestValidateWebhookConfig(t *testing.T) {
+	var nthConfig = config.Config{}
+	err := webhook.ValidateWebhookConfig(nthConfig)
+	h.Ok(t, err)
+
+	nthConfig.WebhookURL = "http://123.123.123"
+	nthConfig.WebhookTemplate = "{{ "
+	err = webhook.ValidateWebhookConfig(nthConfig)
+	h.Assert(t, true, "Failed to return error for failing to parse webhook template", err != nil)
+
+	nthConfig.WebhookTemplate = "{{.cat}}"
+	err = webhook.ValidateWebhookConfig(nthConfig)
+	h.Assert(t, true, "Failed to return error for failing to execute webhook template", err != nil)
+
+	nthConfig.WebhookTemplate = testWebhookTemplate
+	err = webhook.ValidateWebhookConfig(nthConfig)
+	h.Ok(t, err)
+}

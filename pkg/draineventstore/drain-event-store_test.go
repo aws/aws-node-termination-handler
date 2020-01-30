@@ -133,14 +133,16 @@ func TestShouldUncordonNode(t *testing.T) {
 func TestIgnoreEvent(t *testing.T) {
 	eventID := "event-id-123"
 	store := draineventstore.New(config.Config{})
-	store.IgnoreEvent(eventID)
-
+	store.IgnoreEvent("")
 	event := &drainevent.DrainEvent{
 		EventID:   eventID,
 		State:     "active",
 		StartTime: time.Now(),
 	}
 	store.AddDrainEvent(event)
+	h.Equals(t, true, store.ShouldDrainNode())
+
+	store.IgnoreEvent(eventID)
 	h.Equals(t, false, store.ShouldDrainNode())
 }
 
