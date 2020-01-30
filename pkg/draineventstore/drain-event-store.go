@@ -26,6 +26,7 @@ type Store struct {
 	sync.RWMutex
 	NthConfig       config.Config
 	drainEventStore map[string]*drainevent.DrainEvent
+	ignoredEvents   map[string]struct{}
 	atLeastOneEvent bool
 }
 
@@ -34,6 +35,7 @@ func New(nthConfig config.Config) *Store {
 	return &Store{
 		NthConfig:       nthConfig,
 		drainEventStore: make(map[string]*drainevent.DrainEvent),
+		ignoredEvents:   make(map[string]struct{}),
 	}
 }
 
@@ -55,7 +57,9 @@ func (s *Store) AddDrainEvent(drainEvent *drainevent.DrainEvent) {
 	s.Lock()
 	defer s.Unlock()
 	s.drainEventStore[drainEvent.EventID] = drainEvent
-	s.atLeastOneEvent = true
+	if _, ignored := s.ignoredEvents[drainEvent.EventID]; !ignored {
+		s.atLeastOneEvent = true
+	}
 	return
 }
 
@@ -84,7 +88,8 @@ func (s *Store) ShouldDrainNode() bool {
 }
 
 func (s *Store) shouldEventDrain(drainEvent *drainevent.DrainEvent) bool {
-	if !drainEvent.Drained && s.TimeUntilDrain(drainEvent) <= 0 {
+	_, ignored := s.ignoredEvents[drainEvent.EventID]
+	if !ignored && !drainEvent.Drained && s.TimeUntilDrain(drainEvent) <= 0 {
 		return true
 	}
 	return false
@@ -114,20 +119,23 @@ func (s *Store) IgnoreEvent(eventID string) {
 	}
 	s.Lock()
 	defer s.Unlock()
-	storedDrainEvent, ok := s.drainEventStore[eventID]
-	if ok {
-		storedDrainEvent.Drained = true
-		return
-	}
-	s.drainEventStore[eventID] = &drainevent.DrainEvent{
-		EventID: eventID,
-		Drained: true,
-	}
+	s.ignoredEvents[eventID] = struct{}{}
 }
 
-// ShouldUncordonNode returns true if there was a drainable event but it was cancelled and the store is now empty
+// ShouldUncordonNode returns true if there was a drainable event but it was cancelled and the store is now empty or only consists of ignored events
 func (s *Store) ShouldUncordonNode() bool {
 	s.RLock()
 	defer s.RUnlock()
-	return s.atLeastOneEvent && len(s.drainEventStore) == 0
+	if !s.atLeastOneEvent {
+		return false
+	}
+	if len(s.drainEventStore) == 0 {
+		return true
+	}
+	for _, drainEvent := range s.drainEventStore {
+		if _, ignored := s.ignoredEvents[drainEvent.EventID]; !ignored {
+			return false
+		}
+	}
+	return true
 }
