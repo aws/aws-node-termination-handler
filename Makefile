@@ -68,4 +68,7 @@ docker-build-and-push: docker-build docker-push
 
 test: e2e-test compatibility-test license-test go-report-card-test helm-sync-test
 
+unit-test: create-build-dir
+	go test ${MAKEFILE_PATH}/... -v coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
+
 build: create-build-dir compile
