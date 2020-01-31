@@ -1,3 +1,16 @@
+// Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//     http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package drainevent
 
 import (
@@ -24,8 +37,6 @@ func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- Drai
 	if drainEvent != nil && drainEvent.Kind == SpotITNKind {
 		log.Println("Sending drain event to the drain channel")
 		drainChan <- *drainEvent
-		// cool down for the system to respond to the drain
-		time.Sleep(120 * time.Second)
 	}
 	return nil
 }
@@ -41,11 +52,14 @@ func checkForSpotInterruptionNotice(metadataURL string) (*DrainEvent, error) {
 	// If there are no spot interruption events, an http 404 will be sent
 	if resp.StatusCode == 404 {
 		return nil, nil
-	} else if resp.StatusCode < 200 && resp.StatusCode > 399 {
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("Received an http error code when querying for spot itn events: http %d", resp.StatusCode)
 	}
 	var instanceAction ec2metadata.InstanceAction
-	json.NewDecoder(resp.Body).Decode(&instanceAction)
+	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
+	}
 	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse time from spot interruption notice metadata json: %w", err)
