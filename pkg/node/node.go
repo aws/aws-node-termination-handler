@@ -174,10 +174,6 @@ func (n Node) MarkForUncordonAfterReboot() error {
 
 // addLabel will add a label to the node given a label key and value
 func (n Node) addLabel(key string, value string) error {
-	if n.nthConfig.DryRun {
-		log.Printf("Would have added label %s=%s but dry-run flag was set", key, value)
-		return nil
-	}
 	type metadata struct {
 		Labels map[string]string `json:"labels"`
 	}
