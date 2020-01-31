@@ -14,7 +14,6 @@
 package drainevent_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -74,7 +73,6 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 			strings.Contains(result.Description, instanceAction))
 		h.Assert(t, true, "Drain event description does not contain instance time",
 			strings.Contains(result.Description, startTime))
-		fmt.Println(result)
 	}()
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
@@ -82,10 +80,7 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 }
 
 func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
-	var requestPath string = ec2metadata.SpotInstanceActionPath
-
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		h.Equals(t, req.URL.String(), requestPath)
 	}))
 	defer server.Close()
 
@@ -172,6 +167,5 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	}
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
-	fmt.Printf(err.Error())
 	h.Assert(t, true, "Failed to return error when failed to parse time", err != nil)
 }
