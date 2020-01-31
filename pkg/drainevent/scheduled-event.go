@@ -19,7 +19,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
@@ -38,8 +37,8 @@ const (
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
-func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, nthConfig config.Config) error {
-	drainEvents, err := checkForScheduledEvents(nthConfig.MetadataURL)
+func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, imds *ec2metadata.EC2MetadataService) error {
+	drainEvents, err := checkForScheduledEvents(imds)
 	if err != nil {
 		return err
 	}
@@ -56,15 +55,12 @@ func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- Dr
 }
 
 // checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
-func checkForScheduledEvents(metadataURL string) ([]DrainEvent, error) {
-	resp, err := ec2metadata.RequestMetadata(metadataURL, ec2metadata.ScheduledEventPath)
+func checkForScheduledEvents(imds *ec2metadata.EC2MetadataService) ([]DrainEvent, error) {
+	resp, err := imds.Request(ec2metadata.ScheduledEventPath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("HTTP error code %d received when monitoring for scheduled maintenance events", resp.StatusCode)
-	}
 	var scheduledEvents []ec2metadata.ScheduledEventDetail
 	json.NewDecoder(resp.Body).Decode(&scheduledEvents)
 	events := make([]DrainEvent, 0)

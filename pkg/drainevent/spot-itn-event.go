@@ -19,7 +19,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 )
 
@@ -29,8 +28,8 @@ const (
 )
 
 // MonitorForSpotITNEvents continuously monitors metadata for spot ITNs and sends drain events to the passed in channel
-func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, nthConfig config.Config) error {
-	drainEvent, err := checkForSpotInterruptionNotice(nthConfig.MetadataURL)
+func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, imds *ec2metadata.EC2MetadataService) error {
+	drainEvent, err := checkForSpotInterruptionNotice(imds)
 	if err != nil {
 		return err
 	}
@@ -42,19 +41,16 @@ func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- Drai
 }
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func checkForSpotInterruptionNotice(metadataURL string) (*DrainEvent, error) {
-	resp, err := ec2metadata.RequestMetadata(metadataURL, ec2metadata.SpotInstanceActionPath)
+func checkForSpotInterruptionNotice(imds *ec2metadata.EC2MetadataService) (*DrainEvent, error) {
+	resp, err := imds.Request(ec2metadata.SpotInstanceActionPath)
+	if resp != nil && resp.StatusCode == 404 {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// If there are no spot interruption events, an http 404 will be sent
-	if resp.StatusCode == 404 {
-		return nil, nil
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("Received an http error code when querying for spot itn events: http %d", resp.StatusCode)
-	}
 	var instanceAction ec2metadata.InstanceAction
 	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
 	if err != nil {
