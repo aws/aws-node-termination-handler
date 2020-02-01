@@ -32,91 +32,6 @@ func init() {
 	flag.StringVar(&location, cliArgName, value, value)
 }
 
-func TestParseCliArgsUnmarshalFailure(t *testing.T) {
-	var saveFlags = make(map[string]flagData)
-	for k, v := range flags {
-		saveFlags[k] = v
-	}
-
-	flags["delete-local-data"] = flagData{
-		Key:      deleteLocalDataConfigKey,
-		DefValue: 123,
-		Usage:    "If true, do not drain pods that are using local node storage in emptyDir",
-	}
-	_, err := ParseCliArgs()
-	h.Assert(t, true, "Failed to return error when unmarshal failed", err != nil)
-
-	flags = saveFlags
-}
-
-func TestCreateFlags(t *testing.T) {
-	var key = "KEY"
-
-	var validStringValue = map[string]flagData{
-		"test-string": flagData{
-			Key:      key,
-			DefValue: "default",
-			Usage:    "description",
-		},
-	}
-	result, err := createFlags(validStringValue)
-	h.Ok(t, err)
-	h.Equals(t, "default", result["test-string"])
-
-	var validIntValue = map[string]flagData{
-		"test-int": flagData{
-			Key:      key,
-			DefValue: 1234,
-			Usage:    "description",
-		},
-	}
-	result, err = createFlags(validIntValue)
-	h.Ok(t, err)
-	h.Equals(t, 1234, result["test-int"])
-
-	var validBoolValue = map[string]flagData{
-		"test-bool": flagData{
-			Key:      key,
-			DefValue: false,
-			Usage:    "description",
-		},
-	}
-	result, err = createFlags(validBoolValue)
-	h.Ok(t, err)
-	h.Equals(t, false, result["test-bool"])
-
-	os.Setenv(key, "bla")
-	var invalidDefValue = map[string]flagData{
-		"test-string": flagData{
-			Key:      key,
-			DefValue: 7.9,
-			Usage:    "description",
-		},
-	}
-	_, err = createFlags(invalidDefValue)
-	h.Assert(t, true, "Failed to return error when defValue type unrecognized", err != nil)
-
-	var invalidIntEnvValue = map[string]flagData{
-		"test-string": flagData{
-			Key:      key,
-			DefValue: 1,
-			Usage:    "description",
-		},
-	}
-	_, err = createFlags(invalidIntEnvValue)
-	h.Assert(t, true, "Failed to return error when env var not integer", err != nil)
-
-	var invalidBoolEnvValue = map[string]flagData{
-		"test-string": flagData{
-			Key:      key,
-			DefValue: false,
-			Usage:    "description",
-		},
-	}
-	_, err = createFlags(invalidBoolEnvValue)
-	h.Assert(t, true, "Failed to return error when env var not boolean", err != nil)
-}
-
 func TestGetEnv(t *testing.T) {
 	var key = "STRING_TEST"
 	var successVal = "success"
@@ -138,17 +53,19 @@ func TestGetIntEnv(t *testing.T) {
 
 	os.Setenv(key, strconv.Itoa(successVal))
 
-	result, ok := getIntEnv(key+"bla", failVal)
-	h.Ok(t, ok)
+	result := getIntEnv(key+"bla", failVal)
 	h.Equals(t, failVal, result)
 
-	result, ok = getIntEnv(key, failVal)
-	h.Ok(t, ok)
+	result = getIntEnv(key, failVal)
 	h.Equals(t, successVal, result)
 
-	os.Setenv(key, "bla")
-	result, ok = getIntEnv(key, failVal)
-	h.Assert(t, true, "Failed to return error when var not integer.", ok != nil)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("getIntEnv did not panic")
+		}
+	}()
+	os.Setenv(key, "hi")
+	result = getIntEnv(key, 0)
 }
 
 func TestGetBoolEnv(t *testing.T) {
@@ -158,17 +75,19 @@ func TestGetBoolEnv(t *testing.T) {
 
 	os.Setenv(key, strconv.FormatBool(successVal))
 
-	result, err := getBoolEnv(key+"bla", failVal)
-	h.Ok(t, err)
+	result := getBoolEnv(key+"bla", failVal)
 	h.Equals(t, failVal, result)
 
-	result, err = getBoolEnv(key, failVal)
-	h.Ok(t, err)
+	result = getBoolEnv(key, failVal)
 	h.Equals(t, successVal, result)
 
-	os.Setenv(key, "bla")
-	result, err = getBoolEnv(key, failVal)
-	h.Assert(t, true, "Failed to return error when var not boolean.", err != nil)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("getBoolEnv did not panic")
+		}
+	}()
+	os.Setenv(key, "hi")
+	result = getBoolEnv(key, false)
 }
 
 func TestIsConfigProvided(t *testing.T) {
