@@ -58,6 +58,9 @@ Parameter | Description | Default
 `nodeTerminationGracePeriod` | Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event. | `120`
 `ignoreDaemonsSets` | Causes kubectl to skip daemon set managed pods | `true`
 `instanceMetadataURL` | The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing. | `http://169.254.169.254:80`
+`webhookURL` | Posts event data to URL upon instance interruption action | ``
+`webhookHeaders` | Replaces the default webhook headers. | `{"Content-type":"application/json"}`
+`webhookTemplate` | Replaces the default webhook message template. | `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
 `affinity` | node/pod affinities | None
 `podSecurityContext` | Pod Security Context | `{}`
 `podAnnotations` | annotations to add to each pod | `{}`
@@ -71,3 +74,5 @@ Parameter | Description | Default
 `serviceAccount.create` | If `true`, create a new service account | `true`
 `serviceAccount.name` | Service account to be used | None
 `serviceAccount.annotations` | Specifies the annotations for ServiceAccount       | `{}`
+`procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
+
