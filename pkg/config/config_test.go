@@ -24,9 +24,10 @@ import (
 
 func resetFlagsForTest() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	os.Args = []string{"cmd"}
 }
 
-func TestParseCliArgsSuccess(t *testing.T) {
+func TestParseCliArgsEnvSuccess(t *testing.T) {
 	resetFlagsForTest()
 	os.Setenv("DELETE_LOCAL_DATA", "false")
 	os.Setenv("DRY_RUN", "true")
@@ -70,6 +71,109 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	value, ok = os.LookupEnv("KUBERNETES_SERVICE_PORT")
 	h.Equals(t, true, ok)
 	h.Equals(t, "KUBERNETES_SERVICE_PORT", value)
+}
+
+func TestParseCliArgsSuccess(t *testing.T) {
+	resetFlagsForTest()
+	os.Args = []string{
+		"cmd",
+		"--delete-local-data=false",
+		"--dry-run=true",
+		"--enable-scheduled-event-draining=true",
+		"--enable-spot-interruption-draining=false",
+		"--ignore-daemon-sets=false",
+		"--kubernetes-service-host=KUBERNETES_SERVICE_HOST",
+		"--kubernetes-service-port=KUBERNETES_SERVICE_PORT",
+		"--node-name=NODE_NAME",
+		"--node-termination-grace-period=12345",
+		"--metadata-url=INSTANCE_METADATA_URL",
+		"--pod-termination-grace-period=12345",
+		"--webhook-url=WEBHOOK_URL",
+		"--webhook-headers=WEBHOOK_HEADERS",
+		"--webhook-template=WEBHOOK_TEMPLATE",
+	}
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+
+	// Assert all the values were set
+	h.Equals(t, false, nthConfig.DeleteLocalData)
+	h.Equals(t, true, nthConfig.DryRun)
+	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
+	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
+	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
+	h.Equals(t, "KUBERNETES_SERVICE_HOST", nthConfig.KubernetesServiceHost)
+	h.Equals(t, "KUBERNETES_SERVICE_PORT", nthConfig.KubernetesServicePort)
+	h.Equals(t, "NODE_NAME", nthConfig.NodeName)
+	h.Equals(t, 12345, nthConfig.NodeTerminationGracePeriod)
+	h.Equals(t, "INSTANCE_METADATA_URL", nthConfig.MetadataURL)
+	h.Equals(t, 12345, nthConfig.PodTerminationGracePeriod)
+	h.Equals(t, "WEBHOOK_URL", nthConfig.WebhookURL)
+	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
+	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
+
+	// Check that env vars were set
+	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
+	h.Equals(t, true, ok)
+	h.Equals(t, "KUBERNETES_SERVICE_HOST", value)
+}
+
+func TestParseCliArgsOverrides(t *testing.T) {
+	resetFlagsForTest()
+	os.Setenv("DELETE_LOCAL_DATA", "true")
+	os.Setenv("DRY_RUN", "false")
+	os.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "false")
+	os.Setenv("ENABLE_SPOT_INTERRUPTION_DRAINING", "true")
+	os.Setenv("GRACE_PERIOD", "99999")
+	os.Setenv("IGNORE_DAEMON_SETS", "true")
+	os.Setenv("KUBERNETES_SERVICE_HOST", "no")
+	os.Setenv("KUBERNETES_SERVICE_PORT", "no")
+	os.Setenv("NODE_NAME", "no")
+	os.Setenv("NODE_TERMINATION_GRACE_PERIOD", "99999")
+	os.Setenv("INSTANCE_METADATA_URL", "no")
+	os.Setenv("POD_TERMINATION_GRACE_PERIOD", "99999")
+	os.Setenv("WEBHOOK_URL", "no")
+	os.Setenv("WEBHOOK_HEADERS", "no")
+	os.Setenv("WEBHOOK_TEMPLATE", "no")
+	os.Args = []string{
+		"cmd",
+		"--delete-local-data=false",
+		"--dry-run=true",
+		"--enable-scheduled-event-draining=true",
+		"--enable-spot-interruption-draining=false",
+		"--ignore-daemon-sets=false",
+		"--kubernetes-service-host=KUBERNETES_SERVICE_HOST",
+		"--kubernetes-service-port=KUBERNETES_SERVICE_PORT",
+		"--node-name=NODE_NAME",
+		"--node-termination-grace-period=12345",
+		"--metadata-url=INSTANCE_METADATA_URL",
+		"--pod-termination-grace-period=12345",
+		"--webhook-url=WEBHOOK_URL",
+		"--webhook-headers=WEBHOOK_HEADERS",
+		"--webhook-template=WEBHOOK_TEMPLATE",
+	}
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+
+	// Assert all the values were set
+	h.Equals(t, false, nthConfig.DeleteLocalData)
+	h.Equals(t, true, nthConfig.DryRun)
+	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
+	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
+	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
+	h.Equals(t, "KUBERNETES_SERVICE_HOST", nthConfig.KubernetesServiceHost)
+	h.Equals(t, "KUBERNETES_SERVICE_PORT", nthConfig.KubernetesServicePort)
+	h.Equals(t, "NODE_NAME", nthConfig.NodeName)
+	h.Equals(t, 12345, nthConfig.NodeTerminationGracePeriod)
+	h.Equals(t, "INSTANCE_METADATA_URL", nthConfig.MetadataURL)
+	h.Equals(t, 12345, nthConfig.PodTerminationGracePeriod)
+	h.Equals(t, "WEBHOOK_URL", nthConfig.WebhookURL)
+	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
+	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
+
+	// Check that env vars were set
+	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
+	h.Equals(t, true, ok)
+	h.Equals(t, "KUBERNETES_SERVICE_HOST", value)
 }
 
 func TestParseCliArgsWithGracePeriodSuccess(t *testing.T) {
