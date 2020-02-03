@@ -21,7 +21,7 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --wait \
   --force \
   --namespace kube-system \
-  --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
+  --set instanceMetadataURL="http://localhost:1340" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set enableSpotInterruptionDraining="true" \
@@ -34,7 +34,8 @@ helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-meta
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
   --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
-  --set ec2MetadataTestProxy.enableSpotITN="false"
+  --set ec2MetadataTestProxy.enableSpotITN="false" \
+  --set ec2MetadataTestProxy.port=1340
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
@@ -42,14 +43,14 @@ TAINT_CHECK_SLEEP=15
 DEPLOYED=0
 CORDONED=0
 
-for i in `seq 1 10`; do 
+for i in `seq 1 10`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
         break
     fi
     sleep 5
-done 
+done
 
 if [[ $DEPLOYED -eq 0 ]]; then
     echo "❌ Failed test setup for regular-pod"
@@ -68,7 +69,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     sleep $TAINT_CHECK_SLEEP
 done
 
-if [[ $CORDONED -eq 0 ]]; then 
+if [[ $CORDONED -eq 0 ]]; then
     echo "❌ Failed cordoning node for scheduled maintenance event"
     exit 3
 fi
@@ -79,14 +80,14 @@ docker exec $CLUSTER_NAME-worker sh -c "chmod 0444 /uptime && chown root /uptime
 
 ## Remove ec2-metadata-test-proxy to prevent another drain event but keep regular-test-pod
 daemonset=$(kubectl get daemonsets | grep 'ec2-metadata-test-proxy' | cut -d' ' -f1)
-kubectl delete daemonsets $daemonset 
+kubectl delete daemonsets $daemonset
 
 ## Restart NTH which will simulate a system reboot by mounting a new uptime file
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
   --wait \
   --force \
   --namespace kube-system \
-  --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
+  --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1340" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set procUptimeFile="/uptime" \

@@ -18,11 +18,12 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --wait \
   --force \
   --namespace kube-system \
-  --set instanceMetadataURL="http://ec2-metadata-test-proxy.default.svc.cluster.local:1338" \
+  --set instanceMetadataURL="http://localhost:1341" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set enableSpotInterruptionDraining="true" \
   --set enableScheduledEventDraining="true"
+
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
@@ -31,21 +32,22 @@ helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-meta
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
   --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
-  --set ec2MetadataTestProxy.enableSpotITN="false"
+  --set ec2MetadataTestProxy.enableSpotITN="false" \
+  --set ec2MetadataTestProxy.port=1341
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 
-for i in `seq 1 10`; do 
+for i in `seq 1 10`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
         break
     fi
     sleep 5
-done 
+done
 
 if [[ $DEPLOYED -eq 0 ]]; then
     exit 2

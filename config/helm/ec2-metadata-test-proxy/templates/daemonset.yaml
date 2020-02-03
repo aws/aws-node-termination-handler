@@ -14,12 +14,14 @@ spec:
       labels:
         app: {{ .Values.ec2MetadataTestProxy.label }}
     spec:
+      hostNetwork: true
       containers:
       - name: {{ .Values.ec2MetadataTestProxy.label }}
         image: {{ .Values.ec2MetadataTestProxy.image.repository }}:{{ .Values.ec2MetadataTestProxy.image.tag }}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: {{ .Values.ec2MetadataTestProxy.port }}
+          hostPort: {{ .Values.ec2MetadataTestProxy.port }}
         env:
         - name: INTERRUPTION_NOTICE_DELAY
           value: {{ .Values.ec2MetadataTestProxy.interruptionNoticeDelay | quote }}
