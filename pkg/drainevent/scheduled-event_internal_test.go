@@ -14,12 +14,56 @@
 package drainevent
 
 import (
+	"flag"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/kubectl/pkg/drain"
 )
+
+var nodeName = "NAME"
+
+func resetFlagsForTest() {
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	os.Args = []string{"cmd"}
+	os.Setenv("NODE_NAME", nodeName)
+}
+
+func getDrainHelper(client *fake.Clientset) *drain.Helper {
+	return &drain.Helper{
+		Client:              client,
+		Force:               true,
+		GracePeriodSeconds:  -1,
+		IgnoreAllDaemonSets: true,
+		DeleteLocalData:     true,
+		Timeout:             time.Duration(120) * time.Second,
+		Out:                 os.Stdout,
+		ErrOut:              os.Stderr,
+	}
+}
+
+func getNthConfig(t *testing.T) config.Config {
+	nthConfig, err := config.ParseCliArgs()
+	if err != nil {
+		t.Error("failed to create nthConfig")
+	}
+	return nthConfig
+}
+
+func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
+	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper)
+	if err != nil {
+		t.Error("failed to create node")
+	}
+	return tNode
+}
 
 func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 	drainEvent := DrainEvent{}
@@ -30,4 +74,30 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 
 	err := uncordonAfterRebootPreDrain(drainEvent, *tNode)
 	h.Ok(t, err)
+}
+
+func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
+	resetFlagsForTest()
+
+	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
+	err := uncordonAfterRebootPreDrain(DrainEvent{}, *tNode)
+	h.Assert(t, true, "Failed to return error on MarkWithEventID failing to fetch node", err != nil)
+}
+
+func TestUncordonAfterRebootPreDrainUnschedulableFailure(t *testing.T) {
+	resetFlagsForTest()
+
+	client := fake.NewSimpleClientset()
+	client.CoreV1().Nodes().Create(&v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Spec: v1.NodeSpec{
+			Unschedulable: true,
+		},
+	})
+
+	tNode := getNode(t, getDrainHelper(client))
+	err := uncordonAfterRebootPreDrain(DrainEvent{}, *tNode)
+	h.Assert(t, true, "Failed to return error on MarkWithEventID failing to fetch node", err != nil)
 }

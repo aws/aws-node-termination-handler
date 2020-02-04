@@ -14,7 +14,6 @@
 package config
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -73,10 +72,8 @@ func ParseCliArgs() (config Config, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch pval := r.(type) {
-			case string:
-				err = errors.New(pval)
 			default:
-				err = errors.New("Error parsing CLI arguments")
+				err = fmt.Errorf("%v", pval)
 			}
 		}
 	}()

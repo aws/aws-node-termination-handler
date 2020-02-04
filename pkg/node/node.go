@@ -61,6 +61,13 @@ func New(nthConfig config.Config) (*Node, error) {
 	}, nil
 }
 
+func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, error) {
+	return &Node{
+		nthConfig:   nthConfig,
+		drainHelper: drainHelper,
+	}, nil
+}
+
 //Drain will cordon the node and evict pods based on the config
 func (n Node) Drain() error {
 	if n.nthConfig.DryRun {
@@ -149,6 +156,10 @@ func (n Node) GetEventID() (string, error) {
 		return "", fmt.Errorf("Could not get event ID label from node: %w", err)
 	}
 	val, ok := node.Labels[EventIDLabelKey]
+	if n.nthConfig.DryRun && !ok {
+		log.Printf("Would have returned Error: Event ID Lable %s was not found on the node, but dry-run flag was set", EventIDLabelKey)
+		return "", nil
+	}
 	if !ok {
 		return "", fmt.Errorf("Event ID Label %s was not found on the node", EventIDLabelKey)
 	}
@@ -191,13 +202,13 @@ func (n Node) addLabel(key string, value string) error {
 	if err != nil {
 		return fmt.Errorf("An error occurred while marshalling the json to add a label to the node: %w", err)
 	}
-	if n.nthConfig.DryRun {
-		log.Printf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, n.nthConfig.NodeName)
-		return nil
-	}
 	node, err := n.fetchKubernetesNode()
 	if err != nil {
 		return err
+	}
+	if n.nthConfig.DryRun {
+		log.Printf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, n.nthConfig.NodeName)
+		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, payloadBytes)
 	if err != nil {
@@ -208,10 +219,6 @@ func (n Node) addLabel(key string, value string) error {
 
 // removeLabel will remove a node label given a label key
 func (n Node) removeLabel(key string) error {
-	if n.nthConfig.DryRun {
-		log.Printf("Would have removed label with key %s but dry-run flag was set", key)
-		return nil
-	}
 	type patchRequest struct {
 		Op   string `json:"op"`
 		Path string `json:"path"`
@@ -226,13 +233,13 @@ func (n Node) removeLabel(key string) error {
 	if err != nil {
 		return fmt.Errorf("An error occurred while marshalling the json to remove a label from the node: %w", err)
 	}
-	if n.nthConfig.DryRun {
-		log.Printf("Would have removed label with key %s from node %s, but dry-run flag was set", key, n.nthConfig.NodeName)
-		return nil
-	}
 	node, err := n.fetchKubernetesNode()
 	if err != nil {
 		return err
+	}
+	if n.nthConfig.DryRun {
+		log.Printf("Would have removed label with key %s from node %s, but dry-run flag was set", key, n.nthConfig.NodeName)
+		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, payload)
 	if err != nil {
@@ -270,7 +277,7 @@ func (n Node) UncordonIfRebooted() error {
 	secondsSinceLabel := time.Now().Unix() - timeValNum
 	switch actionVal := k8sNode.Labels[ActionLabelKey]; actionVal {
 	case UncordonAfterRebootLabelVal:
-		uptime, err := getSystemUptime()
+		uptime, err := getSystemUptime("/proc/uptime")
 		if err != nil {
 			return err
 		}
@@ -299,6 +306,7 @@ func (n Node) fetchKubernetesNode() (*corev1.Node, error) {
 	if n.nthConfig.DryRun {
 		return node, nil
 	}
+	fmt.Println(n.nthConfig.NodeName)
 	return n.drainHelper.Client.CoreV1().Nodes().Get(n.nthConfig.NodeName, metav1.GetOptions{})
 }
 
@@ -332,15 +340,15 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 	return drainHelper, nil
 }
 
-func getSystemUptime() (float64, error) {
-	data, err := ioutil.ReadFile("/proc/uptime")
+func getSystemUptime(filename string) (float64, error) {
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return 0, fmt.Errorf("Not able to read /proc/uptime: %w", err)
+		return 0, fmt.Errorf("Not able to read %s: %w", filename, err)
 	}
 
 	uptime, err := strconv.ParseFloat(strings.Split(string(data), " ")[0], 64)
 	if err != nil {
-		return 0, fmt.Errorf("Not able to parse /proc/uptime to Float64: %w", err)
+		return 0, fmt.Errorf("Not able to parse %s to Float64: %w", filename, err)
 	}
 	return uptime, nil
 }
