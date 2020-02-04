@@ -10,7 +10,7 @@ metadata:
 spec:
   privileged: false
   hostIPC: false
-  hostNetwork: false
+  hostNetwork: true
   hostPID: false
   readOnlyRootFilesystem: false
   allowPrivilegeEscalation: false
