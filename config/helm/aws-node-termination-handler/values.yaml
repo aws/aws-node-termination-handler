@@ -4,7 +4,7 @@
 
 image:
   repository: amazon/aws-node-termination-handler
-  tag: v1.1.0
+  tag: v1.2.0
   pullPolicy: IfNotPresent
 
 nameOverride: ""
@@ -12,12 +12,7 @@ fullnameOverride: ""
 
 priorityClassName: system-node-critical
 
-podSecurityContext: {}
-
 podAnnotations: {}
-
-securityContext:
-  privileged: true
 
 resources:
   requests:
