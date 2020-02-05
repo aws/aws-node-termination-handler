@@ -59,11 +59,11 @@ We use Kustomize to create a master Kubernetes yaml file. You can apply the base
 
 ```
 ## Apply base kustomize directly kubernetes
-kubectl apply -k $REPO_ROOT/config/base 
+kubectl apply -k $REPO_ROOT/config/base/deploy 
 
 ## OR apply an overlay specifying a node selector to run the daemonset only on spot instances
 ## This will use the base and add a node selector into the daemonset K8s object definition
-kubectl apply -k $REPO_ROOT/config/overlays/spot-node-selector 
+kubectl apply -k $REPO_ROOT/config/deploy/overlays/spot-node-selector 
 ```
 
 Read more about Kustomize and Overlays: https://kustomize.io
