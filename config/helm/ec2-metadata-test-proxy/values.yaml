@@ -1,3 +1,14 @@
+
+nameOverride: ""
+fullnameOverride: ""
+priorityClassName: system-node-critical
+podAnnotations: {}
+rbac:
+    pspEnabled: true
+serviceAccount:
+    name: emtp-sa
+    create: true
+    annotations: {}
 # The ec2-metadata-test-proxy is for testing purposes
 ec2MetadataTestProxy:
     create: true
