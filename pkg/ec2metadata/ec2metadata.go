@@ -101,6 +101,9 @@ func New(metadataURL string, tries int) *EC2MetadataService {
 // GetScheduledMaintenanceEvents retrieves EC2 scheduled maintenance events from imds
 func (e *EC2MetadataService) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
 	resp, err := e.Request(ScheduledEventPath)
+	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
@@ -114,26 +117,29 @@ func (e *EC2MetadataService) GetScheduledMaintenanceEvents() ([]ScheduledEventDe
 }
 
 // GetSpotITNEvent retrieves EC2 scheduled maintenance events from imds
-func (e *EC2MetadataService) GetSpotITNEvent() (InstanceAction, bool, error) {
+func (e *EC2MetadataService) GetSpotITNEvent() (instanceAction *InstanceAction, err error) {
 	resp, err := e.Request(SpotInstanceActionPath)
 	// 404s are normal when querying for the 'latest/meta-data/spot' path
 	if resp != nil && resp.StatusCode == 404 {
-		return InstanceAction{}, false, nil
+		return nil, nil
+	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
 	}
 	if err != nil {
-		return InstanceAction{}, false, fmt.Errorf("Unable to parse metadata response: %w", err)
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var instanceAction InstanceAction
 	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
 	if err != nil {
-		return InstanceAction{}, false, fmt.Errorf("Could not decode instance action response: %w", err)
+		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
 	}
-	return instanceAction, true, nil
+	return instanceAction, nil
 }
 
 // Request sends an http request to IMDSv1 or v2 at the specified path
+// It is up to the caller to handle http status codes on the response
+// An error will only be returned if the request is unable to be made
 func (e *EC2MetadataService) Request(contextPath string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, e.metadataURL+contextPath, nil)
 	if err != nil {
@@ -161,9 +167,6 @@ func (e *EC2MetadataService) Request(contextPath string) (*http.Response, error)
 	resp, err := retry(e.tries, 2*time.Second, httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("Unable to request metadata, received http status code: %d", resp.StatusCode)
 	}
 	ttl, err := ttlHeaderToInt(resp)
 	if err == nil {

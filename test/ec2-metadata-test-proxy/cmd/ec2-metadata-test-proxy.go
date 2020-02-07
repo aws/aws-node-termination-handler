@@ -136,7 +136,9 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if interruptionDelayRemaining > 0 {
-		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet, passing through to metadata", interruptionDelay, interruptionDelayRemaining)
+		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet", interruptionDelay, interruptionDelayRemaining)
+		res.WriteHeader(404)
+		return
 	} else if req.URL.Path == spotInstanceActionPath {
 		log.Println("Handling Spot Instance Action Path")
 		if isV2Enabled {

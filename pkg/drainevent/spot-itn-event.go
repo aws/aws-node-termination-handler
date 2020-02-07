@@ -41,9 +41,9 @@ func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- Drai
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
 func checkForSpotInterruptionNotice(imds *ec2metadata.EC2MetadataService) (*DrainEvent, error) {
-	instanceAction, ok, err := imds.GetSpotITNEvent()
-	// if there are no spot itns and no errors
-	if !ok && err == nil {
+	instanceAction, err := imds.GetSpotITNEvent()
+	if instanceAction == nil && err == nil {
+		// if there are no spot itns and no errors
 		return nil, nil
 	}
 	if err != nil {

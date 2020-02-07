@@ -117,7 +117,7 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when 404 response", err != nil)
+	h.Ok(t, err)
 }
 
 func TestMonitorForSpotITNEvents500Response(t *testing.T) {

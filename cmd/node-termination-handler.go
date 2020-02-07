@@ -32,7 +32,6 @@ import (
 const (
 	scheduledMaintenance = "Scheduled Maintenance"
 	spotITN              = "Spot ITN"
-	metadataTries        = 3
 )
 
 type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, *ec2metadata.EC2MetadataService) error
@@ -70,7 +69,7 @@ func main() {
 	cancelChan := make(chan drainevent.DrainEvent)
 	defer close(cancelChan)
 
-	imds := ec2metadata.New(nthConfig.MetadataURL, metadataTries)
+	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	monitoringFns := map[string]monitorFunc{}
 	if nthConfig.EnableSpotInterruptionDraining {

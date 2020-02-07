@@ -46,6 +46,8 @@ const (
 	enableScheduledEventDrainingDefault     = false
 	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
 	enableSpotInterruptionDrainingDefault   = true
+	metadataTriesConfigKey                  = "METADATA_TRIES"
+	metadataTriesDefault                    = 3
 )
 
 //Config arguments set via CLI, environment variables, or defaults
@@ -64,6 +66,7 @@ type Config struct {
 	WebhookTemplate                string
 	EnableScheduledEventDraining   bool
 	EnableSpotInterruptionDraining bool
+	MetadataTries                  int
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -92,6 +95,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is receieved")
+	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 
 	flag.Parse()
 
@@ -123,7 +127,9 @@ func ParseCliArgs() (config Config, err error) {
 			"\tpod-termination-grace-period: %d,\n"+
 			"\tnode-termination-grace-period: %d,\n"+
 			"\tenable-scheduled-event-draining: %t,\n"+
-			"\tenable-spot-interruption-draining: %t,\n",
+			"\tenable-spot-interruption-draining: %t,\n"+
+			"\tmetadata-tries: %d,\n",
+
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,
@@ -135,6 +141,7 @@ func ParseCliArgs() (config Config, err error) {
 		config.NodeTerminationGracePeriod,
 		config.EnableScheduledEventDraining,
 		config.EnableSpotInterruptionDraining,
+		config.MetadataTries,
 	)
 
 	return config, err
