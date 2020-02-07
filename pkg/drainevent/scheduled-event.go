@@ -14,7 +14,6 @@
 package drainevent
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -56,13 +55,10 @@ func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- Dr
 
 // checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
 func checkForScheduledEvents(imds *ec2metadata.EC2MetadataService) ([]DrainEvent, error) {
-	resp, err := imds.Request(ec2metadata.ScheduledEventPath)
+	scheduledEvents, err := imds.GetScheduledMaintenanceEvents()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
-	var scheduledEvents []ec2metadata.ScheduledEventDetail
-	json.NewDecoder(resp.Body).Decode(&scheduledEvents)
 	events := make([]DrainEvent, 0)
 	for _, scheduledEvent := range scheduledEvents {
 		var preDrainFunc preDrainTask

@@ -14,6 +14,7 @@
 package ec2metadata
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -95,6 +96,41 @@ func New(metadataURL string, tries int) *EC2MetadataService {
 		tries:       tries,
 		httpClient:  http.Client{},
 	}
+}
+
+// GetScheduledMaintenanceEvents retrieves EC2 scheduled maintenance events from imds
+func (e *EC2MetadataService) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
+	resp, err := e.Request(ScheduledEventPath)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+	var scheduledEvents []ScheduledEventDetail
+	err = json.NewDecoder(resp.Body).Decode(&scheduledEvents)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode json retrieved from imds: %w", err)
+	}
+	return scheduledEvents, nil
+}
+
+// GetSpotITNEvent retrieves EC2 scheduled maintenance events from imds
+func (e *EC2MetadataService) GetSpotITNEvent() (InstanceAction, bool, error) {
+	resp, err := e.Request(SpotInstanceActionPath)
+	// 404s are normal when querying for the 'latest/meta-data/spot' path
+	if resp != nil && resp.StatusCode == 404 {
+		return InstanceAction{}, false, nil
+	}
+	if err != nil {
+		return InstanceAction{}, false, fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var instanceAction InstanceAction
+	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
+	if err != nil {
+		return InstanceAction{}, false, fmt.Errorf("Could not decode instance action response: %w", err)
+	}
+	return instanceAction, true, nil
 }
 
 // Request sends an http request to IMDSv1 or v2 at the specified path

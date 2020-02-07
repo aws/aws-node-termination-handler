@@ -14,7 +14,6 @@
 package drainevent
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -42,19 +41,13 @@ func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- Drai
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
 func checkForSpotInterruptionNotice(imds *ec2metadata.EC2MetadataService) (*DrainEvent, error) {
-	resp, err := imds.Request(ec2metadata.SpotInstanceActionPath)
-	if resp != nil && resp.StatusCode == 404 {
+	instanceAction, ok, err := imds.GetSpotITNEvent()
+	// if there are no spot itns and no errors
+	if !ok && err == nil {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var instanceAction ec2metadata.InstanceAction
-	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
-	if err != nil {
-		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
+		return nil, fmt.Errorf("There was a problem checking for spot ITNs: %w", err)
 	}
 	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
 	if err != nil {
