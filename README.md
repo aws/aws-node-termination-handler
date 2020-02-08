@@ -62,7 +62,9 @@ Once that is complete you can install the termination handler. We've provided so
 
 Basic installation (no configuration):
 ```sh
-helm upgrade --install aws-node-termination-handler --namespace kube-system eks/aws-node-termination-handler
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  eks/aws-node-termination-handler
 ```
 
 Enabling Features:
@@ -86,7 +88,7 @@ Webhook Configuration:
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
-  --set webhookURL=https://hooks.slack.com/services/###/###/###
+  --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
   eks/aws-node-termination-handler
 ```
 
