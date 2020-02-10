@@ -10,46 +10,42 @@ set -euo pipefail
 #   $EC2_METADATA_DOCKER_REPO
 #   $EC2_METADATA_DOCKER_TAG
 
-echo "Starting Webhook Test for Node Termination Handler"
+echo "Starting IMDSv2 Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-### LOCAL ONLY TESTS FOR 200 RESPONSE FROM LOCAL CLUSTER, MASTER WILL TEST WITH TRAVIS SECRET URL
-if [[ -z $(env | grep "WEBHOOK_URL=") ]]; then
-  WEBHOOK_URL="http://localhost:$IMDS_PORT"
-fi
-
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
-  --wait \
   --force \
   --namespace kube-system \
   --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
-  --set webhookURL="$WEBHOOK_URL" \
   --set enableSpotInterruptionDraining="true" \
   --set enableScheduledEventDraining="true"
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
-  --wait \
   --force \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
+  --set ec2MetadataTestProxy.enableSpotITN="true" \
+  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
+  --set ec2MetadataTestProxy.enableIMDSV2="true" \
   --set ec2MetadataTestProxy.port="$IMDS_PORT"
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
-for i in `seq 1 10`; do
+
+for i in `seq 1 10`; do 
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
         break
     fi
     sleep 5
-done
+done 
 
 if [[ $DEPLOYED -eq 0 ]]; then
     exit 2
@@ -58,10 +54,9 @@ fi
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
       if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
           echo "✅ Verified the worker node was cordoned!"
-          NTH_POD_NAME=$(kubectl get pods -n kube-system -o json | jq '.items[] | select( .metadata.name | contains("node-termination-handler") ) | .metadata.name' -r | head -n 1)
-          if kubectl logs $NTH_POD_NAME -n kube-system | grep 'Webhook Success'; then
-              echo "✅ Verified the webhook message was sent!"
-              echo "✅ Webhook Test Passed $CLUSTER_NAME! ✅"
+          if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+              echo "✅ Verified the regular-pod-test pod was evicted!"
+              echo "✅ IMDSv2 Test Passed $CLUSTER_NAME! ✅"
               exit 0
           fi
       fi

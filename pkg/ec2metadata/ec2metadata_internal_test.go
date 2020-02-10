@@ -18,6 +18,8 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -43,4 +45,40 @@ func TestRetry(t *testing.T) {
 
 	h.Equals(t, errorMsg, err.Error())
 	h.Equals(t, numRetries, requestCount)
+}
+
+func TestGetV2Token(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		h.Equals(t, req.Header.Get(tokenTTLHeader), strconv.Itoa(tokenTTL))
+		h.Equals(t, req.URL.String(), tokenRefreshPath)
+		rw.Header().Set(tokenTTLHeader, "100")
+		rw.Write([]byte(`token`))
+	}))
+	defer server.Close()
+	imds := New(server.URL, 1)
+
+	token, ttl, err := imds.getV2Token()
+	h.Ok(t, err)
+	h.Equals(t, "token", token)
+	h.Equals(t, 100, ttl)
+}
+
+func TestGetV2TokenBadURL(t *testing.T) {
+	imds := New(string([]byte{0x7f}), 1)
+	_, _, err := imds.getV2Token()
+	h.Assert(t, err != nil, "Should error on invalid metadata URL")
+}
+
+func TestGetV2TokenBadTTLHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		h.Equals(t, req.Header.Get(tokenTTLHeader), strconv.Itoa(tokenTTL))
+		h.Equals(t, req.URL.String(), tokenRefreshPath)
+		rw.Header().Set(tokenTTLHeader, "badttl")
+		rw.Write([]byte(`token`))
+	}))
+	defer server.Close()
+	imds := New(server.URL, 1)
+
+	_, _, err := imds.getV2Token()
+	h.Assert(t, err != nil, "Non-int TTL should have caused an error")
 }

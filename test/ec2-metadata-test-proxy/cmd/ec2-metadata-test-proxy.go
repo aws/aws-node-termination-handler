@@ -41,6 +41,11 @@ const (
 	scheduledMaintenanceEventPath    = "/latest/meta-data/events/maintenance/scheduled"
 	scheduledEventStatusConfigKey    = "SCHEDULED_EVENT_STATUS"
 	scheduledEventStatusDefault      = "active"
+	imdsV2TokenPath                  = "/latest/api/token"
+	imdsV2ConfigKey                  = "ENABLE_IMDS_V2"
+	imdsV2Token                      = "token"
+	tokenTTLHeader                   = "X-aws-ec2-metadata-token-ttl-seconds"
+	tokenRequestHeader               = "X-aws-ec2-metadata-token"
 )
 
 var startTime int64 = time.Now().Unix()
@@ -112,9 +117,36 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		interruptionDelay, _ = strconv.Atoi(interruptionNoticeDelayDefault)
 	}
 	interruptionDelayRemaining := int64(interruptionDelay) - (requestTime - startTime)
+	isV2Enabled, _ := strconv.ParseBool(getEnv(imdsV2ConfigKey, "false"))
+	if isV2Enabled {
+		log.Println("IMDSv2 is ENABLED! This means v1 API will not work.")
+		res.Header().Add(tokenTTLHeader, "1000")
+	} else {
+		log.Println("IMDSv2 is NOT enabled!")
+	}
+
+	if req.URL.Path == imdsV2TokenPath && isV2Enabled {
+		if req.Method != http.MethodPut {
+			res.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		log.Println("Received IMDSv2 token")
+		res.Write([]byte(imdsV2Token))
+		return
+	}
+
 	if interruptionDelayRemaining > 0 {
-		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet, passing through to metadata", interruptionDelay, interruptionDelayRemaining)
+		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet", interruptionDelay, interruptionDelayRemaining)
+		res.WriteHeader(404)
+		return
 	} else if req.URL.Path == spotInstanceActionPath {
+		log.Println("Handling Spot Instance Action Path")
+		if isV2Enabled {
+			if !isTokenValid(req) {
+				res.WriteHeader(http.StatusForbidden)
+				return
+			}
+		}
 		if !isPathEnabled(spotInstanceActionFlag) {
 			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
 			return
@@ -140,6 +172,13 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Write(js)
 		return
 	} else if req.URL.Path == scheduledMaintenanceEventPath {
+		log.Println("Handling Scheduled Maintenance Events Path")
+		if isV2Enabled {
+			if !isTokenValid(req) {
+				res.WriteHeader(http.StatusForbidden)
+				return
+			}
+		}
 		if !isPathEnabled(scheduledMaintenanceEventFlag) {
 			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
 			return
@@ -176,6 +215,15 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	res.Write([]byte("{}"))
 	return
+}
+
+func isTokenValid(req *http.Request) bool {
+	token := req.Header.Get("X-aws-ec2-metadata-token")
+	log.Printf("Token evaluation: header(%s) -> %s", token, imdsV2Token)
+	if token != imdsV2Token {
+		return false
+	}
+	return true
 }
 
 func main() {

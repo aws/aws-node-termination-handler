@@ -19,20 +19,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
-var scheduledEventId = "instance-event-0d59937288b749b32"
-var scheduledEventState = "active"
-var scheduledEventCode = "system-reboot"
-var scheduledEventStartTime = "21 Jan 2019 09:00:43 GMT"
-var expScheduledEventStartTimeFmt = "2019-01-21 09:00:43 +0000 UTC"
-var scheduledEventEndTime = "21 Jan 2019 09:17:23 GMT"
-var expScheduledEventEndTimeFmt = "2019-01-21 09:17:23 +0000 UTC"
-var scheduledEventDescription = "scheduled reboot"
+const (
+	scheduledEventId              = "instance-event-0d59937288b749b32"
+	scheduledEventState           = "active"
+	scheduledEventCode            = "system-reboot"
+	scheduledEventStartTime       = "21 Jan 2019 09:00:43 GMT"
+	expScheduledEventStartTimeFmt = "2019-01-21 09:00:43 +0000 UTC"
+	scheduledEventEndTime         = "21 Jan 2019 09:17:23 GMT"
+	expScheduledEventEndTimeFmt   = "2019-01-21 09:17:23 +0000 UTC"
+	scheduledEventDescription     = "scheduled reboot"
+	imdsV2TokenPath               = "/latest/api/token"
+)
+
 var scheduledEventResponse = []byte(`[{
 	"NotBefore": "` + scheduledEventStartTime + `",
 	"Code": "` + scheduledEventCode + `",
@@ -46,6 +49,10 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write(scheduledEventResponse)
 	}))
@@ -53,9 +60,7 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-drainChan
@@ -76,7 +81,7 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 
 	}()
 
-	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
 	h.Ok(t, err)
 }
 
@@ -84,6 +89,10 @@ func TestMonitorForScheduledEventsCancelledEvent(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 	var state = "cancelled"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write([]byte(`[{
 			"NotBefore": "` + scheduledEventStartTime + `",
@@ -98,9 +107,7 @@ func TestMonitorForScheduledEventsCancelledEvent(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-cancelChan
@@ -121,7 +128,7 @@ func TestMonitorForScheduledEventsCancelledEvent(t *testing.T) {
 
 	}()
 
-	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
 	h.Ok(t, err)
 }
 
@@ -129,17 +136,19 @@ func TestMonitorForScheduledEventsMetadataParseFailure(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 	}))
 	defer server.Close()
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: "Bad url",
-	}
+	imds := ec2metadata.New("bad url", 0)
 
-	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when metadata parse fails", err != nil)
 }
 
@@ -147,6 +156,10 @@ func TestMonitorForScheduledEvents404Response(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		http.Error(rw, "error", http.StatusNotFound)
 	}))
@@ -154,17 +167,19 @@ func TestMonitorForScheduledEvents404Response(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when 404 response", err != nil)
 }
 
 func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write([]byte(`[{
 			"NotBefore": "",
@@ -179,17 +194,19 @@ func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when failed to parse start time", err != nil)
 }
 
 func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write([]byte(`[{
 			"NotBefore": "` + scheduledEventStartTime + `",
@@ -204,10 +221,8 @@ func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when failed to parse end time", err != nil)
 }

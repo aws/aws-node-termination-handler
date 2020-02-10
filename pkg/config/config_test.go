@@ -44,6 +44,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	os.Setenv("WEBHOOK_URL", "WEBHOOK_URL")
 	os.Setenv("WEBHOOK_HEADERS", "WEBHOOK_HEADERS")
 	os.Setenv("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
+	os.Setenv("METADATA_TRIES", "100")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -62,6 +63,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_URL", nthConfig.WebhookURL)
 	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
+	h.Equals(t, 100, nthConfig.MetadataTries)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -91,6 +93,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--webhook-url=WEBHOOK_URL",
 		"--webhook-headers=WEBHOOK_HEADERS",
 		"--webhook-template=WEBHOOK_TEMPLATE",
+		"--metadata-tries=100",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -110,6 +113,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_URL", nthConfig.WebhookURL)
 	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
+	h.Equals(t, 100, nthConfig.MetadataTries)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -134,6 +138,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	os.Setenv("WEBHOOK_URL", "no")
 	os.Setenv("WEBHOOK_HEADERS", "no")
 	os.Setenv("WEBHOOK_TEMPLATE", "no")
+	os.Setenv("METADATA_TRIES", "100")
 	os.Args = []string{
 		"cmd",
 		"--delete-local-data=false",
@@ -150,6 +155,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--webhook-url=WEBHOOK_URL",
 		"--webhook-headers=WEBHOOK_HEADERS",
 		"--webhook-template=WEBHOOK_TEMPLATE",
+		"--metadata-tries=101",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -169,6 +175,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, "WEBHOOK_URL", nthConfig.WebhookURL)
 	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
+	h.Equals(t, 101, nthConfig.MetadataTries)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")

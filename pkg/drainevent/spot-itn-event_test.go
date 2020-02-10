@@ -20,17 +20,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
-var eventId = "12345678-1234-1234-1234-123456789012"
-var startTime = "2017-09-18T08:22:00Z"
-var expFormattedTime = "2017-09-18 08:22:00 +0000 UTC"
-var instanceId = 12345
-var instanceAction = "INSTANCE_ACTION"
+const (
+	eventId          = "12345678-1234-1234-1234-123456789012"
+	startTime        = "2017-09-18T08:22:00Z"
+	expFormattedTime = "2017-09-18 08:22:00 +0000 UTC"
+	instanceId       = 12345
+	instanceAction   = "INSTANCE_ACTION"
+)
 
 var instanceActionResponse = []byte(`{
     "version": "0",
@@ -51,6 +52,10 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write(instanceActionResponse)
 	}))
@@ -58,9 +63,7 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-drainChan
@@ -75,22 +78,24 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 			strings.Contains(result.Description, startTime))
 	}()
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Ok(t, err)
 }
 
 func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 	}))
 	defer server.Close()
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: "Bad url",
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error metadata parse fails", err != nil)
 }
 
@@ -98,6 +103,10 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		http.Error(rw, "error", http.StatusNotFound)
 	}))
@@ -105,18 +114,20 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
-	h.Assert(t, true, "Failed to return error when 404 response", err != nil)
+	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	h.Ok(t, err)
 }
 
 func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		http.Error(rw, "error", http.StatusInternalServerError)
 	}))
@@ -124,11 +135,9 @@ func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when 500 response", err != nil)
 }
 
@@ -136,6 +145,10 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write([]byte{0x7f})
 	}))
@@ -143,11 +156,9 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when failed to decode instance action", err != nil)
 }
 
@@ -155,6 +166,10 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if imdsV2TokenPath == req.URL.String() {
+			rw.WriteHeader(403)
+			return
+		}
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write([]byte(`{"time": ""}`))
 	}))
@@ -162,10 +177,8 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 
 	drainChan := make(chan drainevent.DrainEvent)
 	cancelChan := make(chan drainevent.DrainEvent)
-	nthConfig := config.Config{
-		MetadataURL: server.URL,
-	}
+	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, nthConfig)
+	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, true, "Failed to return error when failed to parse time", err != nil)
 }

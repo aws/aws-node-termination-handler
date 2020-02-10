@@ -28,13 +28,6 @@ function clean_up {
         $SCRIPTPATH/../k8s-local-cluster-test/delete-cluster $DELETE_CLUSTER_ARGS || :
         return 
     fi 
-    labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
-    for l in "${labels_to_remove[@]}"; do 
-      for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
-        echo "Deleting label $l on node $n"
-        kubectl label node $n "$l"-
-      done
-    done
     echo "To resume test with the same cluster use: \"-c $TMP_DIR\""""
 }
 
@@ -48,6 +41,7 @@ function exit_and_fail {
 }
 
 function reset_cluster {
+    echo "Resetting cluster"
     charts=$(helm ls --all --short)
     if [[ ! -z "$charts" ]]; then 
         helm del $charts || :
@@ -59,7 +53,21 @@ function reset_cluster {
     for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do 
         kubectl uncordon $node
     done 
+    remove_labels || :   
     sleep 2
+}
+
+function remove_labels {
+    echo "Removing labels from NTH cluster nodes"
+    labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
+    if [[ "${#labels_to_remove[@]}" -ne 0 ]]; then
+      for l in "${labels_to_remove[@]}"; do 
+        for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
+          echo "Deleting label $l on node $n"
+          kubectl label node $n "$l"-
+        done
+      done
+    fi
 }
 
 USAGE=$(cat << 'EOM'
@@ -185,8 +193,11 @@ export EC2_METADATA_DOCKER_REPO=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f1)
 export EC2_METADATA_DOCKER_TAG=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f2)
 ###
 
+i=0
 for assert_script in $ASSERTION_SCRIPTS; do
   reset_cluster
+  export IMDS_PORT=$(expr $i + 1338)
+  i=$(expr $i + 1)
   echo "======================================================================================================"
   echo "🥑 Running assertion script $(basename $assert_script)"
   echo "======================================================================================================"
@@ -199,7 +210,7 @@ for assert_script in $ASSERTION_SCRIPTS; do
   ## Resets cluster to run another test on the same cluster
   reset_cluster
   echo "✅ Assertion test $assert_script PASSED! ✅"
-done 
+done
 
 echo "======================================================================================================"
 echo "✅ All tests passed! ✅"

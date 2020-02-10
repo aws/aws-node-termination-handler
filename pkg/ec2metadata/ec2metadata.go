@@ -14,9 +14,14 @@
 package ec2metadata
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -25,7 +30,24 @@ const (
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
 	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
 	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
+
+	// IMDSv2 token related constants
+	tokenRefreshPath        = "/latest/api/token"
+	tokenTTLHeader          = "X-aws-ec2-metadata-token-ttl-seconds"
+	tokenRequestHeader      = "X-aws-ec2-metadata-token"
+	tokenTTL                = 3600 // 1 hour
+	secondsBeforeTTLRefresh = 15
 )
+
+// EC2MetadataService is used to query the EC2 instance metadata service v1 and v2
+type EC2MetadataService struct {
+	httpClient  http.Client
+	tries       int
+	metadataURL string
+	v2Token     string
+	tokenTTL    int
+	sync.RWMutex
+}
 
 // [
 //   {
@@ -67,12 +89,134 @@ type InstanceAction struct {
 	Detail     InstanceActionDetail `json:"detail"`
 }
 
-// RequestMetadata sends an http request to IMDS at the specified path using the specified URL
-func RequestMetadata(metadataURL string, contextPath string) (*http.Response, error) {
-	httpReq := func() (*http.Response, error) {
-		return http.Get(metadataURL + contextPath)
+// New constructs an instance of the EC2MetadataService client
+func New(metadataURL string, tries int) *EC2MetadataService {
+	return &EC2MetadataService{
+		metadataURL: metadataURL,
+		tries:       tries,
+		httpClient:  http.Client{},
 	}
-	return retry(3, 2*time.Second, httpReq)
+}
+
+// GetScheduledMaintenanceEvents retrieves EC2 scheduled maintenance events from imds
+func (e *EC2MetadataService) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
+	resp, err := e.Request(ScheduledEventPath)
+	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+	var scheduledEvents []ScheduledEventDetail
+	err = json.NewDecoder(resp.Body).Decode(&scheduledEvents)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode json retrieved from imds: %w", err)
+	}
+	return scheduledEvents, nil
+}
+
+// GetSpotITNEvent retrieves EC2 scheduled maintenance events from imds
+func (e *EC2MetadataService) GetSpotITNEvent() (instanceAction *InstanceAction, err error) {
+	resp, err := e.Request(SpotInstanceActionPath)
+	// 404s are normal when querying for the 'latest/meta-data/spot' path
+	if resp != nil && resp.StatusCode == 404 {
+		return nil, nil
+	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
+	}
+	return instanceAction, nil
+}
+
+// Request sends an http request to IMDSv1 or v2 at the specified path
+// It is up to the caller to handle http status codes on the response
+// An error will only be returned if the request is unable to be made
+func (e *EC2MetadataService) Request(contextPath string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, e.metadataURL+contextPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to construct an http get request to IDMS for %s: %w", e.metadataURL+contextPath, err)
+	}
+	if e.v2Token == "" || e.tokenTTL <= secondsBeforeTTLRefresh {
+		e.Lock()
+		token, ttl, err := e.getV2Token()
+		if err != nil {
+			e.v2Token = ""
+			e.tokenTTL = -1
+			log.Printf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1: %v", err)
+		} else {
+			e.v2Token = token
+			e.tokenTTL = ttl
+		}
+		e.Unlock()
+	}
+	if e.v2Token != "" {
+		req.Header.Add(tokenRequestHeader, e.v2Token)
+	}
+	httpReq := func() (*http.Response, error) {
+		return e.httpClient.Do(req)
+	}
+	resp, err := retry(e.tries, 2*time.Second, httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
+	}
+	ttl, err := ttlHeaderToInt(resp)
+	if err == nil {
+		e.Lock()
+		e.tokenTTL = ttl
+		e.Unlock()
+	}
+	return resp, nil
+}
+
+func (e *EC2MetadataService) getV2Token() (string, int, error) {
+	req, err := http.NewRequest(http.MethodPut, e.metadataURL+tokenRefreshPath, nil)
+	if err != nil {
+		return "", -1, fmt.Errorf("Unable to construct http put request to retrieve imdsv2 token: %w", err)
+	}
+	req.Header.Add(tokenTTLHeader, strconv.Itoa(tokenTTL))
+	httpReq := func() (*http.Response, error) {
+		return e.httpClient.Do(req)
+	}
+	log.Println("Trying to get token from IMDSv2")
+	resp, err := retry(1, 2*time.Second, httpReq)
+	if err != nil {
+		return "", -1, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", -1, fmt.Errorf("Received an http status code %d", resp.StatusCode)
+	}
+	token, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", -1, fmt.Errorf("Unable to read token response from IMDSv2: %w", err)
+	}
+	ttl, err := ttlHeaderToInt(resp)
+	if err != nil {
+		return "", -1, fmt.Errorf("IMDS v2 Token TTL header not sent in response: %w", err)
+	}
+	log.Println("Got token from IMDSv2")
+	return string(token), ttl, nil
+}
+
+func ttlHeaderToInt(resp *http.Response) (int, error) {
+	ttl := resp.Header.Get(tokenTTLHeader)
+	if ttl == "" {
+		return -1, fmt.Errorf("No token TTL header found")
+	}
+	ttlInt, err := strconv.Atoi(ttl)
+	if err != nil {
+		return -1, err
+	}
+	return ttlInt, nil
 }
 
 func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, error)) (*http.Response, error) {

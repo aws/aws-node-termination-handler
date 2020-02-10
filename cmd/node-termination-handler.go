@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/draineventstore"
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 )
@@ -33,7 +34,7 @@ const (
 	spotITN              = "Spot ITN"
 )
 
-type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, config.Config) error
+type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, *ec2metadata.EC2MetadataService) error
 
 func main() {
 	signalChan := make(chan os.Signal, 1)
@@ -68,6 +69,8 @@ func main() {
 	cancelChan := make(chan drainevent.DrainEvent)
 	defer close(cancelChan)
 
+	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
+
 	monitoringFns := map[string]monitorFunc{}
 	if nthConfig.EnableSpotInterruptionDraining {
 		monitoringFns[spotITN] = drainevent.MonitorForSpotITNEvents
@@ -80,7 +83,7 @@ func main() {
 		go func(monitorFn monitorFunc, eventType string) {
 			log.Printf("Started monitoring for %s events", eventType)
 			for range time.Tick(time.Second * 2) {
-				err := monitorFn(drainChan, cancelChan, nthConfig)
+				err := monitorFn(drainChan, cancelChan, imds)
 				if err != nil {
 					log.Printf("There was a problem monitoring for %s events: %v", eventType, err)
 				}

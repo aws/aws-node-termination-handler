@@ -7,6 +7,7 @@ ec2MetadataTestProxy:
     scheduledEventStatus: active
     enableScheduledMaintenanceEvents: false
     enableSpotITN: true
+    enableIMDSV2: false
     image:
         repository: ec2-metadata-test-proxy
         tag: customtest
