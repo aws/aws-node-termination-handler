@@ -14,6 +14,11 @@ spec:
       labels:
         app: {{ .Values.regularPodTest.label }}
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+      serviceAccountName: {{ template "ec2-metadata-test-proxy.serviceAccountName" . }}
       containers:
       - name: {{ .Values.regularPodTest.label }}
         image: {{ .Values.ec2MetadataTestProxy.image.repository }}:{{ .Values.ec2MetadataTestProxy.image.tag }}
