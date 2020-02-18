@@ -67,6 +67,12 @@ helm upgrade --install aws-node-termination-handler \
   eks/aws-node-termination-handler
 ```
 
+Basic installation without Helm:
+```sh
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.2.0/all-resources.yaml 
+```
+For a full list of releases and associated artificats see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
+
 Enabling Features:
 ```
 helm upgrade --install aws-node-termination-handler \

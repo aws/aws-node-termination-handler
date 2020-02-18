@@ -3,6 +3,11 @@ set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 VERSION=$(make -s -f $SCRIPTPATH/../Makefile version)
+BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
+INDV_RESOURCES_DIR=$BUILD_DIR/individual-resources
+TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources.tar
+AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
+
 RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
     https://api.github.com/repos/aws/aws-node-termination-handler/releases | \
     jq --arg VERSION "$VERSION" '.[] | select(.tag_name==$VERSION) | .id')
@@ -13,4 +18,15 @@ for binary in $SCRIPTPATH/../build/bin/*; do
         -H "Content-Type: $(file -b --mime-type $binary)" \
         --data-binary @$binary \
         "https://uploads.github.com/repos/aws/aws-node-termination-handler/releases/$RELEASE_ID/assets?name=$(basename $binary)"
+done
+
+
+## Upload k8s yaml
+resourceFiles=($TAR_RESOURCES_FILE $AGG_RESOURCES_YAML)
+for resourceFile in "${resourceFiles[@]}"; do 
+    curl \
+        -H "Authorization: token $GITHUB_TOKEN" \
+        -H "Content-Type: $(file -b --mime-type $resourceFile)" \
+        --data-binary @$resourceFile \
+        "https://uploads.github.com/repos/aws/aws-node-termination-handler/releases/$RELEASE_ID/assets?name=$(basename $resourceFile)"
 done

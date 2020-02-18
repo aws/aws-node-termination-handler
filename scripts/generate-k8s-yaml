@@ -1,0 +1,61 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
+HELM_VERSION="3.0.2"
+NAMESPACE="kube-system"
+
+MAKEFILEPATH=$SCRIPTPATH/../Makefile
+VERSION=$(make -s -f $MAKEFILEPATH version)
+BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
+INDV_RESOURCES_DIR=$BUILD_DIR/individual-resources
+TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources.tar
+AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
+mkdir -p $INDV_RESOURCES_DIR
+
+USAGE=$(cat << 'EOM'
+  Usage: generate-k8s-yaml  [-n <K8s_NAMESPACE>]
+  Generates the kubernetes yaml resource files from the helm chart
+  and places them into the build dir.
+  Example: generate-k8s-yaml -n kube-system
+          Optional:
+            -n          Kubernetes namespace
+EOM
+)
+
+# Process our input arguments
+while getopts "n:" opt; do
+  case ${opt} in
+    n ) # K8s namespace
+        NAMESPACE=$OPTARG
+      ;;
+    \? )
+        echoerr "$USAGE" 1>&2
+        exit
+      ;;
+  esac
+done
+
+curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $BUILD_DIR
+mv $BUILD_DIR/$PLATFORM-amd64/helm $BUILD_DIR/.
+rm -rf $BUILD_DIR/$PLATFORM-amd64
+chmod +x $BUILD_DIR/helm
+
+$BUILD_DIR/helm template aws-node-termination-handler \
+    --namespace kube-system \
+    $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $AGG_RESOURCES_YAML
+
+
+$BUILD_DIR/helm template aws-node-termination-handler \
+    --namespace $NAMESPACE \
+    --output-dir $INDV_RESOURCES_DIR/ \
+    $SCRIPTPATH/../config/helm/aws-node-termination-handler/
+
+cd $INDV_RESOURCES_DIR/aws-node-termination-handler/ && tar cvf $TAR_RESOURCES_FILE templates/*
+cd $SCRIPTPATH
+
+echo "Generated aws-node-termination-handler kubernetes yaml resources files in:"
+echo "    - $AGG_RESOURCES_YAML"
+echo "    - $TAR_RESOURCES_FILE"

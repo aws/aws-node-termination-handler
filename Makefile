@@ -59,10 +59,13 @@ build-binaries:
 upload-binaries-to-github:
 	${MAKEFILE_PATH}/scripts/upload-binaries-to-github
 
+generate-k8s-yaml:
+	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
+
 sync-readme-to-dockerhub:
 	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
-release: create-build-dir build-binaries upload-binaries-to-github
+release: create-build-dir build-binaries generate-k8s-yaml upload-resources-to-github
 
 docker-build-and-push: docker-build docker-push
 
