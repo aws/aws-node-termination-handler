@@ -50,7 +50,18 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 
 The termination handler installs into your cluster a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
 
-The easiest way to install the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
+### Kubectl Apply
+
+You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
+```
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.2.0/all-resources.yaml 
+```
+
+For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
+
+### Helm
+
+The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
 
 To get started you need to add the eks-charts repo to helm
 
@@ -60,18 +71,12 @@ helm repo add eks https://aws.github.io/eks-charts
 
 Once that is complete you can install the termination handler. We've provided some sample setup options below.
 
-Basic installation (no configuration):
+Zero Config:
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   eks/aws-node-termination-handler
 ```
-
-Basic installation without Helm:
-```sh
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.2.0/all-resources.yaml 
-```
-For a full list of releases and associated artificats see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
 
 Enabling Features:
 ```
