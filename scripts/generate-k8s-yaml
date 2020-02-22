@@ -47,11 +47,20 @@ $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace kube-system \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $AGG_RESOURCES_YAML
 
+# remove helm annotations from template
+cat $AGG_RESOURCES_YAML | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Helm' > $BUILD_DIR/helm_annotations_removed.yaml
+mv $BUILD_DIR/helm_annotations_removed.yaml $AGG_RESOURCES_YAML
 
 $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --output-dir $INDV_RESOURCES_DIR/ \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/
+
+# remove helm annotations from template
+for i in $INDV_RESOURCES_DIR/aws-node-termination-handler/templates/*; do
+  cat $i | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Helm' > $BUILD_DIR/helm_annotations_removed.yaml
+  mv $BUILD_DIR/helm_annotations_removed.yaml $i
+done
 
 cd $INDV_RESOURCES_DIR/aws-node-termination-handler/ && tar cvf $TAR_RESOURCES_FILE templates/*
 cd $SCRIPTPATH
