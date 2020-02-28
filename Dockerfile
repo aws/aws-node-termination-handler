@@ -28,4 +28,5 @@ WORKDIR /
 COPY --from=builder /node-termination-handler/build/node-termination-handler .
 COPY --from=amazonlinux /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/
 COPY THIRD_PARTY_LICENSES .
+USER 1000
 ENTRYPOINT ["/node-termination-handler"]
