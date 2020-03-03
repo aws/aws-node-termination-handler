@@ -27,6 +27,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 )
@@ -34,7 +35,7 @@ import (
 const (
 	testDateFormat      = "02 Jan 2006 15:04:05 GMT"
 	testWebhookHeaders  = `{"Content-type":"application/json"}`
-	testWebhookTemplate = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
+	testWebhookTemplate = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 )
 
 func parseScheduledEventTime(inputTime string) time.Time {
@@ -104,7 +105,9 @@ func TestPostSuccess(t *testing.T) {
 		WebhookTemplate: testWebhookTemplate,
 	}
 
-	webhook.Post(event, nthconfig)
+	nodeMetadata := ec2metadata.NodeMetadata{}
+
+	webhook.Post(nodeMetadata, event, nthconfig)
 }
 
 func TestPostTemplateParseError(t *testing.T) {
@@ -119,7 +122,9 @@ func TestPostTemplateParseError(t *testing.T) {
 		WebhookTemplate: "{{ ",
 	}
 
-	webhook.Post(event, nthconfig)
+	nodeMetadata := ec2metadata.NodeMetadata{}
+
+	webhook.Post(nodeMetadata, event, nthconfig)
 }
 
 func TestPostTemplateExecutionError(t *testing.T) {
@@ -134,7 +139,9 @@ func TestPostTemplateExecutionError(t *testing.T) {
 		WebhookTemplate: `{{.cat}}`,
 	}
 
-	webhook.Post(event, nthconfig)
+	nodeMetadata := ec2metadata.NodeMetadata{}
+
+	webhook.Post(nodeMetadata, event, nthconfig)
 }
 
 func TestPostNewHttpRequestError(t *testing.T) {
@@ -148,8 +155,9 @@ func TestPostNewHttpRequestError(t *testing.T) {
 		WebhookURL:      "\t",
 		WebhookTemplate: testWebhookTemplate,
 	}
+	nodeMetadata := ec2metadata.NodeMetadata{}
 
-	webhook.Post(event, nthconfig)
+	webhook.Post(nodeMetadata, event, nthconfig)
 }
 
 func TestPostHeaderParseFail(t *testing.T) {
@@ -163,8 +171,9 @@ func TestPostHeaderParseFail(t *testing.T) {
 		WebhookURL:      server.URL,
 		WebhookTemplate: testWebhookTemplate,
 	}
+	nodeMetadata := ec2metadata.NodeMetadata{}
 
-	webhook.Post(event, nthconfig)
+	webhook.Post(nodeMetadata, event, nthconfig)
 }
 
 func TestPostTimeout(t *testing.T) {
@@ -181,8 +190,9 @@ func TestPostTimeout(t *testing.T) {
 		WebhookTemplate: testWebhookTemplate,
 		WebhookHeaders:  testWebhookHeaders,
 	}
+	nodeMetadata := ec2metadata.NodeMetadata{}
 
-	webhook.Post(event, nthconfig)
+	webhook.Post(nodeMetadata, event, nthconfig)
 	h.Equals(t, 1, requestCount)
 }
 
@@ -200,8 +210,9 @@ func TestPostBadResponseCode(t *testing.T) {
 		WebhookTemplate: testWebhookTemplate,
 		WebhookHeaders:  testWebhookHeaders,
 	}
+	nodeMetadata := ec2metadata.NodeMetadata{}
 
-	webhook.Post(event, nthconfig)
+	webhook.Post(nodeMetadata, event, nthconfig)
 	h.Equals(t, 1, requestCount)
 }
 

@@ -41,7 +41,7 @@ const (
 	webhookHeadersConfigKey                 = "WEBHOOK_HEADERS"
 	webhookHeadersDefault                   = `{"Content-type":"application/json"}`
 	webhookTemplateConfigKey                = "WEBHOOK_TEMPLATE"
-	webhookTemplateDefault                  = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
+	webhookTemplateDefault                  = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 	enableScheduledEventDrainingConfigKey   = "ENABLE_SCHEDULED_EVENT_DRAINING"
 	enableScheduledEventDrainingDefault     = false
 	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"

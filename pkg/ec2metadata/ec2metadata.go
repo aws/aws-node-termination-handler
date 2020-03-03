@@ -30,6 +30,18 @@ const (
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
 	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
 	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
+	// InstanceIDPath path to instance id
+	InstanceIDPath = "/latest/meta-data/instance-id"
+	// InstanceTypePath path to instance type
+	InstanceTypePath = "/latest/meta-data/instance-type"
+	// PublicHostnamePath path to public hostname
+	PublicHostnamePath = "/latest/meta-data/public-hostname"
+	// PublicIPPath path to public ip
+	PublicIPPath = "/latest/meta-data/public-ipv4"
+	// LocalHostnamePath path to local hostname
+	LocalHostnamePath = "/latest/meta-data/local-hostname"
+	// LocalIPPath path to local ip
+	LocalIPPath = "/latest/meta-data/local-ipv4"
 
 	// IMDSv2 token related constants
 	tokenRefreshPath        = "/latest/api/token"
@@ -70,23 +82,20 @@ type ScheduledEventDetail struct {
 	State       string `json:"State"`
 }
 
-// InstanceActionDetail metadata structure for json parsing
-type InstanceActionDetail struct {
-	InstanceId     string `json:"instance-id"`
-	InstanceAction string `json:"instance-action"`
-}
-
 // InstanceAction metadata structure for json parsing
 type InstanceAction struct {
-	Version    string               `json:"version"`
-	Id         string               `json:"id"`
-	DetailType string               `json:"detail-type"`
-	Source     string               `json:"source"`
-	Account    string               `json:"account"`
-	Time       string               `json:"time"`
-	Region     string               `json:"region"`
-	Resources  []string             `json:"resources"`
-	Detail     InstanceActionDetail `json:"detail"`
+	Action string `json:"action"`
+	Time   string `json:"time"`
+}
+
+// NodeMetadata contains information that applies to every drain event
+type NodeMetadata struct {
+	InstanceID     string
+	InstanceType   string
+	PublicHostname string
+	PublicIP       string
+	LocalHostname  string
+	LocalIP        string
 }
 
 // New constructs an instance of the EC2MetadataService client
@@ -135,6 +144,23 @@ func (e *EC2MetadataService) GetSpotITNEvent() (instanceAction *InstanceAction, 
 		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
 	}
 	return instanceAction, nil
+}
+
+// GetMetadataInfo generic function for retrieving ec2 metadata
+func (e *EC2MetadataService) GetMetadataInfo(path string) (info string, err error) {
+	resp, err := e.Request(path)
+	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
+	if err != nil {
+		return "", fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("Unable to parse http response: %w", err)
+	}
+	return string(body), nil
 }
 
 // Request sends an http request to IMDSv1 or v2 at the specified path
@@ -234,4 +260,19 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 	}
 
 	return resp, err
+}
+
+// HydrateNodeMetadata attempts to gather additional ec2 instance information from the metadata service
+func (e *EC2MetadataService) GetNodeMetadata() NodeMetadata {
+	var metadata NodeMetadata
+	metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
+	metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
+	metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
+	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
+	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
+	metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
+
+	log.Printf("Startup Metadata Retrieved: %+v", metadata)
+
+	return metadata
 }
