@@ -52,6 +52,7 @@ Parameter | Description | Default
 `image.repository` | image repository | `amazon/aws-node-termination-handler`
 `image.tag` | image tag | `<VERSION>`
 `image.pullPolicy` | image pull policy | `IfNotPresent`
+`image.pullSecrets` | image pull secrets (for private docker registries) | `[]`
 `deleteLocalData` | Tells kubectl to continue even if there are pods using emptyDir (local data that will be deleted when the node is drained). | `false`
 `gracePeriod` | (DEPRECATED: Renamed to podTerminationGracePeriod) The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used. | `30`
 `podTerminationGracePeriod` | The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used. | `30`
