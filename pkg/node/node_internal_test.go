@@ -52,5 +52,5 @@ func TestGetUptimeFailure(t *testing.T) {
 	err := ioutil.WriteFile("test.out", d1, 0644)
 
 	_, err = getSystemUptime("test.out")
-	h.Assert(t, true, "Failed to throw error for float64 parse", err != nil)
+	h.Assert(t, err != nil, "Failed to throw error for float64 parse")
 }

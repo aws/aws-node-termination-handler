@@ -56,10 +56,11 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 		result := <-drainChan
 		h.Equals(t, drainevent.SpotITNKind, result.Kind)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
-		h.Assert(t, true, "Drain event description does not contain instance action",
-			strings.Contains(result.Description, instanceAction))
-		h.Assert(t, true, "Drain event description does not contain instance time",
-			strings.Contains(result.Description, startTime))
+    
+		h.Assert(t, strings.Contains(result.Description, instanceAction),
+			"Drain event description does not contain instance action")
+		h.Assert(t, strings.Contains(result.Description, startTime),
+			"Drain event description does not contain instance time")
 	}()
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
@@ -80,7 +81,7 @@ func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error metadata parse fails", err != nil)
+	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
 
 func TestMonitorForSpotITNEvents404Response(t *testing.T) {
@@ -122,7 +123,7 @@ func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when 500 response", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
 
 func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
@@ -143,7 +144,7 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when failed to decode instance action", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when failed to decode instance action")
 }
 
 func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
@@ -164,5 +165,5 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when failed to parse time", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }

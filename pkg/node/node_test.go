@@ -138,7 +138,7 @@ func TestUncordonFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.Uncordon()
-	h.Assert(t, true, "Failed to return error on Uncordon failing to fetch node", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on Uncordon failing to fetch node")
 }
 
 func TestIsUnschedulableSuccess(t *testing.T) {
@@ -158,7 +158,7 @@ func TestIsUnschedulableFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	value, err := tNode.IsUnschedulable()
-	h.Assert(t, true, "Failed to return error on IsUnschedulable failing to fetch node", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on IsUnschedulable failing to fetch node")
 	h.Equals(t, true, value)
 }
 
@@ -178,7 +178,7 @@ func TestMarkWithEventIDFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.MarkWithEventID("EventID")
-	h.Assert(t, true, "Failed to return error on MarkWithEventID failing to fetch node", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
 func TestRemoveNTHLablesFailure(t *testing.T) {
@@ -186,7 +186,7 @@ func TestRemoveNTHLablesFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.RemoveNTHLabels()
-	h.Assert(t, true, "Failed to return error on failing RemoveNTHLabels", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on failing RemoveNTHLabels")
 }
 
 func TestGetEventIDSuccess(t *testing.T) {
@@ -212,7 +212,7 @@ func TestGetEventIDNoNodeFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	_, err := tNode.GetEventID()
-	h.Assert(t, true, "Failed to return error on GetEventID failed to find node", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find node")
 }
 
 func TestGetEventIDNoLabelFailure(t *testing.T) {
@@ -223,7 +223,7 @@ func TestGetEventIDNoLabelFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(client))
 	_, err := tNode.GetEventID()
-	h.Assert(t, true, "Failed to return error on GetEventID failed to find label", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find label")
 }
 
 func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
@@ -231,7 +231,7 @@ func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.MarkForUncordonAfterReboot()
-	h.Assert(t, true, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label")
 }
 
 func TestIsLableledWithActionFailure(t *testing.T) {
@@ -239,7 +239,7 @@ func TestIsLableledWithActionFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	_, err := tNode.IsLabeledWithAction()
-	h.Assert(t, true, "Failed to return error on IsLabeledWithAction failure", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on IsLabeledWithAction failure")
 }
 
 func TestUncordonIfRebootedDefaultSuccess(t *testing.T) {
@@ -265,7 +265,7 @@ func TestUncordonIfRebootedNodeFetchFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.UncordonIfRebooted()
-	h.Assert(t, true, "Failed to return error on UncordonIfReboted failure to find node", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to find node")
 }
 
 func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
@@ -283,7 +283,7 @@ func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
 	})
 	tNode := getNode(t, getDrainHelper(client))
 	err := tNode.UncordonIfRebooted()
-	h.Assert(t, true, "Failed to return error on UncordonIfReboted failure to parse time", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to parse time")
 }
 
 func TestUncordonIfRebootedFileReadError(t *testing.T) {
@@ -301,5 +301,5 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 	})
 	tNode := getNode(t, getDrainHelper(client))
 	err := tNode.UncordonIfRebooted()
-	h.Assert(t, true, "Failed to return error on UncordonIfReboted failure to read file", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to read file")
 }

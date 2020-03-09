@@ -198,12 +198,12 @@ func TestParseCliArgsMissingNodeNameFailure(t *testing.T) {
 	resetFlagsForTest()
 	os.Setenv("NODE_NAME", "")
 	_, err := config.ParseCliArgs()
-	h.Assert(t, true, "Failed to return error when node-name not provided", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when node-name not provided")
 }
 
 func TestParseCliArgsCreateFlagsFailure(t *testing.T) {
 	resetFlagsForTest()
 	os.Setenv("DELETE_LOCAL_DATA", "something not true or false")
 	_, err := config.ParseCliArgs()
-	h.Assert(t, true, "Failed to return error when creating flags", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when creating flags")
 }
