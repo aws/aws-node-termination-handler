@@ -67,8 +67,8 @@ func TestCancelDrainEvent(t *testing.T) {
 
 	storedEvent, isActive := store.GetActiveEvent()
 	h.Equals(t, false, isActive)
-	h.Assert(t, true, fmt.Sprintf("Event has not been canceled. Expected EventID ''"+
-		", but got %q", storedEvent.EventID), event.EventID != storedEvent.EventID)
+	h.Assert(t, event.EventID != storedEvent.EventID,
+		fmt.Sprintf("Event has not been canceled. Expected EventID '', but got %q", storedEvent.EventID))
 }
 
 func TestShouldDrainNode(t *testing.T) {

@@ -213,11 +213,11 @@ func TestValidateWebhookConfig(t *testing.T) {
 	nthConfig.WebhookURL = "http://123.123.123"
 	nthConfig.WebhookTemplate = "{{ "
 	err = webhook.ValidateWebhookConfig(nthConfig)
-	h.Assert(t, true, "Failed to return error for failing to parse webhook template", err != nil)
+	h.Assert(t, err != nil, "Failed to return error for failing to parse webhook template")
 
 	nthConfig.WebhookTemplate = "{{.cat}}"
 	err = webhook.ValidateWebhookConfig(nthConfig)
-	h.Assert(t, true, "Failed to return error for failing to execute webhook template", err != nil)
+	h.Assert(t, err != nil, "Failed to return error for failing to execute webhook template")
 
 	nthConfig.WebhookTemplate = testWebhookTemplate
 	err = webhook.ValidateWebhookConfig(nthConfig)

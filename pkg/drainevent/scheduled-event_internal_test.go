@@ -75,16 +75,15 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 	err := uncordonAfterRebootPreDrain(drainEvent, *tNode)
 	h.Ok(t, err)
 }
-
 func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := uncordonAfterRebootPreDrain(DrainEvent{}, *tNode)
-	h.Assert(t, true, "Failed to return error on MarkWithEventID failing to fetch node", err != nil)
+	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
-func TestUncordonAfterRebootPreDrainUnschedulableFailure(t *testing.T) {
+func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
@@ -99,5 +98,5 @@ func TestUncordonAfterRebootPreDrainUnschedulableFailure(t *testing.T) {
 
 	tNode := getNode(t, getDrainHelper(client))
 	err := uncordonAfterRebootPreDrain(DrainEvent{}, *tNode)
-	h.Assert(t, true, "Failed to return error on MarkWithEventID failing to fetch node", err != nil)
+	h.Ok(t, err)
 }

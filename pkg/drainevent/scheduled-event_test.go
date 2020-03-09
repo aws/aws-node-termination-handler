@@ -70,14 +70,18 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
 
-		h.Assert(t, true, "Drain event description does not contain scheduled event code",
-			strings.Contains(result.Description, scheduledEventCode))
-		h.Assert(t, true, "Drain event description does not contain start time",
-			strings.Contains(result.Description, expScheduledEventStartTimeFmt))
-		h.Assert(t, true, "Drain event description does not contain end time",
-			strings.Contains(result.Description, expScheduledEventEndTimeFmt))
-		h.Assert(t, true, "Drain event description does not contain event description",
-			strings.Contains(result.Description, scheduledEventDescription))
+		h.Assert(t, strings.Contains(result.Description, scheduledEventCode),
+			"Expected description to contain \""+scheduledEventCode+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventStartTime),
+			"Expected description to contain \""+scheduledEventStartTime+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventEndTime),
+			"Expected description to contain \""+scheduledEventEndTime+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventDescription),
+			"Expected description to contain \""+scheduledEventDescription+
+				"\"but received \""+result.Description+"\"")
 
 	}()
 
@@ -117,14 +121,18 @@ func TestMonitorForScheduledEventsCancelledEvent(t *testing.T) {
 		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
 
-		h.Assert(t, true, "Drain event description does not contain scheduled event code",
-			strings.Contains(result.Description, scheduledEventCode))
-		h.Assert(t, true, "Drain event description does not contain start time",
-			strings.Contains(result.Description, expScheduledEventStartTimeFmt))
-		h.Assert(t, true, "Drain event description does not contain end time",
-			strings.Contains(result.Description, expScheduledEventEndTimeFmt))
-		h.Assert(t, true, "Drain event description does not contain event description",
-			strings.Contains(result.Description, scheduledEventDescription))
+		h.Assert(t, strings.Contains(result.Description, scheduledEventCode),
+			"Expected description to contain \""+scheduledEventCode+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventStartTime),
+			"Expected description to contain \""+scheduledEventStartTime+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventEndTime),
+			"Expected description to contain \""+scheduledEventEndTime+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventDescription),
+			"Expected description to contain \""+scheduledEventDescription+
+				"\"but received \""+result.Description+"\"")
 
 	}()
 
@@ -149,7 +157,7 @@ func TestMonitorForScheduledEventsMetadataParseFailure(t *testing.T) {
 	imds := ec2metadata.New("bad url", 0)
 
 	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when metadata parse fails", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when metadata parse fails")
 }
 
 func TestMonitorForScheduledEvents404Response(t *testing.T) {
@@ -170,7 +178,7 @@ func TestMonitorForScheduledEvents404Response(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when 404 response", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when 404 response")
 }
 
 func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
@@ -197,7 +205,7 @@ func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when failed to parse start time", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when failed to parse start time")
 }
 
 func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
@@ -224,5 +232,5 @@ func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 
 	err := drainevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
-	h.Assert(t, true, "Failed to return error when failed to parse end time", err != nil)
+	h.Assert(t, err != nil, "Failed to return error when failed to parse end time")
 }
