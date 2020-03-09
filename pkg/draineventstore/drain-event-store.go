@@ -21,7 +21,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 )
 
-// Store is a the drain event store data structure
+// Store is the drain event store data structure
 type Store struct {
 	sync.RWMutex
 	NthConfig       config.Config

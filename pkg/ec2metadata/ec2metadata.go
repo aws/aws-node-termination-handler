@@ -51,8 +51,8 @@ const (
 	secondsBeforeTTLRefresh = 15
 )
 
-// EC2MetadataService is used to query the EC2 instance metadata service v1 and v2
-type EC2MetadataService struct {
+// Service is used to query the EC2 instance metadata service v1 and v2
+type Service struct {
 	httpClient  http.Client
 	tries       int
 	metadataURL string
@@ -98,9 +98,9 @@ type NodeMetadata struct {
 	LocalIP        string
 }
 
-// New constructs an instance of the EC2MetadataService client
-func New(metadataURL string, tries int) *EC2MetadataService {
-	return &EC2MetadataService{
+// New constructs an instance of the Service client
+func New(metadataURL string, tries int) *Service {
+	return &Service{
 		metadataURL: metadataURL,
 		tries:       tries,
 		httpClient:  http.Client{},
@@ -108,7 +108,7 @@ func New(metadataURL string, tries int) *EC2MetadataService {
 }
 
 // GetScheduledMaintenanceEvents retrieves EC2 scheduled maintenance events from imds
-func (e *EC2MetadataService) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
+func (e *Service) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
 	resp, err := e.Request(ScheduledEventPath)
 	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
 		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
@@ -125,8 +125,8 @@ func (e *EC2MetadataService) GetScheduledMaintenanceEvents() ([]ScheduledEventDe
 	return scheduledEvents, nil
 }
 
-// GetSpotITNEvent retrieves EC2 scheduled maintenance events from imds
-func (e *EC2MetadataService) GetSpotITNEvent() (instanceAction *InstanceAction, err error) {
+// GetSpotITNEvent retrieves EC2 spot interruption events from imds
+func (e *Service) GetSpotITNEvent() (instanceAction *InstanceAction, err error) {
 	resp, err := e.Request(SpotInstanceActionPath)
 	// 404s are normal when querying for the 'latest/meta-data/spot' path
 	if resp != nil && resp.StatusCode == 404 {
@@ -147,7 +147,7 @@ func (e *EC2MetadataService) GetSpotITNEvent() (instanceAction *InstanceAction, 
 }
 
 // GetMetadataInfo generic function for retrieving ec2 metadata
-func (e *EC2MetadataService) GetMetadataInfo(path string) (info string, err error) {
+func (e *Service) GetMetadataInfo(path string) (info string, err error) {
 	resp, err := e.Request(path)
 	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
 		return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
@@ -166,7 +166,7 @@ func (e *EC2MetadataService) GetMetadataInfo(path string) (info string, err erro
 // Request sends an http request to IMDSv1 or v2 at the specified path
 // It is up to the caller to handle http status codes on the response
 // An error will only be returned if the request is unable to be made
-func (e *EC2MetadataService) Request(contextPath string) (*http.Response, error) {
+func (e *Service) Request(contextPath string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, e.metadataURL+contextPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to construct an http get request to IDMS for %s: %w", e.metadataURL+contextPath, err)
@@ -203,7 +203,7 @@ func (e *EC2MetadataService) Request(contextPath string) (*http.Response, error)
 	return resp, nil
 }
 
-func (e *EC2MetadataService) getV2Token() (string, int, error) {
+func (e *Service) getV2Token() (string, int, error) {
 	req, err := http.NewRequest(http.MethodPut, e.metadataURL+tokenRefreshPath, nil)
 	if err != nil {
 		return "", -1, fmt.Errorf("Unable to construct http put request to retrieve imdsv2 token: %w", err)
@@ -262,8 +262,8 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 	return resp, err
 }
 
-// HydrateNodeMetadata attempts to gather additional ec2 instance information from the metadata service
-func (e *EC2MetadataService) GetNodeMetadata() NodeMetadata {
+// GetNodeMetadata attempts to gather additional ec2 instance information from the metadata service
+func (e *Service) GetNodeMetadata() NodeMetadata {
 	var metadata NodeMetadata
 	metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
 	metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)

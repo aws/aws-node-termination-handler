@@ -34,7 +34,7 @@ const (
 	spotITN              = "Spot ITN"
 )
 
-type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, *ec2metadata.EC2MetadataService) error
+type monitorFunc func(chan<- drainevent.DrainEvent, chan<- drainevent.DrainEvent, *ec2metadata.Service) error
 
 func main() {
 	signalChan := make(chan os.Signal, 1)
@@ -63,7 +63,7 @@ func main() {
 	if nthConfig.EnableScheduledEventDraining {
 		err = handleRebootUncordon(drainEventStore, *node)
 		if err != nil {
-			log.Printf("Unable to complete the uncordon after reboot workflow on startup: %v", err)
+			log.Printf("Unable to complete the uncordon after reboot workflow on startup: %v\n", err)
 		}
 	}
 
