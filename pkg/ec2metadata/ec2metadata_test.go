@@ -398,7 +398,7 @@ func TestGetMetadataServiceSuccess(t *testing.T) {
 	h.Equals(t, `x1.32xlarge`, resp)
 }
 
-func TestHydrateNodeMetadata(t *testing.T) {
+func TestGetNodeMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {

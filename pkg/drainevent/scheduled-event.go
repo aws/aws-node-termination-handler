@@ -36,7 +36,7 @@ const (
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
-func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, imds *ec2metadata.EC2MetadataService) error {
+func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, imds *ec2metadata.Service) error {
 	drainEvents, err := checkForScheduledEvents(imds)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- Dr
 }
 
 // checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
-func checkForScheduledEvents(imds *ec2metadata.EC2MetadataService) ([]DrainEvent, error) {
+func checkForScheduledEvents(imds *ec2metadata.Service) ([]DrainEvent, error) {
 	scheduledEvents, err := imds.GetScheduledMaintenanceEvents()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
