@@ -123,16 +123,8 @@ func TestRequestConstructFail(t *testing.T) {
 
 func TestGetSpotITNEventSuccess(t *testing.T) {
 	const (
-		version        = "0"
-		id             = "12345678-1234-1234-1234-123456789012"
-		detailType     = "EC2 Spot Instance Interruption Warning"
-		source         = "aws.ec2"
-		account        = "123456789012"
 		time           = "2020-02-07T14:55:55Z"
-		region         = "us-east-2"
-		resource       = "arn:aws:ec2:us-east-2:123456789012:instance/i-1234567890abcdef0"
 		instanceAction = "terminate"
-		instanceId     = "i-1234567890abcdef0"
 	)
 	var requestPath string = "/latest/meta-data/spot/instance-action"
 
@@ -146,35 +138,15 @@ func TestGetSpotITNEventSuccess(t *testing.T) {
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
 		rw.Write([]byte(fmt.Sprintf(`{
-			"version": "%s",
-			"id": "%s",
-			"detail-type": "%s",
-			"source": "%s",
-			"account": "%s",
-			"time": "%s",
-			"region": "%s",
-			"resources": ["%s"],
-			"detail": {
-				"instance-id": "%s",
-				"instance-action": "%s"
-			}
-		}`, version, id, detailType, source, account, time, region, resource, instanceId, instanceAction)))
+			"action": "%s",
+			"time": "%s"
+		}`, instanceAction, time)))
 	}))
 	defer server.Close()
 
 	expectedStruct := &ec2metadata.InstanceAction{
-		Version:    version,
-		Id:         id,
-		DetailType: detailType,
-		Source:     source,
-		Account:    account,
-		Time:       time,
-		Region:     region,
-		Resources:  []string{resource},
-		Detail: ec2metadata.InstanceActionDetail{
-			InstanceId:     instanceId,
-			InstanceAction: instanceAction,
-		},
+		Action: instanceAction,
+		Time:   time,
 	}
 
 	// Use URL from our local test server
@@ -221,7 +193,7 @@ func TestGetSpotITNEventBadJSON(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		rw.Write([]byte(`{"version": false}`))
+		rw.Write([]byte(`{"action": false}`))
 	}))
 	defer server.Close()
 
@@ -367,4 +339,85 @@ func TestGetScheduledMaintenanceEventsRequestFailure(t *testing.T) {
 
 	_, err := imds.GetScheduledMaintenanceEvents()
 	h.Assert(t, err != nil, "error expected because no server should be running")
+}
+
+func TestGetMetadataServiceRequest404(t *testing.T) {
+	var requestPath string = "/latest/meta-data/instance-type"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
+		h.Equals(t, req.URL.String(), requestPath)
+		rw.WriteHeader(404)
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	_, err := imds.GetMetadataInfo(requestPath)
+
+	h.Assert(t, err != nil, "Expected error to be nil but it was not")
+}
+
+func TestGetMetadataServiceRequestFailure(t *testing.T) {
+	// Use URL from our local test server
+	imds := ec2metadata.New("/some-path-that-will-error", 1)
+
+	_, err := imds.GetMetadataInfo("/latest/meta-data/instance-type")
+	h.Assert(t, err != nil, "Error expected because no server should be running")
+}
+
+func TestGetMetadataServiceSuccess(t *testing.T) {
+	var requestPath string = "/latest/meta-data/instance-type"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
+		h.Equals(t, req.URL.String(), requestPath)
+		rw.Write([]byte(`x1.32xlarge`))
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	resp, err := imds.GetMetadataInfo(requestPath)
+
+	h.Ok(t, err)
+	h.Equals(t, `x1.32xlarge`, resp)
+}
+
+func TestHydrateNodeMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		rw.Write([]byte(`metadata`))
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+	nodeMetadata := imds.GetNodeMetadata()
+
+	h.Assert(t, nodeMetadata.InstanceID == `metadata`, `Missing required NodeMetadata field InstanceID`)
+	h.Assert(t, nodeMetadata.InstanceType == `metadata`, `Missing required NodeMetadata field InstanceType`)
+	h.Assert(t, nodeMetadata.LocalHostname == `metadata`, `Missing required NodeMetadata field LocalHostname`)
+	h.Assert(t, nodeMetadata.LocalIP == `metadata`, `Missing required NodeMetadata field LocalIP`)
+	h.Assert(t, nodeMetadata.PublicHostname == `metadata`, `Missing required NodeMetadata field PublicHostname`)
+	h.Assert(t, nodeMetadata.PublicIP == `metadata`, `Missing required NodeMetadata field PublicIP`)
 }

@@ -15,7 +15,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -24,14 +23,6 @@ import (
 )
 
 const (
-	awsAccountId                     = "123456789012"
-	source                           = "aws.ec2"
-	detail                           = "EC2 Spot Instance Interruption Warning"
-	region                           = "us-east-1"
-	uuid                             = "58f98edf-5234-4373-89a2-fea575e5eb34"
-	instanceId                       = "i-1234567890abcdef0"
-	instanceAction                   = "terminate"
-	metadataIp                       = "http://169.254.169.254"
 	interruptionNoticeDelayConfigKey = "INTERRUPTION_NOTICE_DELAY"
 	interruptionNoticeDelayDefault   = "0"
 	scheduledActionDateFormat        = "02 Jan 2006 15:04:05 GMT"
@@ -45,7 +36,18 @@ const (
 	imdsV2ConfigKey                  = "ENABLE_IMDS_V2"
 	imdsV2Token                      = "token"
 	tokenTTLHeader                   = "X-aws-ec2-metadata-token-ttl-seconds"
-	tokenRequestHeader               = "X-aws-ec2-metadata-token"
+	instanceIDPath                   = "/latest/meta-data/instance-id"
+	instanceID                       = "i-1234567890abcdef0"
+	instanceTypePath                 = "/latest/meta-data/instance-type"
+	instanceType                     = "m4.large"
+	publicHostnamePath               = "/latest/meta-data/public-hostname"
+	publicHostname                   = "ec2-12-34-56-89.compute-1.amazonaws.com"
+	publicIPPath                     = "/latest/meta-data/public-ipv4"
+	publicIP                         = "12.34.56.89"
+	localHostnamePath                = "/latest/meta-data/local-hostname"
+	localHostname                    = "ip-87-65-43-21.ec2.internal"
+	localIPPath                      = "/latest/meta-data/local-ipv4"
+	localIP                          = "87.65.43.21"
 )
 
 var startTime int64 = time.Now().Unix()
@@ -60,23 +62,10 @@ type ScheduledEventDetail struct {
 	State       string `json:"State"`
 }
 
-// InstanceActionDetail metadata structure for json parsing
-type InstanceActionDetail struct {
-	InstanceId     string `json:"instance-id"`
-	InstanceAction string `json:"instance-action"`
-}
-
 // InstanceAction metadata structure for json parsing
 type InstanceAction struct {
-	Version    string               `json:"version"`
-	Id         string               `json:"id"`
-	DetailType string               `json:"detail-type"`
-	Source     string               `json:"source"`
-	Account    string               `json:"account"`
-	Time       string               `json:"time"`
-	Region     string               `json:"region"`
-	Resources  []string             `json:"resources"`
-	Detail     InstanceActionDetail `json:"detail"`
+	Time   string `json:"time"`
+	Action string `json:"action"`
 }
 
 // Get env var or default
@@ -135,11 +124,14 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if interruptionDelayRemaining > 0 {
-		log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet", interruptionDelay, interruptionDelayRemaining)
-		res.WriteHeader(404)
-		return
-	} else if req.URL.Path == spotInstanceActionPath {
+	switch req.URL.Path {
+	case spotInstanceActionPath:
+		if interruptionDelayRemaining > 0 {
+			log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet", interruptionDelay, interruptionDelayRemaining)
+			res.WriteHeader(404)
+			return
+		}
+
 		log.Println("Handling Spot Instance Action Path")
 		if isV2Enabled {
 			if !isTokenValid(req) {
@@ -152,17 +144,10 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 		timePlus2Min := time.Now().Local().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
-		arn := fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", region, awsAccountId, instanceId)
 		instanceAction := InstanceAction{
-			Version:    "0",
-			Id:         uuid,
-			DetailType: detail,
-			Source:     source,
-			Account:    awsAccountId,
-			Time:       timePlus2Min,
-			Region:     region,
-			Resources:  []string{arn},
-			Detail:     InstanceActionDetail{instanceId, instanceAction}}
+			Time:   timePlus2Min,
+			Action: "terminate",
+		}
 		js, err := json.Marshal(instanceAction)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
@@ -171,7 +156,13 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(js)
 		return
-	} else if req.URL.Path == scheduledMaintenanceEventPath {
+	case scheduledMaintenanceEventPath:
+		if interruptionDelayRemaining > 0 {
+			log.Printf("Interruption Notice Delay (%ds  will expire in %ds) has not been reached yet", interruptionDelay, interruptionDelayRemaining)
+			res.WriteHeader(404)
+			return
+		}
+
 		log.Println("Handling Scheduled Maintenance Events Path")
 		if isV2Enabled {
 			if !isTokenValid(req) {
@@ -211,10 +202,35 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(js)
 		return
+	case instanceIDPath:
+		res.Header().Set("Content-Type", "application/text")
+		res.Write([]byte(instanceID))
+		return
+	case instanceTypePath:
+		res.Header().Set("Content-Type", "application/text")
+		res.Write([]byte(instanceType))
+		return
+	case publicHostnamePath:
+		res.Header().Set("Content-Type", "application/text")
+		res.Write([]byte(publicHostname))
+		return
+	case publicIPPath:
+		res.Header().Set("Content-Type", "application/text")
+		res.Write([]byte(publicIP))
+		return
+	case localHostnamePath:
+		res.Header().Set("Content-Type", "application/text")
+		res.Write([]byte(localHostname))
+		return
+	case localIPPath:
+		res.Header().Set("Content-Type", "application/text")
+		res.Write([]byte(localIP))
+		return
+	default:
+		res.Header().Set("Content-Type", "application/json")
+		res.Write([]byte("{}"))
+		return
 	}
-	res.Header().Set("Content-Type", "application/json")
-	res.Write([]byte("{}"))
-	return
 }
 
 func isTokenValid(req *http.Request) bool {
