@@ -24,10 +24,16 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 )
 
+type combinedDrainData struct {
+	ec2metadata.NodeMetadata
+	drainevent.DrainEvent
+}
+
 // Post makes a http post to send drain event data to webhook url
-func Post(event *drainevent.DrainEvent, nthconfig config.Config) {
+func Post(additionalInfo ec2metadata.NodeMetadata, event *drainevent.DrainEvent, nthconfig config.Config) {
 
 	webhookTemplate, err := template.New("message").Parse(nthconfig.WebhookTemplate)
 	if err != nil {
@@ -35,8 +41,10 @@ func Post(event *drainevent.DrainEvent, nthconfig config.Config) {
 		return
 	}
 
+	var combined = combinedDrainData{additionalInfo, *event}
+
 	var byteBuffer bytes.Buffer
-	err = webhookTemplate.Execute(&byteBuffer, event)
+	err = webhookTemplate.Execute(&byteBuffer, combined)
 	if err != nil {
 		log.Printf("Webhook Error: Template execution failed - %s\n", err)
 		return
@@ -88,7 +96,7 @@ func ValidateWebhookConfig(nthConfig config.Config) error {
 	}
 
 	var byteBuffer bytes.Buffer
-	err = webhookTemplate.Execute(&byteBuffer, &drainevent.DrainEvent{})
+	err = webhookTemplate.Execute(&byteBuffer, &combinedDrainData{})
 	if err != nil {
 		return fmt.Errorf("Unable to execute webhook template: %w", err)
 	}

@@ -16,7 +16,6 @@ package drainevent_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -26,26 +25,14 @@ import (
 )
 
 const (
-	eventId          = "12345678-1234-1234-1234-123456789012"
 	startTime        = "2017-09-18T08:22:00Z"
 	expFormattedTime = "2017-09-18 08:22:00 +0000 UTC"
-	instanceId       = 12345
 	instanceAction   = "INSTANCE_ACTION"
 )
 
 var instanceActionResponse = []byte(`{
-    "version": "0",
-    "id": "` + eventId + `",
-    "detail-type": "EC2 Spot Instance Interruption Warning",
-    "source": "aws.ec2",
-    "account": "123456789012",
-    "time": "` + startTime + `",
-    "region": "us-east-2",
-    "resources": ["arn:aws:ec2:us-east-2:123456789012:instance/i-1234567890abcdef0"],
-    "detail": {
-        "instance-id": "` + strconv.Itoa(instanceId) + `",
-        "instance-action": "` + instanceAction + `"
-    }
+	"action": "terminate",
+	"time":"` + startTime + `"
 }`)
 
 func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
@@ -67,11 +54,9 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 
 	go func() {
 		result := <-drainChan
-		h.Equals(t, eventId, result.EventID)
 		h.Equals(t, drainevent.SpotITNKind, result.Kind)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
-		h.Assert(t, strings.Contains(result.Description, strconv.Itoa(instanceId)),
-			"Drain event description does not contain instance id")
+    
 		h.Assert(t, strings.Contains(result.Description, instanceAction),
 			"Drain event description does not contain instance action")
 		h.Assert(t, strings.Contains(result.Description, startTime),

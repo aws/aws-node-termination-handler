@@ -14,6 +14,7 @@
 package drainevent
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"time"
@@ -53,10 +54,15 @@ func checkForSpotInterruptionNotice(imds *ec2metadata.EC2MetadataService) (*Drai
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse time from spot interruption notice metadata json: %w", err)
 	}
+
+	// There's no EventID returned so we'll create it using a hash to prevent duplicates.
+	hash := sha256.New()
+	hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
+
 	return &DrainEvent{
-		EventID:     instanceAction.Id,
+		EventID:     fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
 		Kind:        SpotITNKind,
 		StartTime:   interruptionTime,
-		Description: fmt.Sprintf("Spot ITN received. %s will be %s at %s \n", instanceAction.Detail.InstanceId, instanceAction.Detail.InstanceAction, instanceAction.Time),
+		Description: fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
 	}, nil
 }

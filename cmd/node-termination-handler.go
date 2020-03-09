@@ -55,7 +55,10 @@ func main() {
 		log.Fatalln("Unable to instantiate a node for various kubernetes node functions: ", err)
 	}
 
+	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
+
 	drainEventStore := draineventstore.New(nthConfig)
+	nodeMetadata := imds.GetNodeMetadata()
 
 	if nthConfig.EnableScheduledEventDraining {
 		err = handleRebootUncordon(drainEventStore, *node)
@@ -68,8 +71,6 @@ func main() {
 	defer close(drainChan)
 	cancelChan := make(chan drainevent.DrainEvent)
 	defer close(cancelChan)
-
-	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	monitoringFns := map[string]monitorFunc{}
 	if nthConfig.EnableSpotInterruptionDraining {
@@ -91,11 +92,11 @@ func main() {
 		}(fn, eventType)
 	}
 
-	go watchForDrainEvents(drainChan, drainEventStore, nthConfig)
+	go watchForDrainEvents(drainChan, drainEventStore, nodeMetadata)
 	log.Println("Started watching for drain events")
 	log.Println("Kubernetes AWS Node Termination Handler has started successfully!")
 
-	go watchForCancellationEvents(cancelChan, drainEventStore, node)
+	go watchForCancellationEvents(cancelChan, drainEventStore, node, nodeMetadata)
 	log.Println("Started watching for event cancellations")
 
 	for range time.NewTicker(1 * time.Second).C {
@@ -104,7 +105,7 @@ func main() {
 			// Exit drain loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			drainIfNecessary(drainEventStore, *node, nthConfig)
+			drainIfNecessary(drainEventStore, *node, nthConfig, nodeMetadata)
 		}
 	}
 	log.Println("AWS Node Termination Handler is shutting down")
@@ -130,18 +131,18 @@ func handleRebootUncordon(drainEventStore *draineventstore.Store, node node.Node
 	return nil
 }
 
-func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, nthConfig config.Config) {
+func watchForDrainEvents(drainChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		drainEvent := <-drainChan
-		log.Printf("Got drain event from channel %+v\n", drainEvent)
+		log.Printf("Got drain event from channel %+v %+v\n", nodeMetadata, drainEvent)
 		drainEventStore.AddDrainEvent(&drainEvent)
 	}
 }
 
-func watchForCancellationEvents(cancelChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, node *node.Node) {
+func watchForCancellationEvents(cancelChan <-chan drainevent.DrainEvent, drainEventStore *draineventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		drainEvent := <-cancelChan
-		log.Printf("Got cancel event from channel %+v\n", drainEvent)
+		log.Printf("Got cancel event from channel %+v %+v\n", nodeMetadata, drainEvent)
 		drainEventStore.CancelDrainEvent(drainEvent.EventID)
 		if drainEventStore.ShouldUncordonNode() {
 			log.Println("Uncordoning the node due to a cancellation event")
@@ -156,7 +157,7 @@ func watchForCancellationEvents(cancelChan <-chan drainevent.DrainEvent, drainEv
 	}
 }
 
-func drainIfNecessary(drainEventStore *draineventstore.Store, node node.Node, nthConfig config.Config) {
+func drainIfNecessary(drainEventStore *draineventstore.Store, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata) {
 	if drainEvent, ok := drainEventStore.GetActiveEvent(); ok {
 		if drainEvent.PreDrainTask != nil {
 			err := drainEvent.PreDrainTask(*drainEvent, node)
@@ -168,7 +169,7 @@ func drainIfNecessary(drainEventStore *draineventstore.Store, node node.Node, nt
 		drainEventStore.MarkAllAsDrained()
 		log.Printf("Node %q successfully drained.\n", nthConfig.NodeName)
 		if nthConfig.WebhookURL != "" {
-			webhook.Post(drainEvent, nthConfig)
+			webhook.Post(nodeMetadata, drainEvent, nthConfig)
 		}
 	}
 }
