@@ -285,21 +285,3 @@ func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
 	err := tNode.UncordonIfRebooted()
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to parse time")
 }
-
-func TestUncordonIfRebootedFileReadError(t *testing.T) {
-	resetFlagsForTest()
-
-	client := fake.NewSimpleClientset()
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
-			},
-		},
-	})
-	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.UncordonIfRebooted()
-	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to read file")
-}

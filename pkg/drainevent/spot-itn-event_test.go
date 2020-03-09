@@ -56,11 +56,9 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 		result := <-drainChan
 		h.Equals(t, drainevent.SpotITNKind, result.Kind)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
-    
-		h.Assert(t, strings.Contains(result.Description, instanceAction),
-			"Drain event description does not contain instance action")
+
 		h.Assert(t, strings.Contains(result.Description, startTime),
-			"Drain event description does not contain instance time")
+			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
 	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)

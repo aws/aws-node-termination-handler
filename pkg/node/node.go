@@ -43,6 +43,8 @@ const (
 	EventIDLabelKey = "aws-node-termination-handler/event-id"
 )
 
+var uptimeFile = "/proc/uptime"
+
 // Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
 type Node struct {
 	nthConfig   config.Config
@@ -277,7 +279,7 @@ func (n Node) UncordonIfRebooted() error {
 	secondsSinceLabel := time.Now().Unix() - timeValNum
 	switch actionVal := k8sNode.Labels[ActionLabelKey]; actionVal {
 	case UncordonAfterRebootLabelVal:
-		uptime, err := getSystemUptime("/proc/uptime")
+		uptime, err := getSystemUptime(uptimeFile)
 		if err != nil {
 			return err
 		}

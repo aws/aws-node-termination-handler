@@ -65,7 +65,7 @@ func TestGetIntEnv(t *testing.T) {
 		}
 	}()
 	os.Setenv(key, "hi")
-	result = getIntEnv(key, 0)
+	getIntEnv(key, 0)
 }
 
 func TestGetBoolEnv(t *testing.T) {
@@ -87,7 +87,7 @@ func TestGetBoolEnv(t *testing.T) {
 		}
 	}()
 	os.Setenv(key, "hi")
-	result = getBoolEnv(key, false)
+	getBoolEnv(key, false)
 }
 
 func TestIsConfigProvided(t *testing.T) {
