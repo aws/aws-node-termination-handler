@@ -84,7 +84,7 @@ func TestPostSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("Content-type"), headerMap["Content-type"])
 
-		// Test requst body
+		// Test request body
 		requestBody, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			t.Error("Unable to read request body.")

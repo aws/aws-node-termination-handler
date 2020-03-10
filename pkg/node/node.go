@@ -63,6 +63,7 @@ func New(nthConfig config.Config) (*Node, error) {
 	}, nil
 }
 
+// NewWithValues will construct a node struct with a drain helper
 func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, error) {
 	return &Node{
 		nthConfig:   nthConfig,
