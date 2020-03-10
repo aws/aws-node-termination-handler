@@ -53,6 +53,9 @@ go-report-card-test:
 helm-sync-test:
 	${MAKEFILE_PATH}/test/helm-sync-test/run-helm-sync-test
 
+helm-version-sync-test:
+	${MAKEFILE_PATH}/test/helm-sync-test/run-helm-version-sync-test
+
 build-binaries:
 	${MAKEFILE_PATH}/scripts/build-binaries
 
@@ -66,6 +69,8 @@ sync-readme-to-dockerhub:
 	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
 release: create-build-dir build-binaries generate-k8s-yaml upload-binaries-to-github
+
+helm-tests: helm-sync-test helm-version-sync-test
 
 docker-build-and-push: docker-build docker-push
 
