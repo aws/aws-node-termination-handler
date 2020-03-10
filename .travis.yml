@@ -31,7 +31,7 @@ matrix:
       script: test/license-test/run-license-test.sh
       env: LICENSE_TEST=true
     - stage: Test
-      script: make helm-sync-test
+      script: make helm-tests
       env: HELM_SYNC_TEST=true
     - stage: Deploy
       if: type = push AND env(DOCKER_USERNAME) IS present
