@@ -59,8 +59,8 @@ helm-version-sync-test:
 build-binaries:
 	${MAKEFILE_PATH}/scripts/build-binaries
 
-upload-binaries-to-github:
-	${MAKEFILE_PATH}/scripts/upload-binaries-to-github
+upload-resources-to-github:
+	${MAKEFILE_PATH}/scripts/upload-resources-to-github
 
 generate-k8s-yaml:
 	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
