@@ -82,3 +82,5 @@ serviceAccount:
 rbac:
   # rbac.pspEnabled: `true` if PodSecurityPolicy resources should be created
   pspEnabled: true
+
+dnsPolicy: "ClusterFirstWithHostNet"

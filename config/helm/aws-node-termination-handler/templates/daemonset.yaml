@@ -47,6 +47,7 @@ spec:
                       - amd64
       serviceAccountName: {{ template "aws-node-termination-handler.serviceAccountName" . }}
       hostNetwork: true
+      dnsPolicy: {{ .Values.dnsPolicy }}    
       containers:
         - name: {{ include "aws-node-termination-handler.name" . }}
           image: {{ .Values.image.repository}}:{{ .Values.image.tag }}
