@@ -66,6 +66,7 @@ Parameter | Description | Default
 `podAnnotations` | annotations to add to each pod | `{}`
 `priorityClassName` | Name of the priorityClass | `system-node-critical`
 `resources` | Resources for the pods | `requests.cpu: 50m, requests.memory: 64Mi, limits.cpu: 100m, limits.memory: 128Mi`
+`dnsPolicy` | DaemonSet DNS policy | `ClusterFirstWithHostNet`
 `nodeSelector` | Tells the daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
 `tolerations` | list of node taints to tolerate | `[]`
 `rbac.create` | if `true`, create and use RBAC resources | `true`
