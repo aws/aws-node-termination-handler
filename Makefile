@@ -68,15 +68,13 @@ generate-k8s-yaml:
 sync-readme-to-dockerhub:
 	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
-helm-tests: helm-sync-test helm-version-sync-test
-
-release: create-build-dir build-binaries generate-k8s-yaml upload-resources-to-github
-
-docker-build-and-push: docker-build docker-push
-
-test: e2e-test compatibility-test license-test go-report-card-test helm-sync-test
-
 unit-test: create-build-dir
-	go test ${MAKEFILE_PATH}/... -v -coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
+	go test -bench=. ${MAKEFILE_PATH}/... -v -coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
 
 build: create-build-dir compile
+
+helm-tests: helm-sync-test helm-version-sync-test
+
+release: create-build-dir build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
+
+test: unit-test e2e-test compatibility-test license-test go-report-card-test helm-sync-test
