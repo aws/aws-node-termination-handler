@@ -38,8 +38,5 @@ matrix:
       script: make sync-readme-to-dockerhub
     - stage: Deploy
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
-      script: make docker-build-and-push
-    - stage: Deploy
-      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make release
 

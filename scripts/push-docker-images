@@ -1,0 +1,89 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+REPO_ROOT_PATH=$SCRIPTPATH/../
+MAKE_FILE_PATH=$REPO_ROOT_PATH/Makefile
+
+VERSION=$(make -s -f $MAKE_FILE_PATH version)
+PLATFORMS=("linux/amd64")
+MANIFEST_IMAGES=""
+MANIFEST=""
+
+USAGE=$(cat << 'EOM'
+  Usage: push-docker-images  [-p <platform pairs>]
+  Pushes docker images for the platform pairs passed in w/ a dockerhub manifest
+
+  Example: push-docker-images -p "linux/amd64,linux/arm"
+          Optional:
+            -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
+            -r          IMAGE REPO: set the docker image repo
+            -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]
+            -m          Create a docker manifest
+EOM
+)
+
+# Process our input arguments
+while getopts "mp:r:v:" opt; do
+  case ${opt} in
+    p ) # Platform Pairs
+        IFS=',' read -ra PLATFORMS <<< "$OPTARG"
+      ;;
+    r ) # Image Repo
+        IMAGE_REPO="$OPTARG"
+      ;;
+    v ) # Image Version
+        VERSION="$OPTARG"
+      ;;
+    m ) # Docker manifest
+        MANIFEST="true"
+      ;;
+    \? )
+        echo "$USAGE" 1>&2
+        exit
+      ;;
+  esac
+done
+
+if [[ ${#PLATFORMS[@]} -gt 1 && $MANIFEST != "true" ]]; then 
+    echo "Only one platform can be pushed if you do not create a manifest."
+    echo "Try again with the -m option"
+    exit 1
+fi
+
+for os_arch in "${PLATFORMS[@]}"; do
+    os=$(echo $os_arch | cut -d'/' -f1)
+    arch=$(echo $os_arch | cut -d'/' -f2)
+
+    img_tag_w_platform="$IMAGE_REPO:$VERSION-$os-$arch"
+
+    if [[ $MANIFEST == "true" ]]; then
+        img_tag=$img_tag_w_platform
+    else 
+        img_tag="$IMAGE_REPO:$VERSION"
+        docker tag $img_tag_w_platform $img_tag
+    fi
+
+    docker push $img_tag
+    MANIFEST_IMAGES="$MANIFEST_IMAGES $img_tag"
+done
+
+if [[ $MANIFEST == "true" ]]; then
+    if [[ $(cat $HOME/.docker/config.json | jq .experimental) != "enabled" ]]; then
+        perl -i -pe's/experimental\"[ ]*\:[ ]*\"disabled\"/experimental\":\"enabled\"/g' $HOME/.docker/config.json
+        echo "Enabled experimental CLI features to create the docker manifest"
+    fi
+    docker manifest create $IMAGE_REPO:$VERSION $MANIFEST_IMAGES
+
+    for os_arch in "${PLATFORMS[@]}"; do
+        os=$(echo $os_arch | cut -d'/' -f1)
+        arch=$(echo $os_arch | cut -d'/' -f2)
+
+        img_tag="$IMAGE_REPO:$VERSION-$os-$arch"
+
+        docker manifest annotate $IMAGE_REPO:$VERSION $img_tag --arch $arch --os $os
+    done
+
+    docker manifest push $IMAGE_REPO:$VERSION
+fi
