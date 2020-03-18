@@ -103,7 +103,13 @@ func New(metadataURL string, tries int) *Service {
 	return &Service{
 		metadataURL: metadataURL,
 		tries:       tries,
-		httpClient:  http.Client{},
+		httpClient: http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:    10,
+				IdleConnTimeout: 30 * time.Second,
+			},
+		},
 	}
 }
 
