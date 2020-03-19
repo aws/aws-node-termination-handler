@@ -52,9 +52,16 @@ spec:
         - name: {{ include "aws-node-termination-handler.name" . }}
           image: {{ .Values.image.repository}}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: {{ .Values.securityContext.runAsUserID }}
+            runAsGroup: {{ .Values.securityContext.runAsGroupID }}
+            allowPrivilegeEscalation: false
           volumeMounts:
             - name: "uptime"
               mountPath: "/proc/uptime"
+              readOnly: true
           env:
           - name: NODE_NAME
             valueFrom:

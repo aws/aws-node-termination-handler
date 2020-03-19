@@ -8,6 +8,10 @@ image:
   pullPolicy: IfNotPresent
   pullSecrets: []
 
+securityContext:
+  runAsUserID: 1000
+  runAsGroupID: 1000
+
 nameOverride: ""
 fullnameOverride: ""
 
