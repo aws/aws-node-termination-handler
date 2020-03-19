@@ -5,32 +5,36 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 REPO_ROOT_PATH=$SCRIPTPATH/../
 MAKE_FILE_PATH=$REPO_ROOT_PATH/Makefile
-mkdir -p $SCRIPTPATH/../build/bin
 
 VERSION=$(make -s -f $MAKE_FILE_PATH version)
 PLATFORMS=("linux/amd64")
-PASS_THRU_ARGS=""
+GOPROXY="https://proxy.golang.org,direct"
+
 
 USAGE=$(cat << 'EOM'
-  Usage: build-binaries  [-p <platform pairs>]
-  Builds static binaries for the platform pairs passed in
+  Usage: build-docker-images  [-p <platform pairs>]
+  Builds docker images for the platform pair
 
-  Example: build-binaries -p "linux/amd64,linux/arm"
+  Example: build-docker-images -p "linux/amd64,linux/arm"
           Optional:
             -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
             -d          DIRECT: Set GOPROXY=direct to bypass go proxies
+            -r          IMAGE REPO: set the docker image repo
             -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]
 EOM
 )
 
 # Process our input arguments
-while getopts "dp:v:" opt; do
+while getopts "dp:r:v:" opt; do
   case ${opt} in
     p ) # Platform Pairs
         IFS=',' read -ra PLATFORMS <<< "$OPTARG"
       ;;
-    d ) # sets GOPROXY=direct
-        PASS_THRU_ARGS="$PASS_THRU_ARGS -d"
+    d ) # GOPROXY=direct
+        GOPROXY="direct"
+      ;;
+    r ) # Image Repo
+        IMAGE_REPO="$OPTARG"
       ;;
     v ) # Image Version
         VERSION="$OPTARG"
@@ -45,12 +49,13 @@ done
 for os_arch in "${PLATFORMS[@]}"; do
     os=$(echo $os_arch | cut -d'/' -f1)
     arch=$(echo $os_arch | cut -d'/' -f2)
-    container_name="extract-nth-$os-$arch"
-    repo_name="anth-bin"
-    bin_name="node-termination-handler-$os-$arch"
 
-    docker container rm $container_name || :
-    $SCRIPTPATH/build-docker-images -p $os_arch -v $VERSION -r $repo_name $PASS_THRU_ARGS
-    docker container create --rm --name $container_name "$repo_name:$VERSION-$os-$arch"
-    docker container cp $container_name:/node-termination-handler $SCRIPTPATH/../build/bin/$bin_name
+    img_tag="$IMAGE_REPO:$VERSION-$os-$arch"
+
+    docker build \
+        --build-arg GOOS=${os} \
+        --build-arg GOARCH=${arch} \
+        --build-arg GOPROXY=${GOPROXY} \
+        -t ${img_tag} \
+        ${REPO_ROOT_PATH}
 done

@@ -51,6 +51,7 @@ const (
 )
 
 var startTime int64 = time.Now().Unix()
+var spotInterruptionTime string = time.Now().UTC().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
 
 // ScheduledEventDetail metadata structure for json parsing
 type ScheduledEventDetail struct {
@@ -143,9 +144,8 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, "ec2-metadata-test-proxy feature not enabled", http.StatusNotFound)
 			return
 		}
-		timePlus2Min := time.Now().Local().Add(time.Minute * time.Duration(2)).Format(time.RFC3339)
 		instanceAction := InstanceAction{
-			Time:   timePlus2Min,
+			Time:   spotInterruptionTime,
 			Action: "terminate",
 		}
 		js, err := json.Marshal(instanceAction)
@@ -184,8 +184,8 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		//     "State" : "active"
 		//   }
 		// ]
-		timePlus2Min := time.Now().Local().Add(time.Minute * 2).Format(scheduledActionDateFormat)
-		timePlus4Min := time.Now().Local().Add(time.Minute * 4).Format(scheduledActionDateFormat)
+		timePlus2Min := time.Now().UTC().Add(time.Minute * 2).Format(scheduledActionDateFormat)
+		timePlus4Min := time.Now().UTC().Add(time.Minute * 4).Format(scheduledActionDateFormat)
 		scheduledEvent := ScheduledEventDetail{
 			NotBefore:   timePlus2Min,
 			Code:        "system-reboot",
