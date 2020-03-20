@@ -68,7 +68,7 @@ Parameter | Description | Default
 `resources` | Resources for the pods | `requests.cpu: 50m, requests.memory: 64Mi, limits.cpu: 100m, limits.memory: 128Mi`
 `dnsPolicy` | DaemonSet DNS policy | `ClusterFirstWithHostNet`
 `nodeSelector` | Tells the daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
-`tolerations` | list of node taints to tolerate | `[]`
+`tolerations` | list of node taints to tolerate | `[ {"operator": "Exists"} ]`
 `rbac.create` | if `true`, create and use RBAC resources | `true`
 `rbac.pspEnabled` | If `true`, create and use a restricted pod security policy | `false`
 `serviceAccount.create` | If `true`, create a new service account | `true`

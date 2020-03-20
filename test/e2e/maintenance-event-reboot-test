@@ -67,9 +67,12 @@ if [[ $CORDONED -eq 0 ]]; then
     exit 3
 fi
 
-## Copy uptime file to Kind k8s worker node
-docker cp $SCRIPTPATH/../assets/uptime-reboot $CLUSTER_NAME-worker:/uptime
-docker exec $CLUSTER_NAME-worker sh -c "chmod 0444 /uptime && chown root /uptime && chgrp root /uptime"
+## Copy uptime file to Kind k8s nodes
+for node in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
+    docker exec $node sh -c "rm -rf /uptime"
+    docker cp $SCRIPTPATH/../assets/uptime-reboot $node:/uptime
+    docker exec $node sh -c "chmod 0444 /uptime && chown root /uptime && chgrp root /uptime"
+done
 
 ## Remove ec2-metadata-test-proxy to prevent another drain event but keep regular-test-pod
 daemonset=$(kubectl get daemonsets | grep 'ec2-metadata-test-proxy' | cut -d' ' -f1)
