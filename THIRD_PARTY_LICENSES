@@ -1,3 +1,7 @@
+The Amazon aws-node-termination-handler Product includes the following third-party software/licensing:
+
+================================================================================
+
 ** github.com/google/gofuzz; version v1.0.0 -- https://github.com/google/gofuzz
 Copyright 2014 Google Inc. All rights reserved.
 ** github.com/googleapis/gnostic; version v0.0.0-20170729233727-0c5108395e2d --
