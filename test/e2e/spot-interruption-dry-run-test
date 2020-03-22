@@ -33,9 +33,9 @@ helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-meta
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
   --set ec2MetadataTestProxy.port="$IMDS_PORT"
 
-POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1)
 
 for i in $(seq 0 10); do
+  POD_ID=$(get_nth_worker_pod)
   if [[ ! -z $(kubectl logs $POD_ID -n kube-system | grep -i -e 'would have been cordoned and drained') ]]; then
       echo "✅ Verified the dryrun logs were executed"
       if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep -v SchedulingDisabled; then

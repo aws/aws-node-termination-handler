@@ -59,7 +59,7 @@ fi
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
       if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
           echo "✅ Verified the worker node was cordoned!"
-          NTH_POD_NAME=$(kubectl get pods -n kube-system -o json | jq '.items[] | select( .metadata.name | contains("node-termination-handler") ) | .metadata.name' -r | head -n 1)
+          NTH_POD_NAME=$(get_nth_worker_pod)
           if kubectl logs $NTH_POD_NAME -n kube-system | grep 'Webhook Success'; then
               echo "✅ Verified the webhook message was sent!"
               echo "✅ Webhook Test Passed $CLUSTER_NAME! ✅"

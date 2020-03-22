@@ -70,6 +70,14 @@ function remove_labels {
     fi
 }
 
+function get_nth_worker_pod {
+    pods=$(kubectl get pods -n kube-system -o json)
+    ## queries for the nth pod on the worker node
+    nth_worker_pods=$(echo $pods | jq '.items[] | select( .metadata.name | contains("node-termination-handler") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
+    ## return only 1 pod
+    echo $(echo $nth_worker_pods | cut -d' ' -f1)
+}
+
 USAGE=$(cat << 'EOM'
   Usage: run-test [-p] [-d] [-o] [-a <ASSERTION_SCRIPT] [-b <TEST_BASE_NAME] [-c <CLUSTER_CONTEXT_DIR] [-n <NTH_DOCKER_IMG>] [-e <IMDS_DOCKER_IMG>] [-v K8S_VERSION]
   Executes a test within a provisioned kubernetes cluster with NTH and IMDS pre-loaded.
@@ -185,6 +193,7 @@ export TMP_DIR
 export CLUSTER_NAME
 export -f timeout
 export -f relpath
+export -f get_nth_worker_pod
 export NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
 export NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
 export NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
@@ -205,7 +214,7 @@ for assert_script in $ASSERTION_SCRIPTS; do
   $assert_script
   assert_end=$(date +%s)
   echo "⏰ Took $(expr $assert_end - $assert_start)sec"
-  POD_ID=$(kubectl get pods --namespace kube-system | grep -i node-termination-handler | grep -i -e Running -e CrashLoop | cut -d' ' -f1 || :)
+  POD_ID=$(get_nth_worker_pod || :)
   kubectl logs $POD_ID --namespace kube-system || :
   ## Resets cluster to run another test on the same cluster
   reset_cluster

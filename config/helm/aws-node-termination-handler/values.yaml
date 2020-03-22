@@ -70,7 +70,8 @@ procUptimeFile: "/proc/uptime"
 # pods. By default, this value is empty and every node will receive a pod.
 nodeSelector: {}
 
-tolerations: []
+tolerations: 
+  - operator: "Exists"
 
 affinity: {}
 
