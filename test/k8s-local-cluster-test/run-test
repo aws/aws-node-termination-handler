@@ -151,7 +151,7 @@ CLUSTER_NAME=$(cat $TMP_DIR/clustername)
 ## Build and Load Docker Images
 
 ## Pre-pull golang builder to prevent intermittent timeouts from dockerhub
-timeout 120 docker pull golang:1.14-- || :
+timeout 120 docker pull golang:1.14 -- || :
 
 if [ -z "$NODE_TERMINATION_HANDLER_DOCKER_IMG" ]; then 
     echo "🥑 Building the node-termination-handler docker image"
