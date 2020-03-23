@@ -45,6 +45,8 @@ spec:
                     operator: In
                     values:
                       - amd64
+                      - arm
+                      - arm64
       serviceAccountName: {{ template "aws-node-termination-handler.serviceAccountName" . }}
       hostNetwork: true
       dnsPolicy: {{ .Values.dnsPolicy }}    
