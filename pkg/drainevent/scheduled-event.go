@@ -26,7 +26,7 @@ const (
 	// ScheduledEventKind is a const to define a scheduled event kind of drainable event
 	ScheduledEventKind           = "SCHEDULED_EVENT"
 	scheduledEventStateCompleted = "completed"
-	scheduledEventStateCancelled = "cancelled"
+	scheduledEventStateCanceled  = "canceled"
 	scheduledEventDateFormat     = "02 Jan 2006 15:04:05 GMT"
 	instanceStopCode             = "instance-stop"
 	systemRebootCode             = "system-reboot"
@@ -42,7 +42,7 @@ func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- Dr
 		return err
 	}
 	for _, drainEvent := range drainEvents {
-		if isStateCancelledOrCompleted(drainEvent.State) {
+		if isStateCanceledOrCompleted(drainEvent.State) {
 			log.Println("Sending cancel events to the cancel channel")
 			cancelChan <- drainEvent
 		} else {
@@ -62,7 +62,7 @@ func checkForScheduledEvents(imds *ec2metadata.Service) ([]DrainEvent, error) {
 	events := make([]DrainEvent, 0)
 	for _, scheduledEvent := range scheduledEvents {
 		var preDrainFunc preDrainTask
-		if isRestartEvent(scheduledEvent.Code) && !isStateCancelledOrCompleted(scheduledEvent.State) {
+		if isRestartEvent(scheduledEvent.Code) && !isStateCanceledOrCompleted(scheduledEvent.State) {
 			preDrainFunc = uncordonAfterRebootPreDrain
 		}
 		notBefore, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotBefore)
@@ -107,8 +107,8 @@ func uncordonAfterRebootPreDrain(drainEvent DrainEvent, node node.Node) error {
 	return nil
 }
 
-func isStateCancelledOrCompleted(state string) bool {
-	return state == scheduledEventStateCancelled ||
+func isStateCanceledOrCompleted(state string) bool {
+	return state == scheduledEventStateCanceled ||
 		state == scheduledEventStateCompleted
 }
 
