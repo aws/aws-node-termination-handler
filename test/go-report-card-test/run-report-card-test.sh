@@ -19,6 +19,11 @@ else
     echo "✅ goimports found no formatting errors in go source files"
 fi
 
+if grep -r -i -e 'cancelled' --exclude-dir={build,$(basename $SCRIPTPATH)} $SCRIPTPATH/../../* ; then
+    echo "❌ Found a misspelling of 'canceled'!"
+    EXIT_CODE=3
+fi
+
 docker run -it -v $SCRIPTPATH/../../:/app go-report-card-cli /go/bin/goreportcard-cli -v -t $THRESHOLD
 
 exit $EXIT_CODE

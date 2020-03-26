@@ -89,9 +89,9 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 	h.Ok(t, err)
 }
 
-func TestMonitorForScheduledEventsCancelledEvent(t *testing.T) {
+func TestMonitorForScheduledEventsCanceledEvent(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
-	var state = "cancelled"
+	var state = "canceled"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
 			rw.WriteHeader(403)
