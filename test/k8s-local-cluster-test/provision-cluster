@@ -9,7 +9,8 @@ CLUSTER_NAME_BASE=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-two-node-cluster.yaml
 
-K8_1_17="kindest/node:v1.17.0@sha256:9512edae126da271b66b990b6fff768fbb7cd786c7d39e86bdf55906352fdf62"
+K8_1_18="kindest/node:v1.18.0@sha256:0e20578828edd939d25eb98496a685c76c98d54084932f76069f886ec315d694"
+K8_1_17="kindest/node:v1.17.2@sha256:59df31fc61d1da5f46e8a61ef612fa53d3f9140f82419d1ef1a6b9656c6b737c"
 K8_1_16="kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55"
 K8_1_15="kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d"
 K8_1_14="kindest/node:v1.14.10@sha256:81ae5a3237c779efc4dda43cc81c696f88a194abcc4f8fa34f86cf674aa14977"
@@ -20,7 +21,7 @@ K8_1_11="kindest/node:v1.11.10@sha256:e6f3dade95b7cb74081c5b9f3291aaaa6026a90a97
 K8_VERSION="$K8_1_16"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
 KIND_VERSION="0.7.0"
-HELM_VERSION="3.0.2"
+HELM_VERSION="3.1.2"
 
 echoerr() { echo "$@" 1>&2; }
 
