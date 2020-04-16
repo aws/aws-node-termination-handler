@@ -22,7 +22,6 @@ RUN make build
 ENTRYPOINT ["/node-termination-handler/build/node-termination-handler"]
 
 # Copy the controller-manager into a thin image
-FROM amazonlinux:2 as amazonlinux
 FROM scratch
 WORKDIR /
 COPY --from=builder /node-termination-handler/build/node-termination-handler .
