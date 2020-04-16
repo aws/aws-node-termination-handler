@@ -36,4 +36,3 @@ rules:
     - daemonsets
   verbs:
     - get
-    - delete
