@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainevent
+package interruptionevent
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// ScheduledEventKind is a const to define a scheduled event kind of drainable event
+	// ScheduledEventKind is a const to define a scheduled event kind of interruption event
 	ScheduledEventKind           = "SCHEDULED_EVENT"
 	scheduledEventStateCompleted = "completed"
 	scheduledEventStateCanceled  = "canceled"
@@ -34,31 +34,31 @@ const (
 	instanceRetirementCode       = "instance-retirement"
 )
 
-// MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
-func MonitorForScheduledEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, imds *ec2metadata.Service) error {
-	drainEvents, err := checkForScheduledEvents(imds)
+// MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends interruption events to the passed in channel
+func MonitorForScheduledEvents(interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, imds *ec2metadata.Service) error {
+	interruptionEvents, err := checkForScheduledEvents(imds)
 	if err != nil {
 		return err
 	}
-	for _, drainEvent := range drainEvents {
-		if isStateCanceledOrCompleted(drainEvent.State) {
+	for _, interruptionEvent := range interruptionEvents {
+		if isStateCanceledOrCompleted(interruptionEvent.State) {
 			log.Println("Sending cancel events to the cancel channel")
-			cancelChan <- drainEvent
+			cancelChan <- interruptionEvent
 		} else {
-			log.Println("Sending drain events to the drain channel")
-			drainChan <- drainEvent
+			log.Println("Sending interruption events to the interruption channel")
+			interruptionChan <- interruptionEvent
 		}
 	}
 	return nil
 }
 
 // checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
-func checkForScheduledEvents(imds *ec2metadata.Service) ([]DrainEvent, error) {
+func checkForScheduledEvents(imds *ec2metadata.Service) ([]InterruptionEvent, error) {
 	scheduledEvents, err := imds.GetScheduledMaintenanceEvents()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
-	events := make([]DrainEvent, 0)
+	events := make([]InterruptionEvent, 0)
 	for _, scheduledEvent := range scheduledEvents {
 		var preDrainFunc preDrainTask
 		if isRestartEvent(scheduledEvent.Code) && !isStateCanceledOrCompleted(scheduledEvent.State) {
@@ -72,7 +72,7 @@ func checkForScheduledEvents(imds *ec2metadata.Service) ([]DrainEvent, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Unable to parsed scheduled event end time: %w", err)
 		}
-		events = append(events, DrainEvent{
+		events = append(events, InterruptionEvent{
 			EventID:      scheduledEvent.EventID,
 			Kind:         ScheduledEventKind,
 			Description:  fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
@@ -85,8 +85,8 @@ func checkForScheduledEvents(imds *ec2metadata.Service) ([]DrainEvent, error) {
 	return events, nil
 }
 
-func uncordonAfterRebootPreDrain(drainEvent DrainEvent, node node.Node) error {
-	err := node.MarkWithEventID(drainEvent.EventID)
+func uncordonAfterRebootPreDrain(interruptionEvent InterruptionEvent, node node.Node) error {
+	err := node.MarkWithEventID(interruptionEvent.EventID)
 	if err != nil {
 		return fmt.Errorf("Unable to mark node with event ID: %w", err)
 	}

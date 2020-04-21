@@ -71,13 +71,13 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, e
 	}, nil
 }
 
-// Drain will cordon the node and evict pods based on the config
-func (n Node) Drain() error {
+// CordonAndDrain will cordon the node and evict pods based on the config
+func (n Node) CordonAndDrain() error {
 	if n.nthConfig.DryRun {
 		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", n.nthConfig.NodeName)
 		return nil
 	}
-	err := n.cordonNode()
+	err := n.Cordon()
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,11 @@ func (n Node) Drain() error {
 }
 
 // Cordon will add a NoSchedule on the node
-func (n Node) cordonNode() error {
+func (n Node) Cordon() error {
+	if n.nthConfig.DryRun {
+		log.Printf("Node %s would have been cordoned, but dry-run flag was set\n", n.nthConfig.NodeName)
+		return nil
+	}
 	node, err := n.fetchKubernetesNode()
 	if err != nil {
 		return err

@@ -11,24 +11,29 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainevent_test
+package interruptionevent
 
 import (
-	"testing"
 	"time"
 
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
-	h "github.com/aws/aws-node-termination-handler/pkg/test"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
-func TestTimeUntilEvent(t *testing.T) {
-	startTime := time.Now().Add(time.Second * 10)
-	expected := startTime.Sub(time.Now()).Round(time.Second)
+type preDrainTask func(InterruptionEvent, node.Node) error
 
-	event := &drainevent.DrainEvent{
-		StartTime: startTime,
-	}
+// InterruptionEvent gives more context of the interruption event
+type InterruptionEvent struct {
+	EventID      string
+	Kind         string
+	Description  string
+	State        string
+	StartTime    time.Time
+	EndTime      time.Time
+	Drained      bool
+	PreDrainTask preDrainTask `json:"-"`
+}
 
-	result := event.TimeUntilEvent()
-	h.Equals(t, expected, result.Round(time.Second))
+// TimeUntilEvent returns the duration until the event start time
+func (e *InterruptionEvent) TimeUntilEvent() time.Duration {
+	return e.StartTime.Sub(time.Now())
 }

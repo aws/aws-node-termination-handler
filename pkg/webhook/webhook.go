@@ -23,17 +23,17 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
+	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 )
 
 type combinedDrainData struct {
 	ec2metadata.NodeMetadata
-	drainevent.DrainEvent
+	interruptionevent.InterruptionEvent
 }
 
 // Post makes a http post to send drain event data to webhook url
-func Post(additionalInfo ec2metadata.NodeMetadata, event *drainevent.DrainEvent, nthconfig config.Config) {
+func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.InterruptionEvent, nthconfig config.Config) {
 
 	webhookTemplate, err := template.New("message").Parse(nthconfig.WebhookTemplate)
 	if err != nil {

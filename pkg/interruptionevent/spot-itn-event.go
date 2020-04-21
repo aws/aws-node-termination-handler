@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainevent
+package interruptionevent
 
 import (
 	"crypto/sha256"
@@ -23,25 +23,25 @@ import (
 )
 
 const (
-	// SpotITNKind is a const to define a Spot ITN kind of drainable event
+	// SpotITNKind is a const to define a Spot ITN kind of interruption event
 	SpotITNKind = "SPOT_ITN"
 )
 
-// MonitorForSpotITNEvents continuously monitors metadata for spot ITNs and sends drain events to the passed in channel
-func MonitorForSpotITNEvents(drainChan chan<- DrainEvent, cancelChan chan<- DrainEvent, imds *ec2metadata.Service) error {
-	drainEvent, err := checkForSpotInterruptionNotice(imds)
+// MonitorForSpotITNEvents continuously monitors metadata for spot ITNs and sends interruption events to the passed in channel
+func MonitorForSpotITNEvents(interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, imds *ec2metadata.Service) error {
+	interruptionEvent, err := checkForSpotInterruptionNotice(imds)
 	if err != nil {
 		return err
 	}
-	if drainEvent != nil && drainEvent.Kind == SpotITNKind {
-		log.Println("Sending drain event to the drain channel")
-		drainChan <- *drainEvent
+	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {
+		log.Println("Sending interruption event to the interruption channel")
+		interruptionChan <- *interruptionEvent
 	}
 	return nil
 }
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func checkForSpotInterruptionNotice(imds *ec2metadata.Service) (*DrainEvent, error) {
+func checkForSpotInterruptionNotice(imds *ec2metadata.Service) (*InterruptionEvent, error) {
 	instanceAction, err := imds.GetSpotITNEvent()
 	if instanceAction == nil && err == nil {
 		// if there are no spot itns and no errors
@@ -59,7 +59,7 @@ func checkForSpotInterruptionNotice(imds *ec2metadata.Service) (*DrainEvent, err
 	hash := sha256.New()
 	hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
 
-	return &DrainEvent{
+	return &InterruptionEvent{
 		EventID:     fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
 		Kind:        SpotITNKind,
 		StartTime:   interruptionTime,

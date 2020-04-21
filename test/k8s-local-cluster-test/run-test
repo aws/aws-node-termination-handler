@@ -102,7 +102,7 @@ EOM
 while getopts "pdn:e:oc:a:b:v:" opt; do
   case ${opt} in
     p ) # PRESERVE K8s Cluster
-        echo "❄️ This run will preserve the cluster as you requested"
+        echo "❄️  This run will preserve the cluster as you requested"
         PRESERVE=true
       ;;
     n ) # Node Termination Handler Docker Image 

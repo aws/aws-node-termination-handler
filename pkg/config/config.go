@@ -48,6 +48,7 @@ const (
 	enableSpotInterruptionDrainingDefault   = true
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
+	cordonOnly                              = "CORDON_ONLY"
 )
 
 //Config arguments set via CLI, environment variables, or defaults
@@ -67,6 +68,7 @@ type Config struct {
 	EnableScheduledEventDraining   bool
 	EnableSpotInterruptionDraining bool
 	MetadataTries                  int
+	CordonOnly                     bool
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -94,8 +96,9 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
 	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
-	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is receieved")
+	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
+	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 
 	flag.Parse()
 
@@ -128,7 +131,8 @@ func ParseCliArgs() (config Config, err error) {
 			"\tnode-termination-grace-period: %d,\n"+
 			"\tenable-scheduled-event-draining: %t,\n"+
 			"\tenable-spot-interruption-draining: %t,\n"+
-			"\tmetadata-tries: %d,\n",
+			"\tmetadata-tries: %d,\n"+
+			"\tcordon-only: %t,\n",
 
 		config.DryRun,
 		config.NodeName,
@@ -142,6 +146,7 @@ func ParseCliArgs() (config Config, err error) {
 		config.EnableScheduledEventDraining,
 		config.EnableSpotInterruptionDraining,
 		config.MetadataTries,
+		config.CordonOnly,
 	)
 
 	return config, err

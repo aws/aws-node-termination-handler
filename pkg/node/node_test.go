@@ -70,7 +70,10 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	err = tNode.Drain()
+	err = tNode.CordonAndDrain()
+	h.Ok(t, err)
+
+	err = tNode.Cordon()
 	h.Ok(t, err)
 
 	err = tNode.Uncordon()
@@ -110,7 +113,7 @@ func TestDrainSuccess(t *testing.T) {
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.Drain()
+	err := tNode.CordonAndDrain()
 	h.Ok(t, err)
 }
 
@@ -118,8 +121,8 @@ func TestDrainCordonNodeFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.Drain()
-	h.Assert(t, true, "Failed to return error on Drain failing to cordon node", err != nil)
+	err := tNode.CordonAndDrain()
+	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
 func TestUncordonSuccess(t *testing.T) {
