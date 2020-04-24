@@ -165,7 +165,11 @@ func drainIfNecessary(drainEventStore *draineventstore.Store, node node.Node, nt
 				log.Println("There was a problem executing the pre-drain task: ", err)
 			}
 		}
-		node.Drain()
+		err := node.Drain()
+		if err != nil {
+			log.Println("There was a problem while trying to drain the node: ", err)
+			os.Exit(1)
+		}
 		drainEventStore.MarkAllAsDrained()
 		log.Printf("Node %q successfully drained.\n", nthConfig.NodeName)
 		if nthConfig.WebhookURL != "" {

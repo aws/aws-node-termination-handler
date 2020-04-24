@@ -32,7 +32,6 @@ const (
 	systemRebootCode             = "system-reboot"
 	instanceRebootCode           = "instance-reboot"
 	instanceRetirementCode       = "instance-retirement"
-	systemMaintenanceCode        = "system-maintenance"
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends drain events to the passed in channel
