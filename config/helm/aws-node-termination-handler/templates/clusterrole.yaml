@@ -26,7 +26,6 @@ rules:
 - apiGroups:
     - extensions
   resources:
-    - replicasets
     - daemonsets
   verbs:
     - get

@@ -26,7 +26,6 @@ rules:
 - apiGroups:
     - extensions
   resources:
-    - replicasets
     - daemonsets
   verbs:
     - get
@@ -36,4 +35,3 @@ rules:
     - daemonsets
   verbs:
     - get
-    - delete
