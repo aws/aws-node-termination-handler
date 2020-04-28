@@ -26,7 +26,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/drain"
@@ -71,7 +71,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, e
 	}, nil
 }
 
-//Drain will cordon the node and evict pods based on the config
+// Drain will cordon the node and evict pods based on the config
 func (n Node) Drain() error {
 	if n.nthConfig.DryRun {
 		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", n.nthConfig.NodeName)
@@ -152,7 +152,7 @@ func (n Node) RemoveNTHLabels() error {
 	return nil
 }
 
-// GetEventID will retrieve the event ID valude from the node label
+// GetEventID will retrieve the event ID value from the node label
 func (n Node) GetEventID() (string, error) {
 	node, err := n.fetchKubernetesNode()
 	if err != nil {
