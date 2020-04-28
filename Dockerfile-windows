@@ -1,0 +1,30 @@
+# Build the manager binary
+FROM golang:1.14.2-windowsservercore-1809 as builder
+
+## GOLANG env
+ARG GOPROXY="https://proxy.golang.org,direct"
+ARG GO111MODULE="on"
+ARG CGO_ENABLED=0
+ARG GOOS=windows
+ARG GOARCH=amd64
+
+# Copy go.mod and download dependencies
+WORKDIR /node-termination-handler
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+# Build
+COPY . .
+RUN go build -a -tags nthwindows -o build/node-termination-handler cmd/node-termination-handler.go
+
+# In case the target is build for testing:
+# $ docker build  --target=builder -t test .
+ENTRYPOINT ["/node-termination-handler/build/node-termination-handler"]
+
+# Copy the controller-manager into a thin image
+FROM mcr.microsoft.com/windows/nanoserver:1809
+WORKDIR /
+COPY --from=builder /windows/system32/netapi32.dll /windows/system32/
+COPY --from=builder /node-termination-handler/build/node-termination-handler .
+ENTRYPOINT ["/node-termination-handler"]
