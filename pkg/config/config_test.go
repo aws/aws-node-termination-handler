@@ -45,6 +45,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	os.Setenv("WEBHOOK_HEADERS", "WEBHOOK_HEADERS")
 	os.Setenv("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
 	os.Setenv("METADATA_TRIES", "100")
+	os.Setenv("CORDON_ONLY", "false")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -64,6 +65,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
+	h.Equals(t, false, nthConfig.CordonOnly)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -94,6 +96,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--webhook-headers=WEBHOOK_HEADERS",
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=100",
+		"--cordon-only=false",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -114,6 +117,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
+	h.Equals(t, false, nthConfig.CordonOnly)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -139,6 +143,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	os.Setenv("WEBHOOK_HEADERS", "no")
 	os.Setenv("WEBHOOK_TEMPLATE", "no")
 	os.Setenv("METADATA_TRIES", "100")
+	os.Setenv("CORDON_ONLY", "true")
 	os.Args = []string{
 		"cmd",
 		"--delete-local-data=false",
@@ -156,6 +161,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--webhook-headers=WEBHOOK_HEADERS",
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=101",
+		"--cordon-only=false",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -176,6 +182,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, "WEBHOOK_HEADERS", nthConfig.WebhookHeaders)
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 101, nthConfig.MetadataTries)
+	h.Equals(t, false, nthConfig.CordonOnly)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")

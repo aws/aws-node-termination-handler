@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainevent_test
+package interruptionevent_test
 
 import (
 	"net/http"
@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -48,19 +48,19 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan drainevent.DrainEvent)
-	cancelChan := make(chan drainevent.DrainEvent)
+	drainChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-drainChan
-		h.Equals(t, drainevent.SpotITNKind, result.Kind)
+		h.Equals(t, interruptionevent.SpotITNKind, result.Kind)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
 		h.Assert(t, strings.Contains(result.Description, startTime),
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Ok(t, err)
 }
 
@@ -73,11 +73,11 @@ func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan drainevent.DrainEvent)
-	cancelChan := make(chan drainevent.DrainEvent)
+	drainChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
 
@@ -94,11 +94,11 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan drainevent.DrainEvent)
-	cancelChan := make(chan drainevent.DrainEvent)
+	drainChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Ok(t, err)
 }
 
@@ -115,11 +115,11 @@ func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan drainevent.DrainEvent)
-	cancelChan := make(chan drainevent.DrainEvent)
+	drainChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
 
@@ -136,11 +136,11 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan drainevent.DrainEvent)
-	cancelChan := make(chan drainevent.DrainEvent)
+	drainChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, err != nil, "Failed to return error when failed to decode instance action")
 }
 
@@ -157,10 +157,10 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan drainevent.DrainEvent)
-	cancelChan := make(chan drainevent.DrainEvent)
+	drainChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := drainevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
 	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }

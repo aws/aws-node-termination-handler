@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package drainevent
+package interruptionevent
 
 import (
 	"flag"
@@ -66,7 +66,7 @@ func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
 }
 
 func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
-	drainEvent := DrainEvent{}
+	drainEvent := InterruptionEvent{}
 	nthConfig := config.Config{
 		DryRun: true,
 	}
@@ -79,7 +79,7 @@ func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := uncordonAfterRebootPreDrain(DrainEvent{}, *tNode)
+	err := uncordonAfterRebootPreDrain(InterruptionEvent{}, *tNode)
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
@@ -97,6 +97,6 @@ func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
 	})
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := uncordonAfterRebootPreDrain(DrainEvent{}, *tNode)
+	err := uncordonAfterRebootPreDrain(InterruptionEvent{}, *tNode)
 	h.Ok(t, err)
 }

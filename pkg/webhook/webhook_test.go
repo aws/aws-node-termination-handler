@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/drainevent"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 )
@@ -43,7 +43,7 @@ func parseScheduledEventTime(inputTime string) time.Time {
 	return scheduledTime
 }
 
-func getExpectedMessage(event *drainevent.DrainEvent) string {
+func getExpectedMessage(event *interruptionevent.InterruptionEvent) string {
 	webhookTemplate, err := template.New("").Parse(testWebhookTemplate)
 	if err != nil {
 		log.Printf("Webhook Error: Template parsing failed - %s\n", err)
@@ -64,7 +64,7 @@ func getExpectedMessage(event *drainevent.DrainEvent) string {
 func TestPostSuccess(t *testing.T) {
 	var requestPath string = "/some/path"
 
-	event := &drainevent.DrainEvent{
+	event := &interruptionevent.InterruptionEvent{
 		EventID:     "instance-event-0d59937288b749b32",
 		Kind:        "SCHEDULED_EVENT",
 		Description: "Scheduled event will occur",
@@ -116,7 +116,7 @@ func TestPostTemplateParseError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	event := &drainevent.DrainEvent{}
+	event := &interruptionevent.InterruptionEvent{}
 	nthconfig := config.Config{
 		WebhookURL:      server.URL,
 		WebhookTemplate: "{{ ",
@@ -133,7 +133,7 @@ func TestPostTemplateExecutionError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	event := &drainevent.DrainEvent{}
+	event := &interruptionevent.InterruptionEvent{}
 	nthconfig := config.Config{
 		WebhookURL:      server.URL,
 		WebhookTemplate: `{{.cat}}`,
@@ -150,7 +150,7 @@ func TestPostNewHttpRequestError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	event := &drainevent.DrainEvent{}
+	event := &interruptionevent.InterruptionEvent{}
 	nthconfig := config.Config{
 		WebhookURL:      "\t",
 		WebhookTemplate: testWebhookTemplate,
@@ -166,7 +166,7 @@ func TestPostHeaderParseFail(t *testing.T) {
 	}))
 	defer server.Close()
 
-	event := &drainevent.DrainEvent{}
+	event := &interruptionevent.InterruptionEvent{}
 	nthconfig := config.Config{
 		WebhookURL:      server.URL,
 		WebhookTemplate: testWebhookTemplate,
@@ -184,7 +184,7 @@ func TestPostTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	event := &drainevent.DrainEvent{}
+	event := &interruptionevent.InterruptionEvent{}
 	nthconfig := config.Config{
 		WebhookURL:      server.URL,
 		WebhookTemplate: testWebhookTemplate,
@@ -204,7 +204,7 @@ func TestPostBadResponseCode(t *testing.T) {
 	}))
 	defer server.Close()
 
-	event := &drainevent.DrainEvent{}
+	event := &interruptionevent.InterruptionEvent{}
 	nthconfig := config.Config{
 		WebhookURL:      server.URL,
 		WebhookTemplate: testWebhookTemplate,

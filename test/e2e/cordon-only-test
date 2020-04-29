@@ -1,0 +1,64 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $EC2_METADATA_DOCKER_REPO
+#   $EC2_METADATA_DOCKER_TAG
+
+echo "Starting Cordon Only Test for Node Termination Handler"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
+  --wait \
+  --force \
+  --namespace kube-system \
+  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
+  --set cordonOnly="true"
+
+helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
+  --wait \
+  --force \
+  --namespace default \
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
+  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+
+for i in `seq 1 10`; do
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    sleep 5
+done
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    exit 2
+fi
+
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+          echo "✅ Verified the worker node was cordoned!"
+          if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+              echo "✅ Verified the regular-pod-test pod was NOT evicted!"
+              echo "✅ Cordon Only Test Passed $CLUSTER_NAME! ✅"
+              exit 0
+          fi
+      fi
+    sleep $TAINT_CHECK_SLEEP
+done
+
+exit 1
