@@ -25,7 +25,7 @@ import (
 const (
 	interruptionNoticeDelayConfigKey = "INTERRUPTION_NOTICE_DELAY"
 	interruptionNoticeDelayDefault   = "0"
-	scheduledActionDateFormat        = "02 Jan 2006 15:04:05 GMT"
+	scheduledActionDateFormat        = "2 Jan 2006 15:04:05 GMT"
 	spotInstanceActionFlag           = "ENABLE_SPOT_ITN"
 	spotInstanceActionPath           = "/latest/meta-data/spot/instance-action"
 	scheduledMaintenanceEventFlag    = "ENABLE_SCHEDULED_MAINTENANCE_EVENTS"

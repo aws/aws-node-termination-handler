@@ -27,7 +27,7 @@ const (
 	ScheduledEventKind           = "SCHEDULED_EVENT"
 	scheduledEventStateCompleted = "completed"
 	scheduledEventStateCanceled  = "canceled"
-	scheduledEventDateFormat     = "02 Jan 2006 15:04:05 GMT"
+	scheduledEventDateFormat     = "2 Jan 2006 15:04:05 GMT"
 	instanceStopCode             = "instance-stop"
 	systemRebootCode             = "system-reboot"
 	instanceRebootCode           = "instance-reboot"
