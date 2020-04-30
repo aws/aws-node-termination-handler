@@ -16,9 +16,10 @@ package config
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -49,6 +50,8 @@ const (
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
+	jsonLoggingConfigKey                    = "JSON_LOGGING"
+	jsonLoggingDefault                      = false
 )
 
 //Config arguments set via CLI, environment variables, or defaults
@@ -69,6 +72,7 @@ type Config struct {
 	EnableSpotInterruptionDraining bool
 	MetadataTries                  int
 	CordonOnly                     bool
+	JsonLogging                    bool
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -99,13 +103,14 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
+	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
-		log.Println("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
+		log.Print("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
 	} else if isConfigProvided("grace-period", gracePeriodConfigKey) {
-		log.Println("Deprecated argument \"grace-period\" was provided. This argument will eventually be removed. Please switch to \"pod-termination-grace-period\" instead.")
+		log.Print("Deprecated argument \"grace-period\" was provided. This argument will eventually be removed. Please switch to \"pod-termination-grace-period\" instead.")
 		config.PodTerminationGracePeriod = gracePeriod
 	}
 
@@ -132,7 +137,8 @@ func ParseCliArgs() (config Config, err error) {
 			"\tenable-scheduled-event-draining: %t,\n"+
 			"\tenable-spot-interruption-draining: %t,\n"+
 			"\tmetadata-tries: %d,\n"+
-			"\tcordon-only: %t,\n",
+			"\tcordon-only: %t,\n"+
+			"\tjson-logging: %t,\n",
 
 		config.DryRun,
 		config.NodeName,
@@ -147,6 +153,7 @@ func ParseCliArgs() (config Config, err error) {
 		config.EnableSpotInterruptionDraining,
 		config.MetadataTries,
 		config.CordonOnly,
+		config.JsonLogging,
 	)
 
 	return config, err

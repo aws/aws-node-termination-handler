@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,6 +29,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -46,7 +46,7 @@ func parseScheduledEventTime(inputTime string) time.Time {
 func getExpectedMessage(event *interruptionevent.InterruptionEvent) string {
 	webhookTemplate, err := template.New("").Parse(testWebhookTemplate)
 	if err != nil {
-		log.Printf("Webhook Error: Template parsing failed - %s\n", err)
+		log.Printf("Webhook Error: Template parsing failed - %s", err)
 		return ""
 	}
 

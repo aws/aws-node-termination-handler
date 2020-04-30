@@ -17,13 +17,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,7 +74,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, e
 // CordonAndDrain will cordon the node and evict pods based on the config
 func (n Node) CordonAndDrain() error {
 	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set\n", n.nthConfig.NodeName)
+		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set", n.nthConfig.NodeName)
 		return nil
 	}
 	err := n.Cordon()
@@ -92,7 +92,7 @@ func (n Node) CordonAndDrain() error {
 // Cordon will add a NoSchedule on the node
 func (n Node) Cordon() error {
 	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned, but dry-run flag was set\n", n.nthConfig.NodeName)
+		log.Printf("Node %s would have been cordoned, but dry-run flag was set", n.nthConfig.NodeName)
 		return nil
 	}
 	node, err := n.fetchKubernetesNode()
@@ -126,7 +126,7 @@ func (n Node) Uncordon() error {
 // IsUnschedulable checks if the node is marked as unschedulable
 func (n Node) IsUnschedulable() (bool, error) {
 	if n.nthConfig.DryRun {
-		log.Println("IsUnschedulable returning false since dry-run is set")
+		log.Print("IsUnschedulable returning false since dry-run is set")
 		return false, nil
 	}
 	node, err := n.fetchKubernetesNode()
@@ -274,7 +274,7 @@ func (n Node) UncordonIfRebooted() error {
 	}
 	timeVal, ok := k8sNode.Labels[ActionLabelTimeKey]
 	if !ok {
-		log.Printf("There was no %s label found requiring action label handling\n", ActionLabelTimeKey)
+		log.Printf("There was no %s label found requiring action label handling", ActionLabelTimeKey)
 		return nil
 	}
 	timeValNum, err := strconv.ParseInt(timeVal, 10, 64)
@@ -289,7 +289,7 @@ func (n Node) UncordonIfRebooted() error {
 			return err
 		}
 		if secondsSinceLabel < int64(uptime) {
-			log.Println("The system has not restarted yet.")
+			log.Print("The system has not restarted yet.")
 			return nil
 		}
 		err = n.Uncordon()
@@ -300,9 +300,9 @@ func (n Node) UncordonIfRebooted() error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully completed action %s.\n", UncordonAfterRebootLabelVal)
+		log.Printf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
 	default:
-		log.Println("There are no label actions to handle.")
+		log.Print("There are no label actions to handle.")
 	}
 	return nil
 }
