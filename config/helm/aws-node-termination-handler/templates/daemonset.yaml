@@ -37,11 +37,11 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: "kubernetes.io/os"
+                  - key: {{ .Values.nodeSelectorTermsOs | default "kubernetes.io/os" | quote }}
                     operator: In
                     values:
                       - linux
-                  - key: "kubernetes.io/arch"
+                  - key: {{ .Values.nodeSelectorTermsArch | default "kubernetes.io/arch" | quote }}
                     operator: In
                     values:
                       - amd64
