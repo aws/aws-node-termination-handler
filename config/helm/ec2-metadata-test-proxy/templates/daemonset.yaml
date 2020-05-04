@@ -37,6 +37,3 @@ spec:
         - name: ENABLE_IMDS_V2
           value: {{ .Values.ec2MetadataTestProxy.enableIMDSV2 | quote }}
 {{- end -}}
-
-
-
