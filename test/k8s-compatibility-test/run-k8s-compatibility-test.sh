@@ -1,14 +1,14 @@
 #!/bin/bash
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-versions=("1.17" "1.16" "1.15" "1.14" "1.13" "1.12" "1.11")
+versions=("1.18" "1.17" "1.16" "1.15" "1.14" "1.13" "1.12")
 E_CODE=0
 AFTER_FIRST_RUN_ARGS=""
 PASS_THRU_ARGS=""
 
 USAGE=$(cat << 'EOM'
   Usage: run-k8s-compatability-test [-h]
-  Executes the spot termination integration test for each version of kubernetes (k8s 1.11 - 1.17 supported)
+  Executes the spot termination integration test for each version of kubernetes (k8s 1.12 - 1.18 supported)
 
   Examples: 
           # run test with direct download of go modules
