@@ -12,7 +12,6 @@ env:
 - KUBE_VERSION=1.14
 - KUBE_VERSION=1.13
 - KUBE_VERSION=1.12
-- KUBE_VERSION=1.11
 
 script: test/k8s-local-cluster-test/run-test -v $KUBE_VERSION
 
