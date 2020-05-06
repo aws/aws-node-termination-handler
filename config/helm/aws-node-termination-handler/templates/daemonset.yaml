@@ -109,6 +109,8 @@ spec:
             value: {{ .Values.metadataTries | quote }}
           - name: CORDON_ONLY
             value: {{ .Values.cordonOnly | quote }}
+          - name: JSON_LOGGING
+            value: {{ .Values.jsonLogging | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

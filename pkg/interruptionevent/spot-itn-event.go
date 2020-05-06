@@ -16,10 +16,10 @@ package interruptionevent
 import (
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -34,7 +34,7 @@ func MonitorForSpotITNEvents(interruptionChan chan<- InterruptionEvent, cancelCh
 		return err
 	}
 	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {
-		log.Println("Sending interruption event to the interruption channel")
+		log.Print("Sending interruption event to the interruption channel")
 		interruptionChan <- *interruptionEvent
 	}
 	return nil

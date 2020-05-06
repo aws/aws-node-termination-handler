@@ -17,12 +17,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -218,7 +219,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	httpReq := func() (*http.Response, error) {
 		return e.httpClient.Do(req)
 	}
-	log.Println("Trying to get token from IMDSv2")
+	log.Print("Trying to get token from IMDSv2")
 	resp, err := retry(1, 2*time.Second, httpReq)
 	if err != nil {
 		return "", -1, err
@@ -235,7 +236,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	if err != nil {
 		return "", -1, fmt.Errorf("IMDS v2 Token TTL header not sent in response: %w", err)
 	}
-	log.Println("Got token from IMDSv2")
+	log.Print("Got token from IMDSv2")
 	return string(token), ttl, nil
 }
 
@@ -258,8 +259,8 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 			jitter := time.Duration(rand.Int63n(int64(sleep)))
 			sleep = sleep + jitter/2
 
-			log.Printf("Request failed. Attempts remaining: %d\n", attempts)
-			log.Printf("Sleep for %s seconds\n", sleep)
+			log.Printf("Request failed. Attempts remaining: %d", attempts)
+			log.Printf("Sleep for %s seconds", sleep)
 			time.Sleep(sleep)
 			return retry(attempts, 2*sleep, httpReq)
 		}

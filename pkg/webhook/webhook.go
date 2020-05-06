@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"text/template"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/rs/zerolog/log"
 )
 
 type combinedDrainData struct {
@@ -37,7 +37,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 
 	webhookTemplate, err := template.New("message").Parse(nthconfig.WebhookTemplate)
 	if err != nil {
-		log.Printf("Webhook Error: Template parsing failed - %s\n", err)
+		log.Printf("Webhook Error: Template parsing failed - %s", err)
 		return
 	}
 
@@ -46,20 +46,20 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 	var byteBuffer bytes.Buffer
 	err = webhookTemplate.Execute(&byteBuffer, combined)
 	if err != nil {
-		log.Printf("Webhook Error: Template execution failed - %s\n", err)
+		log.Printf("Webhook Error: Template execution failed - %s", err)
 		return
 	}
 
 	request, err := http.NewRequest("POST", nthconfig.WebhookURL, &byteBuffer)
 	if err != nil {
-		log.Printf("Webhook Error: Http NewRequest failed - %s\n", err)
+		log.Printf("Webhook Error: Http NewRequest failed - %s", err)
 		return
 	}
 
 	headerMap := make(map[string]interface{})
 	err = json.Unmarshal([]byte(nthconfig.WebhookHeaders), &headerMap)
 	if err != nil {
-		log.Printf("Webhook Error: Header Unmarshal failed - %s\n", err)
+		log.Printf("Webhook Error: Header Unmarshal failed - %s", err)
 		return
 	}
 	for key, value := range headerMap {
@@ -71,18 +71,18 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Printf("Webhook Error: Client Do failed - %s\n", err)
+		log.Printf("Webhook Error: Client Do failed - %s", err)
 		return
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		log.Printf("Webhook Error: Received Status Code %d\n", response.StatusCode)
+		log.Printf("Webhook Error: Received Status Code %d", response.StatusCode)
 		return
 	}
 
-	log.Println("Webhook Success: Notification Sent!")
+	log.Print("Webhook Success: Notification Sent!")
 }
 
 // ValidateWebhookConfig will check if the template provided in nthConfig with parse and execute

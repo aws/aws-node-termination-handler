@@ -15,7 +15,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -27,6 +26,8 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -37,22 +38,29 @@ const (
 type monitorFunc func(chan<- interruptionevent.InterruptionEvent, chan<- interruptionevent.InterruptionEvent, *ec2metadata.Service) error
 
 func main() {
+	// Zerolog uses json formatting by default, so change that to a human-readable format instead
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339, NoColor: true})
+
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
 	defer signal.Stop(signalChan)
 
 	nthConfig, err := config.ParseCliArgs()
 	if err != nil {
-		log.Fatalln("Failed to parse cli args: ", err)
+		log.Fatal().Err(err).Msg("Failed to parse cli args,")
 	}
 
 	err = webhook.ValidateWebhookConfig(nthConfig)
 	if err != nil {
-		log.Fatalln("Webhook validation failed: ", err)
+		log.Fatal().Err(err).Msg("Webhook validation failed,")
 	}
 	node, err := node.New(nthConfig)
 	if err != nil {
-		log.Fatalln("Unable to instantiate a node for various kubernetes node functions: ", err)
+		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
+	}
+
+	if nthConfig.JsonLogging {
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
@@ -63,7 +71,7 @@ func main() {
 	if nthConfig.EnableScheduledEventDraining {
 		err = handleRebootUncordon(interruptionEventStore, *node)
 		if err != nil {
-			log.Printf("Unable to complete the uncordon after reboot workflow on startup: %v\n", err)
+			log.Printf("Unable to complete the uncordon after reboot workflow on startup: %v", err)
 		}
 	}
 
@@ -93,11 +101,11 @@ func main() {
 	}
 
 	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata)
-	log.Println("Started watching for interruption events")
-	log.Println("Kubernetes AWS Node Termination Handler has started successfully!")
+	log.Print("Started watching for interruption events")
+	log.Print("Kubernetes AWS Node Termination Handler has started successfully!")
 
 	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, nodeMetadata)
-	log.Println("Started watching for event cancellations")
+	log.Print("Started watching for event cancellations")
 
 	for range time.NewTicker(1 * time.Second).C {
 		select {
@@ -108,7 +116,7 @@ func main() {
 			drainOrCordonIfNecessary(interruptionEventStore, *node, nthConfig, nodeMetadata)
 		}
 	}
-	log.Println("AWS Node Termination Handler is shutting down")
+	log.Print("AWS Node Termination Handler is shutting down")
 }
 
 func handleRebootUncordon(interruptionEventStore *interruptioneventstore.Store, node node.Node) error {
@@ -134,7 +142,7 @@ func handleRebootUncordon(interruptionEventStore *interruptioneventstore.Store, 
 func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		interruptionEvent := <-interruptionChan
-		log.Printf("Got interruption event from channel %+v %+v\n", nodeMetadata, interruptionEvent)
+		log.Printf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
 		interruptionEventStore.AddInterruptionEvent(&interruptionEvent)
 	}
 }
@@ -142,17 +150,17 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		interruptionEvent := <-cancelChan
-		log.Printf("Got cancel event from channel %+v %+v\n", nodeMetadata, interruptionEvent)
+		log.Printf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode() {
-			log.Println("Uncordoning the node due to a cancellation event")
+			log.Print("Uncordoning the node due to a cancellation event")
 			err := node.Uncordon()
 			if err != nil {
 				log.Printf("Uncordoning the node failed: %v", err)
 			}
 			node.RemoveNTHLabels()
 		} else {
-			log.Println("Another interruption event is active, not uncordoning the node")
+			log.Print("Another interruption event is active, not uncordoning the node")
 		}
 	}
 }
@@ -162,23 +170,23 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if drainEvent.PreDrainTask != nil {
 			err := drainEvent.PreDrainTask(*drainEvent, node)
 			if err != nil {
-				log.Println("There was a problem executing the pre-drain task: ", err)
+				log.Printf("There was a problem executing the pre-drain task: %v", err)
 			}
 		}
 		if nthConfig.CordonOnly {
 			err := node.Cordon()
 			if err != nil {
-				log.Println("There was a problem while trying to cordon the node: ", err)
+				log.Printf("There was a problem while trying to cordon the node: %v", err)
 				os.Exit(1)
 			}
-			log.Printf("Node %q successfully cordoned.\n", nthConfig.NodeName)
+			log.Printf("Node %q successfully cordoned.", nthConfig.NodeName)
 		} else {
 			err := node.CordonAndDrain()
 			if err != nil {
-				log.Println("There was a problem while trying to cordon and drain the node: ", err)
+				log.Printf("There was a problem while trying to cordon and drain the node: %v", err)
 				os.Exit(1)
 			}
-			log.Printf("Node %q successfully cordoned and drained.\n", nthConfig.NodeName)
+			log.Printf("Node %q successfully cordoned and drained.", nthConfig.NodeName)
 		}
 		interruptionEventStore.MarkAllAsDrained()
 		if nthConfig.WebhookURL != "" {
