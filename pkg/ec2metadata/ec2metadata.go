@@ -184,7 +184,7 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 		if err != nil {
 			e.v2Token = ""
 			e.tokenTTL = -1
-			log.Printf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1: %v", err)
+			log.Log().Msgf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1: %v", err)
 		} else {
 			e.v2Token = token
 			e.tokenTTL = ttl
@@ -219,7 +219,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	httpReq := func() (*http.Response, error) {
 		return e.httpClient.Do(req)
 	}
-	log.Print("Trying to get token from IMDSv2")
+	log.Log().Msg("Trying to get token from IMDSv2")
 	resp, err := retry(1, 2*time.Second, httpReq)
 	if err != nil {
 		return "", -1, err
@@ -236,7 +236,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	if err != nil {
 		return "", -1, fmt.Errorf("IMDS v2 Token TTL header not sent in response: %w", err)
 	}
-	log.Print("Got token from IMDSv2")
+	log.Log().Msg("Got token from IMDSv2")
 	return string(token), ttl, nil
 }
 
@@ -259,8 +259,8 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 			jitter := time.Duration(rand.Int63n(int64(sleep)))
 			sleep = sleep + jitter/2
 
-			log.Printf("Request failed. Attempts remaining: %d", attempts)
-			log.Printf("Sleep for %s seconds", sleep)
+			log.Log().Msgf("Request failed. Attempts remaining: %d", attempts)
+			log.Log().Msgf("Sleep for %s seconds", sleep)
 			time.Sleep(sleep)
 			return retry(attempts, 2*sleep, httpReq)
 		}
@@ -279,7 +279,7 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 	metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
 
-	log.Printf("Startup Metadata Retrieved: %+v", metadata)
+	log.Log().Msgf("Startup Metadata Retrieved: %+v", metadata)
 
 	return metadata
 }

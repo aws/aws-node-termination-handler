@@ -33,13 +33,14 @@ import (
 const (
 	scheduledMaintenance = "Scheduled Maintenance"
 	spotITN              = "Spot ITN"
+	timeFormat           = "2006/01/02 15:04:05"
 )
 
 type monitorFunc func(chan<- interruptionevent.InterruptionEvent, chan<- interruptionevent.InterruptionEvent, *ec2metadata.Service) error
 
 func main() {
 	// Zerolog uses json formatting by default, so change that to a human-readable format instead
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339, NoColor: true})
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: timeFormat, NoColor: true, FormatLevel: logFormatLevel})
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
@@ -71,7 +72,7 @@ func main() {
 	if nthConfig.EnableScheduledEventDraining {
 		err = handleRebootUncordon(interruptionEventStore, *node)
 		if err != nil {
-			log.Printf("Unable to complete the uncordon after reboot workflow on startup: %v", err)
+			log.Log().Msgf("Unable to complete the uncordon after reboot workflow on startup: %v", err)
 		}
 	}
 
@@ -90,22 +91,22 @@ func main() {
 
 	for eventType, fn := range monitoringFns {
 		go func(monitorFn monitorFunc, eventType string) {
-			log.Printf("Started monitoring for %s events", eventType)
+			log.Log().Msgf("Started monitoring for %s events", eventType)
 			for range time.Tick(time.Second * 2) {
 				err := monitorFn(interruptionChan, cancelChan, imds)
 				if err != nil {
-					log.Printf("There was a problem monitoring for %s events: %v", eventType, err)
+					log.Log().Msgf("There was a problem monitoring for %s events: %v", eventType, err)
 				}
 			}
 		}(fn, eventType)
 	}
 
 	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata)
-	log.Print("Started watching for interruption events")
-	log.Print("Kubernetes AWS Node Termination Handler has started successfully!")
+	log.Log().Msg("Started watching for interruption events")
+	log.Log().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
 
 	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, nodeMetadata)
-	log.Print("Started watching for event cancellations")
+	log.Log().Msg("Started watching for event cancellations")
 
 	for range time.NewTicker(1 * time.Second).C {
 		select {
@@ -116,7 +117,7 @@ func main() {
 			drainOrCordonIfNecessary(interruptionEventStore, *node, nthConfig, nodeMetadata)
 		}
 	}
-	log.Print("AWS Node Termination Handler is shutting down")
+	log.Log().Msg("AWS Node Termination Handler is shutting down")
 }
 
 func handleRebootUncordon(interruptionEventStore *interruptioneventstore.Store, node node.Node) error {
@@ -142,7 +143,7 @@ func handleRebootUncordon(interruptionEventStore *interruptioneventstore.Store, 
 func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		interruptionEvent := <-interruptionChan
-		log.Printf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
+		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
 		interruptionEventStore.AddInterruptionEvent(&interruptionEvent)
 	}
 }
@@ -150,17 +151,17 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		interruptionEvent := <-cancelChan
-		log.Printf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
+		log.Log().Msgf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode() {
-			log.Print("Uncordoning the node due to a cancellation event")
+			log.Log().Msg("Uncordoning the node due to a cancellation event")
 			err := node.Uncordon()
 			if err != nil {
-				log.Printf("Uncordoning the node failed: %v", err)
+				log.Log().Msgf("Uncordoning the node failed: %v", err)
 			}
 			node.RemoveNTHLabels()
 		} else {
-			log.Print("Another interruption event is active, not uncordoning the node")
+			log.Log().Msg("Another interruption event is active, not uncordoning the node")
 		}
 	}
 }
@@ -170,27 +171,31 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if drainEvent.PreDrainTask != nil {
 			err := drainEvent.PreDrainTask(*drainEvent, node)
 			if err != nil {
-				log.Printf("There was a problem executing the pre-drain task: %v", err)
+				log.Log().Msgf("There was a problem executing the pre-drain task: %v", err)
 			}
 		}
 		if nthConfig.CordonOnly {
 			err := node.Cordon()
 			if err != nil {
-				log.Printf("There was a problem while trying to cordon the node: %v", err)
+				log.Log().Msgf("There was a problem while trying to cordon the node: %v", err)
 				os.Exit(1)
 			}
-			log.Printf("Node %q successfully cordoned.", nthConfig.NodeName)
+			log.Log().Msgf("Node %q successfully cordoned.", nthConfig.NodeName)
 		} else {
 			err := node.CordonAndDrain()
 			if err != nil {
-				log.Printf("There was a problem while trying to cordon and drain the node: %v", err)
+				log.Log().Msgf("There was a problem while trying to cordon and drain the node: %v", err)
 				os.Exit(1)
 			}
-			log.Printf("Node %q successfully cordoned and drained.", nthConfig.NodeName)
+			log.Log().Msgf("Node %q successfully cordoned and drained.", nthConfig.NodeName)
 		}
 		interruptionEventStore.MarkAllAsDrained()
 		if nthConfig.WebhookURL != "" {
 			webhook.Post(nodeMetadata, drainEvent, nthConfig)
 		}
 	}
+}
+
+func logFormatLevel(interface{}) string {
+	return ""
 }
