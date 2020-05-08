@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"text/template"
 	"time"
 
@@ -68,6 +69,18 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 
 	client := http.Client{
 		Timeout: time.Duration(5 * time.Second),
+		Transport: &http.Transport{
+			Proxy: func(req *http.Request) (*url.URL, error) {
+				if nthconfig.WebhookProxy == "" {
+					return nil, nil
+				}
+				proxy, err := url.Parse(nthconfig.WebhookProxy)
+				if err != nil {
+					return nil, err
+				}
+				return proxy, nil
+			},
+		},
 	}
 	response, err := client.Do(request)
 	if err != nil {

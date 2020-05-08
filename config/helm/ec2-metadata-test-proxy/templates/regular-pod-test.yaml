@@ -27,6 +27,3 @@ spec:
         - name: PORT
           value: {{ .Values.regularPodTest.port | quote }}
 {{- end -}}
-
-
-

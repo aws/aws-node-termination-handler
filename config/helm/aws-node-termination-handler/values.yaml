@@ -54,6 +54,9 @@ nodeTerminationGracePeriod: ""
 # webhookURL if specified, posts event data to URL upon instance interruption action.
 webhookURL: ""
 
+# webhookProxy if specified, uses this HTTP(S) proxy configuration.
+webhookProxy: ""
+
 # webhookHeaders if specified, replaces the default webhook headers.
 webhookHeaders: ""
 

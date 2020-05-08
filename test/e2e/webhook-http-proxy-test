@@ -1,0 +1,103 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $EC2_METADATA_DOCKER_REPO
+#   $EC2_METADATA_DOCKER_TAG
+
+echo "Starting Webhook HTTP Proxy Test for Node Termination Handler"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+SQUID_DOCKERHUB_IMG="sameersbn/squid:3.5.27-2"
+SQUID_DOCKER_IMG="squid:customtest"
+
+
+### LOCAL ONLY TESTS FOR 200 RESPONSE FROM LOCAL CLUSTER, MASTER WILL TEST WITH TRAVIS SECRET URL
+if [[ -z $(env | grep "WEBHOOK_URL=") ]]; then
+  WEBHOOK_URL="http://127.0.0.1:$IMDS_PORT"
+fi
+
+
+docker pull $SQUID_DOCKERHUB_IMG
+docker tag $SQUID_DOCKERHUB_IMG $SQUID_DOCKER_IMG
+kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $SQUID_DOCKER_IMG
+
+kubectl delete configmap squid-config || :
+kubectl create configmap squid-config --from-file=$SCRIPTPATH/../assets/squid.conf
+
+helm upgrade --install $CLUSTER_NAME-squid $SCRIPTPATH/../../config/helm/squid/ \
+  --force \
+  --namespace default \
+  --set squid.configMap="squid-config" \
+  --set squid.image.repository="squid" \
+  --set squid.image.tag="customtest"
+
+sleep 20
+
+helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
+  --force \
+  --namespace kube-system \
+  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
+  --set enableSpotInterruptionDraining="true" \
+  --set enableScheduledEventDraining="true" \
+  --set webhookURL="$WEBHOOK_URL" \
+  --set webhookTemplate="\{\"Content\":\"[NTH][Instance Interruption] InstanceId: \{\{ \.InstanceID \}\} - InstanceType: \{\{ \.InstanceType \}\} - Kind: \{\{ \.Kind \}\} - Start Time: \{\{ \.StartTime \}\}\"\}" \
+  --set webhookProxy="tcp://localhost:3128"
+
+helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
+  --force \
+  --namespace default \
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
+  --set ec2MetadataTestProxy.enableSpotITN="true" \
+  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+
+for i in `seq 1 10`; do 
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    sleep 5
+done 
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    exit 2
+fi
+
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+          echo "✅ Verified the worker node was cordoned!"
+          if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+              echo "✅ Verified the regular-pod-test pod was evicted!"
+              NTH_POD_NAME=$(get_nth_worker_pod)
+              if kubectl logs $NTH_POD_NAME -n kube-system | grep 'Webhook Success'; then
+                echo "✅ Webhook Successfully Sent $CLUSTER_NAME! ✅"
+                pods=$(kubectl get pods -o json)
+                ## queries for the squid pod on the worker node
+                squid_worker_pods=$(echo $pods | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
+                ## return only 1 pod
+                if kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -i 'TCP_MISS/200' | grep '200'; then
+                    echo "✅ Verified the webhook POST used the http proxy"
+                    exit 0
+                fi
+              fi
+          fi
+
+      fi
+    sleep $TAINT_CHECK_SLEEP
+done
+
+exit 1
