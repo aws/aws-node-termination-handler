@@ -42,10 +42,10 @@ func MonitorForScheduledEvents(interruptionChan chan<- InterruptionEvent, cancel
 	}
 	for _, interruptionEvent := range interruptionEvents {
 		if isStateCanceledOrCompleted(interruptionEvent.State) {
-			log.Print("Sending cancel events to the cancel channel")
+			log.Log().Msg("Sending cancel events to the cancel channel")
 			cancelChan <- interruptionEvent
 		} else {
-			log.Print("Sending interruption events to the interruption channel")
+			log.Log().Msg("Sending interruption events to the interruption channel")
 			interruptionChan <- interruptionEvent
 		}
 	}
@@ -93,7 +93,7 @@ func uncordonAfterRebootPreDrain(interruptionEvent InterruptionEvent, node node.
 	// if the node is already marked as unschedulable, then don't do anything
 	unschedulable, err := node.IsUnschedulable()
 	if err == nil && unschedulable {
-		log.Print("Node is already marked unschedulable, not taking any action to add uncordon label.")
+		log.Log().Msg("Node is already marked unschedulable, not taking any action to add uncordon label.")
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("Encountered an error while checking if the node is unschedulable. Not setting an uncordon label: %w", err)
@@ -102,7 +102,7 @@ func uncordonAfterRebootPreDrain(interruptionEvent InterruptionEvent, node node.
 	if err != nil {
 		return fmt.Errorf("Unable to mark the node for uncordon: %w", err)
 	}
-	log.Print("Successfully applied uncordon after reboot action label to node.")
+	log.Log().Msg("Successfully applied uncordon after reboot action label to node.")
 	return nil
 }
 

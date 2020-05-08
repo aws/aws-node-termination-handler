@@ -38,7 +38,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 
 	webhookTemplate, err := template.New("message").Parse(nthconfig.WebhookTemplate)
 	if err != nil {
-		log.Printf("Webhook Error: Template parsing failed - %s", err)
+		log.Log().Msgf("Webhook Error: Template parsing failed - %s", err)
 		return
 	}
 
@@ -47,20 +47,20 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 	var byteBuffer bytes.Buffer
 	err = webhookTemplate.Execute(&byteBuffer, combined)
 	if err != nil {
-		log.Printf("Webhook Error: Template execution failed - %s", err)
+		log.Log().Msgf("Webhook Error: Template execution failed - %s", err)
 		return
 	}
 
 	request, err := http.NewRequest("POST", nthconfig.WebhookURL, &byteBuffer)
 	if err != nil {
-		log.Printf("Webhook Error: Http NewRequest failed - %s", err)
+		log.Log().Msgf("Webhook Error: Http NewRequest failed - %s", err)
 		return
 	}
 
 	headerMap := make(map[string]interface{})
 	err = json.Unmarshal([]byte(nthconfig.WebhookHeaders), &headerMap)
 	if err != nil {
-		log.Printf("Webhook Error: Header Unmarshal failed - %s", err)
+		log.Log().Msgf("Webhook Error: Header Unmarshal failed - %s", err)
 		return
 	}
 	for key, value := range headerMap {
@@ -84,18 +84,18 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Printf("Webhook Error: Client Do failed - %s", err)
+		log.Log().Msgf("Webhook Error: Client Do failed - %s", err)
 		return
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		log.Printf("Webhook Error: Received Status Code %d", response.StatusCode)
+		log.Log().Msgf("Webhook Error: Received Status Code %d", response.StatusCode)
 		return
 	}
 
-	log.Print("Webhook Success: Notification Sent!")
+	log.Log().Msg("Webhook Success: Notification Sent!")
 }
 
 // ValidateWebhookConfig will check if the template provided in nthConfig with parse and execute

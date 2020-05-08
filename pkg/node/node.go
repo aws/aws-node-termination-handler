@@ -74,7 +74,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, e
 // CordonAndDrain will cordon the node and evict pods based on the config
 func (n Node) CordonAndDrain() error {
 	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned and drained, but dry-run flag was set", n.nthConfig.NodeName)
+		log.Log().Msgf("Node %s would have been cordoned and drained, but dry-run flag was set", n.nthConfig.NodeName)
 		return nil
 	}
 	err := n.Cordon()
@@ -92,7 +92,7 @@ func (n Node) CordonAndDrain() error {
 // Cordon will add a NoSchedule on the node
 func (n Node) Cordon() error {
 	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been cordoned, but dry-run flag was set", n.nthConfig.NodeName)
+		log.Log().Msgf("Node %s would have been cordoned, but dry-run flag was set", n.nthConfig.NodeName)
 		return nil
 	}
 	node, err := n.fetchKubernetesNode()
@@ -109,7 +109,7 @@ func (n Node) Cordon() error {
 // Uncordon will remove the NoSchedule on the node
 func (n Node) Uncordon() error {
 	if n.nthConfig.DryRun {
-		log.Printf("Node %s would have been uncordoned, but dry-run flag was set", n.nthConfig.NodeName)
+		log.Log().Msgf("Node %s would have been uncordoned, but dry-run flag was set", n.nthConfig.NodeName)
 		return nil
 	}
 	node, err := n.fetchKubernetesNode()
@@ -126,7 +126,7 @@ func (n Node) Uncordon() error {
 // IsUnschedulable checks if the node is marked as unschedulable
 func (n Node) IsUnschedulable() (bool, error) {
 	if n.nthConfig.DryRun {
-		log.Print("IsUnschedulable returning false since dry-run is set")
+		log.Log().Msg("IsUnschedulable returning false since dry-run is set")
 		return false, nil
 	}
 	node, err := n.fetchKubernetesNode()
@@ -164,7 +164,7 @@ func (n Node) GetEventID() (string, error) {
 	}
 	val, ok := node.Labels[EventIDLabelKey]
 	if n.nthConfig.DryRun && !ok {
-		log.Printf("Would have returned Error: Event ID Lable %s was not found on the node, but dry-run flag was set", EventIDLabelKey)
+		log.Log().Msgf("Would have returned Error: Event ID Lable %s was not found on the node, but dry-run flag was set", EventIDLabelKey)
 		return "", nil
 	}
 	if !ok {
@@ -214,7 +214,7 @@ func (n Node) addLabel(key string, value string) error {
 		return err
 	}
 	if n.nthConfig.DryRun {
-		log.Printf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, n.nthConfig.NodeName)
+		log.Log().Msgf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, n.nthConfig.NodeName)
 		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, payloadBytes)
@@ -245,7 +245,7 @@ func (n Node) removeLabel(key string) error {
 		return err
 	}
 	if n.nthConfig.DryRun {
-		log.Printf("Would have removed label with key %s from node %s, but dry-run flag was set", key, n.nthConfig.NodeName)
+		log.Log().Msgf("Would have removed label with key %s from node %s, but dry-run flag was set", key, n.nthConfig.NodeName)
 		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, payload)
@@ -274,7 +274,7 @@ func (n Node) UncordonIfRebooted() error {
 	}
 	timeVal, ok := k8sNode.Labels[ActionLabelTimeKey]
 	if !ok {
-		log.Printf("There was no %s label found requiring action label handling", ActionLabelTimeKey)
+		log.Log().Msgf("There was no %s label found requiring action label handling", ActionLabelTimeKey)
 		return nil
 	}
 	timeValNum, err := strconv.ParseInt(timeVal, 10, 64)
@@ -289,7 +289,7 @@ func (n Node) UncordonIfRebooted() error {
 			return err
 		}
 		if secondsSinceLabel < int64(uptime) {
-			log.Print("The system has not restarted yet.")
+			log.Log().Msg("The system has not restarted yet.")
 			return nil
 		}
 		err = n.Uncordon()
@@ -300,9 +300,9 @@ func (n Node) UncordonIfRebooted() error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
+		log.Log().Msgf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
 	default:
-		log.Print("There are no label actions to handle.")
+		log.Log().Msg("There are no label actions to handle.")
 	}
 	return nil
 }

@@ -34,7 +34,7 @@ func MonitorForSpotITNEvents(interruptionChan chan<- InterruptionEvent, cancelCh
 		return err
 	}
 	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {
-		log.Print("Sending interruption event to the interruption channel")
+		log.Log().Msg("Sending interruption event to the interruption channel")
 		interruptionChan <- *interruptionEvent
 	}
 	return nil
