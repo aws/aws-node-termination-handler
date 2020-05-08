@@ -84,3 +84,5 @@ Parameter | Description | Default
 `procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
 `securityContext.runAsUserID` | User ID to run the container | `1000`
 `securityContext.runAsGroupID` | Group ID to run the container | `1000` 
+`nodeSelectorTermsOs` | Operating System Node Selector Key | `beta.kubernetes.io/os`
+`nodeSelectorTermsArch` | CPU Architecture Node Selector Key | `beta.kubernetes.io/arch`
