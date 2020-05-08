@@ -336,7 +336,6 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {

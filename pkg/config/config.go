@@ -39,6 +39,8 @@ const (
 	nodeTerminationGracePeriodDefault       = 120
 	webhookURLConfigKey                     = "WEBHOOK_URL"
 	webhookURLDefault                       = ""
+	webhookProxyConfigKey                   = "WEBHOOK_PROXY"
+	webhookProxyDefault                     = ""
 	webhookHeadersConfigKey                 = "WEBHOOK_HEADERS"
 	webhookHeadersDefault                   = `{"Content-type":"application/json"}`
 	webhookTemplateConfigKey                = "WEBHOOK_TEMPLATE"
@@ -68,6 +70,7 @@ type Config struct {
 	WebhookURL                     string
 	WebhookHeaders                 string
 	WebhookTemplate                string
+	WebhookProxy                   string
 	EnableScheduledEventDraining   bool
 	EnableSpotInterruptionDraining bool
 	MetadataTries                  int
@@ -97,6 +100,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.PodTerminationGracePeriod, "pod-termination-grace-period", getIntEnv(podTerminationGracePeriodConfigKey, podTerminationGracePeriodDefault), "Period of time in seconds given to each POD to terminate gracefully. If negative, the default value specified in the pod will be used.")
 	flag.IntVar(&config.NodeTerminationGracePeriod, "node-termination-grace-period", getIntEnv(nodeTerminationGracePeriodConfigKey, nodeTerminationGracePeriodDefault), "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.")
 	flag.StringVar(&config.WebhookURL, "webhook-url", getEnv(webhookURLConfigKey, webhookURLDefault), "If specified, posts event data to URL upon instance interruption action.")
+	flag.StringVar(&config.WebhookProxy, "webhook-proxy", getEnv(webhookProxyConfigKey, webhookProxyDefault), "If specified, uses the HTTP(S) proxy to send webhooks. Example: --webhook-url='tcp://<ip-or-dns-to-proxy>:<port>'")
 	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
 	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
@@ -138,8 +142,8 @@ func ParseCliArgs() (config Config, err error) {
 			"\tenable-spot-interruption-draining: %t,\n"+
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
-			"\tjson-logging: %t,\n",
-
+			"\tjson-logging: %t,\n"+
+			"\twebhook-proxy: %s,\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,
@@ -154,6 +158,7 @@ func ParseCliArgs() (config Config, err error) {
 		config.MetadataTries,
 		config.CordonOnly,
 		config.JsonLogging,
+		config.WebhookProxy,
 	)
 
 	return config, err
