@@ -70,6 +70,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *interruptionevent.Inte
 	client := http.Client{
 		Timeout: time.Duration(5 * time.Second),
 		Transport: &http.Transport{
+			IdleConnTimeout: 1 * time.Second,
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				if nthconfig.WebhookProxy == "" {
 					return nil, nil
