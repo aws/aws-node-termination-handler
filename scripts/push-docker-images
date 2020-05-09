@@ -10,6 +10,7 @@ VERSION=$(make -s -f $MAKE_FILE_PATH version)
 PLATFORMS=("linux/amd64")
 MANIFEST_IMAGES=""
 MANIFEST=""
+DOCKER_CLI_CONFIG="$HOME/.docker/config.json"
 
 USAGE=$(cat << 'EOM'
   Usage: push-docker-images  [-p <platform pairs>]
@@ -70,10 +71,12 @@ for os_arch in "${PLATFORMS[@]}"; do
 done
 
 if [[ $MANIFEST == "true" ]]; then
-    if [[ $(cat $HOME/.docker/config.json | jq .experimental) != "enabled" ]]; then
-        perl -i -pe's/experimental\"[ ]*\:[ ]*\"disabled\"/experimental\":\"enabled\"/g' $HOME/.docker/config.json
-        echo "Enabled experimental CLI features to create the docker manifest"
+    if [[ ! -f $DOCKER_CLI_CONFIG ]]; then 
+      echo '{"experimental":"enabled"}' > $DOCKER_CLI_CONFIG
+      echo "Created docker config file"
     fi
+    cat <<< $(jq '.+{"experimental":"enabled"}' $DOCKER_CLI_CONFIG) > $DOCKER_CLI_CONFIG
+    echo "Enabled experimental CLI features to create the docker manifest"
     docker manifest create $IMAGE_REPO:$VERSION $MANIFEST_IMAGES
 
     for os_arch in "${PLATFORMS[@]}"; do
