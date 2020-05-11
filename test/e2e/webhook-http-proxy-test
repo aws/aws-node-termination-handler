@@ -13,7 +13,7 @@ set -euo pipefail
 echo "Starting Webhook HTTP Proxy Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-SQUID_DOCKERHUB_IMG="sameersbn/squid:3.5.27-2"
+SQUID_DOCKERHUB_IMG="sameersbn/squid:3.5.27-2@sha256:e98299069f0c6e3d9b9188903518e2f44ac36b1fa5007e879af518e1c0a234af"
 SQUID_DOCKER_IMG="squid:customtest"
 
 
@@ -32,6 +32,7 @@ kubectl create configmap squid-config --from-file=$SCRIPTPATH/../assets/squid.co
 
 helm upgrade --install $CLUSTER_NAME-squid $SCRIPTPATH/../../config/helm/squid/ \
   --force \
+  --wait \
   --namespace default \
   --set squid.configMap="squid-config" \
   --set squid.image.repository="squid" \
@@ -89,7 +90,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
                 ## queries for the squid pod on the worker node
                 squid_worker_pods=$(echo $pods | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
                 ## return only 1 pod
-                if kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -i 'TCP_MISS/200' | grep '200'; then
+                if kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -e 'TCP_MISS/200' -e 'TCP_TUNNEL/200'; then
                     echo "✅ Verified the webhook POST used the http proxy"
                     exit 0
                 fi
