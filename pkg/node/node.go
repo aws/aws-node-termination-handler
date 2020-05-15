@@ -49,6 +49,8 @@ const (
 	SpotInterruptionTaint = "aws-node-termination-handler/spot-itn"
 	// ScheduledMaintenanceTaint is a taint used to make spot instance unschedulable
 	ScheduledMaintenanceTaint = "aws-node-termination-handler/scheduled-maintenance"
+
+	maxTaintValueLength = 63
 )
 
 var (
@@ -268,24 +270,35 @@ func (n Node) removeLabel(key string) error {
 	return nil
 }
 
+// TaintSpotItn adds the spot termination notice taint onto a node
 func (n Node) TaintSpotItn(eventID string) error {
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
 	}
 
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
 	return addTaint(k8sNode, n.drainHelper.Client, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
+// TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
 func (n Node) TaintScheduledMaintenance(eventID string) error {
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
 	}
 
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
 	return addTaint(k8sNode, n.drainHelper.Client, ScheduledMaintenanceTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
+// CleanAllTaints removes NTH-specific taints from a node
 func (n Node) CleanAllTaints() error {
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {

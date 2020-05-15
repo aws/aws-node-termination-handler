@@ -45,7 +45,7 @@ func getSpotDrainHelper(client *fake.Clientset) *drain.Helper {
 
 func TestSetInterruptionTaint(t *testing.T) {
 	drainEvent := InterruptionEvent{
-		EventID: "some-id",
+		EventID: "some-id-that-is-very-long-for-some-reason-and-is-definitely-over-63-characters",
 	}
 	nthConfig := config.Config{
 		DryRun:   true,
@@ -57,12 +57,13 @@ func TestSetInterruptionTaint(t *testing.T) {
 	h.Ok(t, err)
 
 	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client))
+	h.Ok(t, err)
 
 	err = setInterruptionTaint(drainEvent, *tNode)
 
 	n, _ := client.CoreV1().Nodes().Get(spotNodeName, metav1.GetOptions{})
 	h.Assert(t, n.Spec.Taints[0].Key == node.SpotInterruptionTaint, fmt.Sprintf("Missing expected taint key %s", node.SpotInterruptionTaint))
-	h.Assert(t, n.Spec.Taints[0].Value == drainEvent.EventID, fmt.Sprintf("Missing expected taint value %s", drainEvent.EventID))
+	h.Assert(t, n.Spec.Taints[0].Value == drainEvent.EventID[:63], fmt.Sprintf("Missing expected taint value %s", drainEvent.EventID))
 	h.Assert(t, n.Spec.Taints[0].Effect == v1.TaintEffectNoSchedule, fmt.Sprintf("Missing expected taint effect %s", v1.TaintEffectNoSchedule))
 
 	h.Ok(t, err)
