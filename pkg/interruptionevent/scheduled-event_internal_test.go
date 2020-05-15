@@ -71,7 +71,7 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 		EventID: "some-id",
 	}
 	nthConfig := config.Config{
-		DryRun: true,
+		DryRun:   true,
 		NodeName: nodeName,
 	}
 

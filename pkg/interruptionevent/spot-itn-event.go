@@ -63,10 +63,10 @@ func checkForSpotInterruptionNotice(imds *ec2metadata.Service) (*InterruptionEve
 	var preDrainFunc preDrainTask = setInterruptionTaint
 
 	return &InterruptionEvent{
-		EventID:     fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
-		Kind:        SpotITNKind,
-		StartTime:   interruptionTime,
-		Description: fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
+		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
+		Kind:         SpotITNKind,
+		StartTime:    interruptionTime,
+		Description:  fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
 		PreDrainTask: preDrainFunc,
 	}, nil
 }

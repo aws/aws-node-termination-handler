@@ -56,7 +56,6 @@ var (
 	conflictRetryInterval time.Duration = 750 * time.Millisecond
 )
 
-
 var uptimeFile = "/proc/uptime"
 
 // Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
