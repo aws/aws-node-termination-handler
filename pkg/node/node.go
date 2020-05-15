@@ -379,7 +379,7 @@ func (n Node) UncordonIfRebooted() error {
 func (n Node) fetchKubernetesNode() (*corev1.Node, error) {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: n.nthConfig.NodeName},
-		Spec: corev1.NodeSpec{},
+		Spec:       corev1.NodeSpec{},
 	}
 	if n.nthConfig.DryRun {
 		return node, nil
