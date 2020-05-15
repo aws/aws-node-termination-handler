@@ -281,7 +281,7 @@ func (n Node) TaintSpotItn(eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n.drainHelper.Client, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
 // TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
@@ -295,7 +295,7 @@ func (n Node) TaintScheduledMaintenance(eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n.drainHelper.Client, ScheduledMaintenanceTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
 // CleanAllTaints removes NTH-specific taints from a node
@@ -379,6 +379,7 @@ func (n Node) UncordonIfRebooted() error {
 func (n Node) fetchKubernetesNode() (*corev1.Node, error) {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: n.nthConfig.NodeName},
+		Spec: corev1.NodeSpec{},
 	}
 	if n.nthConfig.DryRun {
 		return node, nil
@@ -434,9 +435,15 @@ func jsonPatchEscape(value string) string {
 	return strings.Replace(value, "/", "~1", -1)
 }
 
-func addTaint(node *corev1.Node, client kubernetes.Interface, taintKey string, taintValue string, effect corev1.TaintEffect) error {
+func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, effect corev1.TaintEffect) error {
+	if nth.nthConfig.DryRun {
+		log.Log().Msgf("Would have added taint (%s=%s:%s) to node %s, but dry-run flag was set", taintKey, taintValue, effect, nth.nthConfig.NodeName)
+		return nil
+	}
+
 	retryDeadline := time.Now().Add(maxRetryDeadline)
 	freshNode := node.DeepCopy()
+	client := nth.drainHelper.Client
 	var err error
 	refresh := false
 	for {

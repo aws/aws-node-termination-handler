@@ -68,3 +68,34 @@ func TestSetInterruptionTaint(t *testing.T) {
 
 	h.Ok(t, err)
 }
+
+func TestInterruptionTaintAlreadyPresent(t *testing.T) {
+	drainEvent := InterruptionEvent{
+		EventID: "some-id-that-is-very-long-for-some-reason-and-is-definitely-over-63-characters",
+	}
+	nthConfig := config.Config{
+		DryRun:   false,
+		NodeName: spotNodeName,
+	}
+
+	client := fake.NewSimpleClientset()
+	newNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: spotNodeName},
+		Spec: v1.NodeSpec{Taints: []v1.Taint{{
+			Key: node.SpotInterruptionTaint,
+			Value: drainEvent.EventID[:63],
+			Effect: v1.TaintEffectNoSchedule,
+		},
+		}},
+	}
+
+	_, err := client.CoreV1().Nodes().Create(newNode)
+	h.Ok(t, err)
+
+	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client))
+	h.Ok(t, err)
+
+	err = setInterruptionTaint(drainEvent, *tNode)
+
+	h.Ok(t, err)
+}

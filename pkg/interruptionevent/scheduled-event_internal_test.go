@@ -15,7 +15,6 @@ package interruptionevent
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -83,11 +82,6 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 	h.Ok(t, err)
 
 	err = uncordonAfterRebootPreDrain(drainEvent, *tNode)
-
-	n, _ := client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	h.Assert(t, n.Spec.Taints[0].Key == node.ScheduledMaintenanceTaint, fmt.Sprintf("Missing expected taint key %s", node.ScheduledMaintenanceTaint))
-	h.Assert(t, n.Spec.Taints[0].Value == drainEvent.EventID[:63], fmt.Sprintf("Missing expected taint value %s", drainEvent.EventID))
-	h.Assert(t, n.Spec.Taints[0].Effect == v1.TaintEffectNoSchedule, fmt.Sprintf("Missing expected taint effect %s", v1.TaintEffectNoSchedule))
 
 	h.Ok(t, err)
 }
