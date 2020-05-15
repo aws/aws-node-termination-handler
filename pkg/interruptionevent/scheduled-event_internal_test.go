@@ -15,6 +15,7 @@ package interruptionevent
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -66,15 +67,30 @@ func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
 }
 
 func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
-	drainEvent := InterruptionEvent{}
+	drainEvent := InterruptionEvent{
+		EventID: "some-id",
+	}
 	nthConfig := config.Config{
 		DryRun: true,
+		NodeName: nodeName,
 	}
-	tNode, _ := node.New(nthConfig)
 
-	err := uncordonAfterRebootPreDrain(drainEvent, *tNode)
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+	h.Ok(t, err)
+
+	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client))
+
+	err = uncordonAfterRebootPreDrain(drainEvent, *tNode)
+
+	n, _ := client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	h.Assert(t, n.Spec.Taints[0].Key == node.ScheduledMaintenanceTaint, fmt.Sprintf("Missing expected taint key %s", node.ScheduledMaintenanceTaint))
+	h.Assert(t, n.Spec.Taints[0].Value == drainEvent.EventID, fmt.Sprintf("Missing expected taint value %s", drainEvent.EventID))
+	h.Assert(t, n.Spec.Taints[0].Effect == v1.TaintEffectNoSchedule, fmt.Sprintf("Missing expected taint effect %s", v1.TaintEffectNoSchedule))
+
 	h.Ok(t, err)
 }
+
 func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
 	resetFlagsForTest()
 
