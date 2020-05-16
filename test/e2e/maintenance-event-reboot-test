@@ -10,6 +10,9 @@ echo "Starting Maintenance Event Cancellation Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
+kubectl taint node -l=kubernetes.io/os=linux aws-node-termination-handler/scheduled-maintenance- || true
+kubectl taint node -l=kubernetes.io/os=linux aws-node-termination-handler/spot-itn- || true
+
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
   --wait \
   --force \
