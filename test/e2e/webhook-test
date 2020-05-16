@@ -19,9 +19,6 @@ if [[ -z $(env | grep "WEBHOOK_URL=") ]]; then
   WEBHOOK_URL="http://localhost:$IMDS_PORT"
 fi
 
-kubectl taint node -l=kubernetes.io/os=linux aws-node-termination-handler/scheduled-maintenance- || true
-kubectl taint node -l=kubernetes.io/os=linux aws-node-termination-handler/spot-itn- || true
-
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
   --wait \
   --force \
