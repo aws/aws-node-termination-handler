@@ -52,8 +52,8 @@ function reset_cluster {
     fi
     for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do 
         kubectl uncordon $node
-        kubectl taint $node aws-node-termination-handler/scheduled-maintenance- || true
-        kubectl taint $node aws-node-termination-handler/spot-itn- || true
+        kubectl taint node $node aws-node-termination-handler/scheduled-maintenance- || true
+        kubectl taint node $node aws-node-termination-handler/spot-itn- || true
     done
     remove_labels || :   
     sleep 2
