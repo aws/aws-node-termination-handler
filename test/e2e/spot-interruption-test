@@ -55,6 +55,14 @@ fi
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
       if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
           echo "✅ Verified the worker node was cordoned!"
+
+          if kubectl get nodes $CLUSTER_NAME-worker -o json | grep "aws-node-termination-handler/spot-itn"; then
+            echo "✅ Verified the worked node was tainted!"
+          else
+            echo "❌ Failed tainting node for spot termination event"
+            exit 3
+          fi
+
           if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
               echo "✅ Verified the regular-pod-test pod was evicted!"
               echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"

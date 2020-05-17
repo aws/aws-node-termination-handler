@@ -53,9 +53,19 @@ if [[ $DEPLOYED -eq 0 ]]; then
     exit 2
 fi
 
+TAINTED=0
+
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
         echo "✅ Verified the worker node was cordoned!"
+
+        if kubectl get nodes $CLUSTER_NAME-worker -o json | grep "aws-node-termination-handler/scheduled-maintenance"; then
+          echo "✅ Verified the worked node was tainted!"
+        else
+          echo "❌ Failed tainting node for maintenance event"
+          exit 3
+        fi
+
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
             echo "✅ Verified the regular-pod-test pod was evicted!"
             echo "✅ Scheduled Maintenance Event Handling Test Passed $CLUSTER_NAME! ✅"
