@@ -107,7 +107,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if [[ -z $(echo $NODE_LINE | grep SchedulingDisabled) ]] && [[ ! -z $(echo $NODE_LINE | grep Ready) ]]; then
         echo "✅ Verified the worker node was uncordoned!"
 
-        if ! kubectl get nodes $CLUSTER_NAME-worker -o json | grep "aws-node-termination-handler/scheduled-maintenance"; then
+        if ! kubectl get nodes $CLUSTER_NAME-worker -o json | grep -q "aws-node-termination-handler/scheduled-maintenance"; then
           echo "✅ Verified the worked node was untainted!"
           TAINTED=0
         else
