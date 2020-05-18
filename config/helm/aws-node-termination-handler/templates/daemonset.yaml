@@ -109,6 +109,8 @@ spec:
             value: {{ .Values.metadataTries | quote }}
           - name: CORDON_ONLY
             value: {{ .Values.cordonOnly | quote }}
+          - name: TAINT_NODE
+            value: {{ .Values.taintNode | quote }}
           - name: JSON_LOGGING
             value: {{ .Values.jsonLogging | quote }}
           - name: WEBHOOK_PROXY

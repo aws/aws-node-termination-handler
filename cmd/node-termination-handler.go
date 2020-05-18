@@ -160,7 +160,7 @@ func watchForCancellationEvents(cancelChan <-chan interruptionevent.Interruption
 				log.Log().Msgf("Uncordoning the node failed: %v", err)
 			}
 			node.RemoveNTHLabels()
-			node.CleanAllTaints()
+			node.RemoveNTHTaints()
 		} else {
 			log.Log().Msg("Another interruption event is active, not uncordoning the node")
 		}

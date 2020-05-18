@@ -272,6 +272,10 @@ func (n Node) removeLabel(key string) error {
 
 // TaintSpotItn adds the spot termination notice taint onto a node
 func (n Node) TaintSpotItn(eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
@@ -286,6 +290,10 @@ func (n Node) TaintSpotItn(eventID string) error {
 
 // TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
 func (n Node) TaintScheduledMaintenance(eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
@@ -298,8 +306,12 @@ func (n Node) TaintScheduledMaintenance(eventID string) error {
 	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
-// CleanAllTaints removes NTH-specific taints from a node
-func (n Node) CleanAllTaints() error {
+// RemoveNTHTaints removes NTH-specific taints from a node
+func (n Node) RemoveNTHTaints() error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
 	k8sNode, err := n.fetchKubernetesNode()
 	if err != nil {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
@@ -308,7 +320,7 @@ func (n Node) CleanAllTaints() error {
 	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint}
 
 	for _, taint := range taints {
-		_, err = cleanTaint(k8sNode, n.drainHelper.Client, taint)
+		_, err = removeTaint(k8sNode, n.drainHelper.Client, taint)
 		if err != nil {
 			return fmt.Errorf("Unable to clean taint %s from node %s", taint, n.nthConfig.NodeName)
 		}
@@ -363,7 +375,7 @@ func (n Node) UncordonIfRebooted() error {
 			return err
 		}
 
-		err = n.CleanAllTaints()
+		err = n.RemoveNTHTaints()
 		if err != nil {
 			return err
 		}
@@ -495,7 +507,7 @@ func addTaintToSpec(node *corev1.Node, taintKey string, taintValue string, effec
 	return true
 }
 
-func cleanTaint(node *corev1.Node, client kubernetes.Interface, taintKey string) (bool, error) {
+func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string) (bool, error) {
 	retryDeadline := time.Now().Add(maxRetryDeadline)
 	freshNode := node.DeepCopy()
 	var err error

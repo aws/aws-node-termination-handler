@@ -52,6 +52,7 @@ const (
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
+	taintNode                               = "TAINT_NODE"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
 )
@@ -75,6 +76,7 @@ type Config struct {
 	EnableSpotInterruptionDraining bool
 	MetadataTries                  int
 	CordonOnly                     bool
+	TaintNode                      bool
 	JsonLogging                    bool
 }
 
@@ -107,6 +109,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
+	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 
 	flag.Parse()
@@ -142,6 +145,7 @@ func ParseCliArgs() (config Config, err error) {
 			"\tenable-spot-interruption-draining: %t,\n"+
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
+			"\ttaint-node: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\twebhook-proxy: %s,\n",
 		config.DryRun,
@@ -157,6 +161,7 @@ func ParseCliArgs() (config Config, err error) {
 		config.EnableSpotInterruptionDraining,
 		config.MetadataTries,
 		config.CordonOnly,
+		config.TaintNode,
 		config.JsonLogging,
 		config.WebhookProxy,
 	)
