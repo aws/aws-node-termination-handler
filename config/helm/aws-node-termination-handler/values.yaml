@@ -33,6 +33,8 @@ enableSpotInterruptionDraining: ""
 ## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
 enableScheduledEventDraining: ""
 
+taintNode: false
+
 ## dryRun tells node-termination-handler to only log calls to kubernetes control plane
 dryRun: false
 
