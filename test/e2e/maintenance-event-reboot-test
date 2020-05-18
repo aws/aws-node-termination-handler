@@ -18,7 +18,8 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set enableSpotInterruptionDraining="true" \
-  --set enableScheduledEventDraining="true"
+  --set enableScheduledEventDraining="true" \
+  --set taintNode="true"
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
@@ -35,6 +36,7 @@ TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 CORDONED=0
+TAINTED=0
 
 for i in `seq 1 10`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
@@ -52,7 +54,13 @@ fi
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
-        echo "✅ Verified the worker node was cordoned!"
+        echo "✅ Verified the worker node was cordoned for maintenance event reboot!"
+
+        if kubectl get nodes $CLUSTER_NAME-worker -o json | grep "aws-node-termination-handler/scheduled-maintenance"; then
+          echo "✅ Verified the worked node was tainted!"
+          TAINTED=1
+        fi
+
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
             echo "✅ Verified the regular-pod-test pod was evicted!"
             CORDONED=1
@@ -64,6 +72,11 @@ done
 
 if [[ $CORDONED -eq 0 ]]; then
     echo "❌ Failed cordoning node for scheduled maintenance event"
+    exit 3
+fi
+
+if [[ $TAINTED -eq 0 ]]; then
+    echo "❌ Failed tainting node for scheduled maintenance event"
     exit 3
 fi
 
@@ -88,12 +101,22 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set procUptimeFile="/uptime" \
   --set enableSpotInterruptionDraining="true" \
-  --set enableScheduledEventDraining="true"
+  --set enableScheduledEventDraining="true" \
+  --set taintNode="true"
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     NODE_LINE=$(kubectl get nodes $CLUSTER_NAME-worker | grep -v 'STATUS')
     if [[ -z $(echo $NODE_LINE | grep SchedulingDisabled) ]] && [[ ! -z $(echo $NODE_LINE | grep Ready) ]]; then
         echo "✅ Verified the worker node was uncordoned!"
+
+        if ! kubectl get nodes $CLUSTER_NAME-worker -o json | grep -q "aws-node-termination-handler/scheduled-maintenance"; then
+          echo "✅ Verified the worked node was untainted!"
+          TAINTED=0
+        else
+          echo "❌ Failed clearing the worked node taint after a reboot!"
+          exit 3
+        fi
+
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
             echo "✅ Verified the regular-pod-test pod was rescheduled"
             echo "✅ Scheduled Maintenance Event System Reboot Test Passed $CLUSTER_NAME! ✅"

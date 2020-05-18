@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/rs/zerolog/log"
 )
 
@@ -59,10 +60,22 @@ func checkForSpotInterruptionNotice(imds *ec2metadata.Service) (*InterruptionEve
 	hash := sha256.New()
 	hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
 
+	var preDrainFunc preDrainTask = setInterruptionTaint
+
 	return &InterruptionEvent{
-		EventID:     fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
-		Kind:        SpotITNKind,
-		StartTime:   interruptionTime,
-		Description: fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
+		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
+		Kind:         SpotITNKind,
+		StartTime:    interruptionTime,
+		Description:  fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
+		PreDrainTask: preDrainFunc,
 	}, nil
+}
+
+func setInterruptionTaint(interruptionEvent InterruptionEvent, n node.Node) error {
+	err := n.TaintSpotItn(interruptionEvent.EventID)
+	if err != nil {
+		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.ScheduledMaintenanceTaint, interruptionEvent.EventID, err)
+	}
+
+	return nil
 }

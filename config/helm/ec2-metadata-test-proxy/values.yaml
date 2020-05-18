@@ -22,8 +22,8 @@ ec2MetadataTestProxy:
     image:
         repository: ec2-metadata-test-proxy
         tag: customtest
+    tolerations: []
 regularPodTest:
     create: true
     label: regular-pod-test
     port: 1339
-        

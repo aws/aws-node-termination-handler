@@ -66,15 +66,26 @@ func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
 }
 
 func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
-	drainEvent := InterruptionEvent{}
-	nthConfig := config.Config{
-		DryRun: true,
+	drainEvent := InterruptionEvent{
+		EventID: "some-id-that-is-very-long-for-some-reason-and-is-definitely-over-63-characters",
 	}
-	tNode, _ := node.New(nthConfig)
+	nthConfig := config.Config{
+		DryRun:   true,
+		NodeName: nodeName,
+	}
 
-	err := uncordonAfterRebootPreDrain(drainEvent, *tNode)
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+	h.Ok(t, err)
+
+	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client))
+	h.Ok(t, err)
+
+	err = uncordonAfterRebootPreDrain(drainEvent, *tNode)
+
 	h.Ok(t, err)
 }
+
 func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
 	resetFlagsForTest()
 

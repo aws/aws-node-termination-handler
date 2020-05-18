@@ -68,6 +68,7 @@ Parameter | Description | Default
 `enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is received | `true`
 `metadataTries` | The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3. | `3`
 `cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
+`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance` and `aws-node-termination-handler/spot-itn` | `false`
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
 `affinity` | node/pod affinities | None
 `podAnnotations` | annotations to add to each pod | `{}`

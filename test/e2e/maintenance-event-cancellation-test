@@ -22,7 +22,8 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set enableSpotInterruptionDraining="true" \
-  --set enableScheduledEventDraining="true"
+  --set enableScheduledEventDraining="true" \
+  --set taintNode="true"
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
@@ -32,13 +33,16 @@ helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-meta
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
   --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
   --set ec2MetadataTestProxy.enableSpotITN="false" \
-  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+  --set ec2MetadataTestProxy.port="$IMDS_PORT" \
+  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule' \
+  --set 'ec2MetadataTestProxy.tolerations[0].operator=Exists'
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 CORDONED=0
+TAINTED=0
 
 for i in `seq 1 10`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
@@ -57,6 +61,12 @@ fi
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep SchedulingDisabled; then
         echo "✅ Verified the worker node was cordoned!"
+
+        if kubectl get nodes $CLUSTER_NAME-worker -o json | grep -q "aws-node-termination-handler/scheduled-maintenance"; then
+          echo "✅ Verified the worked node was tainted!"
+          TAINTED=1
+        fi
+
         if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
             echo "✅ Verified the regular-pod-test pod was evicted!"
             CORDONED=1
@@ -71,6 +81,11 @@ if [[ $CORDONED -eq 0 ]]; then
     exit 3
 fi
 
+if [[ $TAINTED -eq 0 ]]; then
+    echo "❌ Failed tainting node for scheduled maintenance event"
+    exit 3
+fi
+
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
   --force \
@@ -80,7 +95,9 @@ helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-meta
   --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
   --set ec2MetadataTestProxy.enableSpotITN="false" \
   --set ec2MetadataTestProxy.scheduledEventStatus="canceled" \
-  --set ec2MetadataTestProxy.port="$IMDS_PORT"    
+  --set ec2MetadataTestProxy.port="$IMDS_PORT" \
+  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule' \
+  --set 'ec2MetadataTestProxy.tolerations[0].operator=Exists'
 
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep -v SchedulingDisabled; then

@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -41,6 +42,20 @@ const (
 	ActionLabelTimeKey = "aws-node-termination-handler/action-time"
 	// EventIDLabelKey is a k8s label key whose value is the drainable event id
 	EventIDLabelKey = "aws-node-termination-handler/event-id"
+)
+
+const (
+	// SpotInterruptionTaint is a taint used to make spot instance unschedulable
+	SpotInterruptionTaint = "aws-node-termination-handler/spot-itn"
+	// ScheduledMaintenanceTaint is a taint used to make spot instance unschedulable
+	ScheduledMaintenanceTaint = "aws-node-termination-handler/scheduled-maintenance"
+
+	maxTaintValueLength = 63
+)
+
+var (
+	maxRetryDeadline      time.Duration = 5 * time.Second
+	conflictRetryInterval time.Duration = 750 * time.Millisecond
 )
 
 var uptimeFile = "/proc/uptime"
@@ -255,6 +270,65 @@ func (n Node) removeLabel(key string) error {
 	return nil
 }
 
+// TaintSpotItn adds the spot termination notice taint onto a node
+func (n Node) TaintSpotItn(eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode()
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
+	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
+}
+
+// TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
+func (n Node) TaintScheduledMaintenance(eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode()
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
+	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID, corev1.TaintEffectNoSchedule)
+}
+
+// RemoveNTHTaints removes NTH-specific taints from a node
+func (n Node) RemoveNTHTaints() error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode()
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint}
+
+	for _, taint := range taints {
+		_, err = removeTaint(k8sNode, n.drainHelper.Client, taint)
+		if err != nil {
+			return fmt.Errorf("Unable to clean taint %s from node %s", taint, n.nthConfig.NodeName)
+		}
+	}
+
+	return nil
+}
+
 // IsLabeledWithAction will return true if the current node is labeled with NTH action labels
 func (n Node) IsLabeledWithAction() (bool, error) {
 	k8sNode, err := n.fetchKubernetesNode()
@@ -300,6 +374,12 @@ func (n Node) UncordonIfRebooted() error {
 		if err != nil {
 			return err
 		}
+
+		err = n.RemoveNTHTaints()
+		if err != nil {
+			return err
+		}
+
 		log.Log().Msgf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
 	default:
 		log.Log().Msg("There are no label actions to handle.")
@@ -309,7 +389,10 @@ func (n Node) UncordonIfRebooted() error {
 
 // fetchKubernetesNode will send an http request to the k8s api server and return the corev1 model node
 func (n Node) fetchKubernetesNode() (*corev1.Node, error) {
-	node := &corev1.Node{}
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: n.nthConfig.NodeName},
+		Spec:       corev1.NodeSpec{},
+	}
 	if n.nthConfig.DryRun {
 		return node, nil
 	}
@@ -362,4 +445,113 @@ func getSystemUptime(filename string) (float64, error) {
 func jsonPatchEscape(value string) string {
 	value = strings.Replace(value, "~", "~0", -1)
 	return strings.Replace(value, "/", "~1", -1)
+}
+
+func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, effect corev1.TaintEffect) error {
+	if nth.nthConfig.DryRun {
+		log.Log().Msgf("Would have added taint (%s=%s:%s) to node %s, but dry-run flag was set", taintKey, taintValue, effect, nth.nthConfig.NodeName)
+		return nil
+	}
+
+	retryDeadline := time.Now().Add(maxRetryDeadline)
+	freshNode := node.DeepCopy()
+	client := nth.drainHelper.Client
+	var err error
+	refresh := false
+	for {
+		if refresh {
+			// Get the newest version of the node.
+			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+			if err != nil || freshNode == nil {
+				log.Log().Msgf("Error while adding %v taint on node %v: %v", taintKey, node.Name, err)
+				return fmt.Errorf("failed to get node %v: %v", node.Name, err)
+			}
+		}
+
+		if !addTaintToSpec(freshNode, taintKey, taintValue, effect) {
+			if !refresh {
+				// Make sure we have the latest version before skipping update.
+				refresh = true
+				continue
+			}
+			return nil
+		}
+		_, err = client.CoreV1().Nodes().Update(freshNode)
+		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
+			refresh = true
+			time.Sleep(conflictRetryInterval)
+			continue
+		}
+
+		if err != nil {
+			log.Log().Msgf("Error while adding %v taint on node %v: %v", taintKey, node.Name, err)
+			return err
+		}
+		log.Log().Msgf("Successfully added %v on node %v", taintKey, node.Name)
+		return nil
+	}
+}
+
+func addTaintToSpec(node *corev1.Node, taintKey string, taintValue string, effect corev1.TaintEffect) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == taintKey {
+			log.Log().Msgf("%v already present on node %v, taint: %v", taintKey, node.Name, taint)
+			return false
+		}
+	}
+	node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
+		Key:    taintKey,
+		Value:  taintValue,
+		Effect: effect,
+	})
+	return true
+}
+
+func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string) (bool, error) {
+	retryDeadline := time.Now().Add(maxRetryDeadline)
+	freshNode := node.DeepCopy()
+	var err error
+	refresh := false
+	for {
+		if refresh {
+			// Get the newest version of the node.
+			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+			if err != nil || freshNode == nil {
+				log.Log().Msgf("Error while adding %v taint on node %v: %v", taintKey, node.Name, err)
+				return false, fmt.Errorf("failed to get node %v: %v", node.Name, err)
+			}
+		}
+		newTaints := make([]corev1.Taint, 0)
+		for _, taint := range freshNode.Spec.Taints {
+			if taint.Key == taintKey {
+				log.Log().Msgf("Releasing taint %+v on node %v", taint, node.Name)
+			} else {
+				newTaints = append(newTaints, taint)
+			}
+		}
+		if len(newTaints) == len(freshNode.Spec.Taints) {
+			if !refresh {
+				// Make sure we have the latest version before skipping update.
+				refresh = true
+				continue
+			}
+			return false, nil
+		}
+
+		freshNode.Spec.Taints = newTaints
+		_, err = client.CoreV1().Nodes().Update(freshNode)
+
+		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
+			refresh = true
+			time.Sleep(conflictRetryInterval)
+			continue
+		}
+
+		if err != nil {
+			log.Log().Msgf("Error while releasing %v taint on node %v: %v", taintKey, node.Name, err)
+			return false, err
+		}
+		log.Log().Msgf("Successfully released %v on node %v", taintKey, node.Name)
+		return true, nil
+	}
 }
