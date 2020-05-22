@@ -27,7 +27,7 @@ matrix:
       script: test/go-report-card-test/run-report-card-test.sh
       env: GO_REPORT_CARD=true
     - stage: Test
-      if: type = push AND branch = master AND env(GITHUB_TOKEN) IS present
+      if: type = push AND env(GITHUB_TOKEN) IS present
       script: test/license-test/run-license-test.sh
       env: LICENSE_TEST=true
     - stage: Test
