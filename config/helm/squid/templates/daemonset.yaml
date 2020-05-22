@@ -31,4 +31,8 @@ spec:
         - name: squid-config
           configMap: 
             name: {{ .Values.squid.configMap }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
             
