@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -60,7 +61,7 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Ok(t, err)
 }
 
@@ -77,7 +78,7 @@ func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
 
@@ -98,7 +99,7 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Ok(t, err)
 }
 
@@ -119,7 +120,7 @@ func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
 
@@ -140,7 +141,7 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when failed to decode instance action")
 }
 
@@ -161,6 +162,6 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }

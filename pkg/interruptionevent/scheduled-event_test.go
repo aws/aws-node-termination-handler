@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -85,7 +86,7 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 
 	}()
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Ok(t, err)
 }
 
@@ -136,7 +137,7 @@ func TestMonitorForScheduledEventsCanceledEvent(t *testing.T) {
 
 	}()
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Ok(t, err)
 }
 
@@ -156,7 +157,7 @@ func TestMonitorForScheduledEventsMetadataParseFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New("bad url", 0)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when metadata parse fails")
 }
 
@@ -177,7 +178,7 @@ func TestMonitorForScheduledEvents404Response(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when 404 response")
 }
 
@@ -204,7 +205,7 @@ func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when failed to parse start time")
 }
 
@@ -231,6 +232,6 @@ func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds, observability.Metrics{})
 	h.Assert(t, err != nil, "Failed to return error when failed to parse end time")
 }
