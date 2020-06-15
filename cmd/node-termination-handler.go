@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
+	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -64,6 +65,11 @@ func main() {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
+	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
+	}
+
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
@@ -101,11 +107,11 @@ func main() {
 		}(fn, eventType)
 	}
 
-	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata)
+	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata, metrics)
 	log.Log().Msg("Started watching for interruption events")
 	log.Log().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
 
-	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, nodeMetadata)
+	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, nodeMetadata, metrics)
 	log.Log().Msg("Started watching for event cancellations")
 
 	for range time.NewTicker(1 * time.Second).C {
@@ -114,7 +120,7 @@ func main() {
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			drainOrCordonIfNecessary(interruptionEventStore, *node, nthConfig, nodeMetadata)
+			drainOrCordonIfNecessary(interruptionEventStore, *node, nthConfig, nodeMetadata, metrics)
 		}
 	}
 	log.Log().Msg("AWS Node Termination Handler is shutting down")
@@ -140,7 +146,7 @@ func handleRebootUncordon(interruptionEventStore *interruptioneventstore.Store, 
 	return nil
 }
 
-func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
+func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	for {
 		interruptionEvent := <-interruptionChan
 		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
@@ -148,7 +154,7 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 	}
 }
 
-func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata) {
+func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	for {
 		interruptionEvent := <-cancelChan
 		log.Log().Msgf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
@@ -167,13 +173,14 @@ func watchForCancellationEvents(cancelChan <-chan interruptionevent.Interruption
 	}
 }
 
-func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata) {
+func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	if drainEvent, ok := interruptionEventStore.GetActiveEvent(); ok {
 		if drainEvent.PreDrainTask != nil {
 			err := drainEvent.PreDrainTask(*drainEvent, node)
 			if err != nil {
 				log.Log().Msgf("There was a problem executing the pre-drain task: %v", err)
 			}
+			metrics.NodeActionsInc("pre-daining", nthConfig.NodeName, err)
 		}
 		if nthConfig.CordonOnly {
 			err := node.Cordon()
@@ -182,6 +189,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				os.Exit(1)
 			}
 			log.Log().Msgf("Node %q successfully cordoned.", nthConfig.NodeName)
+			metrics.NodeActionsInc("cordoning", nthConfig.NodeName, err)
 		} else {
 			err := node.CordonAndDrain()
 			if err != nil {
@@ -189,6 +197,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				os.Exit(1)
 			}
 			log.Log().Msgf("Node %q successfully cordoned and drained.", nthConfig.NodeName)
+			metrics.NodeActionsInc("cordoning-and-draining", nthConfig.NodeName, err)
 		}
 		interruptionEventStore.MarkAllAsDrained()
 		if nthConfig.WebhookURL != "" {
