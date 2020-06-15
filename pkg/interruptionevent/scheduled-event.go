@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
+	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,9 +36,10 @@ const (
 )
 
 // MonitorForScheduledEvents continuously monitors metadata for scheduled events and sends interruption events to the passed in channel
-func MonitorForScheduledEvents(interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, imds *ec2metadata.Service) error {
+func MonitorForScheduledEvents(interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, imds *ec2metadata.Service, metrics observability.Metrics) error {
 	interruptionEvents, err := checkForScheduledEvents(imds)
 	if err != nil {
+		metrics.ErrorEventsInc("checking-ec2-metadata-scheduled-events")
 		return err
 	}
 	for _, interruptionEvent := range interruptionEvents {
@@ -48,6 +50,7 @@ func MonitorForScheduledEvents(interruptionChan chan<- InterruptionEvent, cancel
 			log.Log().Msg("Sending interruption events to the interruption channel")
 			interruptionChan <- interruptionEvent
 		}
+		metrics.AddEvent(1, interruptionEvent.State, interruptionEvent.Kind)
 	}
 	return nil
 }

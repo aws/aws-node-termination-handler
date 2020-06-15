@@ -86,6 +86,10 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, e
 	}, nil
 }
 
+func (n Node) GetNodeName() string {
+	return n.nthConfig.NodeName
+}
+
 // CordonAndDrain will cordon the node and evict pods based on the config
 func (n Node) CordonAndDrain() error {
 	if n.nthConfig.DryRun {

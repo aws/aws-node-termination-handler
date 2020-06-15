@@ -37,7 +37,7 @@ const (
 	timeFormat           = "2006/01/02 15:04:05"
 )
 
-type monitorFunc func(chan<- interruptionevent.InterruptionEvent, chan<- interruptionevent.InterruptionEvent, *ec2metadata.Service) error
+type monitorFunc func(chan<- interruptionevent.InterruptionEvent, chan<- interruptionevent.InterruptionEvent, *ec2metadata.Service, observability.Metrics) error
 
 func main() {
 	// Zerolog uses json formatting by default, so change that to a human-readable format instead
@@ -99,7 +99,7 @@ func main() {
 		go func(monitorFn monitorFunc, eventType string) {
 			log.Log().Msgf("Started monitoring for %s events", eventType)
 			for range time.Tick(time.Second * 2) {
-				err := monitorFn(interruptionChan, cancelChan, imds)
+				err := monitorFn(interruptionChan, cancelChan, imds, metrics)
 				if err != nil {
 					log.Log().Msgf("There was a problem monitoring for %s events: %v", eventType, err)
 				}
@@ -150,6 +150,8 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 	for {
 		interruptionEvent := <-interruptionChan
 		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
+		metrics.AddEvent(-1, interruptionEvent.State, interruptionEvent.Kind)
+
 		interruptionEventStore.AddInterruptionEvent(&interruptionEvent)
 	}
 }
@@ -157,7 +159,9 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	for {
 		interruptionEvent := <-cancelChan
+		metrics.AddEvent(-1, interruptionEvent.State, interruptionEvent.Kind)
 		log.Log().Msgf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
+
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode() {
 			log.Log().Msg("Uncordoning the node due to a cancellation event")
@@ -165,6 +169,8 @@ func watchForCancellationEvents(cancelChan <-chan interruptionevent.Interruption
 			if err != nil {
 				log.Log().Msgf("Uncordoning the node failed: %v", err)
 			}
+			metrics.NodeActionsInc("uncordoning", node.GetNodeName(), err)
+
 			node.RemoveNTHLabels()
 			node.RemoveNTHTaints()
 		} else {

@@ -15,21 +15,24 @@ import (
 
 var (
 	// events labels
-	labelEventActionKey = kv.Key("event/action")
+	labelEventStatusKey = kv.Key("event/status")
 	labelEventKindKey   = kv.Key("event/kind")
+
+	labelEventErrorWhereKey = kv.Key("error/event/where")
 
 	// node labels
 	labelNodeActionKey = kv.Key("node/action")
 	labelNodeStatusKey = kv.Key("node/status")
-	labelNodeValueKey  = kv.Key("node/value")
+	labelNodeNameKey   = kv.Key("node/name")
 )
 
 // Metrics holds all the stats
 type Metrics struct {
-	enabled     bool
-	meter       metric.Meter
-	watchEvents metric.Int64Counter
-	nodeActions metric.Int64Counter
+	enabled                 bool
+	meter                   metric.Meter
+	eventsProcessingCounter metric.Int64UpDownCounter
+	actionsCounter          metric.Int64Counter
+	errorEventsCounter      metric.Int64Counter
 }
 
 // InitMetrics creates/starts the prometheus exporter server and registers the metrics
@@ -54,7 +57,7 @@ func InitMetrics(enabled bool, port string) (Metrics, error) {
 		return Metrics{}, err
 	}
 
-	// Starts HTTP server exposing the `/metrics` path for prometheus scrapper
+	// Starts HTTP server exposing the prometheus `/metrics` path
 	go func() {
 		http.HandleFunc("/metrics", exporter.ServeHTTP)
 		err := http.ListenAndServe(":"+port, nil)
@@ -66,53 +69,61 @@ func InitMetrics(enabled bool, port string) (Metrics, error) {
 	return metrics, nil
 }
 
-// WatchEventsInc adds one only if its enabled and partitioned by action and kind
-func (m Metrics) WatchEventsInc(action, kind string) {
+// AddEvent only if its enabled and partitioned by status and kind
+func (m Metrics) AddEvent(value int64, status, kind string) {
 	if !m.enabled {
 		return
 	}
-	m.watchEvents.Add(context.Background(), 1, labelEventActionKey.String(action), labelEventKindKey.String(kind))
+	m.eventsProcessingCounter.Add(context.Background(), value, labelEventStatusKey.String(status), labelEventKindKey.String(kind))
 }
 
-// NodeActionsInc adds one only if its enabled and partitioned by action, node and status
-func (m Metrics) NodeActionsInc(action, node string, err error) {
+// ErrorEventsInc only if its enabled and partitioned by action
+func (m Metrics) ErrorEventsInc(where string) {
+	if !m.enabled {
+		return
+	}
+	m.errorEventsCounter.Add(context.Background(), 1, labelEventErrorWhereKey.String(where))
+}
+
+// NodeActionsInc only if its enabled and partitioned by action, nodeName and status
+func (m Metrics) NodeActionsInc(action, nodeName string, err error) {
 	if !m.enabled {
 		return
 	}
 
-	labels := []kv.KeyValue{labelNodeActionKey.String(action), labelNodeValueKey.String(node)}
+	labels := []kv.KeyValue{labelNodeActionKey.String(action), labelNodeNameKey.String(nodeName)}
 	if err != nil {
 		labels = append(labels, labelNodeStatusKey.String("error"))
 	} else {
 		labels = append(labels, labelNodeStatusKey.String("success"))
 	}
 
-	m.nodeActions.Add(context.Background(), 1, labels...)
+	m.actionsCounter.Add(context.Background(), 1, labels...)
 }
 
 func registerMetricsWith(provider metric.Provider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
-	watch, err := meter.NewInt64Counter(
-		"watch.events",
-		metric.WithDescription("Number of events watched"),
-	)
+	actionsCounter, err := meter.NewInt64Counter("actions.node", metric.WithDescription("Number of actions per node"))
 	if err != nil {
 		return Metrics{}, err
 	}
 
-	action, err := meter.NewInt64Counter(
-		"actions.node",
-		metric.WithDescription("Number of actions per node"),
-	)
+	errorEventsCounter, err := meter.NewInt64Counter("events.error", metric.WithDescription("Number of errors in events processing"))
+	if err != nil {
+		return Metrics{}, err
+	}
+
+	eventsProcessingCounter, err := meter.NewInt64UpDownCounter("events.processing", metric.WithDescription("Actual events processing"))
 	if err != nil {
 		return Metrics{}, err
 	}
 
 	return Metrics{
-		enabled:     true,
-		meter:       meter,
-		watchEvents: watch,
-		nodeActions: action,
+		enabled:                 true,
+		meter:                   meter,
+		eventsProcessingCounter: eventsProcessingCounter,
+		errorEventsCounter:      errorEventsCounter,
+		actionsCounter:          actionsCounter,
 	}, nil
 }
