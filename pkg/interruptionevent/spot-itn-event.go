@@ -20,7 +20,6 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
-	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,10 +29,9 @@ const (
 )
 
 // MonitorForSpotITNEvents continuously monitors metadata for spot ITNs and sends interruption events to the passed in channel
-func MonitorForSpotITNEvents(interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, imds *ec2metadata.Service, metrics observability.Metrics) error {
+func MonitorForSpotITNEvents(interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, imds *ec2metadata.Service) error {
 	interruptionEvent, err := checkForSpotInterruptionNotice(imds)
 	if err != nil {
-		metrics.ErrorEventsInc("checking-ec2-metadata-spot-itn")
 		return err
 	}
 	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {

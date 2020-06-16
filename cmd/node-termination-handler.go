@@ -37,7 +37,7 @@ const (
 	timeFormat           = "2006/01/02 15:04:05"
 )
 
-type monitorFunc func(chan<- interruptionevent.InterruptionEvent, chan<- interruptionevent.InterruptionEvent, *ec2metadata.Service, observability.Metrics) error
+type monitorFunc func(chan<- interruptionevent.InterruptionEvent, chan<- interruptionevent.InterruptionEvent, *ec2metadata.Service) error
 
 func main() {
 	// Zerolog uses json formatting by default, so change that to a human-readable format instead
@@ -99,9 +99,10 @@ func main() {
 		go func(monitorFn monitorFunc, eventType string) {
 			log.Log().Msgf("Started monitoring for %s events", eventType)
 			for range time.Tick(time.Second * 2) {
-				err := monitorFn(interruptionChan, cancelChan, imds, metrics)
+				err := monitorFn(interruptionChan, cancelChan, imds)
 				if err != nil {
 					log.Log().Msgf("There was a problem monitoring for %s events: %v", eventType, err)
+					metrics.ErrorEventsInc(eventType)
 				}
 			}
 		}(fn, eventType)
