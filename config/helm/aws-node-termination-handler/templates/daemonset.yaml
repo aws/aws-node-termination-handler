@@ -117,7 +117,7 @@ spec:
             value: {{ .Values.webhookProxy | quote }}
           - name: ENABLE_PROMETHEUS_SERVER
             value: {{ .Values.enablePrometheusServer | quote }}
-          - name: PROMETHEUS_PORT
+          - name: PROMETHEUS_SERVER_PORT
             value: {{ .Values.prometheusServerPort | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
