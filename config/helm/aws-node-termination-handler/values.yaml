@@ -78,7 +78,10 @@ nodeSelector: {}
 nodeSelectorTermsOs: ""
 nodeSelectorTermsArch: ""
 
-tolerations: 
+enablePrometheusServer: false
+prometheusServerPort: ""
+
+tolerations:
   - operator: "Exists"
 
 affinity: {}

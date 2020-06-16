@@ -163,8 +163,8 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=101",
 		"--cordon-only=false",
-		"--enable-prometheus=true",
-		"--prometheus-port=2112",
+		"--enable-prometheus-server=true",
+		"--prometheus-server-port=2112",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
