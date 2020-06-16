@@ -14,11 +14,8 @@ import (
 )
 
 var (
-	// events labels
-	labelEventStatusKey = kv.Key("event/status")
-	labelEventKindKey   = kv.Key("event/kind")
-
-	labelEventErrorWhereKey = kv.Key("error/event/where")
+	// events error labels
+	labelEventErrorWhereKey = kv.Key("event/error/where")
 
 	// node labels
 	labelNodeActionKey = kv.Key("node/action")
@@ -28,11 +25,10 @@ var (
 
 // Metrics holds all the stats
 type Metrics struct {
-	enabled                 bool
-	meter                   metric.Meter
-	eventsProcessingCounter metric.Int64UpDownCounter
-	actionsCounter          metric.Int64Counter
-	errorEventsCounter      metric.Int64Counter
+	enabled            bool
+	meter              metric.Meter
+	actionsCounter     metric.Int64Counter
+	errorEventsCounter metric.Int64Counter
 }
 
 // InitMetrics creates/starts the prometheus exporter server and registers the metrics
@@ -67,14 +63,6 @@ func InitMetrics(enabled bool, port string) (Metrics, error) {
 	}()
 
 	return metrics, nil
-}
-
-// AddEvent only if its enabled and partitioned by status and kind
-func (m Metrics) AddEvent(value int64, status, kind string) {
-	if !m.enabled {
-		return
-	}
-	m.eventsProcessingCounter.Add(context.Background(), value, labelEventStatusKey.String(status), labelEventKindKey.String(kind))
 }
 
 // ErrorEventsInc only if its enabled and partitioned by action
@@ -114,16 +102,10 @@ func registerMetricsWith(provider metric.Provider) (Metrics, error) {
 		return Metrics{}, err
 	}
 
-	eventsProcessingCounter, err := meter.NewInt64UpDownCounter("events.processing", metric.WithDescription("Actual events processing"))
-	if err != nil {
-		return Metrics{}, err
-	}
-
 	return Metrics{
-		enabled:                 true,
-		meter:                   meter,
-		eventsProcessingCounter: eventsProcessingCounter,
-		errorEventsCounter:      errorEventsCounter,
-		actionsCounter:          actionsCounter,
+		enabled:            true,
+		meter:              meter,
+		errorEventsCounter: errorEventsCounter,
+		actionsCounter:     actionsCounter,
 	}, nil
 }

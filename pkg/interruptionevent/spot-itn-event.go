@@ -39,7 +39,6 @@ func MonitorForSpotITNEvents(interruptionChan chan<- InterruptionEvent, cancelCh
 	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {
 		log.Log().Msg("Sending interruption event to the interruption channel")
 		interruptionChan <- *interruptionEvent
-		metrics.AddEvent(1, interruptionEvent.State, interruptionEvent.Kind)
 	}
 	return nil
 }

@@ -150,8 +150,6 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 	for {
 		interruptionEvent := <-interruptionChan
 		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
-		metrics.AddEvent(-1, interruptionEvent.State, interruptionEvent.Kind)
-
 		interruptionEventStore.AddInterruptionEvent(&interruptionEvent)
 	}
 }
@@ -159,9 +157,7 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	for {
 		interruptionEvent := <-cancelChan
-		metrics.AddEvent(-1, interruptionEvent.State, interruptionEvent.Kind)
 		log.Log().Msgf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
-
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode() {
 			log.Log().Msg("Uncordoning the node due to a cancellation event")
@@ -169,7 +165,7 @@ func watchForCancellationEvents(cancelChan <-chan interruptionevent.Interruption
 			if err != nil {
 				log.Log().Msgf("Uncordoning the node failed: %v", err)
 			}
-			metrics.NodeActionsInc("uncordon", node.GetNodeName(), err)
+			metrics.NodeActionsInc("uncordon", node.GetName(), err)
 
 			node.RemoveNTHLabels()
 			node.RemoveNTHTaints()
@@ -181,30 +177,33 @@ func watchForCancellationEvents(cancelChan <-chan interruptionevent.Interruption
 
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	if drainEvent, ok := interruptionEventStore.GetActiveEvent(); ok {
+		nodeName := node.GetName()
 		if drainEvent.PreDrainTask != nil {
 			err := drainEvent.PreDrainTask(*drainEvent, node)
 			if err != nil {
 				log.Log().Msgf("There was a problem executing the pre-drain task: %v", err)
 			}
-			metrics.NodeActionsInc("pre-dain", nthConfig.NodeName, err)
+			metrics.NodeActionsInc("pre-dain", nodeName, err)
 		}
+
 		if nthConfig.CordonOnly {
 			err := node.Cordon()
 			if err != nil {
 				log.Log().Msgf("There was a problem while trying to cordon the node: %v", err)
 				os.Exit(1)
 			}
-			log.Log().Msgf("Node %q successfully cordoned.", nthConfig.NodeName)
-			metrics.NodeActionsInc("cordon", nthConfig.NodeName, err)
+			log.Log().Msgf("Node %q successfully cordoned.", nodeName)
+			metrics.NodeActionsInc("cordon", nodeName, err)
 		} else {
 			err := node.CordonAndDrain()
 			if err != nil {
 				log.Log().Msgf("There was a problem while trying to cordon and drain the node: %v", err)
 				os.Exit(1)
 			}
-			log.Log().Msgf("Node %q successfully cordoned and drained.", nthConfig.NodeName)
-			metrics.NodeActionsInc("cordon-and-drain", nthConfig.NodeName, err)
+			log.Log().Msgf("Node %q successfully cordoned and drained.", nodeName)
+			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		}
+
 		interruptionEventStore.MarkAllAsDrained()
 		if nthConfig.WebhookURL != "" {
 			webhook.Post(nodeMetadata, drainEvent, nthConfig)

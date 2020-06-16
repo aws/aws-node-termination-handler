@@ -86,7 +86,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, e
 	}, nil
 }
 
-func (n Node) GetNodeName() string {
+func (n Node) GetName() string {
 	return n.nthConfig.NodeName
 }
 
