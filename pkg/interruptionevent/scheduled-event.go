@@ -50,7 +50,6 @@ func MonitorForScheduledEvents(interruptionChan chan<- InterruptionEvent, cancel
 			log.Log().Msg("Sending interruption events to the interruption channel")
 			interruptionChan <- interruptionEvent
 		}
-		metrics.AddEvent(1, interruptionEvent.State, interruptionEvent.Kind)
 	}
 	return nil
 }
