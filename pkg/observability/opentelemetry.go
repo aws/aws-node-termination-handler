@@ -1,3 +1,16 @@
+// Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//     http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package observability
 
 import (
@@ -14,16 +27,14 @@ import (
 )
 
 var (
-	// events error labels
 	labelEventErrorWhereKey = kv.Key("event/error/where")
 
-	// node labels
 	labelNodeActionKey = kv.Key("node/action")
 	labelNodeStatusKey = kv.Key("node/status")
 	labelNodeNameKey   = kv.Key("node/name")
 )
 
-// Metrics holds all the stats
+// Metrics represents the stats for observability
 type Metrics struct {
 	enabled            bool
 	meter              metric.Meter
@@ -31,7 +42,7 @@ type Metrics struct {
 	errorEventsCounter metric.Int64Counter
 }
 
-// InitMetrics creates/starts the prometheus exporter server and registers the metrics
+// InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
 func InitMetrics(enabled bool, port string) (Metrics, error) {
 	if !enabled {
 		return Metrics{}, nil
@@ -55,18 +66,18 @@ func InitMetrics(enabled bool, port string) (Metrics, error) {
 
 	// Starts HTTP server exposing the prometheus `/metrics` path
 	go func() {
-		log.Info().Msgf("Starting to serve prometheus handler /metrics, port %s", port)
+		log.Info().Msgf("Starting to serve handler /metrics, port %s", port)
 		http.HandleFunc("/metrics", exporter.ServeHTTP)
 		err := http.ListenAndServe(":"+port, nil)
 		if err != nil {
-			log.Err(err).Msg("failed to serve prometheus http server")
+			log.Err(err).Msg("Failed to listen and serve http server")
 		}
 	}()
 
 	return metrics, nil
 }
 
-// ErrorEventsInc only if its enabled and partitioned by action
+// ErrorEventsInc will increment one for the event errors counter, partitioned by action, and only if metrics are enabled.
 func (m Metrics) ErrorEventsInc(where string) {
 	if !m.enabled {
 		return
@@ -74,7 +85,7 @@ func (m Metrics) ErrorEventsInc(where string) {
 	m.errorEventsCounter.Add(context.Background(), 1, labelEventErrorWhereKey.String(where))
 }
 
-// NodeActionsInc only if its enabled and partitioned by action, nodeName and status
+// NodeActionsInc will increment one for the node stats counter, partitioned by action, nodeName and status, and only if metrics are enabled.
 func (m Metrics) NodeActionsInc(action, nodeName string, err error) {
 	if !m.enabled {
 		return
