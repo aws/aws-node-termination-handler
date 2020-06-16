@@ -108,7 +108,7 @@ func main() {
 		}(fn, eventType)
 	}
 
-	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata, metrics)
+	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata)
 	log.Log().Msg("Started watching for interruption events")
 	log.Log().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
 
@@ -147,7 +147,7 @@ func handleRebootUncordon(interruptionEventStore *interruptioneventstore.Store, 
 	return nil
 }
 
-func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
+func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		interruptionEvent := <-interruptionChan
 		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
