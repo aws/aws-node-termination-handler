@@ -159,8 +159,8 @@ func ParseCliArgs() (config Config, err error) {
 			"\ttaint-node: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\twebhook-proxy: %s,\n"+
-			"\tenable-prometheus: %t,\n"+
-			"\tprometheus-port: %s,\n",
+			"\tenable-prometheus-server: %t,\n"+
+			"\tprometheus-server-port: %s,\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,

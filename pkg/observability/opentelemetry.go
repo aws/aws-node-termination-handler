@@ -49,12 +49,13 @@ func InitMetrics(enabled bool, port string) (Metrics, error) {
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
-	if err := runtime.Start(metrics.meter, 5*time.Second); err != nil {
+	if err := runtime.Start(metrics.meter, 1*time.Second); err != nil {
 		return Metrics{}, err
 	}
 
 	// Starts HTTP server exposing the prometheus `/metrics` path
 	go func() {
+		log.Info().Msgf("Starting to serve prometheus handler /metrics, port %s", port)
 		http.HandleFunc("/metrics", exporter.ServeHTTP)
 		err := http.ListenAndServe(":"+port, nil)
 		if err != nil {
