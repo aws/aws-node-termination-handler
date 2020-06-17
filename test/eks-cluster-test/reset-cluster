@@ -1,0 +1,32 @@
+#!/bin/bash
+
+echo "Uninstall Helm charts ..."
+helm list -a -A |
+    tail -n +2 |
+    tr -s "\t" " " |
+    awk '{ printf("helm uninstall -n %s %s\n", $2, $1) }' |
+    bash -s
+echo "✅ done"
+
+echo
+echo "Remove NTH labels from $TEST_NODE ..."
+kubectl label --list nodes $TEST_NODE |
+    grep aws-node-termination-handler |
+    cut -d"=" -f1 |
+    awk '{ printf("%s-\n", $1) }' |
+    xargs kubectl label nodes $TEST_NODE
+echo "✅ done"
+
+echo
+echo "Remove NTH taints from $TEST_NODE ..."
+# Weird: if query specifies actual node then it returns no results
+kubectl get nodes -l kubernetes.io/os=windows -o=jsonpath='{range .items[*]}{.spec.taints[*].key}{"\n"}{end}' |
+    awk '{ printf("%s-\n", $1) }' |
+    xargs kubectl taint nodes $TEST_NODE
+echo "✅ done"
+
+echo
+echo "Uncordon $TEST_NODE ..."
+kubectl uncordon $TEST_NODE
+echo "✅ done"
+

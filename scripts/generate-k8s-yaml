@@ -44,7 +44,8 @@ rm -rf $BUILD_DIR/$PLATFORM-amd64
 chmod +x $BUILD_DIR/helm
 
 $BUILD_DIR/helm template aws-node-termination-handler \
-    --namespace kube-system \
+    --namespace $NAMESPACE \
+    --set targetNodeOs="linux windows" \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $AGG_RESOURCES_YAML
 
 # remove helm annotations from template
@@ -53,6 +54,7 @@ mv $BUILD_DIR/helm_annotations_removed.yaml $AGG_RESOURCES_YAML
 
 $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace $NAMESPACE \
+    --set targetNodeOs="linux windows" \
     --output-dir $INDV_RESOURCES_DIR/ \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/
 

@@ -72,12 +72,20 @@ Parameter | Description | Default
 `taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance` and `aws-node-termination-handler/spot-itn` | `false`
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
 `affinity` | node/pod affinities | None
+`linuxAffinity` | Linux node/pod affinities | None
+`windowsAffinity` | Windows node/pod affinities | None
 `podAnnotations` | annotations to add to each pod | `{}`
+`linuxPodAnnotations` | Linux annotations to add to each pod | `{}`
+`windowsPodAnnotations` | Windows annotations to add to each pod | `{}`
 `podLabels` | labels to add to each pod | `{}`
+`linuxPodLabels` | labels to add to each Linux pod | `{}`
+`windowsPodLabels` | labels to add to each Windows pod | `{}`
 `priorityClassName` | Name of the priorityClass | `system-node-critical`
 `resources` | Resources for the pods | `requests.cpu: 50m, requests.memory: 64Mi, limits.cpu: 100m, limits.memory: 128Mi`
-`dnsPolicy` | DaemonSet DNS policy | `ClusterFirstWithHostNet`
-`nodeSelector` | Tells the daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
+`dnsPolicy` | DaemonSet DNS policy | Linux: `ClusterFirstWithHostNet`, Windows: `ClusterFirst`
+`nodeSelector` | Tells the all daemon sets where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
+`linuxNodeSelector` | Tells the Linux daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
+`windowsNodeSelector` | Tells the Windows daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
 `tolerations` | list of node taints to tolerate | `[ {"operator": "Exists"} ]`
 `rbac.create` | if `true`, create and use RBAC resources | `true`
 `rbac.pspEnabled` | If `true`, create and use a restricted pod security policy | `false`
@@ -86,9 +94,10 @@ Parameter | Description | Default
 `serviceAccount.annotations` | Specifies the annotations for ServiceAccount       | `{}`
 `procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
 `securityContext.runAsUserID` | User ID to run the container | `1000`
-`securityContext.runAsGroupID` | Group ID to run the container | `1000`
-`nodeSelectorTermsOs` | Operating System Node Selector Key | `beta.kubernetes.io/os`
-`nodeSelectorTermsArch` | CPU Architecture Node Selector Key | `beta.kubernetes.io/arch`
+`securityContext.runAsGroupID` | Group ID to run the container | `1000` 
+`nodeSelectorTermsOs` | Operating System Node Selector Key | >=1.14: `kubernetes.io/os`, <1.14: `beta.kubernetes.io/os`
+`nodeSelectorTermsArch` | CPU Architecture Node Selector Key | >=1.14: `kubernetes.io/arch`, <1.14: `beta.kubernetes.io/arch`
+`targetNodeOs | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
 `prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
 

@@ -25,6 +25,14 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 
 {{/*
+Equivalent to "aws-node-termination-handler.fullname" except that "-win" indicator is appended to the end.
+Name will not exceed 63 characters.
+*/}}
+{{- define "aws-node-termination-handler.fullname.windows" -}}
+{{- include "aws-node-termination-handler.fullname" . | trunc 59 | trimSuffix "-" | printf "%s-win" -}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "aws-node-termination-handler.labels" -}}
@@ -54,4 +62,42 @@ Create the name of the service account to use
 {{- else -}}
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Get the default node selector term prefix.
+
+In 1.14 "beta.kubernetes.io" was deprecated and is scheduled for removal in 1.18.
+See https://v1-14.docs.kubernetes.io/docs/setup/release/notes/#deprecations
+*/}}
+{{- define "aws-node-termination-handler.defaultNodeSelectorTermsPrefix" -}}
+    {{- semverCompare "<1.14" .Capabilities.KubeVersion.Version | ternary "beta.kubernetes.io" "kubernetes.io" -}}
+{{- end -}}
+
+{{/*
+Get the default node selector OS term.
+*/}}
+{{- define "aws-node-termination-handler.defaultNodeSelectorTermsOs" -}}
+    {{- list (include "aws-node-termination-handler.defaultNodeSelectorTermsPrefix" .) "os" | join "/" -}}
+{{- end -}}
+
+{{/*
+Get the default node selector Arch term.
+*/}}
+{{- define "aws-node-termination-handler.defaultNodeSelectorTermsArch" -}}
+    {{- list (include "aws-node-termination-handler.defaultNodeSelectorTermsPrefix" .) "arch" | join "/" -}}
+{{- end -}}
+
+{{/*
+Get the node selector OS term.
+*/}}
+{{- define "aws-node-termination-handler.nodeSelectorTermsOs" -}}
+    {{- or .Values.nodeSelectorTermsOs (include "aws-node-termination-handler.defaultNodeSelectorTermsOs" .) -}}
+{{- end -}}
+
+{{/*
+Get the node selector Arch term.
+*/}}
+{{- define "aws-node-termination-handler.nodeSelectorTermsArch" -}}
+    {{- or .Values.nodeSelectorTermsArch (include "aws-node-termination-handler.defaultNodeSelectorTermsArch" .) -}}
 {{- end -}}

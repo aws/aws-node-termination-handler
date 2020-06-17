@@ -1,4 +1,5 @@
 {{- if .Values.ec2MetadataTestProxy.create -}}
+{{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -15,11 +16,15 @@ spec:
         app: {{ .Values.ec2MetadataTestProxy.label }}
     spec:
       serviceAccountName: {{ template "ec2-metadata-test-proxy.serviceAccountName" . }}
+      nodeSelector:
+        kubernetes.io/os: {{ $isWindows | ternary "windows" "linux" }}
+      {{- if (not $isWindows) }}
       hostNetwork: true
+      {{- end }}
       containers:
       - name: {{ .Values.ec2MetadataTestProxy.label }}
         image: {{ .Values.ec2MetadataTestProxy.image.repository }}:{{ .Values.ec2MetadataTestProxy.image.tag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.ec2MetadataTestProxy.image.pullPolicy }}
         ports:
         - containerPort: {{ .Values.ec2MetadataTestProxy.port }}
           hostPort: {{ .Values.ec2MetadataTestProxy.port }}
