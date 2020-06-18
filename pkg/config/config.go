@@ -60,7 +60,7 @@ const (
 	enablePrometheusDefault   = false
 	enablePrometheusConfigKey = "ENABLE_PROMETHEUS_SERVER"
 	// https://github.com/prometheus/prometheus/wiki/Default-port-allocations
-	prometheusPortDefault   = "9092"
+	prometheusPortDefault   = 9092
 	prometheusPortConfigKey = "PROMETHEUS_SERVER_PORT"
 )
 
@@ -86,7 +86,7 @@ type Config struct {
 	TaintNode                      bool
 	JsonLogging                    bool
 	EnablePrometheus               bool
-	PrometheusPort                 string
+	PrometheusPort                 int
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -121,7 +121,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.BoolVar(&config.EnablePrometheus, "enable-prometheus-server", getBoolEnv(enablePrometheusConfigKey, enablePrometheusDefault), "If true, a http server is used for exposing prometheus metrics in /metrics endpoint.")
-	flag.StringVar(&config.PrometheusPort, "prometheus-server-port", getEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
+	flag.IntVar(&config.PrometheusPort, "prometheus-server-port", getIntEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
 
 	flag.Parse()
 
@@ -160,7 +160,7 @@ func ParseCliArgs() (config Config, err error) {
 			"\tjson-logging: %t,\n"+
 			"\twebhook-proxy: %s,\n"+
 			"\tenable-prometheus-server: %t,\n"+
-			"\tprometheus-server-port: %s,\n",
+			"\tprometheus-server-port: %d,\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,

@@ -187,7 +187,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, 101, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
 	h.Equals(t, true, nthConfig.EnablePrometheus)
-	h.Equals(t, "2112", nthConfig.PrometheusPort)
+	h.Equals(t, 2112, nthConfig.PrometheusPort)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")

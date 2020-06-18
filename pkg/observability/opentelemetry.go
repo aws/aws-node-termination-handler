@@ -15,6 +15,7 @@ package observability
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -43,7 +44,7 @@ type Metrics struct {
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
-func InitMetrics(enabled bool, port string) (Metrics, error) {
+func InitMetrics(enabled bool, port int) (Metrics, error) {
 	if !enabled {
 		return Metrics{}, nil
 	}
@@ -66,9 +67,9 @@ func InitMetrics(enabled bool, port string) (Metrics, error) {
 
 	// Starts HTTP server exposing the prometheus `/metrics` path
 	go func() {
-		log.Info().Msgf("Starting to serve handler /metrics, port %s", port)
+		log.Info().Msgf("Starting to serve handler /metrics, port %d", port)
 		http.HandleFunc("/metrics", exporter.ServeHTTP)
-		err := http.ListenAndServe(":"+port, nil)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 		if err != nil {
 			log.Err(err).Msg("Failed to listen and serve http server")
 		}
