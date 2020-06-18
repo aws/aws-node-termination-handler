@@ -88,4 +88,9 @@ Parameter | Description | Default
 `nodeSelectorTermsOs` | Operating System Node Selector Key | `beta.kubernetes.io/os`
 `nodeSelectorTermsArch` | CPU Architecture Node Selector Key | `beta.kubernetes.io/arch`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
-`prometheusPortServer` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
+`prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
+
+## Metrics endpoint consideration
+If prometheus server is enabled and since NTH is a daemonset with `host_networking=true`, nothing else will be able to bind to `:9092` (or the port configured) in the root network namespace
+since it's listening on all interfaces.
+Therefore, it will need to have a firewall/security group configured on the nodes to block access to the `/metrics` endpoint.
