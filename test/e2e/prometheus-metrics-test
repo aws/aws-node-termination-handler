@@ -56,6 +56,7 @@ if [[ $DEPLOYED -eq 0 ]]; then
 fi
 
 
+EXIT_STATUS=1
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
       if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
           echo "✅ Verified the worker node was cordoned!"
@@ -64,17 +65,71 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
             echo "✅ Verified the worked node was tainted!"
           else
             echo "❌ Failed tainting node for spot termination event"
-            exit 3
+            EXIT_STATUS=3
+            break
           fi
 
           if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
               echo "✅ Verified the regular-pod-test pod was evicted!"
               echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"
-              exit 0
+              EXIT_STATUS=0
+              break
           fi
       fi
     sleep $TAINT_CHECK_SLEEP
 done
 
 
-exit 1
+if [[ $EXIT_STATUS -eq 3 ]];then
+    exit 3
+fi
+
+
+POD_NAME=$(kubectl -n kube-system get pods -l k8s-app=aws-node-termination-handler -o jsonpath='{.items[0].metadata.name}')
+echo "✅ Fetched the pod $POD_NAME "
+
+kubectl -n kube-system port-forward $POD_NAME 7000:9092 &
+echo "✅ Port-forwarded pod $POD_NAME"
+
+sleep 1
+
+METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
+echo "✅ Fetched /metrics."
+
+if [[ $METRICS_RESPONSE == *"cordon-and-drain"* ]]; then
+    echo "✅ Metric cordon-and-drain!"
+else
+    echo "❌ Failed checking metric for cordon-and-drain"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"pre-dain"* ]]; then
+    echo "✅ Metric pre-drain!"
+else
+    echo "❌ Failed checking metric for pre-dain"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"runtime_go_gc"* ]]; then
+    echo "✅ Metric runtime_go_gc!"
+else
+    echo "❌ Failed checking runtime_go_gc metric"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"runtime_go_goroutines"* ]]; then
+    echo "✅ Metric runtime_go_goroutines!"
+else
+    echo "❌ Failed checking runtime_go_goroutines metric"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"runtime_go_mem"* ]]; then
+    echo "✅ Metric runtime_go_mem!"
+else
+    echo "❌ Failed checking runtime_go_mem metric"
+    EXIT_STATUS=3
+fi
+
+
+exit $EXIT_STATUS
