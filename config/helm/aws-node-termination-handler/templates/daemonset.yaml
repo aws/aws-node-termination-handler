@@ -49,7 +49,7 @@ spec:
                       - arm64
       serviceAccountName: {{ template "aws-node-termination-handler.serviceAccountName" . }}
       hostNetwork: true
-      dnsPolicy: {{ .Values.dnsPolicy }}    
+      dnsPolicy: {{ .Values.dnsPolicy }}
       containers:
         - name: {{ include "aws-node-termination-handler.name" . }}
           image: {{ .Values.image.repository}}:{{ .Values.image.tag }}
@@ -115,6 +115,10 @@ spec:
             value: {{ .Values.jsonLogging | quote }}
           - name: WEBHOOK_PROXY
             value: {{ .Values.webhookProxy | quote }}
+          - name: ENABLE_PROMETHEUS_SERVER
+            value: {{ .Values.enablePrometheusServer | quote }}
+          - name: PROMETHEUS_SERVER_PORT
+            value: {{ .Values.prometheusServerPort | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

@@ -55,6 +55,13 @@ const (
 	taintNode                               = "TAINT_NODE"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
+
+	// prometheus
+	enablePrometheusDefault   = false
+	enablePrometheusConfigKey = "ENABLE_PROMETHEUS_SERVER"
+	// https://github.com/prometheus/prometheus/wiki/Default-port-allocations
+	prometheusPortDefault   = 9092
+	prometheusPortConfigKey = "PROMETHEUS_SERVER_PORT"
 )
 
 //Config arguments set via CLI, environment variables, or defaults
@@ -78,6 +85,8 @@ type Config struct {
 	CordonOnly                     bool
 	TaintNode                      bool
 	JsonLogging                    bool
+	EnablePrometheus               bool
+	PrometheusPort                 int
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -111,6 +120,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
+	flag.BoolVar(&config.EnablePrometheus, "enable-prometheus-server", getBoolEnv(enablePrometheusConfigKey, enablePrometheusDefault), "If true, a http server is used for exposing prometheus metrics in /metrics endpoint.")
+	flag.IntVar(&config.PrometheusPort, "prometheus-server-port", getIntEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
 
 	flag.Parse()
 
@@ -147,7 +158,9 @@ func ParseCliArgs() (config Config, err error) {
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
 			"\tjson-logging: %t,\n"+
-			"\twebhook-proxy: %s,\n",
+			"\twebhook-proxy: %s,\n"+
+			"\tenable-prometheus-server: %t,\n"+
+			"\tprometheus-server-port: %d,\n",
 		config.DryRun,
 		config.NodeName,
 		config.MetadataURL,
@@ -164,6 +177,8 @@ func ParseCliArgs() (config Config, err error) {
 		config.TaintNode,
 		config.JsonLogging,
 		config.WebhookProxy,
+		config.EnablePrometheus,
+		config.PrometheusPort,
 	)
 
 	return config, err

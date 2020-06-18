@@ -1,0 +1,135 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $EC2_METADATA_DOCKER_REPO
+#   $EC2_METADATA_DOCKER_TAG
+
+echo "Starting Spot Interruption Test for Node Termination Handler with Prometheus server enabled"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+
+helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
+  --wait \
+  --force \
+  --namespace kube-system \
+  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
+  --set enableScheduledEventDraining="false" \
+  --set enableSpotInterruptionDraining="true" \
+  --set taintNode="true" \
+  --set enablePrometheusServer="true"
+
+helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
+  --wait \
+  --force \
+  --namespace default \
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
+  --set ec2MetadataTestProxy.enableSpotITN="true" \
+  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="false" \
+  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+
+for i in `seq 1 10`; do
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    sleep 5
+done
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    exit 2
+fi
+
+
+EXIT_STATUS=1
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+          echo "✅ Verified the worker node was cordoned!"
+
+          if kubectl get nodes $CLUSTER_NAME-worker -o json | grep -q "aws-node-termination-handler/spot-itn"; then
+            echo "✅ Verified the worked node was tainted!"
+          else
+            echo "❌ Failed tainting node for spot termination event"
+            EXIT_STATUS=3
+            break
+          fi
+
+          if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+              echo "✅ Verified the regular-pod-test pod was evicted!"
+              echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"
+              EXIT_STATUS=0
+              break
+          fi
+      fi
+    sleep $TAINT_CHECK_SLEEP
+done
+
+
+if [[ $EXIT_STATUS -eq 3 ]];then
+    exit 3
+fi
+
+
+POD_NAME=$(kubectl -n kube-system get pods -l k8s-app=aws-node-termination-handler -o jsonpath='{.items[0].metadata.name}')
+echo "✅ Fetched the pod $POD_NAME "
+
+kubectl -n kube-system port-forward $POD_NAME 7000:9092 &
+echo "✅ Port-forwarded pod $POD_NAME"
+
+sleep 1
+
+METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
+echo "✅ Fetched /metrics."
+
+if [[ $METRICS_RESPONSE == *"cordon-and-drain"* ]]; then
+    echo "✅ Metric cordon-and-drain!"
+else
+    echo "❌ Failed checking metric for cordon-and-drain"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"pre-dain"* ]]; then
+    echo "✅ Metric pre-drain!"
+else
+    echo "❌ Failed checking metric for pre-dain"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"runtime_go_gc"* ]]; then
+    echo "✅ Metric runtime_go_gc!"
+else
+    echo "❌ Failed checking runtime_go_gc metric"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"runtime_go_goroutines"* ]]; then
+    echo "✅ Metric runtime_go_goroutines!"
+else
+    echo "❌ Failed checking runtime_go_goroutines metric"
+    EXIT_STATUS=3
+fi
+
+if [[ $METRICS_RESPONSE == *"runtime_go_mem"* ]]; then
+    echo "✅ Metric runtime_go_mem!"
+else
+    echo "❌ Failed checking runtime_go_mem metric"
+    EXIT_STATUS=3
+fi
+
+
+exit $EXIT_STATUS
