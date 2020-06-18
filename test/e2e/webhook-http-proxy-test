@@ -89,7 +89,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
                 ## queries for the squid pod on the worker node
                 squid_worker_pods=$(echo $pods | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
                 ## return only 1 pod
-                if kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -e 'TCP_MISS/200' -e 'TCP_TUNNEL/200'; then
+                if kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -e 'TCP_MISS/200' -e 'TCP_TUNNEL/200' -e 'TCP_MISS_ABORTED/200'; then
                     echo "✅ Verified the webhook POST used the http proxy"
                     exit 0
                 fi

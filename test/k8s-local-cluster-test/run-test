@@ -73,11 +73,11 @@ function remove_labels {
 }
 
 function get_nth_worker_pod {
-    pods=$(kubectl get pods -n kube-system -o json)
-    ## queries for the nth pod on the worker node
-    nth_worker_pods=$(echo $pods | jq '.items[] | select( .metadata.name | contains("node-termination-handler") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
-    ## return only 1 pod
-    echo $(echo $nth_worker_pods | cut -d' ' -f1)
+    kubectl get pods -n kube-system \
+      --selector 'app.kubernetes.io/name=aws-node-termination-handler' \
+      --field-selector="spec.nodeName=$CLUSTER_NAME-worker,status.phase=Running" \
+      --sort-by=.metadata.creationTimestamp \
+      --output jsonpath='{.items[-1].metadata.name}'
 }
 
 USAGE=$(cat << 'EOM'
@@ -151,9 +151,6 @@ fi
 CLUSTER_NAME=$(cat $TMP_DIR/clustername)
 
 ## Build and Load Docker Images
-
-## Pre-pull golang builder to prevent intermittent timeouts from dockerhub
-timeout 120 docker pull golang:1.14-- || :
 
 if [ -z "$NODE_TERMINATION_HANDLER_DOCKER_IMG" ]; then 
     echo "🥑 Building the node-termination-handler docker image"
