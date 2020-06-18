@@ -85,10 +85,15 @@ if [[ $EXIT_STATUS -eq 3 ]];then
 fi
 
 
-POD_NAME=$(kubectl -n kube-system get pods -l k8s-app=aws-node-termination-handler -o jsonpath='{.items[0].metadata.name}')
+POD_NAME=$(get_nth_worker_pod)
 echo "✅ Fetched the pod $POD_NAME "
 
 kubectl -n kube-system port-forward $POD_NAME 7000:9092 &
+PORT_FORWARD_PID=$!
+function kill_port_forward() {
+    kill $1
+}
+trap "kill_port_forward ${PORT_FORWARD_PID}" EXIT SIGINT SIGTERM ERR
 echo "✅ Port-forwarded pod $POD_NAME"
 
 sleep 1
