@@ -90,10 +90,7 @@ echo "✅ Fetched the pod $POD_NAME "
 
 kubectl -n kube-system port-forward $POD_NAME 7000:9092 &
 PORT_FORWARD_PID=$!
-function kill_port_forward() {
-    kill $1
-}
-trap "kill_port_forward ${PORT_FORWARD_PID}" EXIT SIGINT SIGTERM ERR
+trap "kill ${PORT_FORWARD_PID}" EXIT SIGINT SIGTERM ERR
 echo "✅ Port-forwarded pod $POD_NAME"
 
 sleep 1

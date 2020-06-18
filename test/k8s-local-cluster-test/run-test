@@ -73,11 +73,11 @@ function remove_labels {
 }
 
 function get_nth_worker_pod {
-    echo $(kubectl get pods -n kube-system \
+    kubectl get pods -n kube-system \
       --selector 'app.kubernetes.io/name=aws-node-termination-handler' \
       --field-selector="spec.nodeName=$CLUSTER_NAME-worker,status.phase=Running" \
       --sort-by=.metadata.creationTimestamp \
-      --output jsonpath='{.items[-1].metadata.name}')
+      --output jsonpath='{.items[-1].metadata.name}'
 }
 
 USAGE=$(cat << 'EOM'
