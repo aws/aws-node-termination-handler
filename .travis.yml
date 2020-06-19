@@ -27,13 +27,6 @@ jobs:
       script: test/go-report-card-test/run-report-card-test.sh
       name: Go Report Card Test
     - stage: Test
-      if: type = push AND env(GITHUB_TOKEN) IS present
-      script: test/license-test/run-license-test.sh
-      name: License Test
-    - stage: Test
-      script: make helm-tests
-      name: Helm Sync and Version Test
-    - stage: Test
       script: make create-build-dir build-binaries
       name: Build Binaries
     - stage: Test
@@ -42,6 +35,14 @@ jobs:
     - stage: Test
       script: make create-build-dir generate-k8s-yaml
       name: Generate K8s yaml files
+    - stage: Test
+      if: type = push AND env(GITHUB_TOKEN) IS present
+      script: test/license-test/run-license-test.sh
+      name: License Test
+    - stage: Test
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
+      script: make helm-tests
+      name: Helm Sync and Version Test
     - stage: Deploy
       if: type = push AND env(DOCKER_USERNAME) IS present
       name: Sync Readme to Dockerhub
