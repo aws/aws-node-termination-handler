@@ -1,40 +1,43 @@
-The Amazon aws-node-termination-handler Product includes the following third-party software/licensing:
-
-================================================================================
-
+** github.com/DataDog/sketches-go ; version v0.0.0-20190923095040 --
+https://www.datadoghq.com/
 ** github.com/google/gofuzz; version v1.0.0 -- https://github.com/google/gofuzz
-Copyright 2014 Google Inc. All rights reserved.
 ** github.com/googleapis/gnostic; version v0.0.0-20170729233727-0c5108395e2d --
 https://github.com/googleapis/gnostic
-Copyright 2017 Google Inc. All Rights Reserved.
+** github.com/matttproud/golang_protobuf_extensions; version v1.0.1 --
+https://github.com/matttproud/golang_protobuf_extensions
 ** github.com/modern-go/concurrent; version v0.0.0-20180306012644-bacd9c7ef1dd
 -- https://github.com/modern-go/concurrent
-
 ** github.com/modern-go/reflect2; version v1.0.1 --
 https://github.com/modern-go/reflect2
-
+** github.com/prometheus/client_golang; version v1.5.0 --
+https://github.com/prometheus/client_golang
+** github.com/prometheus/client_model; version v0.2.0 --
+https://github.com/prometheus/client_model
+** github.com/prometheus/common ; version v0.9.1 --
+https://github.com/prometheus/common
+** github.com/prometheus/procfs; version v0.0.10 --
+https://github.com/prometheus/procfs
+** go.opentelemetry.io/contrib/instrumentation/runtime; version v0.6.1 --
+https://github.com/open-telemetry/opentelemetry-go-contrib
+** go.opentelemetry.io/otel; version v0.6.0 --
+https://github.com/open-telemetry/opentelemetry-go
+** go.opentelemetry.io/otel/exporters/metric/prometheus; version v0.6.0 --
+https://github.com/open-telemetry/opentelemetry-go
+** google.golang.org/grpc; version v1.27.1 -- https://github.com/grpc/grpc-go
 ** gopkg.in/yaml.v2; version v2.2.4 -- https://gopkg.in/yaml.v2
-Copyright 2011-2016 Canonical Ltd.
 ** k8s.io/api; version v0.0.0-20191010143144-fbf594f18f80 --
 https://github.com/kubernetes/api
-Copyright 2017 The Kubernetes Authors.
 ** k8s.io/apimachinery; version v0.0.0-20191016060620-86f2f1b9c076 --
 https://github.com/kubernetes/kubernetes/tree/master/staging/src/k8s.io/apimachinery
-Copyright 2017 The Kubernetes Authors
 ** k8s.io/client-go; version v0.0.0-20191014070654-bd505ee787b2 --
 https://github.com/kubernetes/client-go
-Copyright 2017 The Kubernetes Authors
 ** k8s.io/klog; version v1.0.0 -- https://github.com/kubernetes/klog
-Copyright 2017 The Kubernetes Authors
 ** k8s.io/kube-openapi; version v0.0.0-20190816220812-743ec37842bf --
 https://github.com/kubernetes/kube-openapi
-Copyright 2017 The Kubernetes Authors
 ** k8s.io/kubectl; version v0.0.0-20191016234702-5d0b8f240400 --
 https://github.com/kubernetes/kubectl
-Copyright 2017 The Kubernetes Authors
 ** k8s.io/utils; version v0.0.0-20191010214722-8d271d903fe4 --
 https://github.com/kubernetes/utils
-Copyright 2017 The Kubernetes Authors
 
 Apache License
 
@@ -234,14 +237,51 @@ See the License for the specific language governing permissions and
 
 limitations under the License.
 
+* For github.com/DataDog/sketches-go  see also this required NOTICE:
+    Datadog sketches-go
+    Copyright 2018 Datadog, Inc.
+
+    This product includes software developed at Datadog
+    (https://www.datadoghq.com/).
 * For github.com/google/gofuzz see also this required NOTICE:
     Copyright 2014 Google Inc. All rights reserved.
 * For github.com/googleapis/gnostic see also this required NOTICE:
     Copyright 2017 Google Inc. All Rights Reserved.
+* For github.com/matttproud/golang_protobuf_extensions see also this required
+NOTICE:
+    Copyright 2013 Matt T. Proud
 * For github.com/modern-go/concurrent see also this required NOTICE:
-
+    copyright
 * For github.com/modern-go/reflect2 see also this required NOTICE:
+    copyright
+* For github.com/prometheus/client_golang see also this required NOTICE:
+    Copyright 2015 The Prometheus Authors
+* For github.com/prometheus/client_model see also this required NOTICE:
+    Data model artifacts for Prometheus.
+    Copyright 2012-2015 The Prometheus Authors
 
+    This product includes software developed at
+    SoundCloud Ltd. (http://soundcloud.com/).
+* For github.com/prometheus/common  see also this required NOTICE:
+    Copyright 2013 The Prometheus Authors
+* For github.com/prometheus/procfs see also this required NOTICE:
+    procfs provides functions to retrieve system, kernel and process
+    metrics from the pseudo-filesystem proc.
+
+    Copyright 2014-2015 The Prometheus Authors
+
+    This product includes software developed at
+    SoundCloud Ltd. (http://soundcloud.com/).
+* For go.opentelemetry.io/contrib/instrumentation/runtime see also this
+required NOTICE:
+    Copyright The OpenTelemetry Authors
+* For go.opentelemetry.io/otel see also this required NOTICE:
+    Copyright The OpenTelemetry Authors
+* For go.opentelemetry.io/otel/exporters/metric/prometheus see also this
+required NOTICE:
+    Copyright The OpenTelemetry Authors
+* For google.golang.org/grpc see also this required NOTICE:
+    Copyright 2017 gRPC authors.
 * For gopkg.in/yaml.v2 see also this required NOTICE:
     Copyright 2011-2016 Canonical Ltd.
 * For k8s.io/api see also this required NOTICE:
@@ -336,9 +376,69 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ------
 
+** github.com/rs/zerolog; version v1.18.0 -- https://github.com/rs/zerolog
+Copyright (c) 2017 Olivier Poitrey
+
+MIT License
+
+Copyright (c) 2017 Olivier Poitrey
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------
+
+** github.com/cespare/xxhash; version v2.1.1 --
+https://github.com/cespare/xxhash
+Copyright (c) 2016 Caleb Spare
+
+Copyright (c) 2016 Caleb Spare
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+------
+
+** github.com/beorn7/perks; version v1.0.1 -- https://github.com/beorn7/perks
+Copyright (C) 2013 Blake Mizerany
 ** github.com/json-iterator/go; version v1.1.7 --
 https://github.com/json-iterator/go
 Copyright (c) 2016 json-iterator
+** siruspen-logrus; version v1.4.2 -- https://github.com/sirupsen/logrus
+Copyright (c) 2014 Simon Eskildsen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -414,54 +514,3 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------
-
-** github.com/rs/zerolog; version v1.18.0 --
-
-MIT License
-
-Copyright (c) 2017 Olivier Poitrey
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------
-
-** github.com/zenazn/goji; version v0.9.0
-
-Copyright (c) 2014, 2015, 2016 Carl Jackson (carl@avtok.com)
-
-MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
