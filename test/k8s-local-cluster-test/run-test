@@ -15,7 +15,7 @@ DEFAULT_EC2_METADATA_DOCKER_IMG="ec2-metadata-test-proxy:customtest"
 EC2_METADATA_DOCKER_IMG=""
 OVERRIDE_PATH=0
 K8S_VERSION="1.16"
-ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f)
+ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f | sort)
 
 function timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
 
