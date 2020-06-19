@@ -87,3 +87,6 @@ helm-tests: helm-sync-test helm-version-sync-test
 release: create-build-dir build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
 
 test: unit-test e2e-test compatibility-test license-test go-report-card-test helm-sync-test
+
+help:
+	@grep -E '^[a-zA-Z_-]+:.*$$' $(MAKEFILE_LIST) | sort
