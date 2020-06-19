@@ -35,7 +35,7 @@ docker-push:
 	docker push ${IMG_W_TAG}
 
 build-docker-images:
-	${MAKEFILE_PATH}/scripts/build-docker-images -d -p ${SUPPORTED_PLATFORMS} -r ${IMG} -v ${VERSION}
+	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS} -r ${IMG} -v ${VERSION}
 
 push-docker-images:
 	@echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
@@ -51,7 +51,7 @@ e2e-test:
 	${MAKEFILE_PATH}/test/k8s-local-cluster-test/run-test -b e2e-test -d
 
 compatibility-test:
-	${MAKEFILE_PATH}/test/k8s-compatibility-test/run-k8s-compatibility-test.sh -p "-d"
+	${MAKEFILE_PATH}/test/k8s-compatibility-test/run-k8s-compatibility-test.sh -p -d
 
 license-test:
 	${MAKEFILE_PATH}/test/license-test/run-license-test.sh
@@ -66,7 +66,7 @@ helm-version-sync-test:
 	${MAKEFILE_PATH}/test/helm-sync-test/run-helm-version-sync-test
 
 build-binaries:
-	${MAKEFILE_PATH}/scripts/build-binaries -d -p ${SUPPORTED_PLATFORMS} -v ${VERSION}
+	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS} -v ${VERSION}
 
 upload-resources-to-github:
 	${MAKEFILE_PATH}/scripts/upload-resources-to-github
