@@ -45,6 +45,7 @@ jobs:
       name: Helm Sync and Version Test
     - stage: Deploy
       if: type = push AND env(DOCKER_USERNAME) IS present
+      script: sync-readme-to-dockerhub
       name: Sync Readme to Dockerhub
     - stage: Deploy
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
