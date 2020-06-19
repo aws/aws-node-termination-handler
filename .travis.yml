@@ -5,16 +5,15 @@ services:
 - docker
 
 env:
-- KUBE_VERSION=1.18
-- KUBE_VERSION=1.17
-- KUBE_VERSION=1.16
-- KUBE_VERSION=1.15
-- KUBE_VERSION=1.14
-- KUBE_VERSION=1.13
-- KUBE_VERSION=1.12
+- E2E_TEST=true KUBE_VERSION=1.18
+- E2E_TEST=true KUBE_VERSION=1.17
+- E2E_TEST=true KUBE_VERSION=1.16
+- E2E_TEST=true KUBE_VERSION=1.15
+- E2E_TEST=true KUBE_VERSION=1.14
+- E2E_TEST=true KUBE_VERSION=1.13
+- E2E_TEST=true KUBE_VERSION=1.12
 
 script: test/k8s-local-cluster-test/run-test -v $KUBE_VERSION
-name: End-To-End Tests K8s $KUBE_VERSION
 
 jobs:
   include:
