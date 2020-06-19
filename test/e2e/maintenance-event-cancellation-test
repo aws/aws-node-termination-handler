@@ -16,7 +16,6 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
   --wait \
-  --force \
   --namespace kube-system \
   --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
@@ -27,7 +26,6 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
-  --force \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
@@ -88,7 +86,6 @@ fi
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
-  --force \
   --namespace default \
   --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
   --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
