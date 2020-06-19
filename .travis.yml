@@ -14,29 +14,40 @@ env:
 - KUBE_VERSION=1.12
 
 script: test/k8s-local-cluster-test/run-test -v $KUBE_VERSION
+name: End-To-End Tests K8s $KUBE_VERSION
 
-matrix:
+jobs:
   include:
     - stage: Test
       language: go
       go: "1.14.x"
       script: make unit-test
-      env: GO111MODULE=on
+      name: Unit Tests
       after_success: bash <(curl -s https://codecov.io/bash) -v
     - stage: Test
       script: test/go-report-card-test/run-report-card-test.sh
-      env: GO_REPORT_CARD=true
+      name: Go Report Card Test
     - stage: Test
       if: type = push AND env(GITHUB_TOKEN) IS present
       script: test/license-test/run-license-test.sh
-      env: LICENSE_TEST=true
+      name: License Test
     - stage: Test
       script: make helm-tests
-      env: HELM_SYNC_TEST=true
+      name: Helm Sync and Version Test
+    - stage: Test
+      script: make create-build-dir build-binaries
+      name: Build Binaries
+    - stage: Test
+      script: make create-build-dir build-docker-images
+      name: Build Docker Images
+    - stage: Test
+      script: make create-build-dir generate-k8s-yaml
+      name: Generate K8s yaml files
     - stage: Deploy
       if: type = push AND env(DOCKER_USERNAME) IS present
-      script: make sync-readme-to-dockerhub
+      name: Sync Readme to Dockerhub
     - stage: Deploy
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make release
+      name: Release Artifacts
 
