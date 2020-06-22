@@ -18,6 +18,7 @@ fullnameOverride: ""
 priorityClassName: system-node-critical
 
 podAnnotations: {}
+podLabels: {}
 
 resources:
   requests:

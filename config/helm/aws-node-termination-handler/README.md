@@ -73,6 +73,7 @@ Parameter | Description | Default
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
 `affinity` | node/pod affinities | None
 `podAnnotations` | annotations to add to each pod | `{}`
+`podLabels` | labels to add to each pod | `{}`
 `priorityClassName` | Name of the priorityClass | `system-node-critical`
 `resources` | Resources for the pods | `requests.cpu: 50m, requests.memory: 64Mi, limits.cpu: 100m, limits.memory: 128Mi`
 `dnsPolicy` | DaemonSet DNS policy | `ClusterFirstWithHostNet`

@@ -24,6 +24,9 @@ spec:
         app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         k8s-app: aws-node-termination-handler
+      {{- range $key, $value := .Values.podLabels }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
     spec:
       volumes:
         - name: "uptime"
