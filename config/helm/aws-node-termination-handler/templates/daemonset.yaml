@@ -93,6 +93,7 @@ spec:
             value: {{ .Values.instanceMetadataURL | quote }}
           - name: NODE_TERMINATION_GRACE_PERIOD
             value: {{ .Values.nodeTerminationGracePeriod | quote }}
+          - name: WEBHOOK_URL
           {{- if .Values.webhookURLSecretName }}
             valueFrom:
               secretKeyRef:
