@@ -94,7 +94,14 @@ spec:
           - name: NODE_TERMINATION_GRACE_PERIOD
             value: {{ .Values.nodeTerminationGracePeriod | quote }}
           - name: WEBHOOK_URL
+          {{- if .Values.webhookURLSecretName }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.webhookURLSecretName }}
+                key: webhookurl
+          {{- else }}
             value: {{ .Values.webhookURL | quote }}
+          {{- end }}
           - name: WEBHOOK_HEADERS
             value: {{ .Values.webhookHeaders | quote }}
           - name: WEBHOOK_TEMPLATE

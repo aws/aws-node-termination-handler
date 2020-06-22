@@ -103,6 +103,19 @@ helm upgrade --install aws-node-termination-handler \
   eks/aws-node-termination-handler
 ```
 
+Alternatively, pass Webhook URL as a Secret:
+```
+WEBHOOKURL_LITERAL="webhookurl=https://hooks.slack.com/services/YOUR/SLACK/URL"
+
+kubectl create secret -n kube-system generic webhooksecret --from-literal=$WEBHOOKURL_LITERAL
+```
+```
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  --set webhookURLSecretName=webhooksecret \
+  eks/aws-node-termination-handler
+```
+
 For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
 
 ## Building
