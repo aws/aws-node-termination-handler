@@ -1,5 +1,6 @@
 {{- if .Values.ec2MetadataTestProxy.create -}}
 {{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
+{{- $osSelector := (semverCompare "<1.14" .Capabilities.KubeVersion.Version | ternary "beta.kubernetes.io/os" "kubernetes.io/os") -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -17,7 +18,7 @@ spec:
     spec:
       serviceAccountName: {{ template "ec2-metadata-test-proxy.serviceAccountName" . }}
       nodeSelector:
-        kubernetes.io/os: {{ $isWindows | ternary "windows" "linux" }}
+        {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
       {{- if (not $isWindows) }}
       hostNetwork: true
       {{- end }}

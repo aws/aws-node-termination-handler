@@ -1,5 +1,6 @@
 {{- if .Values.regularPodTest.create -}}
 {{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
+{{- $osSelector := (semverCompare "<1.14" .Capabilities.KubeVersion.Version | ternary "beta.kubernetes.io/os" "kubernetes.io/os") -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,7 +17,7 @@ spec:
         app: {{ .Values.regularPodTest.label }}
     spec:
       nodeSelector:
-        kubernetes.io/os: {{ $isWindows | ternary "windows" "linux" }}
+        {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
       {{- if (not $isWindows) }}
       securityContext:
         runAsUser: 1000
