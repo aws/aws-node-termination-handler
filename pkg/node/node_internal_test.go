@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/uptime"
+	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -37,6 +37,12 @@ func resetFlagsForTest() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	os.Args = []string{"cmd"}
 	os.Setenv("NODE_NAME", nodeName)
+}
+
+func getUptimeFromFile(filepath string) uptime.UptimeFuncType {
+	return func() (int64, error) {
+		return uptime.UptimeFromFile(filepath)
+	}
 }
 
 func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
@@ -60,8 +66,8 @@ func getNthConfig(t *testing.T) config.Config {
 	return nthConfig
 }
 
-func getNode(t *testing.T, drainHelper *drain.Helper) *Node {
-	tNode, err := NewWithValues(getNthConfig(t), drainHelper)
+func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncType) *Node {
+	tNode, err := NewWithValues(getNthConfig(t), drainHelper, uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -81,9 +87,9 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile("does-not-exist"))
 	err := tNode.UncordonIfRebooted()
-	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to read file")
+	h.Assert(t, err != nil, "Failed to return error on UncordonIfRebooted failure to read file")
 }
 
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
@@ -101,7 +107,7 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted()
 	os.Remove(testFile)
 	h.Ok(t, err)
@@ -122,7 +128,7 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted()
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure remove NTH Label")
@@ -144,7 +150,7 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted()
 	os.Remove(testFile)
 	h.Ok(t, err)

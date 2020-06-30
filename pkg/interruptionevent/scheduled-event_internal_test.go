@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
+	"github.com/aws/aws-node-termination-handler/pkg/uptime"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +59,7 @@ func getNthConfig(t *testing.T) config.Config {
 }
 
 func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
-	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper)
+	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper, uptime.Uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -78,7 +79,7 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 	h.Ok(t, err)
 
-	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client))
+	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client), uptime.Uptime)
 	h.Ok(t, err)
 
 	err = uncordonAfterRebootPreDrain(drainEvent, *tNode)

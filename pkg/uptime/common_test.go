@@ -3,6 +3,7 @@ package uptime
 import (
 	"io/ioutil"
 	"os"
+	"testing"
 
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
@@ -16,7 +17,7 @@ func TestUptimeFromFileSuccess(t *testing.T) {
 	value, err := UptimeFromFile(testFile)
 	os.Remove(testFile)
 	h.Ok(t, err)
-	h.Equals(t, 350735, value)
+	h.Equals(t, int64(350735), value)
 }
 
 func TestUptimeFromFileFailure(t *testing.T) {

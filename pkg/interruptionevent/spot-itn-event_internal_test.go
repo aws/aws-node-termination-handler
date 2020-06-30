@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
+	"github.com/aws/aws-node-termination-handler/pkg/uptime"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +56,7 @@ func TestSetInterruptionTaint(t *testing.T) {
 	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: spotNodeName}})
 	h.Ok(t, err)
 
-	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client))
+	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client), uptime.Uptime)
 	h.Ok(t, err)
 
 	err = setInterruptionTaint(drainEvent, *tNode)
@@ -86,7 +87,7 @@ func TestInterruptionTaintAlreadyPresent(t *testing.T) {
 	_, err := client.CoreV1().Nodes().Create(newNode)
 	h.Ok(t, err)
 
-	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client))
+	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client), uptime.Uptime)
 	h.Ok(t, err)
 
 	err = setInterruptionTaint(drainEvent, *tNode)

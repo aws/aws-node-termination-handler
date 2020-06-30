@@ -71,19 +71,15 @@ func New(nthConfig config.Config) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Node{
-		nthConfig:   nthConfig,
-		drainHelper: drainHelper,
-		uptime: getUptimeFunc(nthConfig.UptimeFromFile),
-	}, nil
+	return NewWithValues(nthConfig, drainHelper, getUptimeFunc(nthConfig.UptimeFromFile))
 }
 
-// NewWithValues will construct a node struct with a drain helper
+// NewWithValues will construct a node struct with a drain helper and an uptime function
 func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper, uptime uptime.UptimeFuncType) (*Node, error) {
 	return &Node{
 		nthConfig:   nthConfig,
 		drainHelper: drainHelper,
-		uptime: uptime,
+		uptime:      uptime,
 	}, nil
 }
 
