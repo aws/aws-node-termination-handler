@@ -28,4 +28,3 @@ func TestUptimeFromFileFailure(t *testing.T) {
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to throw error for int64 parse")
 }
-

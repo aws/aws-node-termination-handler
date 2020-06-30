@@ -20,9 +20,11 @@ import (
 	"strings"
 )
 
+// UptimeFuncType cleans up function arguments or return type.
 type UptimeFuncType func() (int64, error)
 
-// Returns number of seconds since last reboot as read from filepath.
+// UptimeFromFile reads system uptime information from filepath and returns
+// the number of seconds since last system boot.
 func UptimeFromFile(filepath string) (int64, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
@@ -35,4 +37,3 @@ func UptimeFromFile(filepath string) (int64, error) {
 	}
 	return int64(uptime), nil
 }
-

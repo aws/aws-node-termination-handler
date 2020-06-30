@@ -58,11 +58,11 @@ const (
 	uptimeFromFileConfigKey                 = "UPTIME_FROM_FILE"
 	uptimeFromFileDefault                   = ""
 	// prometheus
-	enablePrometheusDefault                 = false
-	enablePrometheusConfigKey               = "ENABLE_PROMETHEUS_SERVER"
+	enablePrometheusDefault   = false
+	enablePrometheusConfigKey = "ENABLE_PROMETHEUS_SERVER"
 	// https://github.com/prometheus/prometheus/wiki/Default-port-allocations
-	prometheusPortDefault                   = 9092
-	prometheusPortConfigKey                 = "PROMETHEUS_SERVER_PORT"
+	prometheusPortDefault   = 9092
+	prometheusPortConfigKey = "PROMETHEUS_SERVER_PORT"
 )
 
 //Config arguments set via CLI, environment variables, or defaults

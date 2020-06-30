@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/uptime"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
+	"github.com/aws/aws-node-termination-handler/pkg/uptime"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"

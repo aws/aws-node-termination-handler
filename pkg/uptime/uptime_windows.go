@@ -21,10 +21,11 @@ import (
 )
 
 var (
-	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	kernel32     = windows.NewLazySystemDLL("kernel32.dll")
 	getTickCount = kernel32.NewProc("GetTickCount")
 )
 
+// Uptime returns the number of seconds since last system boot.
 func Uptime() (int64, error) {
 	millis, _, err := syscall.Syscall(getTickCount.Addr(), 0, 0, 0, 0)
 	if err != 0 {
@@ -33,4 +34,3 @@ func Uptime() (int64, error) {
 	uptime := (time.Duration(millis) * time.Millisecond).Seconds()
 	return int64(uptime), nil
 }
-

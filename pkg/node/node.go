@@ -83,6 +83,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper, uptime up
 	}, nil
 }
 
+// GetName returns node name from the configuration.
 func (n Node) GetName() string {
 	return n.nthConfig.NodeName
 }
@@ -546,10 +547,9 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 
 func getUptimeFunc(uptimeFile string) uptime.UptimeFuncType {
 	if uptimeFile != "" {
-		return func () (int64, error) {
+		return func() (int64, error) {
 			return uptime.UptimeFromFile(uptimeFile)
 		}
 	}
 	return uptime.Uptime
 }
-

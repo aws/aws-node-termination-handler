@@ -13,7 +13,8 @@
 
 package uptime
 
+// Uptime reads system uptime from /proc/uptime and returns the number
+// of seconds since last system boot.
 func Uptime() (int64, error) {
 	return UptimeFromFile("/proc/uptime")
 }
-
