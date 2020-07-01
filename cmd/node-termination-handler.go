@@ -184,7 +184,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 			if err != nil {
 				log.Log().Msgf("There was a problem executing the pre-drain task: %v", err)
 			}
-			metrics.NodeActionsInc("pre-dain", nodeName, err)
+			metrics.NodeActionsInc("pre-drain", nodeName, err)
 		}
 
 		if nthConfig.CordonOnly {

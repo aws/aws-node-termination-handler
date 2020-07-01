@@ -105,10 +105,10 @@ else
     EXIT_STATUS=3
 fi
 
-if [[ $METRICS_RESPONSE == *"pre-dain"* ]]; then
+if [[ $METRICS_RESPONSE == *"pre-drain"* ]]; then
     echo "✅ Metric pre-drain!"
 else
-    echo "❌ Failed checking metric for pre-dain"
+    echo "❌ Failed checking metric for pre-drain"
     EXIT_STATUS=3
 fi
 
