@@ -155,3 +155,13 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 	os.Remove(testFile)
 	h.Ok(t, err)
 }
+
+func TestGetUptimeFuncDefault(t *testing.T) {
+	uptimeFunc := getUptimeFunc("")
+	h.Assert(t, uptimeFunc != nil, "Failed to return a function.")
+}
+
+func TestGetUptimeFuncWithFile(t *testing.T) {
+	uptimeFunc := getUptimeFunc(testFile)
+	h.Assert(t, uptimeFunc != nil, "Failed to return a function.")
+}
