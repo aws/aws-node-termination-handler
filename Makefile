@@ -80,6 +80,9 @@ sync-readme-to-dockerhub:
 unit-test: create-build-dir
 	go test -bench=. ${MAKEFILE_PATH}/... -v -coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
 
+unit-test-linux:
+	${MAKEFILE_PATH}/scripts/run-unit-tests-in-docker
+
 build: create-build-dir compile
 
 helm-tests: helm-sync-test helm-version-sync-test
