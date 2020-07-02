@@ -11,18 +11,11 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// +build !darwin
-
 package uptime
 
-import (
-	"testing"
+import "errors"
 
-	h "github.com/aws/aws-node-termination-handler/pkg/test"
-)
-
-func TestUptime(t *testing.T) {
-	value, err := Uptime()
-	h.Ok(t, err)
-	h.Assert(t, value > 0, "Invalid system uptime")
+// Uptime returns an error on Darwin hosts.
+func Uptime() (int64, error) {
+	return 0, errors.New("Not implemented on darwin platform")
 }
