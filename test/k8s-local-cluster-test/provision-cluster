@@ -6,7 +6,7 @@ PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
 TEST_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 CLUSTER_NAME_BASE=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 OVERRIDE_PATH=0
-KIND_CONFIG_FILE=$SCRIPTPATH/kind-two-node-cluster.yaml
+KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 
 # shellcheck disable=SC2034
 K8_1_19="kindest/node:v1.19.1@sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600"

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 START=$(date +%s)
+export START_FOR_QUERYING=$(date -u +"%Y-%m-%dT%TZ")
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 CLUSTER_NAME_BASE="nth-test"
 PRESERVE=false
@@ -111,9 +112,10 @@ function remove_labels {
 function get_nth_worker_pod {
     kubectl get pods -n kube-system \
       --selector 'app.kubernetes.io/name=aws-node-termination-handler' \
-      --field-selector="spec.nodeName=$CLUSTER_NAME-worker,status.phase=Running" \
+      --field-selector="status.phase=Running" \
       --sort-by=.metadata.creationTimestamp \
-      --output jsonpath='{.items[-1].metadata.name}'
+      -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
+                                  | awk '$2 >= "'$(echo $START_FOR_QUERYING | sed 's/+0000/Z/')'" { print $1 }' | head -1
 }
 
 USAGE=$(cat << 'EOM'
@@ -213,8 +215,8 @@ WEBHOOK_DOCKER_REPO=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f1)
 WEBHOOK_DOCKER_TAG=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f2)
 
 echo "🥑 Loading both images into the cluster"
-kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $NODE_TERMINATION_HANDLER_DOCKER_IMG
-kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $WEBHOOK_DOCKER_IMG
+kind load docker-image --name $CLUSTER_NAME $NODE_TERMINATION_HANDLER_DOCKER_IMG
+kind load docker-image --name $CLUSTER_NAME $WEBHOOK_DOCKER_IMG
 echo "👍 Loaded both images into the cluster"
 
 export KUBECONFIG="$TMP_DIR/kubeconfig"
@@ -246,12 +248,21 @@ export NODE_TERMINATION_HANDLER_DOCKER_TAG
 export WEBHOOK_DOCKER_IMG
 export WEBHOOK_DOCKER_REPO
 export WEBHOOK_DOCKER_TAG
-export NTH_WORKER_LABEL="kubernetes\.io/hostname=$CLUSTER_NAME-worker"
+export AWS_REGION="us-east-1"
+export WORKER_IP="192.168.0.1"
+export NTH_CONTROL_LABEL="kubernetes\.io/hostname=$CLUSTER_NAME-control-plane"
+export NTH_WORKER_LABEL="kubernetes\.io/hostname=ip-$(echo ${WORKER_IP} | tr '.' '-').ec2.internal"
 ###
+
+## Need to override hostname label for CTH localstack tests
+kubectl label node "${CLUSTER_NAME}-worker" $(echo $NTH_WORKER_LABEL | tr -d '\') --overwrite
+## Mark worker2 only for Critical Add-Ons like dns
+kubectl taint node "${CLUSTER_NAME}-worker2" CriticalAddonsOnly=true:NoSchedule --overwrite
 
 i=0
 for assert_script in $ASSERTION_SCRIPTS; do
   reset_cluster
+  START_FOR_QUERYING=$(date -u +"%Y-%m-%dT%TZ")
   IMDS_PORT=$(expr $i + 1338)
   export IMDS_PORT
   i=$(expr $i + 1)

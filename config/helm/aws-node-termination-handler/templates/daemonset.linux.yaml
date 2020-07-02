@@ -1,4 +1,4 @@
-{{- if (lower .Values.targetNodeOs | contains "linux") -}}
+{{- if and (lower .Values.targetNodeOs | contains "linux") (not .Values.enableSqsTerminationDraining) -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

@@ -63,6 +63,7 @@ func TestMonitor_Success(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	go func() {
 		result := <-drainChan
@@ -116,6 +117,7 @@ func TestMonitor_CanceledEvent(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	go func() {
 		result := <-cancelChan
@@ -240,6 +242,7 @@ func TestMonitor_EndTimeParseFail(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	go func() {
 		result := <-drainChan

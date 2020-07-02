@@ -3,6 +3,8 @@ module github.com/aws/aws-node-termination-handler
 go 1.15
 
 require (
+	github.com/prometheus/client_golang v1.5.0 // indirect
+	github.com/aws/aws-sdk-go v1.33.1
 	github.com/rs/zerolog v1.18.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.6.1
 	go.opentelemetry.io/otel v0.6.0

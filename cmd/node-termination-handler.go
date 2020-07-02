@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,9 +27,13 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,13 +42,14 @@ import (
 const (
 	scheduledMaintenance  = "Scheduled Maintenance"
 	spotITN               = "Spot ITN"
+	sqsEvents             = "SQS Event"
 	timeFormat            = "2006/01/02 15:04:05"
 	duplicateErrThreshold = 3
 )
 
 func main() {
 	// Zerolog uses json formatting by default, so change that to a human-readable format instead
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: timeFormat, NoColor: true, FormatLevel: logFormatLevel})
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: timeFormat, NoColor: true})
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
@@ -56,22 +62,30 @@ func main() {
 
 	if nthConfig.JsonLogging {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
-		printJsonConfigArgs(nthConfig)
-	} else {
-		printHumanConfigArgs(nthConfig)
+	}
+	switch strings.ToLower(nthConfig.LogLevel) {
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	}
 
 	err = webhook.ValidateWebhookConfig(nthConfig)
 	if err != nil {
+		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Webhook validation failed,")
 	}
 	node, err := node.New(nthConfig)
 	if err != nil {
+		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
 	}
 
 	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
 	if err != nil {
+		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
 	}
 
@@ -79,6 +93,14 @@ func main() {
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
 	nodeMetadata := imds.GetNodeMetadata()
+	// Populate the aws region if available from node metadata and not already explicitly configured
+	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
+		nthConfig.AWSRegion = nodeMetadata.Region
+		if nthConfig.AWSSession != nil {
+			nthConfig.AWSSession.Config.Region = &nodeMetadata.Region
+		}
+	}
+	nthConfig.Print()
 
 	if nthConfig.EnableScheduledEventDraining {
 		stopCh := make(chan struct{})
@@ -109,6 +131,17 @@ func main() {
 	if nthConfig.EnableScheduledEventDraining {
 		imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
+	}
+	if nthConfig.EnableSQSTerminationDraining {
+		sqsMonitor := sqsevent.SQSMonitor{
+			QueueURL:         nthConfig.QueueURL,
+			InterruptionChan: interruptionChan,
+			CancelChan:       cancelChan,
+			SQS:              sqs.New(nthConfig.AWSSession),
+			ASG:              autoscaling.New(nthConfig.AWSSession),
+			EC2:              ec2.New(nthConfig.AWSSession),
+		}
+		monitoringFns[sqsEvents] = sqsMonitor
 	}
 
 	for _, fn := range monitoringFns {
@@ -240,80 +273,12 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if nthConfig.WebhookURL != "" {
 			webhook.Post(nodeMetadata, drainEvent, nthConfig)
 		}
+		if drainEvent.PostDrainTask != nil {
+			err := drainEvent.PostDrainTask(*drainEvent, node)
+			if err != nil {
+				log.Log().Msgf("There was a problem executing the post-drain task: %v", err)
+			}
+			metrics.NodeActionsInc("post-drain", nodeName, err)
+		}
 	}
-}
-
-func logFormatLevel(interface{}) string {
-	return ""
-}
-
-func printJsonConfigArgs(config config.Config) {
-	// manually setting fields instead of using log.Log().Interface() to use snake_case instead of PascalCase
-	// intentionally did not log webhook configuration as there may be secrets
-	log.Log().
-		Bool("dry_run", config.DryRun).
-		Str("node_name", config.NodeName).
-		Str("metadata_url", config.MetadataURL).
-		Str("kubernetes_service_host", config.KubernetesServiceHost).
-		Str("kubernetes_service_port", config.KubernetesServicePort).
-		Bool("delete_local_data", config.DeleteLocalData).
-		Bool("ignore_daemon_sets", config.IgnoreDaemonSets).
-		Int("pod_termination_grace_period", config.PodTerminationGracePeriod).
-		Int("node_termination_grace_period", config.NodeTerminationGracePeriod).
-		Bool("enable_scheduled_event_draining", config.EnableScheduledEventDraining).
-		Bool("enable_spot_interruption_draining", config.EnableSpotInterruptionDraining).
-		Int("metadata_tries", config.MetadataTries).
-		Bool("cordon_only", config.CordonOnly).
-		Bool("taint_node", config.TaintNode).
-		Bool("json_logging", config.JsonLogging).
-		Str("webhook_proxy", config.WebhookProxy).
-		Str("uptime_from_file", config.UptimeFromFile).
-		Bool("enable_prometheus_server", config.EnablePrometheus).
-		Int("prometheus_server_port", config.PrometheusPort).
-		Msg("aws-node-termination-handler arguments")
-}
-
-func printHumanConfigArgs(config config.Config) {
-	// intentionally did not log webhook configuration as there may be secrets
-	log.Log().Msgf(
-		"aws-node-termination-handler arguments: \n"+
-			"\tdry-run: %t,\n"+
-			"\tnode-name: %s,\n"+
-			"\tmetadata-url: %s,\n"+
-			"\tkubernetes-service-host: %s,\n"+
-			"\tkubernetes-service-port: %s,\n"+
-			"\tdelete-local-data: %t,\n"+
-			"\tignore-daemon-sets: %t,\n"+
-			"\tpod-termination-grace-period: %d,\n"+
-			"\tnode-termination-grace-period: %d,\n"+
-			"\tenable-scheduled-event-draining: %t,\n"+
-			"\tenable-spot-interruption-draining: %t,\n"+
-			"\tmetadata-tries: %d,\n"+
-			"\tcordon-only: %t,\n"+
-			"\ttaint-node: %t,\n"+
-			"\tjson-logging: %t,\n"+
-			"\twebhook-proxy: %s,\n"+
-			"\tuptime-from-file: %s,\n"+
-			"\tenable-prometheus-server: %t,\n"+
-			"\tprometheus-server-port: %d,\n",
-		config.DryRun,
-		config.NodeName,
-		config.MetadataURL,
-		config.KubernetesServiceHost,
-		config.KubernetesServicePort,
-		config.DeleteLocalData,
-		config.IgnoreDaemonSets,
-		config.PodTerminationGracePeriod,
-		config.NodeTerminationGracePeriod,
-		config.EnableScheduledEventDraining,
-		config.EnableSpotInterruptionDraining,
-		config.MetadataTries,
-		config.CordonOnly,
-		config.TaintNode,
-		config.JsonLogging,
-		config.WebhookProxy,
-		config.UptimeFromFile,
-		config.EnablePrometheus,
-		config.PrometheusPort,
-	)
 }

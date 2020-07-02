@@ -68,7 +68,13 @@ Parameter | Description | Default
 `webhookTemplateConfigMapKey` | Name of the template file stored in the configmap| None
 `dryRun` | If true, only log if a node would be drained | `false`
 `enableScheduledEventDraining` | [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
-`enableSpotInterruptionDraining` | If false, do not drain nodes when the spot interruption termination notice is received | `true`
+`enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is received | `true`
+`enableSqsTerminationDraining` | If true, drain nodes when an SQS termination event is received | `true`
+`queueURL` | Listens for messages on the specified SQS queue URL | None
+`awsRegion` | If specified, use the AWS region for AWS API calls | `us-east-1`
+`awsEndpoint` | (Used for testing) If specified, use the AWS endpoint to make API calls | None
+`awsSecretAccessKey` | (Used for testing) Pass-thru env var | None
+`awsAccessKeyID` | (Used for testing) Pass-thru env var | None
 `metadataTries` | The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3. | `3`
 `cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
 `taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance` and `aws-node-termination-handler/spot-itn` | `false`

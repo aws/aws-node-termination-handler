@@ -33,6 +33,14 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
+enableSqsTerminationDraining: false
+queueURL: ""
+awsRegion: ""
+awsEndpoint: ""
+## These should really just be used for testing w/ localstack!
+awsSecretAccessKey: "foo"
+awsAccessKeyID: "bar"
+
 ## enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received
 enableSpotInterruptionDraining: ""
 

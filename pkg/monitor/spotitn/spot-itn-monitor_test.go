@@ -80,6 +80,7 @@ func TestMonitor_MetadataParseFailure(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
@@ -102,6 +103,7 @@ func TestMonitor_404Response(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
@@ -124,6 +126,7 @@ func TestMonitor_500Response(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
@@ -146,6 +149,7 @@ func TestMonitor_InstanceActionDecodeFailure(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
@@ -168,6 +172,7 @@ func TestMonitor_TimeParseFailure(t *testing.T) {
 	drainChan := make(chan monitor.InterruptionEvent)
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
+	nodeName := "test-node"
 
 	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()

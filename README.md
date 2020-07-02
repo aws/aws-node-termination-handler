@@ -1,6 +1,6 @@
 <h1>AWS Node Termination Handler</h1>
 
-<h4>A Kubernetes Daemonset to gracefully handle EC2 instance shutdown</h4>
+<h4>Gracefully handle EC2 instance shutdown within Kubernetes</h4>
 
 <p>
   <a href="https://github.com/kubernetes/kubernetes/releases">
@@ -32,13 +32,17 @@
 
 ## Project Summary
 
-This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html) and [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html).  If not handled, your application code may not have enough time to stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down. This handler will run a small pod on each host to perform monitoring and react accordingly.  When we detect an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work.
+This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down. This handler can operate in two different modes. The aws-node-termination-handler **DaemonSet** will run a small pod on each host to perform monitoring and react accordingly. The aws-cluster-termination-handler **Deployment** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events and other termination events available. When we detect an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work.
 
-The termination handler watches the [instance metadata service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) to determine when to make requests to the Kubernetes API to mark the node as non-schedulable.  If the maintenance event is a reboot, we also apply a custom label to the node so when it restarts we remove the cordon.
+The termination handler **DaemonSet** watches the [instance metadata service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) to determine when to make requests to the Kubernetes API to mark the node as non-schedulable.  If the maintenance event is a reboot, we also apply a custom label to the node so when it restarts we remove the cordon.
+
+The termiantion handler **Deployment** requires AWS account credentials to monitor and manage the SQS queue and to query the EC2 API.
 
 You can run the termination handler on any Kubernetes cluster running on AWS, including self-managed clusters and those created with Amazon [Elastic Kubernetes Service](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html).
 
 ## Major Features
+
+### DaemonSet
 
 - Monitors EC2 Metadata for Scheduled Maintenance Events
 - Monitors EC2 Metadata for Spot Instance Termination Notifications
@@ -46,11 +50,32 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
+### Deployment
+
+- Monitors an SQS Queue for EC2 Spot Interruption Notifications
+- Monitors an SQS Queue for EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
+- Helm installation and event configuration support
+- Webhook feature to send shutdown or restart notification messages
+- Unit & Integration Tests
+
+## Which one should I use? 
+
+If you only want to handle EC2 Spot Interruption Termination Notices and EC2 Scheduled Maintenance Events, and don't mind a DaemonSet running on all the hosts you're monitoring, then the aws-node-termination-handler **DaemonSet** will work great for you!
+
+If you want to monitor for more events coming from AWS APIs like ASG termination lifecycle events (unhealthy instances, scale-in, az-rebalance, etc), Spot Interruption Termination Notices, and EC2 instance termination via the EC2 API or Console, then the aws-node-termination-handler **Deployment** is the best tool for you! The deployment only runs a couple of replicas to maintain high availability in your cluster, but it does require some more upfront infrastructure. The aws-node-termination-handler **Deployment** requires your ASGs to have termination lifecycle hooks, an Amazon EventBridge rule(s), and an SQS queue. 
+
+
 ## Installation and Configuration
 
-The termination handler installs into your cluster a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
+<details closed>
+<summary>AWS Node Termination Handler - DaemonSet</summary>
+<br>
 
-### Kubectl Apply
+### Installation and Configuration
+
+The termination handler DaemonSet installs into your cluster a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
+
+#### Kubectl Apply
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 ```
@@ -59,7 +84,7 @@ kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/do
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
 
-### Helm
+#### Helm
 
 The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
 
@@ -118,22 +143,199 @@ helm upgrade --install aws-node-termination-handler \
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
 
+</details>
+
+
+<details close>
+<summary>AWS-Cluster-Termination-Handler Deployment (SQS Monitor)</summary>
+<br>
+
+### Infrastructure Setup
+
+The termination handler deployment requires some infrastructure to be setup before deploying the application. You'll need the following AWS infrastructure components:
+
+1. AutoScaling Group Termination Lifecycle Hook
+2. Amazon Simple Queue Service (SQS) Queue
+3. Amazon EventBridge Rule
+4. IAM Role for the aws-cluster-termination-handler Pods
+
+#### 1. Setup a Termination Lifecycle Hook on an ASG:
+
+Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+
+```
+$ aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+  --default-result=CONTINUE \
+  --heartbeat-timeout=300
+```
+
+#### 2. Create an SQS Queue:
+
+Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+
+```
+## Queue Policy
+$ QUEUE_POLICY=$(cat <<EOF
+{
+    "Version": "2012-10-17",
+    "Id": "MyQueuePolicy",
+    "Statement": [{                     
+        "Effect": "Allow",
+        "Principal": {
+            "Service": ["events.amazonaws.com", "sqs.amazonaws.com"]
+        },
+        "Action": "sqs:SendMessage",
+        "Resource": [
+            "arn:aws:sqs:${AWS_REGION}:${ACCOUNT_ID}:${SQS_QUEUE_NAME}"
+        ]
+    }]
+}
+EOF
+)
+
+## make sure the queue policy is valid JSON
+$ echo "$QUEUE_POLICY" | jq . 
+
+## Save queue attributes to a temp file 
+$ cat << EOF > /tmp/queue-attributes.json
+{
+  "MessageRetentionPeriod": "300",
+  "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g')"
+}
+EOF
+
+$ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json 
+```
+
+#### 3. Create an Amazon EventBridge Rule
+
+Here is the AWS CLI command to create an Amazon EventBridge rule so that ASG termination events are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+
+```
+$ aws events put-rule \
+  --name MyK8sASGTermRule \
+  --event-pattern "{\"source\":[\"aws.autoscaling\"],\"detail-type\":[\"EC2 Instance-terminate Lifecycle Action\"]}"
+
+$ aws events put-targets --rule MyK8sASGTermRule \
+  --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
+
+$ aws events put-rule \
+  --name MyK8sSpotTermRule \
+  --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Spot Instance Interruption Warning\"]}"
+
+$ aws events put-targets --rule MyK8sSpotTermRule \
+  --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
+```
+
+#### 4. Create an IAM Role for the Pods
+
+There are many different ways to allow the aws-node-termination-handler pods to assume a role:
+
+1. [Amazon EKS IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+2. [IAM Instance Profiles for EC2](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html)
+3. [Kiam](https://github.com/uswitch/kiam)
+4. [kube2iam](https://github.com/jtblin/kube2iam)
+
+IAM Policy for aws-node-termination-handler Deployment:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:CompleteLifecycleAction",
+                "ec2:DescribeInstances",
+                "sqs:DeleteMessage",
+                "sqs:DeleteMessageBatch",
+                "sqs:ReceiveMessage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+### Installation
+
+#### Kubectl Apply
+
+You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
+```
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.7.0/all-resources.yaml
+```
+
+For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
+
+#### Helm
+
+The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
+
+To get started you need to add the eks-charts repo to helm
+
+```
+helm repo add eks https://aws.github.io/eks-charts
+```
+
+Once that is complete you can install the termination handler. We've provided some sample setup options below.
+
+Zero Config:
+```sh
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  eks/aws-node-termination-handler
+```
+
+Webhook Configuration:
+```
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
+  eks/aws-node-termination-handler
+```
+
+Alternatively, pass Webhook URL as a Secret:
+```
+WEBHOOKURL_LITERAL="webhookurl=https://hooks.slack.com/services/YOUR/SLACK/URL"
+
+kubectl create secret -n kube-system generic webhooksecret --from-literal=$WEBHOOKURL_LITERAL
+```
+```
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  --set webhookURLSecretName=webhooksecret \
+  eks/aws-node-termination-handler
+```
+
+For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
+
+</details>
+
+
+<details close>
+<summary>Use with Kiam</summary>
+<br>
+
 ## Use with Kiam
 To use the termination handler alongside [Kiam](https://github.com/uswitch/kiam) requires some extra configuration on Kiam's end.
 By default Kiam will block all access to the metadata address, so you need to make sure it passes through the requests the termination handler relies on.
 
 To add a whitelist configuration, use the following fields in the Kiam Helm chart values:
 ```
-agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)$'
+agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)|\/latest\/dynamic\/instance-identity\/document$'
 ```
 Or just pass it as an argument to the kiam agents:
 ```
-kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)$'
+kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)|\/latest\/dynamic\/instance-identity\/document$'
 ```
 
 ## Metadata endpoints
 The termination handler relies on the following metadata endpoints to function properly:
 ```
+/latest/dynamic/instance-identity/document
 /latest/meta-data/spot/instance-action
 /latest/meta-data/events/maintenance/scheduled
 /latest/meta-data/instance-id
@@ -144,6 +346,7 @@ The termination handler relies on the following metadata endpoints to function p
 /latest/meta-data/local-ipv4
 /latest/meta-data/placement/availability-zone
 ```
+</details>
 
 ## Building
 For build instructions please consult [BUILD.md](./BUILD.md).
