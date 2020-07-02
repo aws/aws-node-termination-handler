@@ -45,7 +45,6 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 ## Major Features
 
 ### Instance Metadata Service Processor
-
 - Monitors EC2 Metadata for Scheduled Maintenance Events
 - Monitors EC2 Metadata for Spot Instance Termination Notifications
 - Helm installation and event configuration support
@@ -53,7 +52,6 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Unit & Integration Tests
 
 ### Queue Processor
-
 - Monitors an SQS Queue for: 
    - EC2 Spot Interruption Notifications
    - EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
@@ -63,7 +61,6 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Unit & Integration Tests
 
 ## Which one should I use? 
-
 If you only want to handle EC2 Spot Interruption Termination Notices and EC2 Scheduled Maintenance Events, and don't mind a DaemonSet running on all the nodes you're monitoring, then the aws-node-termination-handler **IMDS Processor** will work great for you!
 
 If you want to monitor for more events sourced from AWS APIs like ASG termination lifecycle events (unhealthy instances, scale-in, az-rebalance, etc), Spot Interruption Termination Notices, and EC2 instance termination via the EC2 API or Console, then the aws-node-termination-handler **Queue Processor** is the best tool for you! The deployment only runs a couple of replicas to maintain high availability in your cluster, but it does require some more upfront infrastructure. The aws-node-termination-handler **Queue Processor** requires your ASGs to have termination lifecycle hooks, Amazon EventBridge rule(s), and an SQS queue. 

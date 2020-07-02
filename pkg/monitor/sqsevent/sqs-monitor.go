@@ -35,7 +35,46 @@ const (
 	NTHManagedASG = "aws-node-termination-handler/managed"
 )
 
-// SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
+// Example SQS ASG Lifecycle Termination Event Message:
+// {
+//   "version": "0",
+//   "id": "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
+//   "detail-type": "EC2 Instance-terminate Lifecycle Action",
+//   "source": "aws.autoscaling",
+//   "account": "896453262834",
+//   "time": "2020-07-01T22:19:58Z",
+//   "region": "us-east-1",
+//   "resources": [
+//     "arn:aws:autoscaling:us-east-1:896453262834:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/testt1.demo-0a20f32c.kops.sh"
+//   ],
+//   "detail": {
+//     "LifecycleActionToken": "0befcbdb-6ecd-498a-9ff7-ae9b54447cd6",
+//     "AutoScalingGroupName": "testt1.demo-0a20f32c.kops.sh",
+//     "LifecycleHookName": "cluster-termination-handler",
+//     "EC2InstanceId": "i-0633ac2b0d9769723",
+//     "LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+//   }
+// }
+
+// Example Spot ITN Event:
+// {
+// 	"version": "0",
+// 	"id": "1e5527d7-bb36-4607-3370-4164db56a40e",
+// 	"detail-type": "EC2 Spot Instance Interruption Warning",
+// 	"source": "aws.ec2",
+// 	"account": "123456789012",
+// 	"time": "1970-01-01T00:00:00Z",
+// 	"region": "us-east-1",
+// 	"resources": [
+// 	  "arn:aws:ec2:us-east-1b:instance/i-0b662ef9931388ba0"
+// 	],
+// 	"detail": {
+// 	  "instance-id": "i-0b662ef9931388ba0",
+// 	  "instance-action": "terminate"
+// 	}
+// }
+
+// SQSMonitor is a struct definiiton that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
 	InterruptionChan chan<- monitor.InterruptionEvent
 	CancelChan       chan<- monitor.InterruptionEvent
