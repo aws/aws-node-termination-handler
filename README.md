@@ -118,6 +118,32 @@ helm upgrade --install aws-node-termination-handler \
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
 
+## Use with Kiam
+To use the termination handler alongside [Kiam](https://github.com/uswitch/kiam) requires some extra configuration on Kiam's end.
+By default Kiam will block all access to the metadata address, so you need to make sure it passes through the requests the termination handler relies on.
+
+To add a whitelist configuration, use the following fields in the Kiam Helm chart values:
+```
+agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4))$'
+```
+Or just pass it as an argument to the kiam agents:
+```
+kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4))$'
+```
+
+## Metadata endpoints
+The termination handler relies on the following metadata endpoints to function properly:
+```
+/latest/meta-data/spot/instance-action
+/latest/meta-data/events/maintenance/scheduled
+/latest/meta-data/instance-id
+/latest/meta-data/instance-type
+/latest/meta-data/public-hostname
+/latest/meta-data/public-ipv4
+/latest/meta-data/local-hostname
+/latest/meta-data/local-ipv4
+```
+
 ## Building
 For build instructions please consult [BUILD.md](./BUILD.md).
 
