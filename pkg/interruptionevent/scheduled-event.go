@@ -66,11 +66,12 @@ func checkForScheduledEvents(imds *ec2metadata.Service) ([]InterruptionEvent, er
 		}
 		notBefore, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotBefore)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parsed scheduled event start time: %w", err)
+			return nil, fmt.Errorf("Unable to parse scheduled event start time: %w", err)
 		}
 		notAfter, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotAfter)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parsed scheduled event end time: %w", err)
+			notAfter = notBefore
+			log.Log().Msgf("Unable to parse scheduled event end time, continuing: %v", err)
 		}
 		events = append(events, InterruptionEvent{
 			EventID:      scheduledEvent.EventID,

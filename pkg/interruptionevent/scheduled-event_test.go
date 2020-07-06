@@ -231,6 +231,26 @@ func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
+	go func() {
+		result := <-drainChan
+		h.Equals(t, scheduledEventId, result.EventID)
+		h.Equals(t, interruptionevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, scheduledEventState, result.State)
+		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
+		h.Equals(t, expScheduledEventStartTimeFmt, result.EndTime.String())
+
+		h.Assert(t, strings.Contains(result.Description, scheduledEventCode),
+			"Expected description to contain \""+scheduledEventCode+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventStartTime),
+			"Expected description to contain \""+scheduledEventStartTime+
+				"\"but received \""+result.Description+"\"")
+		h.Assert(t, strings.Contains(result.Description, scheduledEventDescription),
+			"Expected description to contain \""+scheduledEventDescription+
+				"\"but received \""+result.Description+"\"")
+
+	}()
+
 	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
-	h.Assert(t, err != nil, "Failed to return error when failed to parse end time")
+	h.Ok(t, err)
 }
