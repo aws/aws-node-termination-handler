@@ -10,37 +10,69 @@ set -euo pipefail
 #   $EC2_METADATA_DOCKER_REPO
 #   $EC2_METADATA_DOCKER_TAG
 
+function fail_and_exit {
+    echo "❌ Test Maintenance Event Cancellation failed $CLUSTER_NAME ❌"
+    exit ${1:-1}
+}
+
 echo "Starting Maintenance Event Cancellation Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
-  --wait \
-  --namespace kube-system \
-  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
-  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
-  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
-  --set enableSpotInterruptionDraining="true" \
-  --set enableScheduledEventDraining="true" \
-  --set taintNode="true"
+common_helm_args=()
+[[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 
-helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
-  --wait \
-  --namespace default \
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
-  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
-  --set ec2MetadataTestProxy.enableSpotITN="false" \
-  --set ec2MetadataTestProxy.port="$IMDS_PORT" \
-  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule' \
+anth_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-anth
+  $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
+  --wait
+  --namespace kube-system
+  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://localhost:$IMDS_PORT"}
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set enableSpotInterruptionDraining="true"
+  --set enableScheduledEventDraining="true"
+  --set taintNode="true"
+)
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    anth_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${anth_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-emtp
+  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  --wait
+  --namespace default
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
+  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true"
+  --set ec2MetadataTestProxy.enableSpotITN="false"
+  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule'
   --set 'ec2MetadataTestProxy.tolerations[0].operator=Exists'
+)
+[[ -n "${EC2_METADATA_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set ec2MetadataTestProxy.image.pullPolicy="$EC2_METADATA_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
-CORDONED=0
-TAINTED=0
 
 for i in `seq 1 10`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
@@ -52,60 +84,85 @@ for i in `seq 1 10`; do
 done
 
 if [[ $DEPLOYED -eq 0 ]]; then
-    echo "❌ Failed test setup for regular-pod"
-    exit 2
+    echo "❌ regular-pod-test pod deployment failed"
+    fail_and_exit 2
 fi
 
+cordoned=0
+tainted=0
+evicted=0
+test_node=${TEST_NODE:-$CLUSTER_NAME-worker}
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep SchedulingDisabled; then
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes $test_node --no-headers | grep SchedulingDisabled >/dev/null; then
         echo "✅ Verified the worker node was cordoned!"
+        cordoned=1
+    fi
 
-        if kubectl get nodes $CLUSTER_NAME-worker -o json | grep -q "aws-node-termination-handler/scheduled-maintenance"; then
-          echo "✅ Verified the worked node was tainted!"
-          TAINTED=1
-        fi
+    if [[ $cordoned -eq 1 && $tainted -eq 0 ]] && kubectl get nodes $test_node -o json | grep -q "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
+      echo "✅ Verified the worked node was tainted!"
+      tainted=1
+    fi
 
-        if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
-            echo "✅ Verified the regular-pod-test pod was evicted!"
-            CORDONED=1
-            break
-        fi
+    if [[ $tainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        evicted=1
+        break
     fi
     sleep $TAINT_CHECK_SLEEP
 done
 
-if [[ $CORDONED -eq 0 ]]; then
-    echo "❌ Failed cordoning node for scheduled maintenance event"
-    exit 3
+if [[ $cordoned -eq 0 ]]; then
+    echo "❌ Worker node was not cordoned"
+    fail_and_exit 1
+elif [[ $tainted -eq 0 ]]; then
+    echo "❌ Worker node was not tainted"
+    fail_and_exit 1
+elif [[ $evicted -eq 0 ]]; then
+    echo "❌ regular-pod-test pod was not evicted"
+    fail_and_exit 1
 fi
 
-if [[ $TAINTED -eq 0 ]]; then
-    echo "❌ Failed tainting node for scheduled maintenance event"
-    exit 3
-fi
-
-helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
-  --wait \
-  --namespace default \
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
-  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true" \
-  --set ec2MetadataTestProxy.enableSpotITN="false" \
-  --set ec2MetadataTestProxy.scheduledEventStatus="canceled" \
-  --set ec2MetadataTestProxy.port="$IMDS_PORT" \
-  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule' \
+emtp_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-emtp
+  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  --wait
+  --namespace default
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
+  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true"
+  --set ec2MetadataTestProxy.enableSpotITN="false"
+  --set ec2MetadataTestProxy.scheduledEventStatus="canceled"
+  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule'
   --set 'ec2MetadataTestProxy.tolerations[0].operator=Exists'
+)
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
 
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
+
+uncordoned=0
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep -v SchedulingDisabled; then
+    if [[ $uncordoned -eq 0 ]] && kubectl get nodes $test_node --no-headers | grep -v SchedulingDisabled >/dev/null; then
         echo "✅ Verified the worker node was uncordoned!"
-        if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
-            echo "✅ Verified the regular-pod-test pod was rescheduled"
-            echo "✅ Scheduled Maintenance Event Cancellation Test Passed $CLUSTER_NAME! ✅"
-            exit 0
-        fi
+        uncordoned=1
+    fi
+
+    if [[ $uncordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified the regular-pod-test pod was rescheduled"
+        echo "✅ Test Maintenance Event Cancellation passed! $CLUSTER_NAME ✅"
+        exit 0
     fi
     sleep $TAINT_CHECK_SLEEP
 done
 
-exit 1
+if [[ $uncordoned -eq 0 ]]; then
+    echo "❌ Worker node was not UNcordoned"
+else
+    echo "❌ regular-pod-test pod was not rescheduled"
+fi
+fail_and_exit 1

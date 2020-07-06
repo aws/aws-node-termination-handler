@@ -10,41 +10,83 @@ set -euo pipefail
 #   $EC2_METADATA_DOCKER_REPO
 #   $EC2_METADATA_DOCKER_TAG
 
+function fail_and_exit {
+    echo "❌ Spot Interruption Dry Run test failed $CLUSTER_NAME ❌"
+    exit ${1:-1}
+}
+
 echo "Starting Maintenance Events Dry-Run Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
-  --wait \
-  --force \
-  --namespace kube-system \
-  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
-  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
-  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
-  --set dryRun="true" \
-  --set enableSpotInterruptionDraining="true" \
+common_helm_args=()
+[[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
+
+anth_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-anth
+  $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
+  --wait
+  --force
+  --namespace kube-system
+  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://localhost:$IMDS_PORT"}
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set dryRun="true"
+  --set enableSpotInterruptionDraining="true"
   --set enableScheduledEventDraining="true"
+)
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    anth_helm_args+=("${common_helm_args[@]}")
 
-helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
-  --wait \
-  --force \
-  --namespace default \
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
+set -x
+helm "${anth_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-emtp
+  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  --wait
+  --force
+  --namespace default
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
   --set ec2MetadataTestProxy.port="$IMDS_PORT"
+)
+[[ -n "${EC2_METADATA_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set ec2MetadataTestProxy.image.pullPolicy="$EC2_METADATA_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
 
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
 
+logs=0
+pod_id=$(get_nth_worker_pod)
+test_node=${TEST_NODE:-$CLUSTER_NAME-worker}
 for i in $(seq 0 10); do
-  POD_ID=$(get_nth_worker_pod)
-  if [[ ! -z $(kubectl logs $POD_ID -n kube-system | grep -i -e 'would have been cordoned and drained') ]]; then
+  if [[ $logs -eq 0 && ! -z $(kubectl logs $pod_id -n kube-system | grep -i -e 'would have been cordoned and drained') ]]; then
       echo "✅ Verified the dryrun logs were executed"
-      if kubectl get nodes $CLUSTER_NAME-worker --no-headers | grep -v SchedulingDisabled; then
-          echo "✅ Verified the worker node was not cordoned!"
-          echo "✅ Spot Interruption Dry Run Test Passed $CLUSTER_NAME! ✅"
-          exit 0
-      fi
+      logs=1
+  fi
+
+  if [[ $logs -eq 1 ]] && kubectl get nodes $test_node --no-headers | grep -v SchedulingDisabled >/dev/null; then
+      echo "✅ Verified the worker node was not cordoned!"
+      echo "✅ Spot Interruption Dry Run Test Passed $CLUSTER_NAME! ✅"
+      exit 0
   fi
   sleep 10
 done
 
-exit 1
+if [[ $logs -eq 0 ]]; then
+    echo "❌ dryrun logs were not executed"
+else
+    echo "❌ Worker node was cordoned"
+fi
+fail_and_exit 1

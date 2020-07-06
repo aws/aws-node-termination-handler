@@ -5,6 +5,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 REPO_ROOT_PATH=$SCRIPTPATH/../
 MAKE_FILE_PATH=$REPO_ROOT_PATH/Makefile
+DOCKERFILE_PATH=$REPO_ROOT_PATH/Dockerfile
 
 VERSION=$(make -s -f $MAKE_FILE_PATH version)
 PLATFORMS=("linux/amd64")
@@ -52,10 +53,16 @@ for os_arch in "${PLATFORMS[@]}"; do
 
     img_tag="$IMAGE_REPO:$VERSION-$os-$arch"
 
+    dockerfile="$DOCKERFILE_PATH"
+    if [[ $os = "windows" ]]; then
+        dockerfile="${dockerfile}.windows"
+    fi
+
     docker build \
+        --file "${dockerfile}" \
         --build-arg GOOS=${os} \
         --build-arg GOARCH=${arch} \
         --build-arg GOPROXY=${GOPROXY} \
-        -t ${img_tag} \
+        --tag ${img_tag} \
         ${REPO_ROOT_PATH}
 done

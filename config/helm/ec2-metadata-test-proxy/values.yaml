@@ -22,8 +22,10 @@ ec2MetadataTestProxy:
     image:
         repository: ec2-metadata-test-proxy
         tag: customtest
+        pullPolicy: IfNotPresent
     tolerations: []
 regularPodTest:
     create: true
     label: regular-pod-test
     port: 1339
+targetNodeOs: "linux"

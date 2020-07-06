@@ -1,3 +1,4 @@
+{{- if (lower .Values.targetNodeOs | contains "linux") -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -6,17 +7,25 @@ metadata:
   labels:
 {{ include "aws-node-termination-handler.labels" . | indent 4 }}
 spec:
+  {{- if (or .Values.updateStrategy .Values.linuxUpdateStrategy) }}
   updateStrategy:
-{{ toYaml .Values.updateStrategy | indent 4 }}
+    {{- with .Values.updateStrategy }}
+      {{- toYaml . | indent 4 }}
+    {{- end }}
+    {{- with .Values.linuxUpdateStrategy }}
+      {{- toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
+      {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
   template:
     metadata:
-      {{- if .Values.podAnnotations }}
+      {{- if (or .Values.podAnnotations .Values.linuxPodAnnotations) }}
       annotations:
-      {{- range $key, $value := .Values.podAnnotations }}
+      {{- range $key, $value := (mergeOverwrite (dict) .Values.podAnnotations .Values.linuxPodAnnotations) }}
         {{ $key }}: {{ $value | quote }}
       {{- end }}
       {{- end }}
@@ -24,38 +33,43 @@ spec:
         app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         k8s-app: aws-node-termination-handler
-      {{- range $key, $value := .Values.podLabels }}
+        {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
+      {{- range $key, $value := (mergeOverwrite (dict) .Values.podLabels .Values.linuxPodLabels) }}
         {{ $key }}: {{ $value | quote }}
       {{- end }}
     spec:
       volumes:
         - name: "uptime"
           hostPath:
-            path: "{{ .Values.procUptimeFile }}"
-      priorityClassName: "{{ .Values.priorityClassName }}"
+            path: {{ .Values.procUptimeFile | default "/proc/uptime" | quote }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
       affinity:
         nodeAffinity:
-          # NOTE(jaypipes): Change when we complete
-          # https://github.com/aws/aws-node-termination-handler/issues/8
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: {{ .Values.nodeSelectorTermsOs | default "beta.kubernetes.io/os" | quote }}
-                    operator: In
-                    values:
-                      - linux
-                  - key: {{ .Values.nodeSelectorTermsArch | default "beta.kubernetes.io/arch" | quote }}
-                    operator: In
-                    values:
-                      - amd64
-                      - arm
-                      - arm64
+                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . | quote }}
+                  operator: In
+                  values:
+                    - linux
+                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsArch" . | quote }}
+                  operator: In
+                  values:
+                    - amd64
+                    - arm64
+                    - arm
+        {{- with .Values.affinity }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.linuxAffinity }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       serviceAccountName: {{ template "aws-node-termination-handler.serviceAccountName" . }}
       hostNetwork: true
-      dnsPolicy: {{ .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy | default "ClusterFirstWithHostNet" | quote }}
       containers:
         - name: {{ include "aws-node-termination-handler.name" . }}
-          image: {{ .Values.image.repository}}:{{ .Values.image.tag }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             readOnlyRootFilesystem: true
@@ -65,7 +79,7 @@ spec:
             allowPrivilegeEscalation: false
           volumeMounts:
             - name: "uptime"
-              mountPath: "/proc/uptime"
+              mountPath: {{ .Values.procUptimeFile | default "/proc/uptime" | quote }}
               readOnly: true
           env:
           - name: NODE_NAME
@@ -125,27 +139,30 @@ spec:
             value: {{ .Values.jsonLogging | quote }}
           - name: WEBHOOK_PROXY
             value: {{ .Values.webhookProxy | quote }}
+          - name: UPTIME_FROM_FILE
+            value: {{ .Values.procUptimeFile | quote }}
           - name: ENABLE_PROMETHEUS_SERVER
             value: {{ .Values.enablePrometheusServer | quote }}
           - name: PROMETHEUS_SERVER_PORT
             value: {{ .Values.prometheusServerPort | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
+        {{- with .Values.nodeSelector }}
+          {{- . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.linuxNodeSelector }}
+          {{- . | nindent 8 }}
+        {{- end }}
       {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
       {{- range .Values.image.pullSecrets }}
         - name: {{ . }}
       {{- end }}
       {{- end }}
-    {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
     {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+{{- end -}}

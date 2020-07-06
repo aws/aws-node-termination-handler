@@ -18,7 +18,12 @@ fullnameOverride: ""
 priorityClassName: system-node-critical
 
 podAnnotations: {}
+linuxAnnotations: {}
+windowsAnnotations: {}
+
 podLabels: {}
+linuxPodLabels: {}
+windowsPodLabels: {}
 
 resources:
   requests:
@@ -28,7 +33,7 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-## enableSpotInterruptionDraining If true, drain nodes when the spot interruption termination notice is receieved
+## enableSpotInterruptionDraining If true, drain nodes when the spot interruption termination notice is received
 enableSpotInterruptionDraining: ""
 
 ## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
@@ -70,11 +75,20 @@ webhookTemplate: ""
 instanceMetadataURL: ""
 
 # (TESTING USE): Mount path for uptime file
-procUptimeFile: "/proc/uptime"
+procUptimeFile: ""
 
-# nodeSelector tells the daemonset where to place the node-termination-handler
+# Create node OS specific daemonset(s). (e.g. "linux", "windows", "linux windows")
+targetNodeOs: "linux"
+
+# nodeSelector tells both linux and windows daemonsets where to place the node-termination-handler
 # pods. By default, this value is empty and every node will receive a pod.
 nodeSelector: {}
+# linuxNodeSelector tells the linux daemonset where to place the node-termination-handler
+# pods. By default, this value is empty and every linux node will receive a pod.
+linuxNodeSelector: {}
+# windowsNodeSelector tells the windows daemonset where to place the node-termination-handler
+# pods. By default, this value is empty and every windows node will receive a pod.
+windowsNodeSelector: {}
 
 nodeSelectorTermsOs: ""
 nodeSelectorTermsArch: ""
@@ -86,6 +100,8 @@ tolerations:
   - operator: "Exists"
 
 affinity: {}
+linuxAffinity: {}
+windowsAffinity: {}
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -100,4 +116,4 @@ rbac:
   # rbac.pspEnabled: `true` if PodSecurityPolicy resources should be created
   pspEnabled: true
 
-dnsPolicy: "ClusterFirstWithHostNet"
+dnsPolicy: ""

@@ -1,0 +1,23 @@
+ARG WINDOWS_VERSION=1903
+
+# Build the manager binary
+FROM --platform=windows/amd64 golang:1.14 AS builder
+
+## GOLANG env
+ENV GO111MODULE="on" CGO_ENABLED="0" GOOS="windows" GOARCH="amd64"
+ARG GOPROXY="https://proxy.golang.org,direct"
+
+WORKDIR /ec2-metadata-test-proxy
+
+## Build
+COPY . .
+RUN go build -a -o ec2-metadata-test-proxy cmd/ec2-metadata-test-proxy.go
+ENTRYPOINT ["ec2-metadata-test-proxy"]
+
+## Copy binary to a thin image
+FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
+WORKDIR /
+COPY --from=builder /ec2-metadata-test-proxy .
+COPY THIRD_PARTY_LICENSES .
+ENTRYPOINT ["/ec2-metadata-test-proxy"]
+

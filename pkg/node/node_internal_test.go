@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
+	"github.com/aws/aws-node-termination-handler/pkg/uptime"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -36,6 +37,12 @@ func resetFlagsForTest() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	os.Args = []string{"cmd"}
 	os.Setenv("NODE_NAME", nodeName)
+}
+
+func getUptimeFromFile(filepath string) uptime.UptimeFuncType {
+	return func() (int64, error) {
+		return uptime.UptimeFromFile(filepath)
+	}
 }
 
 func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
@@ -59,36 +66,16 @@ func getNthConfig(t *testing.T) config.Config {
 	return nthConfig
 }
 
-func getNode(t *testing.T, drainHelper *drain.Helper) *Node {
-	tNode, err := NewWithValues(getNthConfig(t), drainHelper)
+func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncType) *Node {
+	tNode, err := NewWithValues(getNthConfig(t), drainHelper, uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
 	return tNode
 }
 
-func TestGetUptimeSuccess(t *testing.T) {
-	d1 := []byte("350735.47 234388.90")
-	ioutil.WriteFile(testFile, d1, 0644)
-
-	value, err := getSystemUptime(testFile)
-	os.Remove(testFile)
-	h.Ok(t, err)
-	h.Equals(t, 350735.47, value)
-}
-
-func TestGetUptimeFailure(t *testing.T) {
-	d1 := []byte("Something not time")
-	ioutil.WriteFile(testFile, d1, 0644)
-
-	_, err := getSystemUptime(testFile)
-	os.Remove(testFile)
-	h.Assert(t, err != nil, "Failed to throw error for float64 parse")
-}
-
 func TestUncordonIfRebootedFileReadError(t *testing.T) {
 	resetFlagsForTest()
-	uptimeFile = testFile
 
 	client := fake.NewSimpleClientset()
 	client.CoreV1().Nodes().Create(&v1.Node{
@@ -100,14 +87,13 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile("does-not-exist"))
 	err := tNode.UncordonIfRebooted()
-	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to read file")
+	h.Assert(t, err != nil, "Failed to return error on UncordonIfRebooted failure to read file")
 }
 
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 	resetFlagsForTest()
-	uptimeFile = testFile
 	d1 := []byte("350735.47 234388.90")
 	ioutil.WriteFile(testFile, d1, 0644)
 
@@ -121,7 +107,7 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted()
 	os.Remove(testFile)
 	h.Ok(t, err)
@@ -129,7 +115,6 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 
 func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 	resetFlagsForTest()
-	uptimeFile = testFile
 	d1 := []byte("0 234388.90")
 	ioutil.WriteFile(testFile, d1, 0644)
 
@@ -143,7 +128,7 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted()
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure remove NTH Label")
@@ -151,7 +136,6 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 
 func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 	resetFlagsForTest()
-	uptimeFile = testFile
 	d1 := []byte("0 234388.90")
 	ioutil.WriteFile(testFile, d1, 0644)
 
@@ -166,8 +150,18 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 			},
 		},
 	})
-	tNode := getNode(t, getTestDrainHelper(client))
+	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted()
 	os.Remove(testFile)
 	h.Ok(t, err)
+}
+
+func TestGetUptimeFuncDefault(t *testing.T) {
+	uptimeFunc := getUptimeFunc("")
+	h.Assert(t, uptimeFunc != nil, "Failed to return a function.")
+}
+
+func TestGetUptimeFuncWithFile(t *testing.T) {
+	uptimeFunc := getUptimeFunc(testFile)
+	h.Assert(t, uptimeFunc != nil, "Failed to return a function.")
 }

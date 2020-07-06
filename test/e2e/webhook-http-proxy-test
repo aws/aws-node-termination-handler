@@ -10,6 +10,11 @@ set -euo pipefail
 #   $EC2_METADATA_DOCKER_REPO
 #   $EC2_METADATA_DOCKER_TAG
 
+function fail_and_exit {
+    echo "❌ Webhook HTTP Proxy Test failed $CLUSTER_NAME ❌"
+    exit ${1:-1}
+}
+
 echo "Starting Webhook HTTP Proxy Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -17,10 +22,9 @@ SQUID_DOCKERHUB_IMG="sameersbn/squid:3.5.27-2@sha256:e98299069f0c6e3d9b918890351
 SQUID_DOCKER_IMG="squid:customtest"
 
 ### LOCAL ONLY TESTS FOR 200 RESPONSE FROM LOCAL CLUSTER, MASTER WILL TEST WITH TRAVIS SECRET URL
-if [[ -z $(env | grep "WEBHOOK_URL=") ]]; then
+if [[ -z "${WEBHOOK_URL-}" ]]; then
   WEBHOOK_URL="http://127.0.0.1:$IMDS_PORT"
 fi
-
 
 docker pull $SQUID_DOCKERHUB_IMG
 docker tag $SQUID_DOCKERHUB_IMG $SQUID_DOCKER_IMG
@@ -39,65 +43,108 @@ helm upgrade --install $CLUSTER_NAME-squid $SCRIPTPATH/../../config/helm/squid/ 
 
 sleep 20
 
-helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ \
-  --force \
-  --namespace kube-system \
-  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
-  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
-  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
-  --set enableSpotInterruptionDraining="true" \
-  --set enableScheduledEventDraining="true" \
-  --set webhookURL="$WEBHOOK_URL" \
-  --set webhookTemplate="\{\"Content\":\"[NTH][Instance Interruption] InstanceId: \{\{ \.InstanceID \}\} - InstanceType: \{\{ \.InstanceType \}\} - Kind: \{\{ \.Kind \}\} - Start Time: \{\{ \.StartTime \}\}\"\}" \
-  --set webhookProxy="tcp://localhost:3128"
+common_helm_args=()
+[[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 
-helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
-  --force \
-  --namespace default \
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
-  --set ec2MetadataTestProxy.enableSpotITN="true" \
+anth_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-anth
+  $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
+  --force
+  --namespace kube-system
+  --set instanceMetadataURL="http://localhost:$IMDS_PORT"
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set enableSpotInterruptionDraining="true"
+  --set enableScheduledEventDraining="true"
+  --set webhookURL="$WEBHOOK_URL"
+  --set webhookTemplate="\{\"Content\":\"[NTH][Instance Interruption] InstanceId: \{\{ \.InstanceID \}\} - InstanceType: \{\{ \.InstanceType \}\} - Kind: \{\{ \.Kind \}\} - Start Time: \{\{ \.StartTime \}\}\"\}"
+  --set webhookProxy="tcp://localhost:3128"
+)
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    anth_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${anth_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-emtp
+  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  --force
+  --namespace default
+  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
+  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
+  --set ec2MetadataTestProxy.enableSpotITN="true"
   --set ec2MetadataTestProxy.port="$IMDS_PORT"
+)
+[[ -n "${EC2_METADATA_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set ec2MetadataTestProxy.image.pullPolicy="$EC2_METADATA_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
-DEPLOYED=0
-
+deployed=0
 for i in `seq 1 10`; do 
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
-        DEPLOYED=1
+        deployed=1
         break
     fi
     sleep 5
 done 
 
-if [[ $DEPLOYED -eq 0 ]]; then
-    exit 2
+if [[ $deployed -eq 0 ]]; then
+    echo "❌ regular-pod-test pod deployment failed"
+    fail_end_exit 2
 fi
 
+cordoned=0
+evicted=0
+sent=0
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
-          echo "✅ Verified the worker node was cordoned!"
-          if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
-              echo "✅ Verified the regular-pod-test pod was evicted!"
-              NTH_POD_NAME=$(get_nth_worker_pod)
-              if kubectl logs $NTH_POD_NAME -n kube-system | grep 'Webhook Success'; then
-                echo "✅ Webhook Successfully Sent $CLUSTER_NAME! ✅"
-                pods=$(kubectl get pods -o json)
-                ## queries for the squid pod on the worker node
-                squid_worker_pods=$(echo $pods | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
-                ## return only 1 pod
-                if kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -e 'TCP_MISS/200' -e 'TCP_TUNNEL/200' -e 'TCP_MISS_ABORTED/200'; then
-                    echo "✅ Verified the webhook POST used the http proxy"
-                    exit 0
-                fi
-              fi
-          fi
+  if [[ $cordoned -eq 0 ]] && kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+      echo "✅ Verified the worker node was cordoned!"
+      cordoned=1
+  fi
 
-      fi
-    sleep $TAINT_CHECK_SLEEP
+  if [[ $cordoned -eq 1 && $evicted -eq 0 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+      echo "✅ Verified the regular-pod-test pod was evicted!"
+      evicted=1
+      pod_id=$(get_nth_worker_pod)
+  fi
+
+  if [[ $evicted -eq 1 && $sent -eq 0 ]] && kubectl logs $pod_id -n kube-system | grep 'Webhook Success' >/dev/null; then
+    echo "✅ Verified that webhook successfully sent"
+    sent=1
+    squid_worker_pods=$(kubectl get pods -o json | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
+  fi
+
+  if [[ $sent -eq 1 ]] && kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -e 'TCP_MISS/200' -e 'TCP_TUNNEL/200' -e 'TCP_MISS_ABORTED/200' >/dev/null; then
+     echo "✅ Verified the webhook POST used the http proxy"
+        exit 0
+  fi
+  sleep $TAINT_CHECK_SLEEP
 done
 
-exit 1
+if [[ $cordoned -eq 0 ]]; then
+    echo "❌ Worker node was not cordoned"
+elif [[ $evicted -eq 0 ]]; then
+    echo "❌ regular-pod-test pod was not evicted"
+elif [[ $sent -eq 0 ]]; then
+    echo "❌ Webhook not sent"
+else
+    echo "❌ Webhook POST did not use http proxy"
+fi
+fail_and_exit 1

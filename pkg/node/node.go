@@ -16,13 +16,13 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/aws/aws-node-termination-handler/pkg/uptime"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -58,12 +58,11 @@ var (
 	conflictRetryInterval time.Duration = 750 * time.Millisecond
 )
 
-var uptimeFile = "/proc/uptime"
-
 // Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
 type Node struct {
 	nthConfig   config.Config
 	drainHelper *drain.Helper
+	uptime      uptime.UptimeFuncType
 }
 
 // New will construct a node struct to perform various node function through the kubernetes api server
@@ -72,20 +71,19 @@ func New(nthConfig config.Config) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	return NewWithValues(nthConfig, drainHelper, getUptimeFunc(nthConfig.UptimeFromFile))
+}
+
+// NewWithValues will construct a node struct with a drain helper and an uptime function
+func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper, uptime uptime.UptimeFuncType) (*Node, error) {
 	return &Node{
 		nthConfig:   nthConfig,
 		drainHelper: drainHelper,
+		uptime:      uptime,
 	}, nil
 }
 
-// NewWithValues will construct a node struct with a drain helper
-func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper) (*Node, error) {
-	return &Node{
-		nthConfig:   nthConfig,
-		drainHelper: drainHelper,
-	}, nil
-}
-
+// GetName returns node name from the configuration.
 func (n Node) GetName() string {
 	return n.nthConfig.NodeName
 }
@@ -362,11 +360,11 @@ func (n Node) UncordonIfRebooted() error {
 	secondsSinceLabel := time.Now().Unix() - timeValNum
 	switch actionVal := k8sNode.Labels[ActionLabelKey]; actionVal {
 	case UncordonAfterRebootLabelVal:
-		uptime, err := getSystemUptime(uptimeFile)
+		uptime, err := n.uptime()
 		if err != nil {
 			return err
 		}
-		if secondsSinceLabel < int64(uptime) {
+		if secondsSinceLabel < uptime {
 			log.Log().Msg("The system has not restarted yet.")
 			return nil
 		}
@@ -431,19 +429,6 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 	drainHelper.Client = clientset
 
 	return drainHelper, nil
-}
-
-func getSystemUptime(filename string) (float64, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return 0, fmt.Errorf("Not able to read %s: %w", filename, err)
-	}
-
-	uptime, err := strconv.ParseFloat(strings.Split(string(data), " ")[0], 64)
-	if err != nil {
-		return 0, fmt.Errorf("Not able to parse %s to Float64: %w", filename, err)
-	}
-	return uptime, nil
 }
 
 func jsonPatchEscape(value string) string {
@@ -558,4 +543,13 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 		log.Log().Msgf("Successfully released %v on node %v", taintKey, node.Name)
 		return true, nil
 	}
+}
+
+func getUptimeFunc(uptimeFile string) uptime.UptimeFuncType {
+	if uptimeFile != "" {
+		return func() (int64, error) {
+			return uptime.UptimeFromFile(uptimeFile)
+		}
+	}
+	return uptime.Uptime
 }

@@ -55,7 +55,8 @@ const (
 	taintNode                               = "TAINT_NODE"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
-
+	uptimeFromFileConfigKey                 = "UPTIME_FROM_FILE"
+	uptimeFromFileDefault                   = ""
 	// prometheus
 	enablePrometheusDefault   = false
 	enablePrometheusConfigKey = "ENABLE_PROMETHEUS_SERVER"
@@ -85,6 +86,7 @@ type Config struct {
 	CordonOnly                     bool
 	TaintNode                      bool
 	JsonLogging                    bool
+	UptimeFromFile                 string
 	EnablePrometheus               bool
 	PrometheusPort                 int
 }
@@ -120,6 +122,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
+	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
 	flag.BoolVar(&config.EnablePrometheus, "enable-prometheus-server", getBoolEnv(enablePrometheusConfigKey, enablePrometheusDefault), "If true, a http server is used for exposing prometheus metrics in /metrics endpoint.")
 	flag.IntVar(&config.PrometheusPort, "prometheus-server-port", getIntEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
 
@@ -159,6 +162,7 @@ func ParseCliArgs() (config Config, err error) {
 			"\ttaint-node: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\twebhook-proxy: %s,\n"+
+			"\tuptime-from-file: %s,\n"+
 			"\tenable-prometheus-server: %t,\n"+
 			"\tprometheus-server-port: %d,\n",
 		config.DryRun,
@@ -177,6 +181,7 @@ func ParseCliArgs() (config Config, err error) {
 		config.TaintNode,
 		config.JsonLogging,
 		config.WebhookProxy,
+		config.UptimeFromFile,
 		config.EnablePrometheus,
 		config.PrometheusPort,
 	)

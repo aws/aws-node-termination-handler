@@ -1,0 +1,147 @@
+#!/bin/bash
+
+set -euo pipefail
+
+USAGE=$(cat << 'EOM'
+  Usage: run-test [-a script1,scripts2,...] [-w] [-r] CONFIG
+
+    Options:
+      -a       Assertion script(s), default is ALL scripts in e2e dir
+      -w       Target Windows platform
+      -r       Reset cluster then exit
+
+    Arguments:
+      CONFIG   File to source, it should export the following values:
+                 CLUSTER_NAME                                 EKS cluster name
+                 DOCKER_PULL_POLICY                           Docker image pull policy (defaults to IfNotPresent)
+                 NODE_TERMINATION_HANDLER_DOCKER_REPO         Node Termination Handler Docker repository
+                 NODE_TERMINATION_HANDLER_DOCKER_TAG          Node Termination Handler Docker tag
+                 NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY  Node Termination Handler Docker image pull policy (defaults to DOCKER_PULL_POLICY)
+                 EC2_METADATA_DOCKER_REPO                     EC2 Metadata Test Proxy Docker repository
+                 EC2_METADATA_DOCKER_TAG                      EC2 Metadata Test Proxy Docker tag
+                 EC2_METADATA_DOCKER_PULL_POLICY              EC2 Metadata Test Proxy Docker image pull policy (defaults to DOCKER_PULL_POLICY)
+                 EC2_METADATA_PORT                            EC2 Metadata Test Proxy port (defaults to 18999)
+                 EC2_METADATA_URL                             EC2 Metadata Test Proxy URL (defaults to "http://ec2-metadata-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT")
+                 WEBHOOK_URL                                  Webhook URL (defaults to EC2_METADATA_URL)
+EOM
+)
+
+reset_cluster_only=0
+export TEST_WINDOWS="false"
+
+while getopts "a:w" opt; do
+  case ${opt} in
+    a ) # Assertion script(s)
+        assertion_scripts=$(echo $OPTARG | tr "," "\n")
+      ;;
+    w ) # Windows platform
+        TEST_WINDOWS="true"
+      ;;
+    r ) # Reset cluster
+        reset_cluster_only=1
+      ;;
+    \? )
+      echo "$USAGE" 1>&2
+      exit
+  esac
+done
+
+config=${@:$OPTIND:1}
+echo "Reading configuration from ${config:?"missing argument"}"
+set -a  # Export variables by default.
+source $config
+set +a  # Disable exporting variables by default.
+
+echo "CLUSTER_NAME=${CLUSTER_NAME:?"not found"}"
+echo "DOCKER_PULL_POLICY=${DOCKER_PULL_POLICY:="IfNotPresent"}"
+echo "NODE_TERMINATION_HANDLER_DOCKER_REPO=${NODE_TERMINATION_HANDLER_DOCKER_REPO:?"not found"}"
+echo "NODE_TERMINATION_HANDLER_DOCKER_TAG=${NODE_TERMINATION_HANDLER_DOCKER_TAG:?"not found"}"
+echo "NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY=${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY:=$DOCKER_PULL_POLICY}"
+echo "EC2_METADATA_DOCKER_REPO=${EC2_METADATA_DOCKER_REPO:?"not found"}"
+echo "EC2_METADATA_DOCKER_TAG=${EC2_METADATA_DOCKER_TAG:?"not found"}"
+echo "EC2_METADATA_DOCKER_PULL_POLICY=${EC2_METADATA_DOCKER_PULL_POLICY:=$DOCKER_PULL_POLICY}"
+echo "EC2_METADATA_PORT=${EC2_METADATA_PORT:=18999}"
+echo "EC2_METADATA_URL=${EC2_METADATA_URL:="http://ec2-metadata-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT"}"
+echo "WEBHOOK_URL=${WEBHOOK_URL:=$EC2_METADATA_URL}"
+
+# The e2e test scripts use other variable names.
+echo "IMDS_PORT=${IMDS_PORT:=$EC2_METADATA_PORT}"
+echo "INSTANCE_METADATA_URL=${INSTANCE_METADATA_URL:=$EC2_METADATA_URL}"
+
+export NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY \
+    EC2_METADATA_DOCKER_PULL_POLICY \
+    WEBHOOK_URL \
+    IMDS_PORT \
+    INSTANCE_METADATA_URL
+
+if ! command -v kubectl >/dev/null 2>&1; then
+    echo "🚫 Cannot find kubectl command"
+    exit 1
+fi
+if ! kubectl get svc >/dev/null 2>&1; then
+    echo "🚫 kubectl failed test communication with cluster"
+    exit 1
+fi
+
+export TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=windows |
+    tail -n +2 |
+    tr -s "\t" " " |
+    cut -d" " -f1)
+echo "TEST_NODE=${TEST_NODE:?"not found"}"
+
+echo "TEST_WINDOWS=${TEST_WINDOWS:="false"}"
+
+function get_nth_worker_pod {
+    kubectl get pods -n kube-system -l k8s-app=aws-node-termination-handler |
+        tail -n +2 |
+        tr -s "\t" " " |
+        cut -d " " -f 1
+}
+export -f get_nth_worker_pod
+
+function reset_cluster {
+    echo "-------------------------------------------------------------------------------------------------"
+    echo "🧹 Resetting cluster $CLUSTER_NAME"
+    echo "-------------------------------------------------------------------------------------------------"
+    ./reset-cluster
+    sleep ${1:-15}
+}
+if [[ $reset_cluster_only -eq 1 ]]; then
+    reset_cluster 1
+    exit 0
+fi
+
+if [[ -z ${assertion_scripts+x} ]]; then
+    assertion_scripts=(
+        ../e2e/cordon-only-test
+        ../e2e/imds-v2-test
+        ../e2e/maintenance-event-cancellation-test
+        ../e2e/maintenance-event-dry-run-test
+        #../e2e/maintenance-event-reboot-test
+        ../e2e/maintenance-event-test
+        ../e2e/spot-interruption-dry-run-test
+        ../e2e/spot-interruption-test
+        #../e2e/webhook-http-proxy-test
+        ../e2e/webhook-test
+    )
+fi
+
+echo "Assertion script(s): ${assertion_scripts[@]}"
+
+for assertion_script in ${assertion_scripts[@]}; do
+    reset_cluster
+    echo "================================================================================================="
+    echo "🥑 Running assertion script $(basename $assertion_script)"
+    echo "================================================================================================="
+    assertion_start=$(date +%s)
+    $assertion_script
+    assertion_end=$(date +%s)
+    echo "⏰ Took $(expr $assertion_end - $assertion_start)sec"
+    echo "✅ Assertion test $assertion_script PASSED! ✅"
+done
+reset_cluster
+
+echo "====================================================================================================="
+echo "✅ All tests passed! ✅"
+echo "====================================================================================================="
+

@@ -1,4 +1,6 @@
 {{- if .Values.regularPodTest.create -}}
+{{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
+{{- $osSelector := (semverCompare "<1.14" .Capabilities.KubeVersion.Version | ternary "beta.kubernetes.io/os" "kubernetes.io/os") -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,15 +16,19 @@ spec:
       labels:
         app: {{ .Values.regularPodTest.label }}
     spec:
+      nodeSelector:
+        {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
+      {{- if (not $isWindows) }}
       securityContext:
         runAsUser: 1000
         runAsGroup: 3000
         fsGroup: 2000
+      {{- end }}
       serviceAccountName: {{ template "ec2-metadata-test-proxy.serviceAccountName" . }}
       containers:
       - name: {{ .Values.regularPodTest.label }}
         image: {{ .Values.ec2MetadataTestProxy.image.repository }}:{{ .Values.ec2MetadataTestProxy.image.tag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.ec2MetadataTestProxy.image.pullPolicy }}
         env:
         - name: PORT
           value: {{ .Values.regularPodTest.port | quote }}
