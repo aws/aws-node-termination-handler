@@ -11,12 +11,11 @@ MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR_PATH = ${MAKEFILE_PATH}/build
 SUPPORTED_PLATFORMS ?= "linux/amd64,linux/arm64,linux/arm"
 
+$(shell mkdir -p ${BUILD_DIR_PATH} && touch ${BUILD_DIR_PATH}/_go.mod)
+
 compile:
 	@echo ${MAKEFILE_PATH}
 	go build -a -tags nth${GOOS} -o ${BUILD_DIR_PATH}/node-termination-handler ${MAKEFILE_PATH}/cmd/node-termination-handler.go
-
-create-build-dir:
-	mkdir -p ${BUILD_DIR_PATH}
 
 clean:
 	rm -rf ${BUILD_DIR_PATH}/
@@ -65,6 +64,9 @@ helm-sync-test:
 helm-version-sync-test:
 	${MAKEFILE_PATH}/test/helm-sync-test/run-helm-version-sync-test
 
+helm-lint:
+	${MAKEFILE_PATH}/test/helm/helm-lint
+
 build-binaries:
 	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS} -v ${VERSION}
 
@@ -77,17 +79,17 @@ generate-k8s-yaml:
 sync-readme-to-dockerhub:
 	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
-unit-test: create-build-dir
+unit-test:
 	go test -bench=. ${MAKEFILE_PATH}/... -v -coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
 
 unit-test-linux:
 	${MAKEFILE_PATH}/scripts/run-unit-tests-in-docker
 
-build: create-build-dir compile
+build: compile
 
-helm-tests: helm-sync-test helm-version-sync-test
+helm-tests: helm-sync-test helm-version-sync-test helm-lint
 
-release: create-build-dir build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
+release: build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
 
 test: unit-test e2e-test compatibility-test license-test go-report-card-test helm-sync-test
 
