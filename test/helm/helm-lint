@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+TMP_DIR="$SCRIPTPATH/../../build"
+PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
+HELM3_VERSION="3.2.4"
+HELM2_VERSION="2.16.9"
+
+mkdir -p $TMP_DIR
+
+if [ ! -x "$TMP_DIR/helm" ]; then
+    echo "🥑 Downloading the \"helm3\" binary"
+    curl -L https://get.helm.sh/helm-v$HELM3_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $TMP_DIR
+    mv $TMP_DIR/$PLATFORM-amd64/helm $TMP_DIR/.
+    chmod +x $TMP_DIR/helm
+    echo "👍 Downloaded the \"helm\" binary"
+fi
+
+if [ ! -x "$TMP_DIR/helm2" ]; then
+    echo "🥑 Downloading the \"helm2\" binary"
+    curl -L https://get.helm.sh/helm-v$HELM2_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $TMP_DIR
+    mv $TMP_DIR/$PLATFORM-amd64/helm $TMP_DIR/helm2
+    chmod +x $TMP_DIR/helm2
+    echo "👍 Downloaded the \"helm2\" binary"
+fi
+export PATH=$TMP_DIR:$PATH
+
+echo "=============================================================================="
+echo "                     Linting Helm Chart w/ Helm v3"
+echo "=============================================================================="
+helm lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ 
+
+echo "=============================================================================="
+echo "                     Linting Helm Chart w/ Helm v2"
+echo "=============================================================================="
+helm2 lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ 
+
+echo "✅ Helm Linting for v2 and v3 have successfully completed!"

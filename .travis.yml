@@ -24,16 +24,19 @@ jobs:
       name: Unit Tests
       after_success: bash <(curl -s https://codecov.io/bash) -v
     - stage: Test
+      script: make helm-lint
+      name: Helm v2 and v3 Lint
+    - stage: Test
       script: test/go-report-card-test/run-report-card-test.sh
       name: Go Report Card Test
     - stage: Test
-      script: make create-build-dir build-binaries
+      script: make build-binaries
       name: Build Binaries
     - stage: Test
-      script: make create-build-dir build-docker-images
+      script: make build-docker-images
       name: Build Docker Images
     - stage: Test
-      script: make create-build-dir generate-k8s-yaml
+      script: make generate-k8s-yaml
       name: Generate K8s yaml files
     - stage: Test
       if: type = push AND env(GITHUB_TOKEN) IS present

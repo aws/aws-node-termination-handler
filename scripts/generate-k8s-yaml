@@ -26,13 +26,16 @@ EOM
 )
 
 # Process our input arguments
-while getopts "n:" opt; do
+while getopts "vn:" opt; do
   case ${opt} in
     n ) # K8s namespace
         NAMESPACE=$OPTARG
       ;;
+    v ) # Verbose
+        set -x 
+      ;;
     \? )
-        echoerr "$USAGE" 1>&2
+        echo "$USAGE" 1>&2
         exit
       ;;
   esac
