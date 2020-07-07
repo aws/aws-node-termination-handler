@@ -71,7 +71,8 @@ In 1.14 "beta.kubernetes.io" was deprecated and is scheduled for removal in 1.18
 See https://v1-14.docs.kubernetes.io/docs/setup/release/notes/#deprecations
 */}}
 {{- define "aws-node-termination-handler.defaultNodeSelectorTermsPrefix" -}}
-    {{- semverCompare "<1.14" .Capabilities.KubeVersion.Version | ternary "beta.kubernetes.io" "kubernetes.io" -}}
+    {{- $k8sVersion := printf "%s.%s" .Capabilities.KubeVersion.Major .Capabilities.KubeVersion.Minor -}}
+    {{- semverCompare "<1.14" $k8sVersion | ternary "beta.kubernetes.io" "kubernetes.io" -}}
 {{- end -}}
 
 {{/*
