@@ -54,7 +54,7 @@ The termination handler installs into your cluster a [ServiceAccount](https://ku
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.5.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.6.0/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
