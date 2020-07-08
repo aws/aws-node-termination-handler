@@ -30,7 +30,7 @@ resources:
     memory: "64Mi"
     cpu: "50m"
   limits:
-    memory: "128Mi"
+    memory: "64Mi"
 
 ## enableSpotInterruptionDraining If true, drain nodes when the spot interruption termination notice is received
 enableSpotInterruptionDraining: false
