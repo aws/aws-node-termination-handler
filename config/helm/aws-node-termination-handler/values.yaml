@@ -34,10 +34,10 @@ resources:
     cpu: "100m"
 
 ## enableSpotInterruptionDraining If true, drain nodes when the spot interruption termination notice is received
-enableSpotInterruptionDraining: ""
+enableSpotInterruptionDraining: false
 
 ## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
-enableScheduledEventDraining: ""
+enableScheduledEventDraining: false
 
 taintNode: false
 
@@ -46,18 +46,18 @@ dryRun: false
 
 # deleteLocalData tells kubectl to continue even if there are pods using
 # emptyDir (local data that will be deleted when the node is drained).
-deleteLocalData: ""
+deleteLocalData: false
 
 # ignoreDaemonSets causes kubectl to skip Daemon Set managed pods.
-ignoreDaemonSets: ""
+ignoreDaemonSets: true
 
 # gracePeriod (DEPRECATED - use podTerminationGracePeriod instead) is time in seconds given to each pod to terminate gracefully.
 # If negative, the default value specified in the pod will be used.
 gracePeriod: ""
-podTerminationGracePeriod: ""
+podTerminationGracePeriod: 30
 
 # nodeTerminationGracePeriod specifies the period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.
-nodeTerminationGracePeriod: ""
+nodeTerminationGracePeriod: 120
 
 # webhookURL if specified, posts event data to URL upon instance interruption action.
 webhookURL: ""
@@ -75,7 +75,7 @@ webhookTemplate: ""
 instanceMetadataURL: ""
 
 # (TESTING USE): Mount path for uptime file
-procUptimeFile: ""
+procUptimeFile: "/proc/uptime"
 
 # Create node OS specific daemonset(s). (e.g. "linux", "windows", "linux windows")
 targetNodeOs: "linux"
