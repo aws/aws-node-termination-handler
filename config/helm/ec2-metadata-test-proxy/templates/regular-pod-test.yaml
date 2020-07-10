@@ -1,6 +1,6 @@
 {{- if .Values.regularPodTest.create -}}
 {{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
-{{- $k8sVersion := printf "%s.%s" .Capabilities.KubeVersion.Major .Capabilities.KubeVersion.Minor -}}
+{{- $k8sVersion := printf "%s.%s" .Capabilities.KubeVersion.Major .Capabilities.KubeVersion.Minor | replace "+" "" -}}
 {{- $osSelector := (semverCompare "<1.14" $k8sVersion | ternary "beta.kubernetes.io/os" "kubernetes.io/os") -}}
 apiVersion: apps/v1
 kind: Deployment
