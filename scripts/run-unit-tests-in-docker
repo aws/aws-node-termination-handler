@@ -49,7 +49,7 @@ if ! [[ -n $(docker container ls -a | grep "$container_name") ]]; then
   echo "creating container ..."
 
   IFS=',' read -ra deps <<< "$deps"
-  echo "dependencies to install: ${deps[@]}"
+  echo "dependencies to install: ${deps[*]}"
 
   docker container create \
       --name "$container_name" \

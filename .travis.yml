@@ -23,6 +23,12 @@ jobs:
       script: make unit-test
       name: Unit Tests
       after_success: bash <(curl -s https://codecov.io/bash) -v
+    - Stage: Test
+      script: make shellcheck
+      name: Check Shell Scripts
+    - Stage: Test
+      script: make spellcheck
+      name: Spellcheck Markdown Files
     - stage: Test
       script: make helm-lint
       name: Helm v2 and v3 Lint

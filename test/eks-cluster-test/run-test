@@ -126,9 +126,9 @@ if [[ -z ${assertion_scripts+x} ]]; then
     )
 fi
 
-echo "Assertion script(s): ${assertion_scripts[@]}"
+echo "Assertion script(s): ${assertion_scripts[*]}"
 
-for assertion_script in ${assertion_scripts[@]}; do
+for assertion_script in "${assertion_scripts[@]}"; do
     reset_cluster
     echo "================================================================================================="
     echo "🥑 Running assertion script $(basename $assertion_script)"
