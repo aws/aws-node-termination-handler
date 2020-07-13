@@ -9,23 +9,16 @@ serviceAccount:
     name: emtp-sa
     create: true
     annotations: {}
-# The ec2-metadata-test-proxy is for testing purposes
-ec2MetadataTestProxy:
-    create: true
-    interruptionNoticeDelay: 15
-    port: 1338
-    label: ec2-metadata-test-proxy
-    scheduledEventStatus: active
-    enableScheduledMaintenanceEvents: false
-    enableSpotITN: true
-    enableIMDSV2: false
-    image:
-        repository: ec2-metadata-test-proxy
-        tag: customtest
-        pullPolicy: IfNotPresent
-    tolerations: []
 regularPodTest:
     create: true
     label: regular-pod-test
     port: 1339
+    image:
+        repository: ec2-metadata-test-proxy
+        tag: customtest
+        pullPolicy: IfNotPresent
+webhookTestProxy:
+  create: true
+  label: webhook-test-proxy
+  port: 1340
 targetNodeOs: "linux"

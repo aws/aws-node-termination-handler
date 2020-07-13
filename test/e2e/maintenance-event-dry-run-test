@@ -30,7 +30,7 @@ anth_helm_args=(
   --wait
   --force
   --namespace kube-system
-  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://localhost:$IMDS_PORT"}
+  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$IMDS_PORT"}
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set dryRun="true"
@@ -46,6 +46,21 @@ set -x
 helm "${anth_helm_args[@]}"
 set +x
 
+aemm_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-aemm
+  https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v1.1.0/amazon-ec2-metadata-mock-1.1.0.tgz
+  --wait
+  --namespace default
+  --set servicePort="$IMDS_PORT"
+  --set arguments={events}
+)
+
+set -x
+helm "${aemm_helm_args[@]}"
+set +x
+
 emtp_helm_args=(
   upgrade
   --install
@@ -54,9 +69,6 @@ emtp_helm_args=(
   --wait
   --force
   --namespace default
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
-  --set ec2MetadataTestProxy.port="$IMDS_PORT"
 )
 [[ -n "${EC2_METADATA_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set ec2MetadataTestProxy.image.pullPolicy="$EC2_METADATA_DOCKER_PULL_POLICY")

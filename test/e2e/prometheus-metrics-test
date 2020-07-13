@@ -19,23 +19,26 @@ helm upgrade --install $CLUSTER_NAME-anth $SCRIPTPATH/../../config/helm/aws-node
   --wait \
   --force \
   --namespace kube-system \
-  --set instanceMetadataURL="http://localhost:$IMDS_PORT" \
+  --set instanceMetadataURL="http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$IMDS_PORT" \
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO" \
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG" \
   --set enableScheduledEventDraining="false" \
   --set enableSpotInterruptionDraining="true" \
   --set taintNode="true" \
-  --set enablePrometheusServer="true"
+  --set enablePrometheusServer="true" \
+  --set tolerations=""
+
+helm upgrade --install $CLUSTER_NAME-aemm https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v1.1.0/amazon-ec2-metadata-mock-1.1.0.tgz \
+  --wait \
+  --namespace default \
+  --set servicePort="$IMDS_PORT" \
+  --set 'tolerations[0].effect=NoSchedule' \
+  --set 'tolerations[0].operator=Exists'
 
 helm upgrade --install $CLUSTER_NAME-emtp $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/ \
   --wait \
   --force \
-  --namespace default \
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO" \
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG" \
-  --set ec2MetadataTestProxy.enableSpotITN="true" \
-  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="false" \
-  --set ec2MetadataTestProxy.port="$IMDS_PORT"
+  --namespace default
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
