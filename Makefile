@@ -9,7 +9,8 @@ GOARCH ?= amd64
 GOPROXY ?= "https://proxy.golang.org,direct"
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR_PATH = ${MAKEFILE_PATH}/build
-SUPPORTED_PLATFORMS ?= "linux/amd64,linux/arm64,linux/arm"
+SUPPORTED_PLATFORMS ?= "linux/amd64,linux/arm64,linux/arm,darwin/amd64"
+BINARY_NAME ?= "node-termination-handler"
 
 $(shell mkdir -p ${BUILD_DIR_PATH} && touch ${BUILD_DIR_PATH}/_go.mod)
 
@@ -21,7 +22,7 @@ clean:
 	rm -rf ${BUILD_DIR_PATH}/
 
 fmt:
-	goimports -w ./
+	goimports -w ./ && gofmt -s -w ./
 
 docker-build:
 	${MAKEFILE_PATH}/scripts/build-docker-images -d -p ${GOOS}/${GOARCH} -r ${IMG} -v ${VERSION}
@@ -46,6 +47,9 @@ version:
 image:
 	@echo ${IMG_W_TAG}
 
+binary-name:
+	@echo ${BINARY_NAME}
+
 e2e-test:
 	${MAKEFILE_PATH}/test/k8s-local-cluster-test/run-test -b e2e-test -d
 
@@ -68,7 +72,7 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint
 
 build-binaries:
-	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS} -v ${VERSION}
+	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS} -v ${VERSION} -d
 
 upload-resources-to-github:
 	${MAKEFILE_PATH}/scripts/upload-resources-to-github

@@ -5,9 +5,11 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 REPO_ROOT_PATH=$SCRIPTPATH/../
 MAKE_FILE_PATH=$REPO_ROOT_PATH/Makefile
-mkdir -p $SCRIPTPATH/../build/bin
+BIN_DIR=$SCRIPTPATH/../build/bin
+mkdir -p $BIN_DIR
 
 VERSION=$(make -s -f $MAKE_FILE_PATH version)
+BASE_BIN_NAME=$(make -s -f $MAKE_FILE_PATH binary-name)
 PLATFORMS=("linux/amd64")
 PASS_THRU_ARGS=""
 
@@ -17,6 +19,7 @@ USAGE=$(cat << 'EOM'
 
   Example: build-binaries -p "linux/amd64,linux/arm"
           Optional:
+            -b          Base bin name [DEFAULT: output of "make binary-name"]
             -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
             -d          DIRECT: Set GOPROXY=direct to bypass go proxies
             -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]
@@ -24,7 +27,7 @@ EOM
 )
 
 # Process our input arguments
-while getopts "dp:v:" opt; do
+while getopts "dp:v:b:" opt; do
   case ${opt} in
     p ) # Platform Pairs
         IFS=',' read -ra PLATFORMS <<< "$OPTARG"
@@ -34,6 +37,9 @@ while getopts "dp:v:" opt; do
       ;;
     v ) # Image Version
         VERSION="$OPTARG"
+      ;;
+    b ) # Base bin name
+        BASE_BIN_NAME="$OPTARG"
       ;;
     \? )
         echo "$USAGE" 1>&2
@@ -45,12 +51,16 @@ done
 for os_arch in "${PLATFORMS[@]}"; do
     os=$(echo $os_arch | cut -d'/' -f1)
     arch=$(echo $os_arch | cut -d'/' -f2)
-    container_name="extract-nth-$os-$arch"
-    repo_name="anth-bin"
-    bin_name="node-termination-handler-$os-$arch"
+    container_name="build-$BASE_BIN_NAME-$os-$arch"
+    repo_name="bin-build"
+    bin_name="$BASE_BIN_NAME-$os-$arch"
 
     docker container rm $container_name || :
     $SCRIPTPATH/build-docker-images -p $os_arch -v $VERSION -r $repo_name $PASS_THRU_ARGS
     docker container create --rm --name $container_name "$repo_name:$VERSION-$os-$arch"
-    docker container cp $container_name:/node-termination-handler $SCRIPTPATH/../build/bin/$bin_name
+    docker container cp $container_name:/${BASE_BIN_NAME} $BIN_DIR/$bin_name
+
+    cp ${BIN_DIR}/${bin_name} ${BIN_DIR}/${BASE_BIN_NAME}
+    tar -zcvf ${BIN_DIR}/${bin_name}.tar.gz -C ${BIN_DIR} ${BASE_BIN_NAME}
+    rm -f ${BIN_DIR}/${BASE_BIN_NAME}
 done
