@@ -22,7 +22,7 @@ USAGE=$(cat << 'EOM'
             -b          Base bin name [DEFAULT: output of "make binary-name"]
             -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
             -d          DIRECT: Set GOPROXY=direct to bypass go proxies
-            -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]        
+            -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]
 EOM
 )
 
