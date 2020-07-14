@@ -85,7 +85,7 @@ for dep in "${deps[@]}"; do
     if [ ! -x "$path_to_executable" ]; then
         echoerr "You are required to have $dep installed on your system..."
         echoerr "Please install $dep and try again. "
-        exit -1
+        exit 3
     fi
 done
 

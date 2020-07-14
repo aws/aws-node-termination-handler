@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+BUILD_DIR="${SCRIPTPATH}/../../build"
+
+KERNEL=$(uname -s | tr '[:upper:]' '[:lower:]')
+SHELLCHECK_VERSION="0.7.1"
+
+function exit_and_fail() {
+   echo "❌ Test Failed! Found a shell script with errors."
+   exit 1
+}
+trap exit_and_fail INT ERR TERM
+
+curl -Lo ${BUILD_DIR}/shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.${KERNEL}.x86_64.tar.xz
+tar -C ${BUILD_DIR} -xvf "${BUILD_DIR}/shellcheck.tar.xz"
+export PATH="${BUILD_DIR}/shellcheck-v${SHELLCHECK_VERSION}:$PATH"
+
+shellcheck -S error $(grep -Rn -e '#!.*/bin/bash' -e '#!.*/usr/bin/env bash' ${SCRIPTPATH}/../../ | grep ":[1-5]:" | cut -d':' -f1)
+
+echo "✅ All shell scripts look good! 😎"
