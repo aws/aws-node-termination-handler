@@ -26,6 +26,10 @@ import (
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
+const (
+	node1 = "test-node-1"
+)
+
 func TestAddDrainEvent(t *testing.T) {
 	store := interruptioneventstore.New(config.Config{})
 
@@ -33,6 +37,7 @@ func TestAddDrainEvent(t *testing.T) {
 		EventID:   "123",
 		State:     "Active",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(event1)
 
@@ -45,6 +50,7 @@ func TestAddDrainEvent(t *testing.T) {
 		EventID:   "123",
 		State:     "Something Else",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 
 	store.AddInterruptionEvent(event2)
@@ -60,6 +66,7 @@ func TestCancelInterruptionEvent(t *testing.T) {
 	event := &interruptionevent.InterruptionEvent{
 		EventID:   "123",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(event)
 
@@ -76,6 +83,7 @@ func TestShouldDrainNode(t *testing.T) {
 	futureEvent := &interruptionevent.InterruptionEvent{
 		EventID:   "future",
 		StartTime: time.Now().Add(time.Second * 20),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(futureEvent)
 	h.Equals(t, false, store.ShouldDrainNode())
@@ -83,6 +91,7 @@ func TestShouldDrainNode(t *testing.T) {
 	currentEvent := &interruptionevent.InterruptionEvent{
 		EventID:   "current",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(currentEvent)
 	h.Equals(t, true, store.ShouldDrainNode())
@@ -94,16 +103,18 @@ func TestMarkAllAsDrained(t *testing.T) {
 		EventID:   "1",
 		StartTime: time.Now().Add(time.Second * 20),
 		Drained:   false,
+		NodeName:  node1,
 	}
 	event2 := &interruptionevent.InterruptionEvent{
 		EventID:   "2",
 		StartTime: time.Now().Add(time.Second * 20),
 		Drained:   false,
+		NodeName:  node1,
 	}
 
 	store.AddInterruptionEvent(event1)
 	store.AddInterruptionEvent(event2)
-	store.MarkAllAsDrained()
+	store.MarkAllAsDrained(node1)
 
 	// When events are marked as Drained=true, then they are no longer
 	// returned by the GetActiveEvent func, so we expect false
@@ -114,20 +125,21 @@ func TestMarkAllAsDrained(t *testing.T) {
 func TestShouldUncordonNode(t *testing.T) {
 	eventID := "123"
 	store := interruptioneventstore.New(config.Config{})
-	h.Equals(t, false, store.ShouldUncordonNode())
+	h.Equals(t, false, store.ShouldUncordonNode(node1))
 
 	event := &interruptionevent.InterruptionEvent{
-		EventID: eventID,
+		EventID:  eventID,
+		NodeName: node1,
 	}
 	store.AddInterruptionEvent(event)
-	h.Equals(t, false, store.ShouldUncordonNode())
+	h.Equals(t, false, store.ShouldUncordonNode(node1))
 
 	store.CancelInterruptionEvent(event.EventID)
-	h.Equals(t, true, store.ShouldUncordonNode())
+	h.Equals(t, true, store.ShouldUncordonNode(node1))
 
 	store.IgnoreEvent(eventID)
 	store.AddInterruptionEvent(event)
-	h.Equals(t, true, store.ShouldUncordonNode())
+	h.Equals(t, true, store.ShouldUncordonNode(node1))
 }
 
 func TestIgnoreEvent(t *testing.T) {
@@ -160,7 +172,7 @@ func BenchmarkDrainEventStore(b *testing.B) {
 			store.CancelInterruptionEvent(strconv.Itoa(rand.Intn(idBound)))
 			store.GetActiveEvent()
 			store.ShouldDrainNode()
-			store.ShouldUncordonNode()
+			store.ShouldUncordonNode(node1)
 		}
 	})
 }

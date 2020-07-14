@@ -103,11 +103,13 @@ func (s *Store) TimeUntilDrain(interruptionEvent *interruptionevent.Interruption
 }
 
 // MarkAllAsDrained should be called after the node has been drained to prevent further unnecessary drain calls to the k8s api
-func (s *Store) MarkAllAsDrained() {
+func (s *Store) MarkAllAsDrained(nodeName string) {
 	s.Lock()
 	defer s.Unlock()
 	for _, interruptionEvent := range s.interruptionEventStore {
-		interruptionEvent.Drained = true
+		if interruptionEvent.NodeName == nodeName {
+			interruptionEvent.Drained = true
+		}
 	}
 }
 
@@ -123,7 +125,7 @@ func (s *Store) IgnoreEvent(eventID string) {
 }
 
 // ShouldUncordonNode returns true if there was a interruption event but it was canceled and the store is now empty or only consists of ignored events
-func (s *Store) ShouldUncordonNode() bool {
+func (s *Store) ShouldUncordonNode(nodeName string) bool {
 	s.RLock()
 	defer s.RUnlock()
 	if !s.atLeastOneEvent {
@@ -132,10 +134,12 @@ func (s *Store) ShouldUncordonNode() bool {
 	if len(s.interruptionEventStore) == 0 {
 		return true
 	}
+
 	for _, interruptionEvent := range s.interruptionEventStore {
-		if _, ignored := s.ignoredEvents[interruptionEvent.EventID]; !ignored {
+		if _, ignored := s.ignoredEvents[interruptionEvent.EventID]; !ignored && interruptionEvent.NodeName == nodeName {
 			return false
 		}
 	}
+
 	return true
 }

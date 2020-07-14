@@ -28,6 +28,7 @@ const (
 	startTime        = "2017-09-18T08:22:00Z"
 	expFormattedTime = "2017-09-18 08:22:00 +0000 UTC"
 	instanceAction   = "INSTANCE_ACTION"
+	nodeName         = "test-node"
 )
 
 var instanceActionResponse = []byte(`{
@@ -60,7 +61,8 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	err := spotITNMonitor.Monitor()
 	h.Ok(t, err)
 }
 
@@ -77,7 +79,8 @@ func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
 
@@ -98,7 +101,8 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	err := spotITNMonitor.Monitor()
 	h.Ok(t, err)
 }
 
@@ -119,7 +123,8 @@ func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
 
@@ -140,7 +145,8 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to decode instance action")
 }
 
@@ -161,6 +167,7 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	cancelChan := make(chan interruptionevent.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForSpotITNEvents(drainChan, cancelChan, imds)
+	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }
