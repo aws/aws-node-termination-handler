@@ -65,7 +65,7 @@ emtp_helm_args=(
   upgrade
   --install
   $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
   --wait
   --force
   --namespace default

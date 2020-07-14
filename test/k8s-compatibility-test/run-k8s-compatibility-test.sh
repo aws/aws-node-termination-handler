@@ -42,7 +42,7 @@ for i in "${!versions[@]}"; do
       echo "❌ Failed test for K8s version $version"
       E_CODE=1
    fi
-   AFTER_FIRST_RUN_ARGS="-n node-termination-handler:customtest -e ec2-meta-data-proxy:customtest"
+   AFTER_FIRST_RUN_ARGS="-n node-termination-handler:customtest -w webhook-test-proxy:customtest"
 done
 
 exit $E_CODE

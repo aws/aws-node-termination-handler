@@ -11,8 +11,8 @@ PROVISION_CLUSTER_ARGS=""
 DELETE_CLUSTER_ARGS=""
 DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest"
 NODE_TERMINATION_HANDLER_DOCKER_IMG=""
-DEFAULT_EC2_METADATA_DOCKER_IMG="ec2-metadata-test-proxy:customtest"
-EC2_METADATA_DOCKER_IMG=""
+DEFAULT_WEBHOOK_DOCKER_IMG="webhook-test-proxy:customtest"
+WEBHOOK_DOCKER_IMG=""
 OVERRIDE_PATH=0
 K8S_VERSION="1.16"
 ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f | sort)
@@ -81,7 +81,7 @@ function get_nth_worker_pod {
 }
 
 USAGE=$(cat << 'EOM'
-  Usage: run-test [-p] [-d] [-o] [-a <ASSERTION_SCRIPT] [-b <TEST_BASE_NAME] [-c <CLUSTER_CONTEXT_DIR] [-n <NTH_DOCKER_IMG>] [-e <IMDS_DOCKER_IMG>] [-v K8S_VERSION]
+  Usage: run-test [-p] [-d] [-o] [-a <ASSERTION_SCRIPT] [-b <TEST_BASE_NAME] [-c <CLUSTER_CONTEXT_DIR] [-n <NTH_DOCKER_IMG>] [-v K8S_VERSION] [-w <WEBHOOK_DOCKER_IMG>]
   Executes a test within a provisioned kubernetes cluster with NTH and IMDS pre-loaded.
 
   Example: run-test -p -n node-termination-handler:customtest
@@ -92,16 +92,16 @@ USAGE=$(cat << 'EOM'
             -c          Cluster context directory, if operating on an existing cluster
             -p          Preserve kind k8s cluster for inspection
             -n          Node Termination Handler Docker Image
-            -e          EC2 Metadata Docker Image 
             -d          use GOPROXY=direct to bypass proxy.golang.org
             -o          Override path w/ your own kubectl and kind binaries
             -v          Kubernetes Version (Default: 1.16) [1.12, 1.13, 1.14, 1.15, 1.16, 1.17, and 1.18]
+            -w          Webhook Docker Image
             
 EOM
 )
 
 # Process our input arguments
-while getopts "pdn:e:oc:a:b:v:" opt; do
+while getopts "pdn:oc:a:b:v:w:" opt; do
   case ${opt} in
     p ) # PRESERVE K8s Cluster
         echo "❄️  This run will preserve the cluster as you requested"
@@ -109,9 +109,6 @@ while getopts "pdn:e:oc:a:b:v:" opt; do
       ;;
     n ) # Node Termination Handler Docker Image 
         NODE_TERMINATION_HANDLER_DOCKER_IMG="$OPTARG"
-      ;;
-    e ) # EC2 Metadata Docker Image
-        EC2_METADATA_DOCKER_IMG="$OPTARG"
       ;;
     d ) # use GOPROXY=direct
         DOCKER_ARGS="--build-arg GOPROXY=direct"
@@ -132,6 +129,9 @@ while getopts "pdn:e:oc:a:b:v:" opt; do
       ;;
     v ) # K8s VERSION
         K8S_VERSION=$OPTARG
+      ;;
+    w ) # Webhook Docker Image
+        WEBHOOK_DOCKER_IMG="$OPTARG"
       ;;
     \? )
         echo "$USAGE" 1>&2
@@ -162,19 +162,19 @@ else
 fi
 echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" > $TMP_DIR/nth-docker-img
 
-if [ -z "$EC2_METADATA_DOCKER_IMG" ]; then 
-    echo "🥑 Building the ec2-metadata-test-proxy docker image"
-    docker build $DOCKER_ARGS -t $DEFAULT_EC2_METADATA_DOCKER_IMG "$SCRIPTPATH/../ec2-metadata-test-proxy/."
-    EC2_METADATA_DOCKER_IMG="$DEFAULT_EC2_METADATA_DOCKER_IMG"
-    echo "👍 Built the ec2-metadata-test-proxy docker image"
-else  
-    echo "🥑 Skipping building the ec2-metadata-test-proxy docker image, since one was specified ($EC2_METADATA_DOCKER_IMG)"
+if [ -z "$WEBHOOK_DOCKER_IMG" ]; then
+    echo "🥑 Building the webhook-test-proxy docker image"
+    docker build $DOCKER_ARGS -t $DEFAULT_WEBHOOK_DOCKER_IMG "$SCRIPTPATH/../webhook-test-proxy/."
+    WEBHOOK_DOCKER_IMG="$DEFAULT_WEBHOOK_DOCKER_IMG"
+    echo "👍 Built the webhook-test-proxy docker image"
+else
+    echo "🥑 Skipping building the webhook-test-proxy docker image, since one was specified ($WEBHOOK_DOCKER_IMG)"
 fi
-echo "$EC2_METADATA_DOCKER_IMG" > $TMP_DIR/ec2-metadata-test-proxy-docker-img
+echo "$WEBHOOK_DOCKER_IMG" > $TMP_DIR/webhook-test-proxy-docker-img
 
 echo "🥑 Loading both images into the cluster"
 kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $NODE_TERMINATION_HANDLER_DOCKER_IMG
-kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $EC2_METADATA_DOCKER_IMG
+kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $WEBHOOK_DOCKER_IMG
 echo "👍 Loaded both images into the cluster"
 
 export KUBECONFIG="$TMP_DIR/kubeconfig"
@@ -199,9 +199,9 @@ export -f get_nth_worker_pod
 export NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
 export NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
 export NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
-export EC2_METADATA_DOCKER_IMG=$(cat $TMP_DIR/ec2-metadata-test-proxy-docker-img)
-export EC2_METADATA_DOCKER_REPO=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f1)
-export EC2_METADATA_DOCKER_TAG=$(echo $EC2_METADATA_DOCKER_IMG | cut -d':' -f2)
+export WEBHOOK_DOCKER_IMG=$(cat $TMP_DIR/webhook-test-proxy-docker-img)
+export WEBHOOK_DOCKER_REPO=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f1)
+export WEBHOOK_DOCKER_TAG=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f2)
 ###
 
 i=0

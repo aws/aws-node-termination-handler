@@ -14,7 +14,7 @@ regularPodTest:
     label: regular-pod-test
     port: 1339
     image:
-        repository: ec2-metadata-test-proxy
+        repository: webhook-test-proxy
         tag: customtest
         pullPolicy: IfNotPresent
 webhookTestProxy:
