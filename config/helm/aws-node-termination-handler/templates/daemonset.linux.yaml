@@ -154,10 +154,10 @@ spec:
       nodeSelector:
         {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
         {{- with .Values.nodeSelector }}
-          {{- . | nindent 8 }}
+          {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- with .Values.linuxNodeSelector }}
-          {{- . | nindent 8 }}
+          {{- toYaml . | nindent 8 }}
         {{- end }}
       {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
