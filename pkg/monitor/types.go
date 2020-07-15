@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent
+package monitor
 
 import (
 	"time"
@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
-type drainTask func(InterruptionEvent, node.Node) error
+type DrainTask func(InterruptionEvent, node.Node) error
 
 // InterruptionEvent gives more context of the interruption event
 type InterruptionEvent struct {
@@ -31,8 +31,8 @@ type InterruptionEvent struct {
 	StartTime     time.Time
 	EndTime       time.Time
 	Drained       bool
-	PreDrainTask  drainTask `json:"-"`
-	PostDrainTask drainTask `json:"-"`
+	PreDrainTask  DrainTask `json:"-"`
+	PostDrainTask DrainTask `json:"-"`
 }
 
 // TimeUntilEvent returns the duration until the event start time

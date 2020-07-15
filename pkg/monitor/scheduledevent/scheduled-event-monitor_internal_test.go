@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent
+package scheduledevent
 
 import (
 	"flag"
@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/uptime"
@@ -67,7 +68,7 @@ func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
 }
 
 func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
-	drainEvent := InterruptionEvent{
+	drainEvent := monitor.InterruptionEvent{
 		EventID: "some-id-that-is-very-long-for-some-reason-and-is-definitely-over-63-characters",
 	}
 	nthConfig := config.Config{
@@ -91,7 +92,7 @@ func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := uncordonAfterRebootPreDrain(InterruptionEvent{}, *tNode)
+	err := uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
@@ -109,6 +110,6 @@ func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
 	})
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := uncordonAfterRebootPreDrain(InterruptionEvent{}, *tNode)
+	err := uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
 	h.Ok(t, err)
 }

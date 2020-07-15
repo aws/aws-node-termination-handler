@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent
+package spotitn
 
 import (
 	"os"
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/uptime"
@@ -44,7 +45,7 @@ func getSpotDrainHelper(client *fake.Clientset) *drain.Helper {
 }
 
 func TestSetInterruptionTaint(t *testing.T) {
-	drainEvent := InterruptionEvent{
+	drainEvent := monitor.InterruptionEvent{
 		EventID: "some-id-that-is-very-long-for-some-reason-and-is-definitely-over-63-characters",
 	}
 	nthConfig := config.Config{
@@ -65,7 +66,7 @@ func TestSetInterruptionTaint(t *testing.T) {
 }
 
 func TestInterruptionTaintAlreadyPresent(t *testing.T) {
-	drainEvent := InterruptionEvent{
+	drainEvent := monitor.InterruptionEvent{
 		EventID: "some-id-that-is-very-long-for-some-reason-and-is-definitely-over-63-characters",
 	}
 	nthConfig := config.Config{

@@ -22,8 +22,10 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
-	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
@@ -80,23 +82,23 @@ func main() {
 		}
 	}
 
-	interruptionChan := make(chan interruptionevent.InterruptionEvent)
+	interruptionChan := make(chan monitor.InterruptionEvent)
 	defer close(interruptionChan)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	defer close(cancelChan)
 
-	monitoringFns := map[string]interruptionevent.Monitor{}
+	monitoringFns := map[string]monitor.Monitor{}
 	if nthConfig.EnableSpotInterruptionDraining {
-		imdsSpotMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+		imdsSpotMonitor := spotitn.NewSpotInterruptionMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 		monitoringFns[spotITN] = imdsSpotMonitor
 	}
 	if nthConfig.EnableScheduledEventDraining {
-		imdsScheduledEventMonitor := interruptionevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+		imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
 	}
 
 	for _, fn := range monitoringFns {
-		go func(monitor interruptionevent.Monitor) {
+		go func(monitor monitor.Monitor) {
 			log.Log().Msgf("Started monitoring for %s events", monitor.Kind())
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
@@ -147,7 +149,7 @@ func handleRebootUncordon(nodeName string, interruptionEventStore *interruptione
 	return nil
 }
 
-func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
+func watchForInterruptionEvents(interruptionChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
 	for {
 		interruptionEvent := <-interruptionChan
 		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
@@ -155,7 +157,7 @@ func watchForInterruptionEvents(interruptionChan <-chan interruptionevent.Interr
 	}
 }
 
-func watchForCancellationEvents(cancelChan <-chan interruptionevent.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
+func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
 	for {
 		interruptionEvent := <-cancelChan
 		nodeName := interruptionEvent.NodeName

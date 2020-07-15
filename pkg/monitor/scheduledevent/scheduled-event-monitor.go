@@ -11,13 +11,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent
+package scheduledevent
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/rs/zerolog/log"
 )
@@ -37,13 +38,13 @@ const (
 // ScheduledEventMonitor is a struct definiiton that knows how to process scheduled events from IMDS
 type ScheduledEventMonitor struct {
 	IMDS             *ec2metadata.Service
-	InterruptionChan chan<- InterruptionEvent
-	CancelChan       chan<- InterruptionEvent
+	InterruptionChan chan<- monitor.InterruptionEvent
+	CancelChan       chan<- monitor.InterruptionEvent
 	NodeName         string
 }
 
 // NewScheduledEventMonitor creates an instance of a scheduled event monitor
-func NewScheduledEventMonitor(imds *ec2metadata.Service, interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, nodeName string) ScheduledEventMonitor {
+func NewScheduledEventMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string) ScheduledEventMonitor {
 	return ScheduledEventMonitor{
 		IMDS:             imds,
 		InterruptionChan: interruptionChan,
@@ -76,15 +77,15 @@ func (m ScheduledEventMonitor) Kind() string {
 }
 
 // checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
-func (m ScheduledEventMonitor) checkForScheduledEvents() ([]InterruptionEvent, error) {
+func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.InterruptionEvent, error) {
 	scheduledEvents, err := m.IMDS.GetScheduledMaintenanceEvents()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
-	nodeName := m.NodeName
-	events := make([]InterruptionEvent, 0)
+
+	events := make([]monitor.InterruptionEvent, 0)
 	for _, scheduledEvent := range scheduledEvents {
-		var preDrainFunc drainTask
+		var preDrainFunc monitor.DrainTask
 		if isRestartEvent(scheduledEvent.Code) && !isStateCanceledOrCompleted(scheduledEvent.State) {
 			preDrainFunc = uncordonAfterRebootPreDrain
 		}
@@ -97,12 +98,12 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]InterruptionEvent, e
 			notAfter = notBefore
 			log.Log().Msgf("Unable to parse scheduled event end time, continuing: %v", err)
 		}
-		events = append(events, InterruptionEvent{
+		events = append(events, monitor.InterruptionEvent{
 			EventID:      scheduledEvent.EventID,
 			Kind:         ScheduledEventKind,
 			Description:  fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
 			State:        scheduledEvent.State,
-			NodeName:     nodeName,
+			NodeName:     m.NodeName,
 			StartTime:    notBefore,
 			EndTime:      notAfter,
 			PreDrainTask: preDrainFunc,
@@ -111,7 +112,7 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]InterruptionEvent, e
 	return events, nil
 }
 
-func uncordonAfterRebootPreDrain(interruptionEvent InterruptionEvent, n node.Node) error {
+func uncordonAfterRebootPreDrain(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	nodeName := interruptionEvent.NodeName
 	err := n.MarkWithEventID(nodeName, interruptionEvent.EventID)
 	if err != nil {

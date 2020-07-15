@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent_test
+package spotitn_test
 
 import (
 	"net/http"
@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
-	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -28,6 +29,7 @@ const (
 	startTime        = "2017-09-18T08:22:00Z"
 	expFormattedTime = "2017-09-18 08:22:00 +0000 UTC"
 	instanceAction   = "INSTANCE_ACTION"
+	imdsV2TokenPath  = "/latest/api/token"
 	nodeName         = "test-node"
 )
 
@@ -36,7 +38,7 @@ var instanceActionResponse = []byte(`{
 	"time":"` + startTime + `"
 }`)
 
-func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
+func TestMonitor_Success(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -49,24 +51,24 @@ func TestMonitorForSpotITNEventsSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-drainChan
-		h.Equals(t, interruptionevent.SpotITNKind, result.Kind)
+		h.Equals(t, spotitn.SpotITNKind, result.Kind)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
 		h.Assert(t, strings.Contains(result.Description, startTime),
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
-	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
 	h.Ok(t, err)
 }
 
-func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
+func TestMonitor_MetadataParseFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
 			rw.WriteHeader(403)
@@ -75,16 +77,16 @@ func TestMonitorForSpotITNEventsMetadataParseFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
 
-func TestMonitorForSpotITNEvents404Response(t *testing.T) {
+func TestMonitor_404Response(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -97,16 +99,16 @@ func TestMonitorForSpotITNEvents404Response(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
 	h.Ok(t, err)
 }
 
-func TestMonitorForSpotITNEvents500Response(t *testing.T) {
+func TestMonitor_500Response(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -119,16 +121,16 @@ func TestMonitorForSpotITNEvents500Response(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
 
-func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
+func TestMonitor_InstanceActionDecodeFailure(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -141,16 +143,16 @@ func TestMonitorForSpotITNEventsInstanceActionDecodeFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to decode instance action")
 }
 
-func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
+func TestMonitor_TimeParseFailure(t *testing.T) {
 	var requestPath string = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -163,11 +165,11 @@ func TestMonitorForSpotITNEventsTimeParseFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	spotITNMonitor := interruptionevent.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
+	spotITNMonitor := spotitn.NewSpotInterruptionMonitor(imds, drainChan, cancelChan, nodeName)
 	err := spotITNMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }

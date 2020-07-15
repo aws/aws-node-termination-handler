@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent
+package spotitn
 
 import (
 	"crypto/sha256"
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/rs/zerolog/log"
 )
@@ -31,13 +32,13 @@ const (
 // SpotInterruptionMonitor is a struct definition which facilitates monitoring of spot ITNs from IMDS
 type SpotInterruptionMonitor struct {
 	IMDS             *ec2metadata.Service
-	InterruptionChan chan<- InterruptionEvent
-	CancelChan       chan<- InterruptionEvent
+	InterruptionChan chan<- monitor.InterruptionEvent
+	CancelChan       chan<- monitor.InterruptionEvent
 	NodeName         string
 }
 
 // NewSpotInterruptionMonitor creates an instance of a spot ITN IMDS monitor
-func NewSpotInterruptionMonitor(imds *ec2metadata.Service, interruptionChan chan<- InterruptionEvent, cancelChan chan<- InterruptionEvent, nodeName string) SpotInterruptionMonitor {
+func NewSpotInterruptionMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string) SpotInterruptionMonitor {
 	return SpotInterruptionMonitor{
 		IMDS:             imds,
 		InterruptionChan: interruptionChan,
@@ -65,7 +66,7 @@ func (m SpotInterruptionMonitor) Kind() string {
 }
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*InterruptionEvent, error) {
+func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.InterruptionEvent, error) {
 	instanceAction, err := m.IMDS.GetSpotITNEvent()
 	if instanceAction == nil && err == nil {
 		// if there are no spot itns and no errors
@@ -84,19 +85,17 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*Interruption
 	hash := sha256.New()
 	hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
 
-	var preDrainFunc drainTask = setInterruptionTaint
-
-	return &InterruptionEvent{
+	return &monitor.InterruptionEvent{
 		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
 		Kind:         SpotITNKind,
 		StartTime:    interruptionTime,
 		NodeName:     nodeName,
 		Description:  fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
-		PreDrainTask: preDrainFunc,
+		PreDrainTask: setInterruptionTaint,
 	}, nil
 }
 
-func setInterruptionTaint(interruptionEvent InterruptionEvent, n node.Node) error {
+func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {
 		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.ScheduledMaintenanceTaint, interruptionEvent.EventID, err)

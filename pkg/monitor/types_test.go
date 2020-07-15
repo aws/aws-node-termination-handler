@@ -11,13 +11,13 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent_test
+package monitor_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -25,7 +25,7 @@ func TestTimeUntilEvent(t *testing.T) {
 	startTime := time.Now().Add(time.Second * 10)
 	expected := startTime.Sub(time.Now()).Round(time.Second)
 
-	event := &interruptionevent.InterruptionEvent{
+	event := &monitor.InterruptionEvent{
 		StartTime: startTime,
 	}
 

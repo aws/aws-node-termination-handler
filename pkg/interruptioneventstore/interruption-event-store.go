@@ -18,14 +18,14 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 )
 
 // Store is the drain event store data structure
 type Store struct {
 	sync.RWMutex
 	NthConfig              config.Config
-	interruptionEventStore map[string]*interruptionevent.InterruptionEvent
+	interruptionEventStore map[string]*monitor.InterruptionEvent
 	ignoredEvents          map[string]struct{}
 	atLeastOneEvent        bool
 }
@@ -34,7 +34,7 @@ type Store struct {
 func New(nthConfig config.Config) *Store {
 	return &Store{
 		NthConfig:              nthConfig,
-		interruptionEventStore: make(map[string]*interruptionevent.InterruptionEvent),
+		interruptionEventStore: make(map[string]*monitor.InterruptionEvent),
 		ignoredEvents:          make(map[string]struct{}),
 	}
 }
@@ -47,7 +47,7 @@ func (s *Store) CancelInterruptionEvent(eventID string) {
 }
 
 // AddInterruptionEvent adds an interruption event to the internal store
-func (s *Store) AddInterruptionEvent(interruptionEvent *interruptionevent.InterruptionEvent) {
+func (s *Store) AddInterruptionEvent(interruptionEvent *monitor.InterruptionEvent) {
 	s.RLock()
 	_, ok := s.interruptionEventStore[interruptionEvent.EventID]
 	s.RUnlock()
@@ -64,7 +64,7 @@ func (s *Store) AddInterruptionEvent(interruptionEvent *interruptionevent.Interr
 }
 
 // GetActiveEvent returns true if there are interruption events in the internal store
-func (s *Store) GetActiveEvent() (*interruptionevent.InterruptionEvent, bool) {
+func (s *Store) GetActiveEvent() (*monitor.InterruptionEvent, bool) {
 	s.RLock()
 	defer s.RUnlock()
 	for _, interruptionEvent := range s.interruptionEventStore {
@@ -72,7 +72,7 @@ func (s *Store) GetActiveEvent() (*interruptionevent.InterruptionEvent, bool) {
 			return interruptionEvent, true
 		}
 	}
-	return &interruptionevent.InterruptionEvent{}, false
+	return &monitor.InterruptionEvent{}, false
 }
 
 // ShouldDrainNode returns true if there are drainable events in the internal store
@@ -87,7 +87,7 @@ func (s *Store) ShouldDrainNode() bool {
 	return false
 }
 
-func (s *Store) shouldEventDrain(interruptionEvent *interruptionevent.InterruptionEvent) bool {
+func (s *Store) shouldEventDrain(interruptionEvent *monitor.InterruptionEvent) bool {
 	_, ignored := s.ignoredEvents[interruptionEvent.EventID]
 	if !ignored && !interruptionEvent.Drained && s.TimeUntilDrain(interruptionEvent) <= 0 {
 		return true
@@ -96,7 +96,7 @@ func (s *Store) shouldEventDrain(interruptionEvent *interruptionevent.Interrupti
 }
 
 // TimeUntilDrain returns the duration until a node drain should occur (can return a negative duration)
-func (s *Store) TimeUntilDrain(interruptionEvent *interruptionevent.InterruptionEvent) time.Duration {
+func (s *Store) TimeUntilDrain(interruptionEvent *monitor.InterruptionEvent) time.Duration {
 	nodeTerminationGracePeriod := time.Duration(s.NthConfig.NodeTerminationGracePeriod) * time.Second
 	drainTime := interruptionEvent.StartTime.Add(-1 * nodeTerminationGracePeriod)
 	return drainTime.Sub(time.Now())
