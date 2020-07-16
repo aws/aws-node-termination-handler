@@ -9,16 +9,18 @@ serviceAccount:
     name: emtp-sa
     create: true
     annotations: {}
-regularPodTest:
-    create: true
-    label: regular-pod-test
-    port: 1339
-    image:
-        repository: webhook-test-proxy
-        tag: customtest
-        pullPolicy: IfNotPresent
+# The webhook-test-proxy is for testing purposes
 webhookTestProxy:
   create: true
   label: webhook-test-proxy
   port: 1340
+  image:
+    repository: webhook-test-proxy
+    tag: customtest
+    pullPolicy: IfNotPresent
+  tolerations: []
+regularPodTest:
+    create: true
+    label: regular-pod-test
+    port: 1339
 targetNodeOs: "linux"

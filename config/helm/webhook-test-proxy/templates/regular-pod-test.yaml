@@ -27,8 +27,8 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Values.regularPodTest.label }}
-        image: {{ .Values.regularPodTest.image.repository }}:{{ .Values.regularPodTest.image.tag }}
-        imagePullPolicy: {{ .Values.regularPodTest.image.pullPolicy }}
+        image: {{ .Values.webhookTestProxy.image.repository }}:{{ .Values.webhookTestProxy.image.tag }}
+        imagePullPolicy: {{ .Values.webhookTestProxy.image.pullPolicy }}
         env:
         - name: PORT
           value: {{ .Values.regularPodTest.port | quote }}

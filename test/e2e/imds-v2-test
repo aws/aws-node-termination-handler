@@ -7,8 +7,10 @@ set -euo pipefail
 #   $KUBECONFIG
 #   $NODE_TERMINATION_HANDLER_DOCKER_REPO
 #   $NODE_TERMINATION_HANDLER_DOCKER_TAG
-#   $EC2_METADATA_DOCKER_REPO
-#   $EC2_METADATA_DOCKER_TAG
+#   $WEBHOOK_DOCKER_REPO
+#   $WEBHOOK_DOCKER_TAG
+#   $AEMM_URL
+#   $AEMM_VERSION
 
 function fail_and_exit {
     echo "❌ IMDSv2 Test failed $CLUSTER_NAME ❌"
@@ -29,7 +31,7 @@ anth_helm_args=(
   $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
   --force
   --namespace kube-system
-  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$IMDS_PORT"}
+  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableSpotInterruptionDraining="true"
@@ -44,11 +46,30 @@ set -x
 helm "${anth_helm_args[@]}"
 set +x
 
+emtp_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-emtp
+  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
+  --wait
+  --namespace default
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+)
+[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
+
 aemm_helm_args=(
   upgrade
   --install
   $CLUSTER_NAME-aemm
-  https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v1.1.0/amazon-ec2-metadata-mock-1.1.0.tgz
+  https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz
   --wait
   --namespace default
   --set aemm.imdsv2="true"
@@ -57,23 +78,6 @@ aemm_helm_args=(
 
 set -x
 helm "${aemm_helm_args[@]}"
-set +x
-
-emtp_helm_args=(
-  upgrade
-  --install
-  $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
-  --force
-  --namespace default
-)
-[[ -n "${EC2_METADATA_DOCKER_PULL_POLICY-}" ]] &&
-    emtp_helm_args+=(--set ec2MetadataTestProxy.image.pullPolicy="$EC2_METADATA_DOCKER_PULL_POLICY")
-[[ ${#common_helm_args[@]} -gt 0 ]] &&
-    emtp_helm_args+=("${common_helm_args[@]}")
-
-set -x
-helm "${emtp_helm_args[@]}"
 set +x
 
 TAINT_CHECK_CYCLES=15
