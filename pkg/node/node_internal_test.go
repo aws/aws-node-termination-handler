@@ -88,7 +88,7 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 		},
 	})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile("does-not-exist"))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfRebooted failure to read file")
 }
 
@@ -108,7 +108,7 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 		},
 	})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Ok(t, err)
 }
@@ -129,7 +129,7 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 		},
 	})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure remove NTH Label")
 }
@@ -151,7 +151,7 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 		},
 	})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Ok(t, err)
 }

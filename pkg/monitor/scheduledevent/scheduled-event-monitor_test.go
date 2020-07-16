@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package interruptionevent_test
+package scheduledevent_test
 
 import (
 	"net/http"
@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
-	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -34,6 +35,7 @@ const (
 	expScheduledEventEndTimeFmt   = "2019-01-21 09:17:23 +0000 UTC"
 	scheduledEventDescription     = "scheduled reboot"
 	imdsV2TokenPath               = "/latest/api/token"
+	nodeName                      = "test-node1"
 )
 
 var scheduledEventResponse = []byte(`[{
@@ -45,7 +47,7 @@ var scheduledEventResponse = []byte(`[{
 	"State": "` + scheduledEventState + `"
 }]`)
 
-func TestMonitorForScheduledEventsSuccess(t *testing.T) {
+func TestMonitor_Success(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -58,14 +60,14 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-drainChan
 		h.Equals(t, scheduledEventId, result.EventID)
-		h.Equals(t, interruptionevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
 		h.Equals(t, scheduledEventState, result.State)
 		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
@@ -85,11 +87,13 @@ func TestMonitorForScheduledEventsSuccess(t *testing.T) {
 
 	}()
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	scheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, drainChan, cancelChan, nodeName)
+
+	err := scheduledEventMonitor.Monitor()
 	h.Ok(t, err)
 }
 
-func TestMonitorForScheduledEventsCanceledEvent(t *testing.T) {
+func TestMonitor_CanceledEvent(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 	var state = "canceled"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -109,14 +113,14 @@ func TestMonitorForScheduledEventsCanceledEvent(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-cancelChan
 		h.Equals(t, scheduledEventId, result.EventID)
-		h.Equals(t, interruptionevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
 		h.Equals(t, state, result.State)
 		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
@@ -136,11 +140,13 @@ func TestMonitorForScheduledEventsCanceledEvent(t *testing.T) {
 
 	}()
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	scheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, drainChan, cancelChan, nodeName)
+
+	err := scheduledEventMonitor.Monitor()
 	h.Ok(t, err)
 }
 
-func TestMonitorForScheduledEventsMetadataParseFailure(t *testing.T) {
+func TestMonitor_MetadataParseFailure(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -152,15 +158,16 @@ func TestMonitorForScheduledEventsMetadataParseFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New("bad url", 0)
+	scheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, drainChan, cancelChan, nodeName)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	err := scheduledEventMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when metadata parse fails")
 }
 
-func TestMonitorForScheduledEvents404Response(t *testing.T) {
+func TestMonitor_404Response(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -173,15 +180,17 @@ func TestMonitorForScheduledEvents404Response(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	scheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, drainChan, cancelChan, nodeName)
+
+	err := scheduledEventMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when 404 response")
 }
 
-func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
+func TestMonitor_StartTimeParseFail(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -200,15 +209,16 @@ func TestMonitorForScheduledEventsStartTimeParseFail(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	scheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, drainChan, cancelChan, nodeName)
+	err := scheduledEventMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to parse start time")
 }
 
-func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
+func TestMonitor_EndTimeParseFail(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -227,14 +237,14 @@ func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 	}))
 	defer server.Close()
 
-	drainChan := make(chan interruptionevent.InterruptionEvent)
-	cancelChan := make(chan interruptionevent.InterruptionEvent)
+	drainChan := make(chan monitor.InterruptionEvent)
+	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
 		result := <-drainChan
 		h.Equals(t, scheduledEventId, result.EventID)
-		h.Equals(t, interruptionevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
 		h.Equals(t, scheduledEventState, result.State)
 		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
 		h.Equals(t, expScheduledEventStartTimeFmt, result.EndTime.String())
@@ -251,6 +261,8 @@ func TestMonitorForScheduledEventsEndTimeParseFail(t *testing.T) {
 
 	}()
 
-	err := interruptionevent.MonitorForScheduledEvents(drainChan, cancelChan, imds)
+	scheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, drainChan, cancelChan, nodeName)
+
+	err := scheduledEventMonitor.Monitor()
 	h.Ok(t, err)
 }

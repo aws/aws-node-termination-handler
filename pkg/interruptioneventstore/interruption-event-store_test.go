@@ -21,18 +21,23 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
+)
+
+const (
+	node1 = "test-node-1"
 )
 
 func TestAddDrainEvent(t *testing.T) {
 	store := interruptioneventstore.New(config.Config{})
 
-	event1 := &interruptionevent.InterruptionEvent{
+	event1 := &monitor.InterruptionEvent{
 		EventID:   "123",
 		State:     "Active",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(event1)
 
@@ -41,10 +46,11 @@ func TestAddDrainEvent(t *testing.T) {
 	h.Equals(t, event1.EventID, storedEvent.EventID)
 
 	// Attempt to add new event with the same eventID
-	event2 := &interruptionevent.InterruptionEvent{
+	event2 := &monitor.InterruptionEvent{
 		EventID:   "123",
 		State:     "Something Else",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 
 	store.AddInterruptionEvent(event2)
@@ -57,9 +63,10 @@ func TestAddDrainEvent(t *testing.T) {
 func TestCancelInterruptionEvent(t *testing.T) {
 	store := interruptioneventstore.New(config.Config{})
 
-	event := &interruptionevent.InterruptionEvent{
+	event := &monitor.InterruptionEvent{
 		EventID:   "123",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(event)
 
@@ -73,16 +80,18 @@ func TestCancelInterruptionEvent(t *testing.T) {
 
 func TestShouldDrainNode(t *testing.T) {
 	store := interruptioneventstore.New(config.Config{})
-	futureEvent := &interruptionevent.InterruptionEvent{
+	futureEvent := &monitor.InterruptionEvent{
 		EventID:   "future",
 		StartTime: time.Now().Add(time.Second * 20),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(futureEvent)
 	h.Equals(t, false, store.ShouldDrainNode())
 
-	currentEvent := &interruptionevent.InterruptionEvent{
+	currentEvent := &monitor.InterruptionEvent{
 		EventID:   "current",
 		StartTime: time.Now(),
+		NodeName:  node1,
 	}
 	store.AddInterruptionEvent(currentEvent)
 	h.Equals(t, true, store.ShouldDrainNode())
@@ -90,20 +99,22 @@ func TestShouldDrainNode(t *testing.T) {
 
 func TestMarkAllAsDrained(t *testing.T) {
 	store := interruptioneventstore.New(config.Config{})
-	event1 := &interruptionevent.InterruptionEvent{
+	event1 := &monitor.InterruptionEvent{
 		EventID:   "1",
 		StartTime: time.Now().Add(time.Second * 20),
 		Drained:   false,
+		NodeName:  node1,
 	}
-	event2 := &interruptionevent.InterruptionEvent{
+	event2 := &monitor.InterruptionEvent{
 		EventID:   "2",
 		StartTime: time.Now().Add(time.Second * 20),
 		Drained:   false,
+		NodeName:  node1,
 	}
 
 	store.AddInterruptionEvent(event1)
 	store.AddInterruptionEvent(event2)
-	store.MarkAllAsDrained()
+	store.MarkAllAsDrained(node1)
 
 	// When events are marked as Drained=true, then they are no longer
 	// returned by the GetActiveEvent func, so we expect false
@@ -114,27 +125,28 @@ func TestMarkAllAsDrained(t *testing.T) {
 func TestShouldUncordonNode(t *testing.T) {
 	eventID := "123"
 	store := interruptioneventstore.New(config.Config{})
-	h.Equals(t, false, store.ShouldUncordonNode())
+	h.Equals(t, false, store.ShouldUncordonNode(node1))
 
-	event := &interruptionevent.InterruptionEvent{
-		EventID: eventID,
+	event := &monitor.InterruptionEvent{
+		EventID:  eventID,
+		NodeName: node1,
 	}
 	store.AddInterruptionEvent(event)
-	h.Equals(t, false, store.ShouldUncordonNode())
+	h.Equals(t, false, store.ShouldUncordonNode(node1))
 
 	store.CancelInterruptionEvent(event.EventID)
-	h.Equals(t, true, store.ShouldUncordonNode())
+	h.Equals(t, true, store.ShouldUncordonNode(node1))
 
 	store.IgnoreEvent(eventID)
 	store.AddInterruptionEvent(event)
-	h.Equals(t, true, store.ShouldUncordonNode())
+	h.Equals(t, true, store.ShouldUncordonNode(node1))
 }
 
 func TestIgnoreEvent(t *testing.T) {
 	eventID := "event-id-123"
 	store := interruptioneventstore.New(config.Config{})
 	store.IgnoreEvent("")
-	event := &interruptionevent.InterruptionEvent{
+	event := &monitor.InterruptionEvent{
 		EventID:   eventID,
 		State:     "active",
 		StartTime: time.Now(),
@@ -152,7 +164,7 @@ func BenchmarkDrainEventStore(b *testing.B) {
 	store := interruptioneventstore.New(config.Config{})
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			store.AddInterruptionEvent(&interruptionevent.InterruptionEvent{
+			store.AddInterruptionEvent(&monitor.InterruptionEvent{
 				EventID:   strconv.Itoa(rand.Intn(idBound)),
 				StartTime: time.Now(),
 			})
@@ -160,7 +172,7 @@ func BenchmarkDrainEventStore(b *testing.B) {
 			store.CancelInterruptionEvent(strconv.Itoa(rand.Intn(idBound)))
 			store.GetActiveEvent()
 			store.ShouldDrainNode()
-			store.ShouldUncordonNode()
+			store.ShouldUncordonNode(node1)
 		}
 	})
 }

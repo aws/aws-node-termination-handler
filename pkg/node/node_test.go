@@ -71,34 +71,34 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	err = tNode.CordonAndDrain()
+	err = tNode.CordonAndDrain(nodeName)
 	h.Ok(t, err)
 
-	err = tNode.Cordon()
+	err = tNode.Cordon(nodeName)
 	h.Ok(t, err)
 
-	err = tNode.Uncordon()
+	err = tNode.Uncordon(nodeName)
 	h.Ok(t, err)
 
-	_, err = tNode.IsUnschedulable()
+	_, err = tNode.IsUnschedulable(nodeName)
 	h.Ok(t, err)
 
-	err = tNode.MarkWithEventID("eventID")
+	err = tNode.MarkWithEventID(nodeName, "eventID")
 	h.Ok(t, err)
 
-	_, err = tNode.GetEventID()
+	_, err = tNode.GetEventID(nodeName)
 	h.Ok(t, err)
 
-	err = tNode.RemoveNTHLabels()
+	err = tNode.RemoveNTHLabels(nodeName)
 	h.Ok(t, err)
 
-	err = tNode.MarkForUncordonAfterReboot()
+	err = tNode.MarkForUncordonAfterReboot(nodeName)
 	h.Ok(t, err)
 
-	_, err = tNode.IsLabeledWithAction()
+	_, err = tNode.IsLabeledWithAction(nodeName)
 	h.Ok(t, err)
 
-	err = tNode.UncordonIfRebooted()
+	err = tNode.UncordonIfRebooted(nodeName)
 	h.Ok(t, err)
 }
 
@@ -114,7 +114,7 @@ func TestDrainSuccess(t *testing.T) {
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.CordonAndDrain()
+	err := tNode.CordonAndDrain(nodeName)
 	h.Ok(t, err)
 }
 
@@ -122,7 +122,7 @@ func TestDrainCordonNodeFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.CordonAndDrain()
+	err := tNode.CordonAndDrain(nodeName)
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
@@ -133,7 +133,7 @@ func TestUncordonSuccess(t *testing.T) {
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.Uncordon()
+	err := tNode.Uncordon(nodeName)
 	h.Ok(t, err)
 }
 
@@ -141,7 +141,7 @@ func TestUncordonFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.Uncordon()
+	err := tNode.Uncordon(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on Uncordon failing to fetch node")
 }
 
@@ -152,7 +152,7 @@ func TestIsUnschedulableSuccess(t *testing.T) {
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
-	value, err := tNode.IsUnschedulable()
+	value, err := tNode.IsUnschedulable(nodeName)
 	h.Ok(t, err)
 	h.Equals(t, false, value)
 }
@@ -161,7 +161,7 @@ func TestIsUnschedulableFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	value, err := tNode.IsUnschedulable()
+	value, err := tNode.IsUnschedulable(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on IsUnschedulable failing to fetch node")
 	h.Equals(t, true, value)
 }
@@ -173,7 +173,7 @@ func TestMarkWithEventIDSuccess(t *testing.T) {
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.MarkWithEventID("EventID")
+	err := tNode.MarkWithEventID(nodeName, "EventID")
 	h.Ok(t, err)
 }
 
@@ -181,7 +181,7 @@ func TestMarkWithEventIDFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.MarkWithEventID("EventID")
+	err := tNode.MarkWithEventID(nodeName, "EventID")
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
@@ -189,7 +189,7 @@ func TestRemoveNTHLablesFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.RemoveNTHLabels()
+	err := tNode.RemoveNTHLabels(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on failing RemoveNTHLabels")
 }
 
@@ -206,7 +206,7 @@ func TestGetEventIDSuccess(t *testing.T) {
 	})
 
 	tNode := getNode(t, getDrainHelper(client))
-	value, err := tNode.GetEventID()
+	value, err := tNode.GetEventID(nodeName)
 	h.Ok(t, err)
 	h.Equals(t, labelValue, value)
 }
@@ -215,7 +215,7 @@ func TestGetEventIDNoNodeFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	_, err := tNode.GetEventID()
+	_, err := tNode.GetEventID(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find node")
 }
 
@@ -226,7 +226,7 @@ func TestGetEventIDNoLabelFailure(t *testing.T) {
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
-	_, err := tNode.GetEventID()
+	_, err := tNode.GetEventID(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find label")
 }
 
@@ -234,7 +234,7 @@ func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.MarkForUncordonAfterReboot()
+	err := tNode.MarkForUncordonAfterReboot(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label")
 }
 
@@ -242,7 +242,7 @@ func TestIsLableledWithActionFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	_, err := tNode.IsLabeledWithAction()
+	_, err := tNode.IsLabeledWithAction(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on IsLabeledWithAction failure")
 }
 
@@ -260,7 +260,7 @@ func TestUncordonIfRebootedDefaultSuccess(t *testing.T) {
 		},
 	})
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	h.Ok(t, err)
 }
 
@@ -268,7 +268,7 @@ func TestUncordonIfRebootedNodeFetchFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to find node")
 }
 
@@ -286,6 +286,6 @@ func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
 		},
 	})
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.UncordonIfRebooted()
+	err := tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to parse time")
 }
