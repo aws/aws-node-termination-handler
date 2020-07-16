@@ -153,8 +153,8 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.enablePrometheusServer }}
           ports:
-          - containerPort: {{ .Values.prometheusServerPort | quote }}
-            hostPort: {{ .Values.prometheusServerPort | quote }}
+          - containerPort: {{ .Values.prometheusServerPort }}
+            hostPort: {{ .Values.prometheusServerPort }}
             name: http-metrics
             protocol: TCP
           {{- end }}
