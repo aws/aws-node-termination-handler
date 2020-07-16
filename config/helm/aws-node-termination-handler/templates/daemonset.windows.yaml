@@ -126,10 +126,10 @@ spec:
       nodeSelector:
         {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: windows
         {{- with .Values.nodeSelector }}
-          {{- . | nindent 8 }}
+          {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- with .Values.windowsNodeSelector }}
-          {{- . | nindent 8 }}
+          {{- toYaml . | nindent 8 }}
         {{- end }}
       {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
