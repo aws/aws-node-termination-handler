@@ -123,6 +123,13 @@ spec:
             value: {{ .Values.prometheusServerPort | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.enablePrometheusServer }}
+          ports:
+          - containerPort: {{ .Values.prometheusServerPort | quote }}
+            hostPort: {{ .Values.prometheusServerPort | quote }}
+            name: http-metrics
+            protocol: TCP
+          {{- end }}
       nodeSelector:
         {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: windows
         {{- with .Values.nodeSelector }}
