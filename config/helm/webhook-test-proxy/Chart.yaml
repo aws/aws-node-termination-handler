@@ -14,9 +14,6 @@ maintainers:
   - name: Jillian Montalvo
     url: https://github.com/jillmon
     email: jillmon@users.noreply.github.com
-  - name: Matthew Becker
-    url: https://github.com/mattrandallbecker
-    email: mattrandallbecker@users.noreply.github.com
 keywords:
   - eks
   - ec2

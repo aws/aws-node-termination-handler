@@ -13,9 +13,16 @@ NODE_TERMINATION_HANDLER_DOCKER_IMG=""
 DEFAULT_WEBHOOK_DOCKER_IMG="webhook-test-proxy:customtest"
 WEBHOOK_DOCKER_IMG=""
 DOCKER_ARGS="--build-arg GOPROXY=direct"
+CLUSTER_NAME="nth-eks-cluster-test"
 
 ## Provision cluster
-eksctl create cluster -f $CLUSTER_CONFIG_FILE --install-vpc-controllers
+cluster_exists=$(eksctl get cluster --region us-west-2 | grep "$CLUSTER_NAME")
+if [[ -z $cluster_exists ]]; then
+  echo "🥑 Provisioning EKS cluster"
+  eksctl create cluster -f $CLUSTER_CONFIG_FILE --install-vpc-controllers
+else
+  echo "🥑 $CLUSTER_NAME already exists; continuing with test run"
+fi
 
 ## Build Docker images
 echo "🥑 Building the node-termination-handler docker image"
@@ -50,6 +57,7 @@ echo "👍 Docker images pushed to ECR repos"
 export REGION
 export NTH_REPO_NAME
 export WEBHOOK_REPO_NAME
+export CLUSTER_NAME
 export NODE_TERMINATION_HANDLER_DOCKER_REPO=$NTH_ECR_REPO_URI
 export NODE_TERMINATION_HANDLER_DOCKER_TAG=$ECR_TAG
 export WEBHOOK_DOCKER_REPO=$WEBHOOK_ECR_REPO_URI

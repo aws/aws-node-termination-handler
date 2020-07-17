@@ -8,18 +8,12 @@ icon: https://raw.githubusercontent.com/aws/eks-charts/master/docs/logo/aws.png
 sources:
   - https://github.com/aws/eks-charts
 maintainers:
-  - name: Nicholas Turner
-    url: https://github.com/nckturner
-    email: nckturner@users.noreply.github.com
-  - name: Stefan Prodan
-    url: https://github.com/stefanprodan
-    email: stefanprodan@users.noreply.github.com
+  - name: Brandon Wagner
+    url: https://github.com/bwagner5
+    email: bwagner5@users.noreply.github.com
   - name: Jillian Montalvo
     url: https://github.com/jillmon
     email: jillmon@users.noreply.github.com
-  - name: Matthew Becker
-    url: https://github.com/mattrandallbecker
-    email: mattrandallbecker@users.noreply.github.com
 keywords:
   - eks
   - ec2

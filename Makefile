@@ -99,6 +99,9 @@ build: compile
 
 helm-tests: helm-sync-test helm-version-sync-test helm-lint
 
+eks-cluster-test:
+	${MAKEFILE_PATH}/test/eks-cluster-test/run-test
+
 release: build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
 
 test: spellcheck shellcheck unit-test e2e-test compatibility-test license-test go-report-card-test helm-sync-test helm-version-sync-test helm-lint

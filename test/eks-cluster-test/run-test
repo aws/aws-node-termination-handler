@@ -35,6 +35,7 @@ USAGE=$(cat << 'EOM'
 EOM
 )
 
+reset_cluster_only=0
 while getopts "a:prw" opt; do
   case ${opt} in
     a ) # Assertion script(s)
@@ -58,9 +59,12 @@ done
 
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
+      echo "====================================================================================================="
+      echo "🧹  Cleaning up EKS and ECR  🧹"
+      echo "====================================================================================================="
       eksctl delete cluster -f $CLUSTER_CONFIG_FILE || :
-      aws ecr --region $REGION delete-repository --repository-name $NTH_REPO_NAME --force
-      aws ecr --region $REGION delete-repository --repository-name $WEBHOOK_REPO_NAME --force
+      aws ecr --region $REGION delete-repository --repository-name $NTH_REPO_NAME --force >/dev/null 2>&1
+      aws ecr --region $REGION delete-repository --repository-name $WEBHOOK_REPO_NAME --force >/dev/null 2>&1
       return
     fi
 }
@@ -72,7 +76,7 @@ for dep in "${deps[@]}"; do
     if [ ! -x "$path_to_executable" ]; then
         echoerr "You are required to have $dep installed on your system..."
         echoerr "Please install $dep and try again. "
-        exit -1
+        exit 3
     fi
 done
 
@@ -88,7 +92,7 @@ else
   PRESERVE=true # cluster user-provided so don't try to delete
 fi
 
-echo "CLUSTER_NAME=${CLUSTER_NAME:?"nth-eks-cluster-test"}"
+echo "CLUSTER_NAME=${CLUSTER_NAME:?"not found"}"
 echo "DOCKER_PULL_POLICY=${DOCKER_PULL_POLICY:="IfNotPresent"}"
 echo "NODE_TERMINATION_HANDLER_DOCKER_REPO=${NODE_TERMINATION_HANDLER_DOCKER_REPO:?"not found"}"
 echo "NODE_TERMINATION_HANDLER_DOCKER_TAG=${NODE_TERMINATION_HANDLER_DOCKER_TAG:?"not found"}"
