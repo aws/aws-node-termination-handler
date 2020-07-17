@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+PRESERVE=false
+
+export TEST_WINDOWS="false"
+export AEMM_VERSION="1.1.0"
+export CLUSTER_CONFIG_FILE=$SCRIPTPATH/cluster-spec.yaml
+
+
 USAGE=$(cat << 'EOM'
   Usage: run-test [-a script1,scripts2,...] [-w] [-r] CONFIG
 
@@ -9,6 +17,7 @@ USAGE=$(cat << 'EOM'
       -a       Assertion script(s), default is ALL scripts in e2e dir
       -w       Target Windows platform
       -r       Reset cluster then exit
+      -p       Preserve EKS cluster for inspection
 
     Arguments:
       CONFIG   File to source, it should export the following values:
@@ -17,28 +26,29 @@ USAGE=$(cat << 'EOM'
                  NODE_TERMINATION_HANDLER_DOCKER_REPO         Node Termination Handler Docker repository
                  NODE_TERMINATION_HANDLER_DOCKER_TAG          Node Termination Handler Docker tag
                  NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY  Node Termination Handler Docker image pull policy (defaults to DOCKER_PULL_POLICY)
-                 EC2_METADATA_DOCKER_REPO                     EC2 Metadata Test Proxy Docker repository
-                 EC2_METADATA_DOCKER_TAG                      EC2 Metadata Test Proxy Docker tag
-                 EC2_METADATA_DOCKER_PULL_POLICY              EC2 Metadata Test Proxy Docker image pull policy (defaults to DOCKER_PULL_POLICY)
+                 WEBHOOK_DOCKER_REPO                          Webhook Proxy Docker repository
+                 WEBHOOK_DOCKER_TAG                           Webhook Proxy Docker tag
+                 WEBHOOK_DOCKER_PULL_POLICY                   Webhook Proxy Docker image pull policy (defaults to DOCKER_PULL_POLICY)
                  EC2_METADATA_PORT                            EC2 Metadata Test Proxy port (defaults to 18999)
-                 EC2_METADATA_URL                             EC2 Metadata Test Proxy URL (defaults to "http://ec2-metadata-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT")
-                 WEBHOOK_URL                                  Webhook URL (defaults to EC2_METADATA_URL)
+                 EC2_METADATA_URL                             EC2 Metadata Test Proxy URL (defaults to "http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$EC2_METADATA_PORT")
+                 WEBHOOK_URL                                  Webhook URL (defaults to "http://webhook-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT")
 EOM
 )
 
-reset_cluster_only=0
-export TEST_WINDOWS="false"
-
-while getopts "a:w" opt; do
+while getopts "a:prw" opt; do
   case ${opt} in
     a ) # Assertion script(s)
         assertion_scripts=$(echo $OPTARG | tr "," "\n")
       ;;
-    w ) # Windows platform
-        TEST_WINDOWS="true"
+    p ) # PRESERVE EKS Cluster + ECR repos
+      echo "❄️  This run will preserve the eks cluster and ecr repos"
+      PRESERVE=true
       ;;
     r ) # Reset cluster
         reset_cluster_only=1
+      ;;
+    w ) # Windows platform
+        TEST_WINDOWS="true"
       ;;
     \? )
       echo "$USAGE" 1>&2
@@ -46,30 +56,61 @@ while getopts "a:w" opt; do
   esac
 done
 
-config=${@:$OPTIND:1}
-echo "Reading configuration from ${config:?"missing argument"}"
-set -a  # Export variables by default.
-source $config
-set +a  # Disable exporting variables by default.
+function clean_up {
+    if [[ "$PRESERVE" == false ]]; then
+      eksctl delete cluster -f $CLUSTER_CONFIG_FILE || :
+      aws ecr --region $REGION delete-repository --repository-name $NTH_REPO_NAME --force
+      aws ecr --region $REGION delete-repository --repository-name $WEBHOOK_REPO_NAME --force
+      return
+    fi
+}
 
-echo "CLUSTER_NAME=${CLUSTER_NAME:?"not found"}"
+# Required to execute tests
+deps=("docker" "eksctl" "helm" "kubectl" "jq")
+for dep in "${deps[@]}"; do
+    path_to_executable=$(which $dep)
+    if [ ! -x "$path_to_executable" ]; then
+        echoerr "You are required to have $dep installed on your system..."
+        echoerr "Please install $dep and try again. "
+        exit -1
+    fi
+done
+
+config=${@:$OPTIND:1}
+if [[ -z ${config} ]]; then
+  echo "no CONFIG provided; creating EKS cluster using $CLUSTER_CONFIG_FILE"
+  source $SCRIPTPATH/../eks-cluster-test/provision-cluster
+else
+  echo "Reading configuration from ${config}"
+  set -a  # Export variables by default.
+  source $config
+  set +a  # Disable exporting variables by default.
+  PRESERVE=true # cluster user-provided so don't try to delete
+fi
+
+echo "CLUSTER_NAME=${CLUSTER_NAME:?"nth-eks-cluster-test"}"
 echo "DOCKER_PULL_POLICY=${DOCKER_PULL_POLICY:="IfNotPresent"}"
 echo "NODE_TERMINATION_HANDLER_DOCKER_REPO=${NODE_TERMINATION_HANDLER_DOCKER_REPO:?"not found"}"
 echo "NODE_TERMINATION_HANDLER_DOCKER_TAG=${NODE_TERMINATION_HANDLER_DOCKER_TAG:?"not found"}"
 echo "NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY=${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY:=$DOCKER_PULL_POLICY}"
-echo "EC2_METADATA_DOCKER_REPO=${EC2_METADATA_DOCKER_REPO:?"not found"}"
-echo "EC2_METADATA_DOCKER_TAG=${EC2_METADATA_DOCKER_TAG:?"not found"}"
-echo "EC2_METADATA_DOCKER_PULL_POLICY=${EC2_METADATA_DOCKER_PULL_POLICY:=$DOCKER_PULL_POLICY}"
+echo "WEBHOOK_DOCKER_REPO=${WEBHOOK_DOCKER_REPO:?"not found"}"
+echo "WEBHOOK_DOCKER_TAG=${WEBHOOK_DOCKER_TAG:?"not found"}"
+echo "WEBHOOK_DOCKER_PULL_POLICY=${WEBHOOK_DOCKER_PULL_POLICY:=$DOCKER_PULL_POLICY}"
 echo "EC2_METADATA_PORT=${EC2_METADATA_PORT:=18999}"
-echo "EC2_METADATA_URL=${EC2_METADATA_URL:="http://ec2-metadata-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT"}"
-echo "WEBHOOK_URL=${WEBHOOK_URL:=$EC2_METADATA_URL}"
+echo "EC2_METADATA_URL=${EC2_METADATA_URL:="http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$EC2_METADATA_PORT"}"
+echo "WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT"}"
 
 # The e2e test scripts use other variable names.
 echo "IMDS_PORT=${IMDS_PORT:=$EC2_METADATA_PORT}"
 echo "INSTANCE_METADATA_URL=${INSTANCE_METADATA_URL:=$EC2_METADATA_URL}"
 
+# Label first linux node in cluster; nth will be deployed to this node ONLY
+nth_node=$(kubectl get node --selector="kubernetes.io/os=linux" --output jsonpath='{.items[-1].metadata.name}')
+export NTH_WORKER_LABEL="role=nth_worker"
+kubectl label nodes $nth_node $NTH_WORKER_LABEL --overwrite
+
 export NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY \
-    EC2_METADATA_DOCKER_PULL_POLICY \
+    WEBHOOK_DOCKER_PULL_POLICY \
     WEBHOOK_URL \
     IMDS_PORT \
     INSTANCE_METADATA_URL
@@ -83,19 +124,22 @@ if ! kubectl get svc >/dev/null 2>&1; then
     exit 1
 fi
 
-export TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=windows |
+test_os="linux"
+if [[ $TEST_WINDOWS = "true" ]]; then
+  test_os="windows"
+fi
+
+export TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$test_os |
     tail -n +2 |
     tr -s "\t" " " |
     cut -d" " -f1)
 echo "TEST_NODE=${TEST_NODE:?"not found"}"
 
-echo "TEST_WINDOWS=${TEST_WINDOWS:="false"}"
-
 function get_nth_worker_pod {
     kubectl get pods -n kube-system -l k8s-app=aws-node-termination-handler |
         tail -n +2 |
         tr -s "\t" " " |
-        cut -d " " -f 1
+        cut -d " " -f 1 | head -1
 }
 export -f get_nth_worker_pod
 
@@ -122,6 +166,7 @@ if [[ -z ${assertion_scripts+x} ]]; then
         ../e2e/spot-interruption-dry-run-test
         ../e2e/spot-interruption-test
         #../e2e/webhook-http-proxy-test
+        #../e2e/webhook-secret-test
         ../e2e/webhook-test
     )
 fi
@@ -144,4 +189,4 @@ reset_cluster
 echo "====================================================================================================="
 echo "✅ All tests passed! ✅"
 echo "====================================================================================================="
-
+clean_up

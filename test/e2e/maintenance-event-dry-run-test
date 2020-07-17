@@ -24,6 +24,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
+[[ ! -z ${NTH_WORKER_LABEL} ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
 anth_helm_args=(
   upgrade

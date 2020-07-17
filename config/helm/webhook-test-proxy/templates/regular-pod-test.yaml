@@ -19,6 +19,12 @@ spec:
     spec:
       nodeSelector:
         {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
+        {{- with .Values.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.linuxNodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- if (not $isWindows) }}
       securityContext:
         runAsUser: 1000

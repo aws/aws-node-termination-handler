@@ -15,6 +15,8 @@ DEFAULT_WEBHOOK_DOCKER_IMG="webhook-test-proxy:customtest"
 WEBHOOK_DOCKER_IMG=""
 OVERRIDE_PATH=0
 K8S_VERSION="1.16"
+AEMM_URL="amazon-ec2-metadata-mock-service.default.svc.cluster.local"
+AEMM_VERSION="1.1.0"
 ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f | sort)
 
 function timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
@@ -193,6 +195,8 @@ echo "==========================================================================
 ### exported vars and funcs that tests can use
 export TMP_DIR
 export CLUSTER_NAME
+export AEMM_URL
+export AEMM_VERSION
 export -f timeout
 export -f relpath
 export -f get_nth_worker_pod
