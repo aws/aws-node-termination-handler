@@ -3,21 +3,21 @@
 set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-PRESERVE=false
+PRESERVE=true
 
 export TEST_WINDOWS="false"
-export AEMM_VERSION="1.1.0"
+export AEMM_VERSION="1.1.3"
+export AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz"
 export CLUSTER_CONFIG_FILE=$SCRIPTPATH/cluster-spec.yaml
 
 
 USAGE=$(cat << 'EOM'
-  Usage: run-test [-a script1,scripts2,...] [-w] [-r] CONFIG
+  Usage: run-test [-a script1,scripts2,...] [-w] [-d] CONFIG
 
     Options:
       -a       Assertion script(s), default is ALL scripts in e2e dir
       -w       Target Windows platform
-      -r       Reset cluster then exit
-      -p       Preserve EKS cluster for inspection
+      -d       Delete cluster upon test completion/failure
 
     Arguments:
       CONFIG   File to source, it should export the following values:
@@ -35,18 +35,14 @@ USAGE=$(cat << 'EOM'
 EOM
 )
 
-reset_cluster_only=0
-while getopts "a:prw" opt; do
+while getopts "a:dw" opt; do
   case ${opt} in
     a ) # Assertion script(s)
         assertion_scripts=$(echo $OPTARG | tr "," "\n")
       ;;
-    p ) # PRESERVE EKS Cluster + ECR repos
-      echo "❄️  This run will preserve the eks cluster and ecr repos"
-      PRESERVE=true
-      ;;
-    r ) # Reset cluster
-        reset_cluster_only=1
+    d ) # DELETE EKS Cluster + ECR repos
+      echo "␡️ This run will delete the eks cluster and ecr repos"
+      PRESERVE=false
       ;;
     w ) # Windows platform
         TEST_WINDOWS="true"
@@ -63,8 +59,8 @@ function clean_up {
       echo "🧹  Cleaning up EKS and ECR  🧹"
       echo "====================================================================================================="
       eksctl delete cluster -f $CLUSTER_CONFIG_FILE || :
-      aws ecr --region $REGION delete-repository --repository-name $NTH_REPO_NAME --force >/dev/null 2>&1
-      aws ecr --region $REGION delete-repository --repository-name $WEBHOOK_REPO_NAME --force >/dev/null 2>&1
+      aws ecr --region $REGION delete-repository --repository-name $NTH_REPO_NAME --force >/dev/null 2>&1 || :
+      aws ecr --region $REGION delete-repository --repository-name $WEBHOOK_REPO_NAME --force >/dev/null 2>&1 || :
       return
     fi
 }
@@ -151,27 +147,23 @@ function reset_cluster {
     echo "-------------------------------------------------------------------------------------------------"
     echo "🧹 Resetting cluster $CLUSTER_NAME"
     echo "-------------------------------------------------------------------------------------------------"
-    ./reset-cluster
+    $SCRIPTPATH/../eks-cluster-test/reset-cluster
     sleep ${1:-15}
 }
-if [[ $reset_cluster_only -eq 1 ]]; then
-    reset_cluster 1
-    exit 0
-fi
 
 if [[ -z ${assertion_scripts+x} ]]; then
     assertion_scripts=(
-        ../e2e/cordon-only-test
-        ../e2e/imds-v2-test
-        ../e2e/maintenance-event-cancellation-test
-        ../e2e/maintenance-event-dry-run-test
-        #../e2e/maintenance-event-reboot-test
-        ../e2e/maintenance-event-test
-        ../e2e/spot-interruption-dry-run-test
-        ../e2e/spot-interruption-test
-        #../e2e/webhook-http-proxy-test
-        #../e2e/webhook-secret-test
-        ../e2e/webhook-test
+        $SCRIPTPATH/../e2e/cordon-only-test
+        $SCRIPTPATH/../e2e/imds-v2-test
+        $SCRIPTPATH/../e2e/maintenance-event-cancellation-test
+        $SCRIPTPATH/../e2e/maintenance-event-dry-run-test
+        #$SCRIPTPATH/../e2e/maintenance-event-reboot-test
+        $SCRIPTPATH/../e2e/maintenance-event-test
+        $SCRIPTPATH/../e2e/spot-interruption-dry-run-test
+        $SCRIPTPATH/../e2e/spot-interruption-test
+        #$SCRIPTPATH/../e2e/webhook-http-proxy-test
+        #$SCRIPTPATH/../e2e/webhook-secret-test
+        $SCRIPTPATH/../e2e/webhook-test
     )
 fi
 

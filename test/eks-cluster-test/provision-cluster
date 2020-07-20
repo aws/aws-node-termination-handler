@@ -7,7 +7,8 @@ ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
 REGION="us-west-2"
 NTH_REPO_NAME="node-termination-handler"
 WEBHOOK_REPO_NAME="webhook-test-proxy"
-ECR_TAG="latest"
+TEST_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
+ECR_TAG="test-$TEST_ID"
 DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest"
 NODE_TERMINATION_HANDLER_DOCKER_IMG=""
 DEFAULT_WEBHOOK_DOCKER_IMG="webhook-test-proxy:customtest"
@@ -16,7 +17,7 @@ DOCKER_ARGS="--build-arg GOPROXY=direct"
 CLUSTER_NAME="nth-eks-cluster-test"
 
 ## Provision cluster
-cluster_exists=$(eksctl get cluster --region us-west-2 | grep "$CLUSTER_NAME")
+cluster_exists=$(eksctl get cluster --region $REGION | grep "$CLUSTER_NAME" || :)
 if [[ -z $cluster_exists ]]; then
   echo "🥑 Provisioning EKS cluster"
   eksctl create cluster -f $CLUSTER_CONFIG_FILE --install-vpc-controllers
@@ -52,7 +53,7 @@ docker tag $NODE_TERMINATION_HANDLER_DOCKER_IMG $NTH_ECR_REPO_URI:$ECR_TAG
 docker tag $WEBHOOK_DOCKER_IMG $WEBHOOK_ECR_REPO_URI:$ECR_TAG
 docker push $NTH_ECR_REPO_URI:$ECR_TAG
 docker push $WEBHOOK_ECR_REPO_URI:$ECR_TAG
-echo "👍 Docker images pushed to ECR repos"
+echo "👍 Docker images pushed to ECR repos with tag: $ECR_TAG"
 
 export REGION
 export NTH_REPO_NAME

@@ -47,9 +47,7 @@ sleep 20
 
 common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
-if [[ ! -z ${NTH_WORKER_LABEL-} ]]; then
-  common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
-fi
+[[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
 anth_helm_args=(
   upgrade
@@ -100,7 +98,7 @@ aemm_helm_args=(
   upgrade
   --install
   $CLUSTER_NAME-aemm
-  https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz
+  $AEMM_DL_URL
   --wait
   --namespace default
   --set servicePort="$IMDS_PORT"

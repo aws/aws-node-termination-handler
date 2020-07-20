@@ -6,7 +6,7 @@ podAnnotations: {}
 rbac:
     pspEnabled: true
 serviceAccount:
-    name: emtp-sa
+    name: wtp-sa
     create: true
     annotations: {}
 # The webhook-test-proxy is for testing purposes
