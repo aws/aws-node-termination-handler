@@ -9,20 +9,20 @@ ARG GOOS=linux
 ARG GOARCH=amd64 
 
 # Copy go.mod and download dependencies
-WORKDIR /ec2-metadata-test-proxy
+WORKDIR /webhook-test-proxy
 
 # Build
 COPY . . 
-RUN go build -a -o ec2-metadata-test-proxy cmd/ec2-metadata-test-proxy.go
+RUN go build -a -o webhook-test-proxy cmd/webhook-test-proxy.go
 # In case the target is build for testing:
 # $ docker build  --target=builder -t test .
-ENTRYPOINT ["ec2-metadata-test-proxy"]
+ENTRYPOINT ["webhook-test-proxy"]
 
-# Copy the ec2-metadata-test-proxy binary into a thin image
+# Copy the webhook-test-proxy binary into a thin image
 FROM amazonlinux:2 as amazonlinux
 FROM scratch
 WORKDIR /
-COPY --from=builder /ec2-metadata-test-proxy .
+COPY --from=builder /webhook-test-proxy .
 COPY --from=amazonlinux /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/
 COPY THIRD_PARTY_LICENSES .
-ENTRYPOINT ["/ec2-metadata-test-proxy"]
+ENTRYPOINT ["/webhook-test-proxy"]

@@ -1,32 +1,36 @@
 #!/bin/bash
 
-echo "Uninstall Helm charts ..."
-helm list -a -A |
-    tail -n +2 |
-    tr -s "\t" " " |
-    awk '{ printf("helm uninstall -n %s %s\n", $2, $1) }' |
-    bash -s
-echo "✅ done"
+function reset_cluster {
+    echo "Resetting cluster"
+    charts=$(helm ls --all --short)
+    if [[ ! -z "$charts" ]]; then
+        helm del $charts || :
+    fi
+    system_charts=$(helm ls --all --short --namespace kube-system)
+    if [[ ! -z "$system_charts" ]]; then
+        helm del $system_charts --namespace kube-system || :
+    fi
+    for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do
+        kubectl uncordon $node
+        kubectl taint node $node aws-node-termination-handler/scheduled-maintenance- || true
+        kubectl taint node $node aws-node-termination-handler/spot-itn- || true
+    done
+    remove_labels || :
+    sleep 2
+}
 
-echo
-echo "Remove NTH labels from $TEST_NODE ..."
-kubectl label --list nodes $TEST_NODE |
-    grep aws-node-termination-handler |
-    cut -d"=" -f1 |
-    awk '{ printf("%s-\n", $1) }' |
-    xargs kubectl label nodes $TEST_NODE
-echo "✅ done"
+function remove_labels {
+    echo "Removing labels from NTH cluster nodes"
+    labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
+    if [[ "${#labels_to_remove[@]}" -ne 0 ]]; then
+      for l in "${labels_to_remove[@]}"; do
+        for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
+          echo "Deleting label $l on node $n"
+          kubectl label node $n "$l"-
+        done
+      done
+    fi
+}
 
-echo
-echo "Remove NTH taints from $TEST_NODE ..."
-# Weird: if query specifies actual node then it returns no results
-kubectl get nodes -l kubernetes.io/os=windows -o=jsonpath='{range .items[*]}{.spec.taints[*].key}{"\n"}{end}' |
-    awk '{ printf("%s-\n", $1) }' |
-    xargs kubectl taint nodes $TEST_NODE
-echo "✅ done"
-
-echo
-echo "Uncordon $TEST_NODE ..."
-kubectl uncordon $TEST_NODE
-echo "✅ done"
-
+reset_cluster
+echo "✅  reset done"

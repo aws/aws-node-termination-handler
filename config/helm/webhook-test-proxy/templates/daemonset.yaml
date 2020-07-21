@@ -1,0 +1,40 @@
+{{- if .Values.webhookTestProxy.create -}}
+{{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
+{{- $k8sVersion := printf "%s.%s" .Capabilities.KubeVersion.Major .Capabilities.KubeVersion.Minor | replace "+" "" -}}
+{{- $osSelector := (semverCompare "<1.14" $k8sVersion | ternary "beta.kubernetes.io/os" "kubernetes.io/os") -}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.webhookTestProxy.label }}
+  labels:
+    app: {{ .Values.webhookTestProxy.label }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.webhookTestProxy.label }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.webhookTestProxy.label }}
+    spec:
+      serviceAccountName: {{ template "webhook-test-proxy.serviceAccountName" . }}
+      nodeSelector:
+        {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
+      {{- if (not $isWindows) }}
+      hostNetwork: true
+      {{- end }}
+      containers:
+        - name: {{ .Values.webhookTestProxy.label }}
+          image: {{ .Values.webhookTestProxy.image.repository }}:{{ .Values.webhookTestProxy.image.tag }}
+          imagePullPolicy: {{ .Values.webhookTestProxy.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.webhookTestProxy.port }}
+              hostPort: {{ .Values.webhookTestProxy.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.webhookTestProxy.port | quote }}
+          {{- if .Values.webhookTestProxy.tolerations }}
+          tolerations:
+          {{ toYaml .Values.webhookTestProxy.tolerations | indent 8 }}
+          {{- end }}
+{{- end -}}

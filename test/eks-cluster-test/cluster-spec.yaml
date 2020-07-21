@@ -2,14 +2,17 @@
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 metadata:
-  name: windows-prod
+  name: nth-eks-cluster-test
   region: us-west-2
   version: '1.16'
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["*"]
 managedNodeGroups:
   - name: linux-ng
-    instanceType: t2.large
-    minSize: 1
-    maxSize: 1
+    instanceType: t3.large
+    minSize: 2
+    maxSize: 2
 nodeGroups:
   - name: windows-ng
     instanceType: m5.large

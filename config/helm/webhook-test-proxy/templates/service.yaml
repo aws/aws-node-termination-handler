@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.webhookTestProxy.label }}
+spec:
+  selector:
+    app: {{ .Values.webhookTestProxy.label }}
+  ports:
+  - port: {{ .Values.webhookTestProxy.port }}
+    protocol: TCP
+

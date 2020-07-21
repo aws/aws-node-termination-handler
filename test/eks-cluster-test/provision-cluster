@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
+REGION="us-west-2"
+NTH_REPO_NAME="node-termination-handler"
+WEBHOOK_REPO_NAME="webhook-test-proxy"
+TEST_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
+ECR_TAG="test-$TEST_ID"
+DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG="node-termination-handler:customtest"
+NODE_TERMINATION_HANDLER_DOCKER_IMG=""
+DEFAULT_WEBHOOK_DOCKER_IMG="webhook-test-proxy:customtest"
+WEBHOOK_DOCKER_IMG=""
+DOCKER_ARGS="--build-arg GOPROXY=direct"
+CLUSTER_NAME="nth-eks-cluster-test"
+
+## Provision cluster
+cluster_exists=$(eksctl get cluster --region $REGION | grep "$CLUSTER_NAME" || :)
+if [[ -z $cluster_exists ]]; then
+  echo "🥑 Provisioning EKS cluster"
+  eksctl create cluster -f $CLUSTER_CONFIG_FILE --install-vpc-controllers
+else
+  echo "🥑 $CLUSTER_NAME already exists; continuing with test run"
+fi
+
+## Build Docker images
+echo "🥑 Building the node-termination-handler docker image"
+docker build $DOCKER_ARGS -t $DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG "$SCRIPTPATH/../../."
+NODE_TERMINATION_HANDLER_DOCKER_IMG="$DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG"
+echo "👍 Built the node-termination-handler docker image"
+
+echo "🥑 Building the webhook-test-proxy docker image"
+docker build $DOCKER_ARGS -t $DEFAULT_WEBHOOK_DOCKER_IMG "$SCRIPTPATH/../webhook-test-proxy/."
+WEBHOOK_DOCKER_IMG="$DEFAULT_WEBHOOK_DOCKER_IMG"
+echo "👍 Built the webhook-test-proxy docker image"
+
+## ECR setup and push
+echo "🥑 Setting up ECR repos"
+
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin "$ACCOUNT_ID".dkr.ecr."$REGION".amazonaws.com
+echo "👍 Docker-ECR Authentication successful"
+
+NTH_ECR_REPO_URI=$(aws ecr --region $REGION describe-repositories --repository-names "${NTH_REPO_NAME}" --query "repositories[0].repositoryUri" --output text 2>/dev/null || \
+           aws ecr --region $REGION create-repository --repository-name "${NTH_REPO_NAME}"  --query "repository.repositoryUri" --output text)
+
+WEBHOOK_ECR_REPO_URI=$(aws ecr --region $REGION describe-repositories --repository-names "${WEBHOOK_REPO_NAME}" --query "repositories[0].repositoryUri" --output text 2>/dev/null || \
+           aws ecr --region $REGION create-repository --repository-name "${WEBHOOK_REPO_NAME}"  --query "repository.repositoryUri" --output text)
+echo "👍 ECR repos created"
+
+docker tag $NODE_TERMINATION_HANDLER_DOCKER_IMG $NTH_ECR_REPO_URI:$ECR_TAG
+docker tag $WEBHOOK_DOCKER_IMG $WEBHOOK_ECR_REPO_URI:$ECR_TAG
+docker push $NTH_ECR_REPO_URI:$ECR_TAG
+docker push $WEBHOOK_ECR_REPO_URI:$ECR_TAG
+echo "👍 Docker images pushed to ECR repos with tag: $ECR_TAG"
+
+export REGION
+export NTH_REPO_NAME
+export WEBHOOK_REPO_NAME
+export CLUSTER_NAME
+export NODE_TERMINATION_HANDLER_DOCKER_REPO=$NTH_ECR_REPO_URI
+export NODE_TERMINATION_HANDLER_DOCKER_TAG=$ECR_TAG
+export WEBHOOK_DOCKER_REPO=$WEBHOOK_ECR_REPO_URI
+export WEBHOOK_DOCKER_TAG=$ECR_TAG

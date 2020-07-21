@@ -7,8 +7,10 @@ set -euo pipefail
 #   $KUBECONFIG
 #   $NODE_TERMINATION_HANDLER_DOCKER_REPO
 #   $NODE_TERMINATION_HANDLER_DOCKER_TAG
-#   $EC2_METADATA_DOCKER_REPO
-#   $EC2_METADATA_DOCKER_TAG
+#   $WEBHOOK_DOCKER_REPO
+#   $WEBHOOK_DOCKER_TAG
+#   $AEMM_URL
+#   $AEMM_VERSION
 
 function fail_and_exit {
     echo "❌ Test Maintenance Event Cancellation failed $CLUSTER_NAME ❌"
@@ -21,6 +23,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
+[[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
 anth_helm_args=(
   upgrade
@@ -29,12 +32,13 @@ anth_helm_args=(
   $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
   --wait
   --namespace kube-system
-  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://localhost:$IMDS_PORT"}
+  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableSpotInterruptionDraining="true"
   --set enableScheduledEventDraining="true"
   --set taintNode="true"
+  --set tolerations=""
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -49,24 +53,36 @@ emtp_helm_args=(
   upgrade
   --install
   $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
   --wait
   --namespace default
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
-  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true"
-  --set ec2MetadataTestProxy.enableSpotITN="false"
-  --set ec2MetadataTestProxy.port="$IMDS_PORT"
-  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule'
-  --set 'ec2MetadataTestProxy.tolerations[0].operator=Exists'
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
 )
-[[ -n "${EC2_METADATA_DOCKER_PULL_POLICY-}" ]] &&
-    emtp_helm_args+=(--set ec2MetadataTestProxy.image.pullPolicy="$EC2_METADATA_DOCKER_PULL_POLICY")
+[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     emtp_helm_args+=("${common_helm_args[@]}")
 
 set -x
 helm "${emtp_helm_args[@]}"
+set +x
+
+aemm_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-aemm
+  $AEMM_DL_URL
+  --wait
+  --namespace default
+  --set servicePort="$IMDS_PORT"
+  --set 'tolerations[0].effect=NoSchedule'
+  --set 'tolerations[0].operator=Exists'
+  --set arguments={events}
+)
+
+set -x
+helm "${aemm_helm_args[@]}"
 set +x
 
 TAINT_CHECK_CYCLES=15
@@ -122,21 +138,33 @@ elif [[ $evicted -eq 0 ]]; then
     fail_and_exit 1
 fi
 
+aemm_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-aemm
+  $AEMM_DL_URL
+  --wait
+  --namespace default
+  --set servicePort="$IMDS_PORT"
+  --set aemm.events.state="canceled"
+  --set 'tolerations[0].effect=NoSchedule'
+  --set 'tolerations[0].operator=Exists'
+  --set arguments={events}
+)
+
+set -x
+helm "${aemm_helm_args[@]}"
+set +x
+
 emtp_helm_args=(
   upgrade
   --install
   $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/ec2-metadata-test-proxy/
+  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
   --wait
   --namespace default
-  --set ec2MetadataTestProxy.image.repository="$EC2_METADATA_DOCKER_REPO"
-  --set ec2MetadataTestProxy.image.tag="$EC2_METADATA_DOCKER_TAG"
-  --set ec2MetadataTestProxy.enableScheduledMaintenanceEvents="true"
-  --set ec2MetadataTestProxy.enableSpotITN="false"
-  --set ec2MetadataTestProxy.scheduledEventStatus="canceled"
-  --set ec2MetadataTestProxy.port="$IMDS_PORT"
-  --set 'ec2MetadataTestProxy.tolerations[0].effect=NoSchedule'
-  --set 'ec2MetadataTestProxy.tolerations[0].operator=Exists'
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     emtp_helm_args+=("${common_helm_args[@]}")
