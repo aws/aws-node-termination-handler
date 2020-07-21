@@ -1,0 +1,25 @@
+{{- if .Values.podMonitor.create }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ template "aws-node-termination-handler.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "aws-node-termination-handler.labels" . | indent 4 }}
+{{- with .Values.podMonitor.labels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+ spec:
+  jobLabel: {{ include "aws-node-termination-handler.name" . }}
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+  - interval: {{ .Values.podMonitor.interval }}
+    path: /metrics
+    port: http-metrics
+  sampleLimit: {{ .Values.podMonitor.sampleLimit }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
+{{- end }}

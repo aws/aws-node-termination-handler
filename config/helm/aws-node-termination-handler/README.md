@@ -100,6 +100,10 @@ Parameter | Description | Default
 `targetNodeOs | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
 `prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
+`podMonitor.create` | if `true`, create a PodMonitor | `false`
+`podMonitor.interval` | Prometheus scrape interval | `30s`
+`podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
+`podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
 
 ## Metrics endpoint consideration
 If prometheus server is enabled and since NTH is a daemonset with `host_networking=true`, nothing else will be able to bind to `:9092` (or the port configured) in the root network namespace
