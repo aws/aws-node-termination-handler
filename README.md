@@ -124,11 +124,11 @@ By default Kiam will block all access to the metadata address, so you need to ma
 
 To add a whitelist configuration, use the following fields in the Kiam Helm chart values:
 ```
-agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4))$'
+agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)$'
 ```
 Or just pass it as an argument to the kiam agents:
 ```
-kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4))$'
+kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)$'
 ```
 
 ## Metadata endpoints
@@ -142,6 +142,7 @@ The termination handler relies on the following metadata endpoints to function p
 /latest/meta-data/public-ipv4
 /latest/meta-data/local-hostname
 /latest/meta-data/local-ipv4
+/latest/meta-data/placement/availability-zone
 ```
 
 ## Building

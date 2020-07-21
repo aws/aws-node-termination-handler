@@ -420,4 +420,5 @@ func TestGetNodeMetadata(t *testing.T) {
 	h.Assert(t, nodeMetadata.LocalIP == `metadata`, `Missing required NodeMetadata field LocalIP`)
 	h.Assert(t, nodeMetadata.PublicHostname == `metadata`, `Missing required NodeMetadata field PublicHostname`)
 	h.Assert(t, nodeMetadata.PublicIP == `metadata`, `Missing required NodeMetadata field PublicIP`)
+	h.Assert(t, nodeMetadata.AvailabilityZone == `metadata`, `Missing required NodeMetadata field AvailabilityZone`)
 }

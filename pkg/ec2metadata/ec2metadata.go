@@ -43,6 +43,8 @@ const (
 	LocalHostnamePath = "/latest/meta-data/local-hostname"
 	// LocalIPPath path to local ip
 	LocalIPPath = "/latest/meta-data/local-ipv4"
+	// AZPlacementPath path to availability zone placement
+	AZPlacementPath = "/latest/meta-data/placement/availability-zone"
 
 	// IMDSv2 token related constants
 	tokenRefreshPath        = "/latest/api/token"
@@ -91,12 +93,13 @@ type InstanceAction struct {
 
 // NodeMetadata contains information that applies to every drain event
 type NodeMetadata struct {
-	InstanceID     string
-	InstanceType   string
-	PublicHostname string
-	PublicIP       string
-	LocalHostname  string
-	LocalIP        string
+	InstanceID       string
+	InstanceType     string
+	PublicHostname   string
+	PublicIP         string
+	LocalHostname    string
+	LocalIP          string
+	AvailabilityZone string
 }
 
 // New constructs an instance of the Service client
@@ -278,6 +281,7 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
 	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 	metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
+	metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
 
 	log.Log().Msgf("Startup Metadata Retrieved: %+v", metadata)
 
