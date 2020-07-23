@@ -35,8 +35,8 @@ function clean_up {
 }
 
 function exit_and_fail {
-    POD_ID=$(kubectl get pods -n kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1 )
-    kubectl logs $POD_ID --namespace kube-system
+    local pod_id=$(get_nth_worker_pod || :)
+    kubectl logs $pod_id --namespace kube-system || :
     END=$(date +%s)
     echo "⏰ Took $(expr $END - $START)sec"
     echo "❌ NTH Integration Test FAILED $CLUSTER_NAME! ❌"
