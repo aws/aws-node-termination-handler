@@ -9,7 +9,8 @@ GOARCH ?= amd64
 GOPROXY ?= "https://proxy.golang.org,direct"
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR_PATH = ${MAKEFILE_PATH}/build
-SUPPORTED_PLATFORMS ?= "linux/amd64,linux/arm64,linux/arm,darwin/amd64"
+SUPPORTED_PLATFORMS_LINUX ?= "linux/amd64,linux/arm64,linux/arm,darwin/amd64"
+SUPPORTED_PLATFORMS_WINDOWS ?= "windows/amd64"
 BINARY_NAME ?= "node-termination-handler"
 
 $(shell mkdir -p ${BUILD_DIR_PATH} && touch ${BUILD_DIR_PATH}/_go.mod)
@@ -35,11 +36,18 @@ docker-push:
 	docker push ${IMG_W_TAG}
 
 build-docker-images:
-	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS} -r ${IMG} -v ${VERSION}
+	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION}
+
+build-docker-images-windows:
+	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION}
 
 push-docker-images:
 	@echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS} -r ${IMG} -v ${VERSION} -m
+	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION} -m
+
+push-docker-images-windows:
+	@echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION} -m
 
 version:
 	@echo ${VERSION}
@@ -72,10 +80,16 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint
 
 build-binaries:
-	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS} -v ${VERSION} -d
+	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -d
+
+build-binaries-windows:
+	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS_WINDOWS} -v ${VERSION} -d
 
 upload-resources-to-github:
 	${MAKEFILE_PATH}/scripts/upload-resources-to-github
+
+upload-resources-to-github-windows:
+	${MAKEFILE_PATH}/scripts/upload-resources-to-github -b
 
 generate-k8s-yaml:
 	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
@@ -103,6 +117,8 @@ eks-cluster-test:
 	${MAKEFILE_PATH}/test/eks-cluster-test/run-test
 
 release: build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
+
+release-windows: build-binaries-windows build-docker-images-windows push-docker-images-windows upload-resources-to-github-windows
 
 test: spellcheck shellcheck unit-test e2e-test compatibility-test license-test go-report-card-test helm-sync-test helm-version-sync-test helm-lint
 

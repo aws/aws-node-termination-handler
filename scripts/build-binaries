@@ -53,14 +53,31 @@ for os_arch in "${PLATFORMS[@]}"; do
     arch=$(echo $os_arch | cut -d'/' -f2)
     container_name="build-$BASE_BIN_NAME-$os-$arch"
     repo_name="bin-build"
-    bin_name="$BASE_BIN_NAME-$os-$arch"
+
+    if [[ $os == "windows" ]]; then
+        bin_name="$BASE_BIN_NAME-$os-$arch.exe"
+    else
+        bin_name="$BASE_BIN_NAME-$os-$arch"
+    fi
 
     docker container rm $container_name || :
     $SCRIPTPATH/build-docker-images -p $os_arch -v $VERSION -r $repo_name $PASS_THRU_ARGS
     docker container create --rm --name $container_name "$repo_name:$VERSION-$os-$arch"
-    docker container cp $container_name:/${BASE_BIN_NAME} $BIN_DIR/$bin_name
+    docker container cp $container_name:/ec2-metadata-mock $BIN_DIR/$bin_name
 
-    cp ${BIN_DIR}/${bin_name} ${BIN_DIR}/${BASE_BIN_NAME}
-    tar -zcvf ${BIN_DIR}/${bin_name}.tar.gz -C ${BIN_DIR} ${BASE_BIN_NAME}
-    rm -f ${BIN_DIR}/${BASE_BIN_NAME}
+    if [[ $os == "windows" ]]; then
+      ## Create zip archive with binary taking into account windows .exe
+      cp ${BIN_DIR}/${bin_name} ${BIN_DIR}/${BASE_BIN_NAME}.exe
+      ## Can't reuse bin_name below because it includes .exe
+      curr_dir=$(pwd)
+      cd "${BIN_DIR}"
+      zip -9 -q ${BASE_BIN_NAME}-$os-$arch.zip ${BASE_BIN_NAME}.exe
+      cd "${curr_dir}"
+      rm -f ${BIN_DIR}/${BASE_BIN_NAME}.exe
+    else
+      ## Create tar.gz archive with binary
+      cp ${BIN_DIR}/${bin_name} ${BIN_DIR}/${BASE_BIN_NAME}
+      tar -zcvf ${BIN_DIR}/${bin_name}.tar.gz -C ${BIN_DIR} ${BASE_BIN_NAME}
+      rm -f ${BIN_DIR}/${BASE_BIN_NAME}
+    fi
 done
