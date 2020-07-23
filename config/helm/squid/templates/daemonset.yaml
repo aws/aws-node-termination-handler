@@ -29,6 +29,6 @@ spec:
             readOnly: true
       volumes:
         - name: squid-config
-          configMap: 
+          configMap:
             name: {{ .Values.squid.configMap }}
-            
+

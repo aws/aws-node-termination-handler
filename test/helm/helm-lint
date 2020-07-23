@@ -29,11 +29,11 @@ export PATH=$TMP_DIR:$PATH
 echo "=============================================================================="
 echo "                     Linting Helm Chart w/ Helm v3"
 echo "=============================================================================="
-helm lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ 
+helm lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
 
 echo "=============================================================================="
 echo "                     Linting Helm Chart w/ Helm v2"
 echo "=============================================================================="
-helm2 lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/ 
+helm2 lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
 
 echo "✅ Helm Linting for v2 and v3 have successfully completed!"

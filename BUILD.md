@@ -39,9 +39,9 @@ EOF
 $ manifest-tool push from-spec manifest.yaml
 ```
 
-### Go Module Proxy 
+### Go Module Proxy
 
-By default, Go 1.13+ uses the proxy.golang.org proxy for go module downloads. This can be changed to a different go module proxy or revert back to pre-go 1.13 default which was "direct". `GOPROXY=direct` will pull from the VCS provider directly instead of going through a proxy at all.  
+By default, Go 1.13+ uses the proxy.golang.org proxy for go module downloads. This can be changed to a different go module proxy or revert back to pre-go 1.13 default which was "direct". `GOPROXY=direct` will pull from the VCS provider directly instead of going through a proxy at all.
 
 ```
 ## No Proxy
@@ -53,17 +53,17 @@ docker build --build-arg=GOPROXY=go-proxy.mycorp.com -t ${USER}/aws-node-termina
 
 ### Kubernetes Object Files
 
-We use Kustomize to create a master Kubernetes yaml file. You can apply the base (default confg), use the provided overlays, or write your own custom overlays. 
+We use Kustomize to create a master Kubernetes yaml file. You can apply the base (default confg), use the provided overlays, or write your own custom overlays.
 
 *NOTE: Kustomize was built into kubectl starting with kubernetes 1.14. If you are using an older version of kubernetes or `kubectl`, you can download the `kustomize` binary for your platform on their github releases page: https://github.com/kubernetes-sigs/kustomize/releases*
 
 ```
 ## Apply base kustomize directly kubernetes
-kubectl apply -k $REPO_ROOT/config/base 
+kubectl apply -k $REPO_ROOT/config/base
 
 ## OR apply an overlay specifying a node selector to run the daemonset only on spot instances
 ## This will use the base and add a node selector into the daemonset K8s object definition
-kubectl apply -k $REPO_ROOT/config/overlays/spot-node-selector 
+kubectl apply -k $REPO_ROOT/config/overlays/spot-node-selector
 ```
 
 Read more about Kustomize and Overlays: https://kustomize.io

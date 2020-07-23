@@ -5,14 +5,14 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 image="amazon/aws-node-termination-handler"
 
-if git --no-pager diff --name-only HEAD^ HEAD | grep 'README.md'; then 
+if git --no-pager diff --name-only HEAD^ HEAD | grep 'README.md'; then
     token=$(curl -s -X POST \
         -H "Content-Type: application/json" \
         -d '{"username": "'"${DOCKER_USERNAME}"'", "password": "'"${DOCKERHUB_PASSWORD}"'"}' \
         https://hub.docker.com/v2/users/login/ | jq -r .token)
 
     rcode=$(jq -n --arg msg "$(<$SCRIPTPATH/../README.md)" \
-        '{"registry":"registry-1.docker.io","full_description": $msg }' | 
+        '{"registry":"registry-1.docker.io","full_description": $msg }' |
             curl -s -o /dev/stderr -L -w "%{http_code}" \
             https://hub.docker.com/v2/repositories/"${image}"/ \
                 -d @- \
@@ -20,9 +20,9 @@ if git --no-pager diff --name-only HEAD^ HEAD | grep 'README.md'; then
                 -H "Content-Type: application/json" \
                 -H "Authorization: JWT ${token}")
 
-    if [[ $rcode -ge 200 && $rcode -lt 300 ]]; then 
+    if [[ $rcode -ge 200 && $rcode -lt 300 ]]; then
         echo "README sync to dockerhub completed successfully"
-    else 
+    else
         echo "README sync to dockerhub failed"
         exit 1
     fi

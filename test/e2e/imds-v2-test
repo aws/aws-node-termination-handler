@@ -86,14 +86,14 @@ TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 
-for i in `seq 1 10`; do 
+for i in `seq 1 10`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
         break
     fi
     sleep 5
-done 
+done
 
 if [[ $DEPLOYED -eq 0 ]]; then
     echo "❌ regular-pod-test pod deployment failed"

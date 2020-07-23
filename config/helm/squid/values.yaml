@@ -15,4 +15,4 @@ squid:
     image:
         repository: squid
         tag: customtest
-        
+
