@@ -6,7 +6,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 PRESERVE=true
 
 export TEST_WINDOWS="false"
-export AEMM_VERSION="1.1.3"
+export AEMM_VERSION="1.1.4"
 export AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz"
 export CLUSTER_CONFIG_FILE=$SCRIPTPATH/cluster-spec.yaml
 
@@ -85,6 +85,14 @@ for dep in "${deps[@]}"; do
     fi
 done
 
+TEST_OS="linux"
+if [[ $TEST_WINDOWS = "true" ]]; then
+  TEST_OS="windows"
+fi
+
+export TEST_WINDOWS \
+  TEST_OS
+
 config=${@:$OPTIND:1}
 if [[ -z ${config} ]]; then
   echo "no CONFIG provided; creating EKS cluster using $CLUSTER_CONFIG_FILE"
@@ -113,10 +121,12 @@ echo "WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.
 echo "IMDS_PORT=${IMDS_PORT:=$EC2_METADATA_PORT}"
 echo "INSTANCE_METADATA_URL=${INSTANCE_METADATA_URL:=$EC2_METADATA_URL}"
 
-# Label first linux node in cluster; nth will be deployed to this node ONLY
-nth_node=$(kubectl get node --selector="kubernetes.io/os=linux" --output jsonpath='{.items[-1].metadata.name}')
-export NTH_WORKER_LABEL="role=nth_worker"
-kubectl label nodes $nth_node $NTH_WORKER_LABEL --overwrite
+# Label first linux node in cluster; nth will be deployed to this node ONLY -- NEEDED FOR LINUX RUN ONLY:
+if [[ $TEST_OS = "linux" ]]; then
+  nth_node=$(kubectl get node --selector="kubernetes.io/os=linux" --output jsonpath='{.items[-1].metadata.name}')
+  export NTH_WORKER_LABEL="role=nth_worker"
+  kubectl label nodes $nth_node $NTH_WORKER_LABEL --overwrite
+fi
 
 export NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY \
     WEBHOOK_DOCKER_PULL_POLICY \
@@ -133,12 +143,7 @@ if ! kubectl get svc >/dev/null 2>&1; then
     exit 1
 fi
 
-test_os="linux"
-if [[ $TEST_WINDOWS = "true" ]]; then
-  test_os="windows"
-fi
-
-export TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$test_os |
+export TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$TEST_OS |
     tail -n +2 |
     tr -s "\t" " " |
     cut -d" " -f1)

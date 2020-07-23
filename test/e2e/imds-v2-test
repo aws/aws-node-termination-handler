@@ -76,6 +76,8 @@ aemm_helm_args=(
   --set aemm.imdsv2="true"
   --set servicePort="$IMDS_PORT"
 )
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    aemm_helm_args+=("${common_helm_args[@]}")
 
 set -x
 helm "${aemm_helm_args[@]}"
