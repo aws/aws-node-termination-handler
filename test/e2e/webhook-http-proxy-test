@@ -126,6 +126,19 @@ if [[ $deployed -eq 0 ]]; then
     fail_end_exit 2
 fi
 
+## Squid can take a while to start, try to get a squid worker pod, if not, hope for the best when assertions are checked
+squid_worker_pods=""
+for i in `seq 1 10`; do
+  echo "Checking if squid http-proxy has started..."
+  squid_worker_pods=$(kubectl get pods -o json | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r || :)
+  if [[ -z "${squid_worker_pods}" ]]; then 
+    echo "Still waiting on squid..." 
+    sleep 10
+  else
+    break
+  fi
+done
+
 cordoned=0
 evicted=0
 sent=0
@@ -144,10 +157,10 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
   if [[ $evicted -eq 1 && $sent -eq 0 ]] && kubectl logs $pod_id -n kube-system | grep 'Webhook Success' >/dev/null; then
     echo "✅ Verified that webhook successfully sent"
     sent=1
-    squid_worker_pods=$(kubectl get pods -o json | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
   fi
 
-  if [[ $sent -eq 1 ]] && kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep "${WEBHOOK_URL}" >/dev/null; then
+  webhook_hostname=$(echo "${WEBHOOK_URL}" |sed -e 's|^[^/]*//||' -e 's|/.*$||')
+  if [[ $sent -eq 1 ]] && kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep "${webhook_hostname}" >/dev/null; then
      echo "✅ Verified the webhook POST used the http proxy"
         exit 0
   fi
