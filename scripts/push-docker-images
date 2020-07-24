@@ -53,6 +53,16 @@ if [[ ${#PLATFORMS[@]} -gt 1 && $MANIFEST != "true" ]]; then
     exit 1
 fi
 
+# Existing manifests cannot be updated only overwritten; therefore,
+# if manifest exists already, fetch existing platforms so "updated" manifest includes images
+# that were there previously
+if [[ $MANIFEST == "true" ]]; then
+  manifest_exists=$(docker manifest inspect $IMAGE_REPO:$VERSION > /dev/null ; echo $?)
+  if [[ manifest_exists -eq 0 ]]; then
+    PLATFORMS+=($(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture)"'))
+  fi
+fi
+
 for os_arch in "${PLATFORMS[@]}"; do
     os=$(echo $os_arch | cut -d'/' -f1)
     arch=$(echo $os_arch | cut -d'/' -f2)
@@ -77,15 +87,7 @@ if [[ $MANIFEST == "true" ]]; then
     fi
     cat <<< $(jq '.+{"experimental":"enabled"}' $DOCKER_CLI_CONFIG) > $DOCKER_CLI_CONFIG
     echo "Enabled experimental CLI features to create the docker manifest"
-
-    manifest_create_args=($IMAGE_REPO:$VERSION $MANIFEST_IMAGES)
-    manifest_exists=$(docker manifest inspect $IMAGE_REPO:$VERSION > /dev/null ; echo $?)
-    # manifest already exists; therefore, amend is required
-    if [[ manifest_exists -eq 0 ]]; then
-      manifest_create_args+=(--amend)
-    fi
-
-    docker manifest create "${manifest_create_args[@]}"
+    docker manifest create $IMAGE_REPO:$VERSION $MANIFEST_IMAGES
 
     for os_arch in "${PLATFORMS[@]}"; do
         os=$(echo $os_arch | cut -d'/' -f1)
@@ -96,5 +98,5 @@ if [[ $MANIFEST == "true" ]]; then
         docker manifest annotate $IMAGE_REPO:$VERSION $img_tag --arch $arch --os $os
     done
 
-    docker manifest push $IMAGE_REPO:$VERSION
+    docker manifest push --purge $IMAGE_REPO:$VERSION
 fi
