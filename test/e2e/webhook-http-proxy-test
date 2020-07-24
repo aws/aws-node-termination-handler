@@ -147,7 +147,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     squid_worker_pods=$(kubectl get pods -o json | jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r)
   fi
 
-  if [[ $sent -eq 1 ]] && kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep -e 'TCP_MISS/200' -e 'TCP_TUNNEL/200' -e 'TCP_MISS_ABORTED/200' >/dev/null; then
+  if [[ $sent -eq 1 ]] && kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep "${WEBHOOK_URL}" >/dev/null; then
      echo "✅ Verified the webhook POST used the http proxy"
         exit 0
   fi
@@ -163,4 +163,9 @@ elif [[ $sent -eq 0 ]]; then
 else
     echo "❌ Webhook POST did not use http proxy"
 fi
+
+echo "=====================================   SQUID LOGS   ===================================================="
+kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log
+echo "===================================== END SQUID LOGS ===================================================="
+
 fail_and_exit 1
