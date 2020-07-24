@@ -44,7 +44,7 @@ ASSET_IDS_UPLOADED=()
 trap 'handle_errors_and_cleanup $?' EXIT
 
 handle_errors_and_cleanup() {
-    if [ $1 -eq "0" ]; then
+    if [ $1 -eq 0 ]; then
         exit 0
     fi
 
@@ -53,8 +53,8 @@ handle_errors_and_cleanup() {
         for asset_id in $ASSET_IDS_UPLOADED; do
             echo "Deleting asset $asset_id"
             curl -X DELETE \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/aws/aws-node-termination-handler/releases/assets/$asset_id"
+              -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/aws/aws-node-termination-handler/releases/assets/$asset_id"
         done
         exit $1
     fi

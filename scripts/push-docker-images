@@ -58,7 +58,7 @@ fi
 # that were there previously
 if [[ $MANIFEST == "true" ]]; then
   manifest_exists=$(docker manifest inspect $IMAGE_REPO:$VERSION > /dev/null ; echo $?)
-  if [[ manifest_exists -eq 0 ]]; then
+  if [[ $manifest_exists -eq 0 ]]; then
     PLATFORMS+=($(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture)"'))
   fi
 fi
