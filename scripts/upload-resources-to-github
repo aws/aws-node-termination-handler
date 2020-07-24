@@ -12,7 +12,7 @@ RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
     https://api.github.com/repos/aws/aws-node-termination-handler/releases | \
     jq --arg VERSION "$VERSION" '.[] | select(.tag_name==$VERSION) | .id')
 
-for binary in $SCRIPTPATH/../build/bin/*; do 
+for binary in $SCRIPTPATH/../build/bin/*; do
     curl \
         -H "Authorization: token $GITHUB_TOKEN" \
         -H "Content-Type: $(file -b --mime-type $binary)" \
@@ -23,7 +23,7 @@ done
 
 ## Upload k8s yaml
 resourceFiles=($TAR_RESOURCES_FILE $AGG_RESOURCES_YAML)
-for resourceFile in "${resourceFiles[@]}"; do 
+for resourceFile in "${resourceFiles[@]}"; do
     curl \
         -H "Authorization: token $GITHUB_TOKEN" \
         -H "Content-Type: $(file -b --mime-type $resourceFile)" \

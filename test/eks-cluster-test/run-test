@@ -53,6 +53,15 @@ while getopts "a:dw" opt; do
   esac
 done
 
+function exit_and_fail {
+    local pod_id=$(get_nth_worker_pod || :)
+    kubectl logs $pod_id --namespace kube-system || :
+    assertion_end=$(date +%s)
+    echo "⏰ Took $(expr $assertion_end - $assertion_start)sec"
+    echo "❌ NTH EKS Integration Test FAILED $CLUSTER_NAME! ❌"
+    exit 1
+}
+
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
       echo "====================================================================================================="
@@ -169,6 +178,9 @@ fi
 
 echo "Assertion script(s): ${assertion_scripts[*]}"
 
+trap "exit_and_fail" INT TERM ERR
+trap "clean_up" EXIT
+
 for assertion_script in "${assertion_scripts[@]}"; do
     reset_cluster
     echo "================================================================================================="
@@ -178,6 +190,8 @@ for assertion_script in "${assertion_scripts[@]}"; do
     $assertion_script
     assertion_end=$(date +%s)
     echo "⏰ Took $(expr $assertion_end - $assertion_start)sec"
+    pod_id=$(get_nth_worker_pod || :)
+    kubectl logs $pod_id --namespace kube-system || :
     echo "✅ Assertion test $assertion_script PASSED! ✅"
 done
 reset_cluster
@@ -185,4 +199,3 @@ reset_cluster
 echo "====================================================================================================="
 echo "✅ All tests passed! ✅"
 echo "====================================================================================================="
-clean_up

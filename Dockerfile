@@ -5,8 +5,8 @@ FROM golang:1.14 as builder
 ARG GOPROXY="https://proxy.golang.org,direct"
 ARG GO111MODULE="on"
 ARG CGO_ENABLED=0
-ARG GOOS=linux 
-ARG GOARCH=amd64 
+ARG GOOS=linux
+ARG GOARCH=amd64
 
 # Copy go.mod and download dependencies
 WORKDIR /node-termination-handler

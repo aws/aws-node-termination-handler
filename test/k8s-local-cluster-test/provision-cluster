@@ -54,7 +54,7 @@ while getopts "b:i:v:k:o" opt; do
         OPTARG="K8_`echo $OPTARG | sed 's/\./\_/g'`"
         if [ ! -z ${OPTARG+x} ]; then
             K8_VERSION=${!OPTARG}
-        else 
+        else
             echoerr "K8s version not supported"
             exit 2
         fi
@@ -91,7 +91,7 @@ done
 
 ## Append to the end of PATH so that the user can override the executables if they want
 if [[ OVERRIDE_PATH -eq 1 ]]; then
-   export PATH=$PATH:$TMP_DIR 
+   export PATH=$PATH:$TMP_DIR
 else
   if [ ! -x "$TMP_DIR/kubectl" ]; then
       echoerr "🥑 Downloading the \"kubectl\" binary"
@@ -129,7 +129,7 @@ done
 echo "$CLUSTER_NAME" > $TMP_DIR/clustername
 echoerr "👍 Created k8s cluster using \"kind\""
 
-kubectl apply -f "$SCRIPTPATH/psp-default.yaml" --context kind-$CLUSTER_NAME --kubeconfig $TMP_DIR/kubeconfig 1>&2 
-kubectl apply -f "$SCRIPTPATH/psp-privileged.yaml" --context kind-$CLUSTER_NAME --kubeconfig $TMP_DIR/kubeconfig 1>&2 
+kubectl apply -f "$SCRIPTPATH/psp-default.yaml" --context kind-$CLUSTER_NAME --kubeconfig $TMP_DIR/kubeconfig 1>&2
+kubectl apply -f "$SCRIPTPATH/psp-privileged.yaml" --context kind-$CLUSTER_NAME --kubeconfig $TMP_DIR/kubeconfig 1>&2
 
 echo $TMP_DIR

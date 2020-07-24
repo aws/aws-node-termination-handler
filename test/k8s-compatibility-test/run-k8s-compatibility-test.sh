@@ -10,13 +10,13 @@ USAGE=$(cat << 'EOM'
   Usage: run-k8s-compatability-test [-h]
   Executes the spot termination integration test for each version of kubernetes (k8s 1.12 - 1.18 supported)
 
-  Examples: 
+  Examples:
           # run test with direct download of go modules
           run-k8s-compatability-test -p "-d"
 
           Optional:
             -p          Pass thru arguments to run-spot-termination-test.sh
-            -h          Display help 
+            -h          Display help
 EOM
 )
 
@@ -33,12 +33,12 @@ while getopts "p:" opt; do
   esac
 done
 
-for i in "${!versions[@]}"; do 
+for i in "${!versions[@]}"; do
    version=${versions[$i]}
    $SCRIPTPATH/../k8s-local-cluster-test/run-test -b "test-$version" -v $version $PASS_THRU_ARGS $AFTER_FIRST_RUN_ARGS
-   if [ $? -eq 0 ]; then 
+   if [ $? -eq 0 ]; then
       echo "✅ Passed test for K8s version $version"
-   else 
+   else
       echo "❌ Failed test for K8s version $version"
       E_CODE=1
    fi

@@ -32,7 +32,7 @@ while getopts "vn:" opt; do
         NAMESPACE=$OPTARG
       ;;
     v ) # Verbose
-        set -x 
+        set -x
       ;;
     \? )
         echo "$USAGE" 1>&2

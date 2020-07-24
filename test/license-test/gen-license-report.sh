@@ -7,6 +7,6 @@ mkdir -p $BUILD_DIR
 export PATH="$PATH:$(go env GOPATH | sed 's+:+/bin+g')/bin"
 
 go get github.com/mitchellh/golicense
-go build -o $BUILD_DIR/nth $SCRIPTPATH/../../. 
+go build -o $BUILD_DIR/nth $SCRIPTPATH/../../.
 golicense -out-xlsx=$BUILD_DIR/report.xlsx $SCRIPTPATH/license-config.hcl $BUILD_DIR/nth
 

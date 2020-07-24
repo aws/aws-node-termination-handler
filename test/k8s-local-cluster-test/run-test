@@ -29,14 +29,14 @@ function relpath() {
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
         $SCRIPTPATH/../k8s-local-cluster-test/delete-cluster $DELETE_CLUSTER_ARGS || :
-        return 
-    fi 
+        return
+    fi
     echo "To resume test with the same cluster use: \"-c $TMP_DIR\""""
 }
 
 function exit_and_fail {
-    POD_ID=$(kubectl get pods -n kube-system | grep -i node-termination-handler | grep Running | cut -d' ' -f1 )
-    kubectl logs $POD_ID --namespace kube-system
+    local pod_id=$(get_nth_worker_pod || :)
+    kubectl logs $pod_id --namespace kube-system || :
     END=$(date +%s)
     echo "⏰ Took $(expr $END - $START)sec"
     echo "❌ NTH Integration Test FAILED $CLUSTER_NAME! ❌"
@@ -46,19 +46,19 @@ function exit_and_fail {
 function reset_cluster {
     echo "Resetting cluster"
     charts=$(helm ls --all --short)
-    if [[ ! -z "$charts" ]]; then 
+    if [[ ! -z "$charts" ]]; then
         helm del $charts || :
-    fi 
+    fi
     system_charts=$(helm ls --all --short --namespace kube-system)
-    if [[ ! -z "$system_charts" ]]; then 
+    if [[ ! -z "$system_charts" ]]; then
         helm del $system_charts --namespace kube-system || :
     fi
-    for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do 
+    for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do
         kubectl uncordon $node
         kubectl taint node $node aws-node-termination-handler/scheduled-maintenance- || true
         kubectl taint node $node aws-node-termination-handler/spot-itn- || true
     done
-    remove_labels || :   
+    remove_labels || :
     sleep 2
 }
 
@@ -66,7 +66,7 @@ function remove_labels {
     echo "Removing labels from NTH cluster nodes"
     labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
     if [[ "${#labels_to_remove[@]}" -ne 0 ]]; then
-      for l in "${labels_to_remove[@]}"; do 
+      for l in "${labels_to_remove[@]}"; do
         for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
           echo "Deleting label $l on node $n"
           kubectl label node $n "$l"-
@@ -90,7 +90,7 @@ USAGE=$(cat << 'EOM'
   Example: run-test -p -n node-termination-handler:customtest
 
           Optional:
-            -a          Assertion script (default is ALL tests in the e2e dir) 
+            -a          Assertion script (default is ALL tests in the e2e dir)
             -b          Base name of test (will be used for cluster too)
             -c          Cluster context directory, if operating on an existing cluster
             -p          Preserve kind k8s cluster for inspection
@@ -99,7 +99,7 @@ USAGE=$(cat << 'EOM'
             -o          Override path w/ your own kubectl and kind binaries
             -v          Kubernetes Version (Default: 1.16) [1.12, 1.13, 1.14, 1.15, 1.16, 1.17, and 1.18]
             -w          Webhook Docker Image
-            
+
 EOM
 )
 
@@ -110,7 +110,7 @@ while getopts "pdn:oc:a:b:v:w:" opt; do
         echo "❄️  This run will preserve the cluster as you requested"
         PRESERVE=true
       ;;
-    n ) # Node Termination Handler Docker Image 
+    n ) # Node Termination Handler Docker Image
         NODE_TERMINATION_HANDLER_DOCKER_IMG="$OPTARG"
       ;;
     d ) # use GOPROXY=direct
@@ -143,24 +143,24 @@ while getopts "pdn:oc:a:b:v:w:" opt; do
   esac
 done
 
-if [[ -z $TMP_DIR ]]; then 
+if [[ -z $TMP_DIR ]]; then
     TMP_DIR=$($SCRIPTPATH/../k8s-local-cluster-test/provision-cluster -b $CLUSTER_NAME_BASE -v $K8S_VERSION $PROVISION_CLUSTER_ARGS)
 fi
-if [[ $OVERRIDE_PATH -eq 0 ]]; then 
+if [[ $OVERRIDE_PATH -eq 0 ]]; then
   export PATH=$TMP_DIR:$PATH
-else 
+else
   export PATH=$PATH:$TMP_DIR
 fi
 CLUSTER_NAME=$(cat $TMP_DIR/clustername)
 
 ## Build and Load Docker Images
 
-if [ -z "$NODE_TERMINATION_HANDLER_DOCKER_IMG" ]; then 
+if [ -z "$NODE_TERMINATION_HANDLER_DOCKER_IMG" ]; then
     echo "🥑 Building the node-termination-handler docker image"
-    docker build $DOCKER_ARGS -t $DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG "$SCRIPTPATH/../../." 
+    docker build $DOCKER_ARGS -t $DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG "$SCRIPTPATH/../../."
     NODE_TERMINATION_HANDLER_DOCKER_IMG="$DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG"
     echo "👍 Built the node-termination-handler docker image"
-else 
+else
     echo "🥑 Skipping building the node-termination-handler docker image, since one was specified ($NODE_TERMINATION_HANDLER_DOCKER_IMG)"
 fi
 echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" > $TMP_DIR/nth-docker-img

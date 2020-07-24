@@ -94,7 +94,7 @@ Parameter | Description | Default
 `serviceAccount.annotations` | Specifies the annotations for ServiceAccount       | `{}`
 `procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
 `securityContext.runAsUserID` | User ID to run the container | `1000`
-`securityContext.runAsGroupID` | Group ID to run the container | `1000` 
+`securityContext.runAsGroupID` | Group ID to run the container | `1000`
 `nodeSelectorTermsOs` | Operating System Node Selector Key | >=1.14: `kubernetes.io/os`, <1.14: `beta.kubernetes.io/os`
 `nodeSelectorTermsArch` | CPU Architecture Node Selector Key | >=1.14: `kubernetes.io/arch`, <1.14: `beta.kubernetes.io/arch`
 `targetNodeOs | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`

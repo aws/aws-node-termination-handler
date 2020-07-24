@@ -255,7 +255,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		rw.Write([]byte(fmt.Sprintf(`[ 
+		rw.Write([]byte(fmt.Sprintf(`[
 			{
 			  "NotBefore" : "%s",
 			  "Code" : "%s",
@@ -263,7 +263,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 			  "EventId" : "%s",
 			  "NotAfter" : "%s",
 			  "State" : "%s"
-			} 
+			}
 		  ]`, notBefore, code, description, eventId, notAfter, state)))
 	}))
 	defer server.Close()

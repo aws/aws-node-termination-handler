@@ -5,14 +5,14 @@ FROM golang:1-alpine as builder
 ARG GOPROXY="https://proxy.golang.org,direct"
 ARG GO111MODULE="on"
 ARG CGO_ENABLED=0
-ARG GOOS=linux 
-ARG GOARCH=amd64 
+ARG GOOS=linux
+ARG GOARCH=amd64
 
 # Copy go.mod and download dependencies
 WORKDIR /webhook-test-proxy
 
 # Build
-COPY . . 
+COPY . .
 RUN go build -a -o webhook-test-proxy cmd/webhook-test-proxy.go
 # In case the target is build for testing:
 # $ docker build  --target=builder -t test .

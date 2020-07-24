@@ -26,7 +26,7 @@ while getopts "c:o" opt; do
       ;;
     o ) # Override path with your own kubectl and kind binaries
 	      OVERRIDE_PATH=1
-        export PATH=$PATH:$TMP_DIR 
+        export PATH=$PATH:$TMP_DIR
       ;;
     \? )
         echoerr "$USAGE" 1>&2

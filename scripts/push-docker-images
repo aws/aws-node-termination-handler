@@ -47,7 +47,7 @@ while getopts "mp:r:v:" opt; do
   esac
 done
 
-if [[ ${#PLATFORMS[@]} -gt 1 && $MANIFEST != "true" ]]; then 
+if [[ ${#PLATFORMS[@]} -gt 1 && $MANIFEST != "true" ]]; then
     echo "Only one platform can be pushed if you do not create a manifest."
     echo "Try again with the -m option"
     exit 1
@@ -61,7 +61,7 @@ for os_arch in "${PLATFORMS[@]}"; do
 
     if [[ $MANIFEST == "true" ]]; then
         img_tag=$img_tag_w_platform
-    else 
+    else
         img_tag="$IMAGE_REPO:$VERSION"
         docker tag $img_tag_w_platform $img_tag
     fi
@@ -71,7 +71,7 @@ for os_arch in "${PLATFORMS[@]}"; do
 done
 
 if [[ $MANIFEST == "true" ]]; then
-    if [[ ! -f $DOCKER_CLI_CONFIG ]]; then 
+    if [[ ! -f $DOCKER_CLI_CONFIG ]]; then
       echo '{"experimental":"enabled"}' > $DOCKER_CLI_CONFIG
       echo "Created docker config file"
     fi
