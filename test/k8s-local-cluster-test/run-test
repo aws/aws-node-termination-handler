@@ -47,11 +47,11 @@ function reset_cluster {
     echo "Resetting cluster"
     charts=$(helm ls --all --short)
     if [[ ! -z "$charts" ]]; then
-        helm del $charts || :
+        helm del $charts --no-hooks || :
     fi
     system_charts=$(helm ls --all --short --namespace kube-system)
     if [[ ! -z "$system_charts" ]]; then
-        helm del $system_charts --namespace kube-system || :
+        helm del $system_charts --no-hooks --namespace kube-system || :
     fi
     for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do
         kubectl uncordon $node
@@ -208,6 +208,7 @@ export NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCK
 export WEBHOOK_DOCKER_IMG=$(cat $TMP_DIR/webhook-test-proxy-docker-img)
 export WEBHOOK_DOCKER_REPO=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f1)
 export WEBHOOK_DOCKER_TAG=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f2)
+export NTH_WORKER_LABEL="kubernetes\.io/hostname=$CLUSTER_NAME-worker"
 ###
 
 i=0
