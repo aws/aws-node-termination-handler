@@ -15,13 +15,15 @@ set -euo pipefail
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 SQUID_DOCKERHUB_IMG="sameersbn/squid:3.5.27-2@sha256:e98299069f0c6e3d9b9188903518e2f44ac36b1fa5007e879af518e1c0a234af"
 SQUID_DOCKER_IMG="squid:customtest"
+SQUID_PORT="3128"
+SQUID_URL="tcp://squid.default.svc.cluster.local:$SQUID_PORT"
 
 function fail_and_exit {
     echo "❌ Webhook HTTP Proxy Test failed $CLUSTER_NAME ❌"
     exit ${1:-1}
 }
 
-function get_squild_worker_pod() {
+function get_squid_worker_pod() {
   kubectl get pods -o json | \
     jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r 2> /dev/null || echo ""
 }
@@ -33,7 +35,7 @@ function start_squid() {
   old_squid_pods=""
   for i in `seq 1 10`; do
     echo "Checking if squid http-proxy has been terminated from previous run..."
-    old_squid_pods="$(get_squild_worker_pod)"
+    old_squid_pods="$(get_squid_worker_pod)"
     if [[ -n "${old_squid_pods}" ]]; then 
       echo "Still waiting on squid to terminate from last run..."
       sleep 10
@@ -54,7 +56,7 @@ function start_squid() {
   squid_worker_pods=""
   for i in `seq 1 10`; do
     echo "Checking if squid http-proxy has started..."
-    squid_worker_pods="$(get_squild_worker_pod)"
+    squid_worker_pods="$(get_squid_worker_pod)"
     if [[ -z "${squid_worker_pods}" ]]; then 
       echo "Still waiting on squid..."
       sleep 10
@@ -66,22 +68,53 @@ function start_squid() {
 
 echo "Starting Webhook HTTP Proxy Test for Node Termination Handler"
 
-### LOCAL ONLY TESTS FOR 200 RESPONSE FROM LOCAL CLUSTER, MASTER WILL TEST WITH TRAVIS SECRET URL
-if [[ -z "${WEBHOOK_URL-}" ]]; then
-  WEBHOOK_URL="http://127.0.0.1:$IMDS_PORT"
-fi
-
 docker pull $SQUID_DOCKERHUB_IMG
 docker tag $SQUID_DOCKERHUB_IMG $SQUID_DOCKER_IMG
 kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $SQUID_DOCKER_IMG
 
 ## Starts squid and waits for pods to be ready
 start_squid
-squid_worker_pods=$(get_squild_worker_pod)
+squid_worker_pods=$(get_squid_worker_pod)
 
 common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
+
+aemm_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-aemm
+  $AEMM_DL_URL
+  --wait
+  --namespace default
+  --set servicePort="$IMDS_PORT"
+)
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    aemm_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${aemm_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  $CLUSTER_NAME-emtp
+  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
+  --wait
+  --namespace default
+  --set webhookTestProxy.port="$(echo ${WEBHOOK_URL} | rev | cut -d':' -f1 | rev)"
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+)
+[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
 
 anth_helm_args=(
   upgrade
@@ -98,7 +131,7 @@ anth_helm_args=(
   --set enableScheduledEventDraining="true"
   --set webhookURL="$WEBHOOK_URL"
   --set webhookTemplate="\{\"Content\":\"[NTH][Instance Interruption] InstanceId: \{\{ \.InstanceID \}\} - InstanceType: \{\{ \.InstanceType \}\} - Kind: \{\{ \.Kind \}\} - Start Time: \{\{ \.StartTime \}\}\"\}"
-  --set webhookProxy="tcp://localhost:3128"
+  --set webhookProxy="$SQUID_URL"
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -107,42 +140,6 @@ anth_helm_args=(
 
 set -x
 helm "${anth_helm_args[@]}"
-set +x
-
-emtp_helm_args=(
-  upgrade
-  --install
-  $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
-  --wait
-  --namespace default
-  --set webhookTestProxy.port="$IMDS_PORT"
-  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
-  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
-)
-[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
-    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
-[[ ${#common_helm_args[@]} -gt 0 ]] &&
-    emtp_helm_args+=("${common_helm_args[@]}")
-
-set -x
-helm "${emtp_helm_args[@]}"
-set +x
-
-aemm_helm_args=(
-  upgrade
-  --install
-  $CLUSTER_NAME-aemm
-  $AEMM_DL_URL
-  --wait
-  --namespace default
-  --set servicePort="$IMDS_PORT"
-)
-[[ ${#common_helm_args[@]} -gt 0 ]] &&
-    aemm_helm_args+=("${common_helm_args[@]}")
-
-set -x
-helm "${aemm_helm_args[@]}"
 set +x
 
 TAINT_CHECK_CYCLES=15

@@ -14,8 +14,6 @@ spec:
         app: {{ .Values.squid.label }}
     spec:
       serviceAccountName: {{ template "squid.serviceAccountName" . }}
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: {{ .Values.squid.label }}
         image: {{ .Values.squid.image.repository }}:{{ .Values.squid.image.tag }}

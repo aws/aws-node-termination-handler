@@ -11,7 +11,7 @@ ARG GOPROXY="https://proxy.golang.org,direct"
 WORKDIR /node-termination-handler
 COPY go.mod .
 COPY go.sum .
-RUN go mod download
+RUN go mod download -x
 
 # Build
 COPY . .
