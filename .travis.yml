@@ -37,10 +37,20 @@ jobs:
       name: Go Report Card Test
     - stage: Test
       script: make build-binaries
-      name: Build Binaries
+      name: Build Binaries Linux
+    - stage: Test
+      name: Build Binaries Windows
+      os: windows
+      install: choco install make && choco install zip
+      script: RefreshEnv.cmd && make build-binaries-windows
     - stage: Test
       script: make build-docker-images
-      name: Build Docker Images
+      name: Build Docker Images Linux
+    - stage: Test
+      name: Build Docker Images Windows
+      os: windows
+      install: choco install make
+      script: RefreshEnv.cmd && make build-docker-images-windows
     - stage: Test
       script: make generate-k8s-yaml
       name: Generate K8s yaml files
@@ -59,5 +69,11 @@ jobs:
     - stage: Deploy
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make release
-      name: Release Artifacts
+      name: Release Artifacts Linux
+    - stage: Windows Deploy
+      name: Release Artifacts Windows
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
+      os: windows
+      install: choco install make && choco install zip
+      script: RefreshEnv.cmd && make release-windows
 

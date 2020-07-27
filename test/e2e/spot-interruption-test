@@ -82,6 +82,8 @@ aemm_helm_args=(
   --set 'tolerations[0].operator=Exists'
   --set arguments={spot}
 )
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    aemm_helm_args+=("${common_helm_args[@]}")
 
 set -x
 helm "${aemm_helm_args[@]}"

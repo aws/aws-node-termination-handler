@@ -82,6 +82,9 @@ aemm_helm_args=(
   --set arguments={events}
 )
 
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    aemm_helm_args+=("${common_helm_args[@]}")
+
 set -x
 helm "${aemm_helm_args[@]}"
 set +x

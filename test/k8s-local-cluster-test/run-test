@@ -16,7 +16,7 @@ WEBHOOK_DOCKER_IMG=""
 OVERRIDE_PATH=0
 K8S_VERSION="1.16"
 AEMM_URL="amazon-ec2-metadata-mock-service.default.svc.cluster.local"
-AEMM_VERSION="1.1.3"
+AEMM_VERSION="1.2.0"
 AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz"
 ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f | sort)
 
