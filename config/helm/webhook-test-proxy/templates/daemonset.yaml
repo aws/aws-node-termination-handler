@@ -20,9 +20,6 @@ spec:
       serviceAccountName: {{ template "webhook-test-proxy.serviceAccountName" . }}
       nodeSelector:
         {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
-      {{- if (not $isWindows) }}
-      hostNetwork: true
-      {{- end }}
       containers:
         - name: {{ .Values.webhookTestProxy.label }}
           image: {{ .Values.webhookTestProxy.image.repository }}:{{ .Values.webhookTestProxy.image.tag }}
