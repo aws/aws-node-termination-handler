@@ -31,7 +31,7 @@ USAGE=$(cat << 'EOM'
                  WEBHOOK_DOCKER_PULL_POLICY                   Webhook Proxy Docker image pull policy (defaults to DOCKER_PULL_POLICY)
                  EC2_METADATA_PORT                            EC2 Metadata Test Proxy port (defaults to 18999)
                  EC2_METADATA_URL                             EC2 Metadata Test Proxy URL (defaults to "http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$EC2_METADATA_PORT")
-                 WEBHOOK_URL                                  Webhook URL (defaults to "http://webhook-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT")
+                 WEBHOOK_URL                                  Webhook URL (defaults to "http://webhook-test-proxy.default.svc.cluster.local")
 EOM
 )
 
@@ -115,7 +115,7 @@ echo "WEBHOOK_DOCKER_TAG=${WEBHOOK_DOCKER_TAG:?"not found"}"
 echo "WEBHOOK_DOCKER_PULL_POLICY=${WEBHOOK_DOCKER_PULL_POLICY:=$DOCKER_PULL_POLICY}"
 echo "EC2_METADATA_PORT=${EC2_METADATA_PORT:=18999}"
 echo "EC2_METADATA_URL=${EC2_METADATA_URL:="http://amazon-ec2-metadata-mock-service.default.svc.cluster.local:$EC2_METADATA_PORT"}"
-echo "WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local:$EC2_METADATA_PORT"}"
+echo "WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local"}"
 
 # The e2e test scripts use other variable names.
 echo "IMDS_PORT=${IMDS_PORT:=$EC2_METADATA_PORT}"
