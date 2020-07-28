@@ -18,6 +18,12 @@ spec:
         app: {{ .Values.webhookTestProxy.label }}
     spec:
       serviceAccountName: {{ template "webhook-test-proxy.serviceAccountName" . }}
+      {{- if (not $isWindows) }}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+      {{- end }}
       nodeSelector:
         {{ $osSelector }}: {{ $isWindows | ternary "windows" "linux" }}
       containers:
@@ -25,11 +31,10 @@ spec:
           image: {{ .Values.webhookTestProxy.image.repository }}:{{ .Values.webhookTestProxy.image.tag }}
           imagePullPolicy: {{ .Values.webhookTestProxy.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.webhookTestProxy.port }}
-              hostPort: {{ .Values.webhookTestProxy.port }}
+            - containerPort: {{ .Values.webhookTestProxy.containerPort }}
           env:
             - name: PORT
-              value: {{ .Values.webhookTestProxy.port | quote }}
+              value: {{ .Values.webhookTestProxy.containerPort | quote }}
           {{- if .Values.webhookTestProxy.tolerations }}
           tolerations:
           {{ toYaml .Values.webhookTestProxy.tolerations | indent 8 }}

@@ -7,5 +7,6 @@ spec:
     app: {{ .Values.webhookTestProxy.label }}
   ports:
   - port: {{ .Values.webhookTestProxy.port }}
+    targetPort: {{ .Values.webhookTestProxy.containerPort }}
     protocol: TCP
 
