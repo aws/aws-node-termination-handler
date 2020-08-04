@@ -25,3 +25,5 @@ regularPodTest:
     label: regular-pod-test
     port: 1339
 targetNodeOs: "linux"
+nodeSelector: {}
+linuxNodeSelector: {}

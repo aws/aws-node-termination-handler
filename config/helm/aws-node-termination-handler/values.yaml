@@ -18,8 +18,8 @@ fullnameOverride: ""
 priorityClassName: system-node-critical
 
 podAnnotations: {}
-linuxAnnotations: {}
-windowsAnnotations: {}
+linuxPodAnnotations: {}
+windowsPodAnnotations: {}
 
 podLabels: {}
 linuxPodLabels: {}
@@ -39,7 +39,17 @@ enableSpotInterruptionDraining: ""
 ## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
 enableScheduledEventDraining: ""
 
+# Total number of times to try making the metadata request before failing.
+metadataTries: 3
+
+# Cordon but do not drain nodes upon spot interruption termination notice.
+cordonOnly: false
+
+# Taint node upon spot interruption termination notice.
 taintNode: false
+
+# Log messages in JSON format.
+jsonLogging: false
 
 ## dryRun tells node-termination-handler to only log calls to kubernetes control plane
 dryRun: false
@@ -61,6 +71,9 @@ nodeTerminationGracePeriod: ""
 
 # webhookURL if specified, posts event data to URL upon instance interruption action.
 webhookURL: ""
+
+# Webhook URL will be fetched from the secret store using the given name.
+webhookURLSecretName: ""
 
 # webhookProxy if specified, uses this HTTP(S) proxy configuration.
 webhookProxy: ""
@@ -127,3 +140,8 @@ podMonitor:
   sampleLimit: 5000
    # Additional labels to add to the metadata
   labels: {}
+
+# K8s DaemonSet update strategy.
+updateStrategy: ""
+linuxUpdateStrategy: ""
+windowsUpdateStrategy: ""
