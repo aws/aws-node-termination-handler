@@ -10,10 +10,10 @@ spec:
   {{- if (or .Values.updateStrategy .Values.windowsUpdateStrategy) }}
   updateStrategy:
     {{- with .Values.updateStrategy }}
-      {{- toYaml . | indent 4 }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.windowsUpdateStrategy }}
-      {{- toYaml . | indent 4 }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
   selector:

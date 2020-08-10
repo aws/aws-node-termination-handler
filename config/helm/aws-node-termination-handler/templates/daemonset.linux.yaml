@@ -10,10 +10,10 @@ spec:
   {{- if (or .Values.updateStrategy .Values.linuxUpdateStrategy) }}
   updateStrategy:
     {{- with .Values.updateStrategy }}
-      {{- toYaml . | indent 4 }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.linuxUpdateStrategy }}
-      {{- toYaml . | indent 4 }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
   selector:
