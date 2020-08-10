@@ -142,6 +142,9 @@ podMonitor:
   labels: {}
 
 # K8s DaemonSet update strategy.
-updateStrategy: ""
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
 linuxUpdateStrategy: ""
 windowsUpdateStrategy: ""

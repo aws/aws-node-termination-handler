@@ -97,13 +97,16 @@ Parameter | Description | Default
 `securityContext.runAsGroupID` | Group ID to run the container | `1000`
 `nodeSelectorTermsOs` | Operating System Node Selector Key | >=1.14: `kubernetes.io/os`, <1.14: `beta.kubernetes.io/os`
 `nodeSelectorTermsArch` | CPU Architecture Node Selector Key | >=1.14: `kubernetes.io/arch`, <1.14: `beta.kubernetes.io/arch`
-`targetNodeOs | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`
+`targetNodeOs` | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
 `prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
 `podMonitor.create` | if `true`, create a PodMonitor | `false`
 `podMonitor.interval` | Prometheus scrape interval | `30s`
 `podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
 `podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
+`updateStrategy` | Update strategy for the all DaemonSets (Linux and Windows) | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
+`linuxUpdateStrategy` | Update strategy for the Linux DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
+`windowsUpdateStrategy` | Update strategy for the Windows DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
 
 ## Metrics endpoint consideration
 If prometheus server is enabled and since NTH is a daemonset with `host_networking=true`, nothing else will be able to bind to `:9092` (or the port configured) in the root network namespace
