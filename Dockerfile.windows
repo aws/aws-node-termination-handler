@@ -15,7 +15,7 @@ RUN go mod download -x
 
 # Build
 COPY . .
-RUN go build -ldflags="-s -w" -a -tags nth${GOOS} -ldflags="-s -w" -o build/node-termination-handler cmd/node-termination-handler.go
+RUN go build -ldflags="-s -w" -a -tags nth${GOOS} -o build/node-termination-handler cmd/node-termination-handler.go
 
 # In case the target is build for testing:
 # $ docker build  --target=builder -t test .
