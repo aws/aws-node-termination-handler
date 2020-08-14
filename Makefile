@@ -17,7 +17,7 @@ $(shell mkdir -p ${BUILD_DIR_PATH} && touch ${BUILD_DIR_PATH}/_go.mod)
 
 compile:
 	@echo ${MAKEFILE_PATH}
-	go build -a -tags nth${GOOS} -o ${BUILD_DIR_PATH}/node-termination-handler ${MAKEFILE_PATH}/cmd/node-termination-handler.go
+	go build -a -tags nth${GOOS} -ldflags="-s -w" -o ${BUILD_DIR_PATH}/node-termination-handler ${MAKEFILE_PATH}/cmd/node-termination-handler.go
 
 clean:
 	rm -rf ${BUILD_DIR_PATH}/

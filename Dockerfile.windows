@@ -1,11 +1,11 @@
 ARG WINDOWS_VERSION=1809
 
 # Build the manager binary
-FROM --platform=windows/amd64 golang:1.14 as builder
+FROM --platform=windows/amd64 golang:1.15 as builder
 
 ## GOLANG env
 ENV GO111MODULE="on" CGO_ENABLED="0" GOOS="windows" GOARCH="amd64"
-ARG GOPROXY="https://proxy.golang.org,direct"
+ARG GOPROXY="https://proxy.golang.org|direct"
 
 # Copy go.mod and download dependencies
 WORKDIR /node-termination-handler
@@ -15,7 +15,7 @@ RUN go mod download -x
 
 # Build
 COPY . .
-RUN go build -a -tags nth${GOOS} -o build/node-termination-handler cmd/node-termination-handler.go
+RUN go build -ldflags="-s" -a -tags nth${GOOS} -o build/node-termination-handler cmd/node-termination-handler.go
 
 # In case the target is build for testing:
 # $ docker build  --target=builder -t test .

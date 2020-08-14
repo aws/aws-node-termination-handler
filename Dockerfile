@@ -1,8 +1,8 @@
 # Build the manager binary
-FROM golang:1.14 as builder
+FROM golang:1.15 as builder
 
 ## GOLANG env
-ARG GOPROXY="https://proxy.golang.org,direct"
+ARG GOPROXY="https://proxy.golang.org|direct"
 ARG GO111MODULE="on"
 ARG CGO_ENABLED=0
 ARG GOOS=linux
