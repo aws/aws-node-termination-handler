@@ -2,7 +2,7 @@
 FROM golang:1-alpine as builder
 
 ## GOLANG env
-ARG GOPROXY="https://proxy.golang.org,direct"
+ARG GOPROXY="https://proxy.golang.org|direct"
 ARG GO111MODULE="on"
 ARG CGO_ENABLED=0
 ARG GOOS=linux
@@ -13,7 +13,7 @@ WORKDIR /webhook-test-proxy
 
 # Build
 COPY . .
-RUN go build -a -o webhook-test-proxy cmd/webhook-test-proxy.go
+RUN go build -ldflags="-s -w" -a -o webhook-test-proxy cmd/webhook-test-proxy.go
 # In case the target is build for testing:
 # $ docker build  --target=builder -t test .
 ENTRYPOINT ["webhook-test-proxy"]
