@@ -19,7 +19,7 @@ jobs:
   include:
     - stage: Test
       language: go
-      go: "1.14.x"
+      go: "1.15.x"
       script: make unit-test
       name: Unit Tests
       after_success: bash <(curl -s https://codecov.io/bash) -v
