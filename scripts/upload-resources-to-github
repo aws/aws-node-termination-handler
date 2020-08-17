@@ -66,7 +66,7 @@ gather_assets_to_upload() {
       resources+=($binary)
     done
     if [ $BINARIES_ONLY != "true" ]; then
-      resources+=($INDV_K8S_RESOURCES $AGG_K8S_RESOURCES)
+      resources+=($INDV_K8S_RESOURCES $AGG_RESOURCES_YAML)
     fi
     echo "${resources[@]}"
 }
