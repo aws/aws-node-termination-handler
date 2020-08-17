@@ -6,6 +6,7 @@ TMP_DIR="$SCRIPTPATH/../../build"
 PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
 HELM3_VERSION="3.2.4"
 HELM2_VERSION="2.16.9"
+HELM_DIR="${SCRIPTPATH}/../../config/helm"
 
 mkdir -p $TMP_DIR
 
@@ -37,3 +38,17 @@ echo "==========================================================================
 helm2 lint $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
 
 echo "✅ Helm Linting for v2 and v3 have successfully completed!"
+
+echo "=============================================================================="
+echo "                   Generate Template w/ Helm v3"
+echo "=============================================================================="
+
+helm template nth "${HELM_DIR}/aws-node-termination-handler" --debug --namespace=kube-system -f "${HELM_DIR}/aws-node-termination-handler/test.yaml" > /dev/null
+
+echo "=============================================================================="
+echo "                   Generate Template w/ Helm v2"
+echo "=============================================================================="
+
+helm2 template --name nth "${HELM_DIR}/aws-node-termination-handler" --debug --namespace=kube-system -f "${HELM_DIR}/aws-node-termination-handler/test.yaml" > /dev/null
+
+echo "✅ Helm template generation for v2 and v3 have successfully completed!"
