@@ -1,43 +1,55 @@
-# Default values for aws-node-termination-handler.
+# Test values for aws-node-termination-handler.
 # This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Declare variables to test template rendering functionality.
 
 image:
-  repository: amazon/aws-node-termination-handler
-  tag: v1.6.1
-  pullPolicy: IfNotPresent
-  pullSecrets: []
-
+    repository: amazon/aws-node-termination-handler
+    tag: v1.6.1
+    pullPolicy: IfNotPresent
+    pullSecrets: ["test"]
+  
 securityContext:
-  runAsUserID: 1000
-  runAsGroupID: 1000
+    runAsUserID: 1000
+    runAsGroupID: 1000
 
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: "test-nth"
+fullnameOverride: "test-aws-node-termination-handler"
 
 priorityClassName: system-node-critical
 
-podAnnotations: {}
-linuxPodAnnotations: {}
-windowsPodAnnotations: {}
+podAnnotations: {
+    test: test
+}
+linuxPodAnnotations: {
+    test: test
+}
+windowsPodAnnotations: {
+    test: test
+}
 
-podLabels: {}
-linuxPodLabels: {}
-windowsPodLabels: {}
+podLabels: {
+    test: test
+}
+linuxPodLabels: {
+    test: test
+}
+windowsPodLabels: {
+    test: test
+}
 
 resources:
-  requests:
-    memory: "64Mi"
-    cpu: "50m"
-  limits:
-    memory: "128Mi"
-    cpu: "100m"
+    requests:
+        memory: "64Mi"
+        cpu: "50m"
+    limits:
+        memory: "128Mi"
+        cpu: "100m"
 
 ## enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received
-enableSpotInterruptionDraining: ""
+enableSpotInterruptionDraining: true
 
 ## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
-enableScheduledEventDraining: ""
+enableScheduledEventDraining: true
 
 # Total number of times to try making the metadata request before failing.
 metadataTries: 3
@@ -56,95 +68,108 @@ dryRun: false
 
 # deleteLocalData tells kubectl to continue even if there are pods using
 # emptyDir (local data that will be deleted when the node is drained).
-deleteLocalData: ""
+deleteLocalData: true
 
 # ignoreDaemonSets causes kubectl to skip Daemon Set managed pods.
-ignoreDaemonSets: ""
+ignoreDaemonSets: true
 
 # gracePeriod (DEPRECATED - use podTerminationGracePeriod instead) is time in seconds given to each pod to terminate gracefully.
 # If negative, the default value specified in the pod will be used.
-gracePeriod: ""
-podTerminationGracePeriod: ""
+gracePeriod: 1
+podTerminationGracePeriod: 1
 
 # nodeTerminationGracePeriod specifies the period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.
-nodeTerminationGracePeriod: ""
+nodeTerminationGracePeriod: 1
 
 # webhookURL if specified, posts event data to URL upon instance interruption action.
-webhookURL: ""
+webhookURL: https://localhost:1338
 
 # Webhook URL will be fetched from the secret store using the given name.
-webhookURLSecretName: ""
+webhookURLSecretName: test
 
 # webhookProxy if specified, uses this HTTP(S) proxy configuration.
-webhookProxy: ""
+webhookProxy: tcp://localhost:1338
 
 # webhookHeaders if specified, replaces the default webhook headers.
-webhookHeaders: ""
+webhookHeaders: "Content-Type: json"
 
 # webhookTemplate if specified, replaces the default webhook message template.
-webhookTemplate: ""
+webhookTemplate: "{\"Content\":\"[NTH][Instance Interruption] InstanceId\"}"
 
 # instanceMetadataURL is used to override the default metadata URL (default: http://169.254.169.254:80)
-instanceMetadataURL: ""
+instanceMetadataURL: "https://localhost:1338"
 
 # (TESTING USE): Mount path for uptime file
-procUptimeFile: ""
+procUptimeFile: "/proc/uptime"
 
 # Create node OS specific daemonset(s). (e.g. "linux", "windows", "linux windows")
 targetNodeOs: "linux"
 
 # nodeSelector tells both linux and windows daemonsets where to place the node-termination-handler
 # pods. By default, this value is empty and every node will receive a pod.
-nodeSelector: {}
+nodeSelector: {
+    test: test
+}
 # linuxNodeSelector tells the linux daemonset where to place the node-termination-handler
 # pods. By default, this value is empty and every linux node will receive a pod.
-linuxNodeSelector: {}
+linuxNodeSelector: {
+    test: test
+}
 # windowsNodeSelector tells the windows daemonset where to place the node-termination-handler
 # pods. By default, this value is empty and every windows node will receive a pod.
-windowsNodeSelector: {}
+windowsNodeSelector: {
+    test: test
+}
 
-nodeSelectorTermsOs: ""
-nodeSelectorTermsArch: ""
-
-enablePrometheusServer: false
+enablePrometheusServer: true
 prometheusServerPort: "9092"
 
 tolerations:
-  - operator: "Exists"
+- operator: "Exists"
 
-affinity: {}
-linuxAffinity: {}
-windowsAffinity: {}
+affinity: {
+    test: test
+}
+linuxAffinity: {
+    test: test
+}
+windowsAffinity: {
+    test: test
+}
 
 serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # The name of the service account to use. If namenot set and create is true,
-  # a name is generated using fullname template
-  name:
-  annotations: {}
+    # Specifies whether a service account should be created
+    create: true
+    # The name of the service account to use. If name is not set and create is true,
+    # a name is generated using fullname template
+    name: test
+    annotations: {
+        test: test
+    }
     # eks.amazonaws.com/role-arn: arn:aws:iam::AWS_ACCOUNT_ID:role/IAM_ROLE_NAME
 
 rbac:
-  # rbac.pspEnabled: `true` if PodSecurityPolicy resources should be created
-  pspEnabled: true
+    # rbac.pspEnabled: `true` if PodSecurityPolicy resources should be created
+    pspEnabled: true
 
-dnsPolicy: ""
+dnsPolicy: "ClusterFirstWithHostNet"
 
 podMonitor:
-  # Specifies whether PodMonitor should be created
-  create: false
-   # The Prometheus scrape interval
-  interval: 30s
-  # The number of scraped samples that will be accepted
-  sampleLimit: 5000
-   # Additional labels to add to the metadata
-  labels: {}
+    # Specifies whether PodMonitor should be created
+    create: true
+    # The Prometheus scrape interval
+    interval: 30s
+    # The number of scraped samples that will be accepted
+    sampleLimit: 5000
+    # Additional labels to add to the metadata
+    labels: {
+        test: test
+    }
 
 # K8s DaemonSet update strategy.
 updateStrategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxUnavailable: 1
-linuxUpdateStrategy: ""
-windowsUpdateStrategy: ""
+    type: RollingUpdate
+    rollingUpdate:
+        maxUnavailable: 1
+    linuxUpdateStrategy: "RollingUpdate"
+    windowsUpdateStrategy: "RollingUpdate"
