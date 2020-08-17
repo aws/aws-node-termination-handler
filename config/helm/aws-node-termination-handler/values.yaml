@@ -33,7 +33,7 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-## enableSpotInterruptionDraining If true, drain nodes when the spot interruption termination notice is received
+## enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received
 enableSpotInterruptionDraining: ""
 
 ## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
