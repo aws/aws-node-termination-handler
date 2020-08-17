@@ -9,7 +9,7 @@ metadata:
 {{- with .Values.podMonitor.labels }}
 {{ toYaml . | indent 4 }}
 {{- end }}
- spec:
+spec:
   jobLabel: {{ include "aws-node-termination-handler.name" . }}
   namespaceSelector:
     matchNames:
