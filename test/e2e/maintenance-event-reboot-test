@@ -78,7 +78,7 @@ aemm_helm_args=(
     aemm_helm_args+=("${common_helm_args[@]}")
 
 set -x
-helm "${aemm_helm_args[@]}"
+retry 5 helm "${aemm_helm_args[@]}"
 set +x
 
 TAINT_CHECK_CYCLES=15

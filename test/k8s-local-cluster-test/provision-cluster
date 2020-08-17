@@ -95,21 +95,21 @@ if [[ OVERRIDE_PATH -eq 1 ]]; then
 else
   if [ ! -x "$TMP_DIR/kubectl" ]; then
       echoerr "🥑 Downloading the \"kubectl\" binary"
-      curl -Lo $TMP_DIR/kubectl "https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/$PLATFORM/amd64/kubectl"
+      retry 5 curl -Lo $TMP_DIR/kubectl "https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/$PLATFORM/amd64/kubectl"
       chmod +x $TMP_DIR/kubectl
       echoerr "👍 Downloaded the \"kubectl\" binary"
   fi
 
   if [ ! -x "$TMP_DIR/kind" ]; then
       echoerr "🥑 Downloading the \"kind\" binary"
-      curl -Lo $TMP_DIR/kind https://github.com/kubernetes-sigs/kind/releases/download/v$KIND_VERSION/kind-$PLATFORM-amd64
+      retry 5 curl -Lo $TMP_DIR/kind https://github.com/kubernetes-sigs/kind/releases/download/v$KIND_VERSION/kind-$PLATFORM-amd64
       chmod +x $TMP_DIR/kind
       echoerr "👍 Downloaded the \"kind\" binary"
   fi
 
   if [ ! -x "$TMP_DIR/helm" ]; then
       echoerr "🥑 Downloading the \"helm\" binary"
-      curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $TMP_DIR
+      retry 5 curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $TMP_DIR
       mv $TMP_DIR/$PLATFORM-amd64/helm $TMP_DIR/.
       chmod +x $TMP_DIR/helm
       echoerr "👍 Downloaded the \"helm\" binary"
