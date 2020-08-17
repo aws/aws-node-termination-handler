@@ -62,6 +62,31 @@ function exit_and_fail {
     exit 1
 }
 
+function retry {
+  local retries=$1
+  shift
+
+  local count=0
+  set +e
+  trap "set -e" RETURN
+  until "$@"; do
+    exit=$?
+    set -e
+    wait=$((2 ** $count))
+    count=$(($count + 1))
+    if [ $count -lt $retries ]; then
+      echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
+      sleep $wait
+    else
+      echo "Retry $count/$retries exited $exit, no more retries left."
+      return $exit
+    fi
+    set +e
+  done
+  return 0
+}
+export -f retry
+
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
       echo "====================================================================================================="
