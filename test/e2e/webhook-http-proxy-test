@@ -30,14 +30,14 @@ function get_squid_worker_pod() {
 
 function start_squid() {
   kubectl delete configmap squid-config || :
-  kubectl create configmap squid-config --from-file=$SCRIPTPATH/../assets/squid.conf
+  kubectl create configmap squid-config --from-file="$SCRIPTPATH/../assets/squid.conf"
 
   old_squid_pods=""
   for i in `seq 1 10`; do
     echo "Checking if squid http-proxy has been terminated from previous run..."
     old_squid_pods="$(get_squid_worker_pod)"
     if [[ -n "${old_squid_pods}" ]]; then 
-      echo "Still waiting on squid to terminate from last run..."
+      echo "Still waiting on squid to terminate from last run... Check $i/10"
       sleep 10
     else
       break
@@ -58,7 +58,7 @@ function start_squid() {
     echo "Checking if squid http-proxy has started..."
     squid_worker_pods="$(get_squid_worker_pod)"
     if [[ -z "${squid_worker_pods}" ]]; then 
-      echo "Still waiting on squid..."
+      echo "Still waiting on squid... Check $i/10"
       sleep 10
     else
       break
@@ -68,9 +68,9 @@ function start_squid() {
 
 echo "Starting Webhook HTTP Proxy Test for Node Termination Handler"
 
-docker pull $SQUID_DOCKERHUB_IMG
-docker tag $SQUID_DOCKERHUB_IMG $SQUID_DOCKER_IMG
-kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $SQUID_DOCKER_IMG
+docker pull "$SQUID_DOCKERHUB_IMG"
+docker tag "$SQUID_DOCKERHUB_IMG" "$SQUID_DOCKER_IMG"
+kind load docker-image --name "$CLUSTER_NAME" --nodes="$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane" "$SQUID_DOCKER_IMG"
 
 ## Starts squid and waits for pods to be ready
 start_squid
@@ -83,8 +83,8 @@ common_helm_args=()
 aemm_helm_args=(
   upgrade
   --install
-  $CLUSTER_NAME-aemm
-  $AEMM_DL_URL
+  "$CLUSTER_NAME-aemm"
+  "$AEMM_DL_URL"
   --wait
   --namespace default
   --set servicePort="$IMDS_PORT"
@@ -99,8 +99,8 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
-  $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
+  "$CLUSTER_NAME-emtp"
+  "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
   --wait
   --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
@@ -118,8 +118,8 @@ set +x
 anth_helm_args=(
   upgrade
   --install
-  $CLUSTER_NAME-anth
-  $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
+  "$CLUSTER_NAME-anth"
+  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
   --force
   --namespace kube-system
   --wait
@@ -151,6 +151,7 @@ for i in `seq 1 10`; do
         deployed=1
         break
     fi
+      echo "Setup Loop $i/10, sleeping for 5 seconds"
     sleep 5
 done
 
@@ -180,10 +181,11 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
   fi
 
   webhook_hostname=$(echo "${WEBHOOK_URL}" | sed -e 's@^[^/]*//@@' -e 's@/.*$@@')
-  if [[ $sent -eq 1 ]] && kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log | grep "${webhook_hostname}" >/dev/null; then
+  if [[ $sent -eq 1 ]] && kubectl exec -it "$(echo $squid_worker_pods | cut -d' ' -f1)" -- cat /var/log/squid/access.log | grep "${webhook_hostname}" >/dev/null; then
      echo "✅ Verified the webhook POST used the http proxy"
         exit 0
   fi
+  echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
   sleep $TAINT_CHECK_SLEEP
 done
 
@@ -198,7 +200,7 @@ else
 fi
 
 echo "=====================================   SQUID LOGS   ===================================================="
-kubectl exec -it $(echo $squid_worker_pods | cut -d' ' -f1) -- cat /var/log/squid/access.log
+kubectl exec -it "$(echo $squid_worker_pods | cut -d' ' -f1)" -- cat /var/log/squid/access.log
 echo "===================================== END SQUID LOGS ===================================================="
 
 fail_and_exit 1

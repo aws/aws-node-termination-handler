@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-TAG=$(git describe --tags `git rev-list --tags --max-count=1` | cut -d'v' -f2)
+TAG=$(git describe --tags "`git rev-list --tags --max-count=1`" | cut -d'v' -f2)
 CHART_VERSION=$(cat $SCRIPTPATH/../../config/helm/aws-node-termination-handler/Chart.yaml | grep 'appVersion:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
 DEFAULT_VALUE=$(cat $SCRIPTPATH/../../config/helm/aws-node-termination-handler/values.yaml | grep 'tag:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
 
