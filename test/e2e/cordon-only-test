@@ -83,14 +83,14 @@ TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 
-for i in `seq 1 10`; do
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
         break
     fi
-    echo "Setup Loop $i/10, sleeping for 5 seconds"
-    sleep 5
+    echo "Setup Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
 done
 
 if [[ $DEPLOYED -eq 0 ]]; then
