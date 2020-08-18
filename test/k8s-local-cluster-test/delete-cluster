@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-
 USAGE=$(cat << 'EOM'
   Usage: delete-cluster  [-c <CLUSTER_CONTEXT>] [-o]
   Deletes a kind cluster and context dir
@@ -25,7 +23,6 @@ while getopts "c:o" opt; do
         CLUSTER_NAME=$(cat $TMP_DIR/clustername)
       ;;
     o ) # Override path with your own kubectl and kind binaries
-	      OVERRIDE_PATH=1
         export PATH=$PATH:$TMP_DIR
       ;;
     \? )

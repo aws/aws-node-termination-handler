@@ -7,7 +7,7 @@ PRESERVE=true
 
 export TEST_WINDOWS="false"
 export AEMM_VERSION="1.2.0"
-export AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz"
+export AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
 export CLUSTER_CONFIG_FILE=$SCRIPTPATH/cluster-spec.yaml
 
 
@@ -54,7 +54,8 @@ while getopts "a:dw" opt; do
 done
 
 function exit_and_fail {
-    local pod_id=$(get_nth_worker_pod || :)
+    local pod_id
+    pod_id=$(get_nth_worker_pod || :)
     kubectl logs $pod_id --namespace kube-system || :
     assertion_end=$(date +%s)
     echo "⏰ Took $(expr $assertion_end - $assertion_start)sec"
@@ -118,13 +119,15 @@ fi
 export TEST_WINDOWS \
   TEST_OS
 
-config=${@:$OPTIND:1}
+config=${*:$OPTIND:1}
 if [[ -z ${config} ]]; then
   echo "no CONFIG provided; creating EKS cluster using $CLUSTER_CONFIG_FILE"
+  # shellcheck source=../eks-cluster-test/provision-cluster
   source $SCRIPTPATH/../eks-cluster-test/provision-cluster
 else
   echo "Reading configuration from ${config}"
   set -a  # Export variables by default.
+  # shellcheck disable=SC1090
   source $config
   set +a  # Disable exporting variables by default.
   PRESERVE=true # cluster user-provided so don't try to delete
@@ -168,10 +171,11 @@ if ! kubectl get svc >/dev/null 2>&1; then
     exit 1
 fi
 
-export TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$TEST_OS |
+TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$TEST_OS |
     tail -n +2 |
     tr -s "\t" " " |
     cut -d" " -f1)
+export TEST_NODE
 echo "TEST_NODE=${TEST_NODE:?"not found"}"
 
 function get_nth_worker_pod {
@@ -182,6 +186,7 @@ function get_nth_worker_pod {
 }
 export -f get_nth_worker_pod
 
+# shellcheck disable=SC2120
 function reset_cluster {
     echo "-------------------------------------------------------------------------------------------------"
     echo "🧹 Resetting cluster $CLUSTER_NAME"
@@ -192,17 +197,17 @@ function reset_cluster {
 
 if [[ -z ${assertion_scripts+x} ]]; then
     assertion_scripts=(
-        $SCRIPTPATH/../e2e/cordon-only-test
-        $SCRIPTPATH/../e2e/imds-v2-test
-        $SCRIPTPATH/../e2e/maintenance-event-cancellation-test
-        $SCRIPTPATH/../e2e/maintenance-event-dry-run-test
-        #$SCRIPTPATH/../e2e/maintenance-event-reboot-test
-        $SCRIPTPATH/../e2e/maintenance-event-test
-        $SCRIPTPATH/../e2e/spot-interruption-dry-run-test
-        $SCRIPTPATH/../e2e/spot-interruption-test
-        #$SCRIPTPATH/../e2e/webhook-http-proxy-test
-        #$SCRIPTPATH/../e2e/webhook-secret-test
-        $SCRIPTPATH/../e2e/webhook-test
+        "$SCRIPTPATH/../e2e/cordon-only-test"
+        "$SCRIPTPATH/../e2e/imds-v2-test"
+        "$SCRIPTPATH/../e2e/maintenance-event-cancellation-test"
+        "$SCRIPTPATH/../e2e/maintenance-event-dry-run-test"
+        #"$SCRIPTPATH/../e2e/maintenance-event-reboot-test"
+        "$SCRIPTPATH/../e2e/maintenance-event-test"
+        "$SCRIPTPATH/../e2e/spot-interruption-dry-run-test"
+        "$SCRIPTPATH/../e2e/spot-interruption-test"
+        #"$SCRIPTPATH/../e2e/webhook-http-proxy-test"
+        #"$SCRIPTPATH/../e2e/webhook-secret-test"
+        "$SCRIPTPATH/../e2e/webhook-test"
     )
 fi
 

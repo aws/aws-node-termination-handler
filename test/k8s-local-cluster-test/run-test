@@ -17,7 +17,7 @@ OVERRIDE_PATH=0
 K8S_VERSION="1.16"
 AEMM_URL="amazon-ec2-metadata-mock-service.default.svc.cluster.local"
 AEMM_VERSION="1.2.0"
-AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v"$AEMM_VERSION"/amazon-ec2-metadata-mock-"$AEMM_VERSION".tgz"
+AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
 WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local"}
 
 ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f | sort)
@@ -62,7 +62,8 @@ function clean_up {
 }
 
 function exit_and_fail {
-    local pod_id=$(get_nth_worker_pod || :)
+    local pod_id
+    pod_id=$(get_nth_worker_pod || :)
     kubectl logs $pod_id --namespace kube-system || :
     END=$(date +%s)
     echo "⏰ Took $(expr $END - $START)sec"
@@ -91,7 +92,12 @@ function reset_cluster {
 
 function remove_labels {
     echo "Removing labels from NTH cluster nodes"
-    labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
+
+    labels_to_remove=()
+    while IFS='' read -r line; do 
+      labels_to_remove+=("$line"); 
+    done < <(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1)
+
     if [[ "${#labels_to_remove[@]}" -ne 0 ]]; then
       for l in "${labels_to_remove[@]}"; do
         for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
@@ -191,6 +197,8 @@ else
     echo "🥑 Skipping building the node-termination-handler docker image, since one was specified ($NODE_TERMINATION_HANDLER_DOCKER_IMG)"
 fi
 echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" > $TMP_DIR/nth-docker-img
+NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
+NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
 
 if [ -z "$WEBHOOK_DOCKER_IMG" ]; then
     echo "🥑 Building the webhook-test-proxy docker image"
@@ -201,6 +209,8 @@ else
     echo "🥑 Skipping building the webhook-test-proxy docker image, since one was specified ($WEBHOOK_DOCKER_IMG)"
 fi
 echo "$WEBHOOK_DOCKER_IMG" > $TMP_DIR/webhook-test-proxy-docker-img
+WEBHOOK_DOCKER_REPO=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f1)
+WEBHOOK_DOCKER_TAG=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f2)
 
 echo "🥑 Loading both images into the cluster"
 kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $NODE_TERMINATION_HANDLER_DOCKER_IMG
@@ -230,19 +240,20 @@ export WEBHOOK_URL
 export -f timeout
 export -f relpath
 export -f get_nth_worker_pod
-export NODE_TERMINATION_HANDLER_DOCKER_IMG=$(cat $TMP_DIR/nth-docker-img)
-export NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
-export NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
-export WEBHOOK_DOCKER_IMG=$(cat $TMP_DIR/webhook-test-proxy-docker-img)
-export WEBHOOK_DOCKER_REPO=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f1)
-export WEBHOOK_DOCKER_TAG=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f2)
+export NODE_TERMINATION_HANDLER_DOCKER_IMG
+export NODE_TERMINATION_HANDLER_DOCKER_REPO
+export NODE_TERMINATION_HANDLER_DOCKER_TAG
+export WEBHOOK_DOCKER_IMG
+export WEBHOOK_DOCKER_REPO
+export WEBHOOK_DOCKER_TAG
 export NTH_WORKER_LABEL="kubernetes\.io/hostname=$CLUSTER_NAME-worker"
 ###
 
 i=0
 for assert_script in $ASSERTION_SCRIPTS; do
   reset_cluster
-  export IMDS_PORT=$(expr $i + 1338)
+  IMDS_PORT=$(expr $i + 1338)
+  export IMDS_PORT
   i=$(expr $i + 1)
   echo "======================================================================================================"
   echo "🥑 Running assertion script $(basename $assert_script)"

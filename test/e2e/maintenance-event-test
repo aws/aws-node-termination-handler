@@ -28,12 +28,12 @@ common_helm_args=()
 anth_helm_args=(
   upgrade
   --install
-  $CLUSTER_NAME-anth
-  $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
+  "$CLUSTER_NAME-anth"
+  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
   --wait
   --force
   --namespace kube-system
-  --set instanceMetadataURL=${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}
+  --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableSpotInterruptionDraining="true"
@@ -53,8 +53,8 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
-  $CLUSTER_NAME-emtp
-  $SCRIPTPATH/../../config/helm/webhook-test-proxy/
+  "$CLUSTER_NAME-emtp"
+  "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
   --wait
   --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
@@ -72,14 +72,14 @@ set +x
 aemm_helm_args=(
   upgrade
   --install
-  $CLUSTER_NAME-aemm
-  $AEMM_DL_URL
+  "$CLUSTER_NAME-aemm"
+  "$AEMM_DL_URL"
   --wait
   --namespace default
   --set servicePort="$IMDS_PORT"
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
-  --set arguments={events}
+  --set arguments='{events}'
 )
 
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
@@ -94,13 +94,14 @@ TAINT_CHECK_SLEEP=15
 
 deployed=0
 
-for i in `seq 1 10`; do
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         deployed=1
         break
     fi
-    sleep 5
+    echo "Setup Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
 done
 
 if [[ $deployed -eq 0 ]]; then
@@ -110,7 +111,7 @@ fi
 
 cordoned=0
 tainted=0
-test_node=${TEST_NODE:-$CLUSTER_NAME-worker}
+test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes $test_node | grep SchedulingDisabled >/dev/null; then
         echo "✅ Verified the worker node was cordoned!"
@@ -127,6 +128,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
         echo "✅ Maintenance Event Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
+    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
     sleep $TAINT_CHECK_SLEEP
 done
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 versions=("1.18" "1.17" "1.16" "1.15" "1.14" "1.13" "1.12")

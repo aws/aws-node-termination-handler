@@ -60,18 +60,21 @@ if [[ $MANIFEST == "true" ]]; then
     echo '{"experimental":"enabled"}' > $DOCKER_CLI_CONFIG
     echo "Created docker config file"
   fi
-  cat <<< $(jq '.+{"experimental":"enabled"}' $DOCKER_CLI_CONFIG) > $DOCKER_CLI_CONFIG
+  cat <<< "$(jq '.+{"experimental":"enabled"}' $DOCKER_CLI_CONFIG)" > $DOCKER_CLI_CONFIG
   echo "Enabled experimental CLI features to execute docker manifest commands"
   manifest_exists=$(docker manifest inspect $IMAGE_REPO:$VERSION > /dev/null ; echo $?)
   if [[ manifest_exists -eq 0 ]]; then
     echo "manifest already exists"
-    EXISTING_IMAGES=($(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | "\(.platform.os)-\(.platform.architecture)"'))
+    EXISTING_IMAGES=()
+    while IFS='' read -r line; do 
+      EXISTING_IMAGES+=("$line"); 
+    done < <(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | "\(.platform.os)-\(.platform.architecture)"')
     # treat separate from PLATFORMS because existing images don't need to be tagged and pushed
     for os_arch in "${EXISTING_IMAGES[@]}"; do
       img_tag="$IMAGE_REPO:$VERSION-$os_arch"
-      MANIFEST_IMAGES+=($img_tag)
+      MANIFEST_IMAGES+=("$img_tag")
     done
-    echo "images already in manifest: $MANIFEST_IMAGES"
+    echo "images already in manifest: ${MANIFEST_IMAGES[*]}"
   fi
 fi
 
@@ -88,7 +91,7 @@ for os_arch in "${PLATFORMS[@]}"; do
         docker tag $img_tag_w_platform $img_tag
     fi
     docker push $img_tag
-    MANIFEST_IMAGES+=($img_tag)
+    MANIFEST_IMAGES+=("$img_tag")
 done
 
 if [[ $MANIFEST == "true" ]]; then

@@ -14,10 +14,14 @@ function exit_and_fail() {
 }
 trap exit_and_fail INT ERR TERM
 
-curl -Lo ${BUILD_DIR}/shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.${KERNEL}.x86_64.tar.xz
+curl -Lo ${BUILD_DIR}/shellcheck.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.${KERNEL}.x86_64.tar.xz"
 tar -C ${BUILD_DIR} -xvf "${BUILD_DIR}/shellcheck.tar.xz"
 export PATH="${BUILD_DIR}/shellcheck-v${SHELLCHECK_VERSION}:$PATH"
 
-shellcheck -S error $(grep -Rn -e '#!.*/bin/bash' -e '#!.*/usr/bin/env bash' ${SCRIPTPATH}/../../ | grep ":[1-5]:" | cut -d':' -f1)
+shell_files=()
+while IFS='' read -r line; do 
+   shell_files+=("$line"); 
+done < <(grep -Rnl -e '#!.*/bin/bash' -e '#!.*/usr/bin/env bash' ${SCRIPTPATH}/../../)
+shellcheck -S warning "${shell_files[@]}"
 
 echo "✅ All shell scripts look good! 😎"

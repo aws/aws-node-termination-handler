@@ -21,7 +21,12 @@ function reset_cluster {
 
 function remove_labels {
     echo "Removing labels from NTH cluster nodes"
-    labels_to_remove=($(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1))
+    
+    labels_to_remove=()
+    while IFS='' read -r line; do 
+      labels_to_remove+=("$line"); 
+    done < <(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1)
+
     if [[ "${#labels_to_remove[@]}" -ne 0 ]]; then
       for l in "${labels_to_remove[@]}"; do
         for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
