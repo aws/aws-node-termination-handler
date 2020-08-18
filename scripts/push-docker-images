@@ -67,7 +67,7 @@ if [[ $MANIFEST == "true" ]]; then
     echo "manifest already exists"
     EXISTING_IMAGES=()
     while IFS='' read -r line; do 
-      shell_files+=("$line"); 
+      EXISTING_IMAGES+=("$line"); 
     done < <(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | "\(.platform.os)-\(.platform.architecture)"')
     # treat separate from PLATFORMS because existing images don't need to be tagged and pushed
     for os_arch in "${EXISTING_IMAGES[@]}"; do

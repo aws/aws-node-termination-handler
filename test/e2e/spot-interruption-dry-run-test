@@ -86,10 +86,13 @@ set -x
 retry 5 helm "${aemm_helm_args[@]}"
 set +x
 
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
 logs=0
 pod_id=$(get_nth_worker_pod)
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
-for i in $(seq 1 10); do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
   if [[ $logs -eq 0 && ! -z $(kubectl logs $pod_id -n kube-system | grep -i -e 'would have been cordoned and drained') ]]; then
       echo "✅ Verified the dryrun logs were executed"
       logs=1
@@ -100,8 +103,8 @@ for i in $(seq 1 10); do
       echo "✅ Spot Interruption Dry Run Test Passed $CLUSTER_NAME! ✅"
       exit 0
   fi
-  echo "Assertion Loop $i/10, sleeping for 10 seconds"
-  sleep 10
+  echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+  sleep $TAINT_CHECK_SLEEP
 done
 
 if [[ $logs -eq 0 ]]; then
