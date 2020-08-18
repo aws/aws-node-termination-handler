@@ -24,8 +24,8 @@ while IFS='' read -r line; do
    clone_urls+=("$line"); 
 done < <(echo $prs | jq -r '.[].head.repo.clone_url')
 
-branches=("master" "${branches[@]}")
-clone_urls=("https://github.com/aws/eks-charts.git" "${clone_urls[@]}")
+branches+=("master")
+clone_urls+=("https://github.com/aws/eks-charts.git")
 
 for i in "${!branches[@]}"; do
     git clone --branch "${branches[$i]}" "${clone_urls[$i]}" $TMP_DIR/pr$i
