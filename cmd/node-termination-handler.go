@@ -116,7 +116,7 @@ func main() {
 					}
 					if duplicateErrCount >= duplicateErrThreshold {
 						log.Log().Msg("Stopping NTH - Duplicate Error Threshold hit.")
-						panic(fmt.Sprintf("%v",err))
+						panic(fmt.Sprintf("%v", err))
 					}
 				}
 			}
