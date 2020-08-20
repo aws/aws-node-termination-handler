@@ -52,6 +52,7 @@ const (
 	tokenRequestHeader      = "X-aws-ec2-metadata-token"
 	tokenTTL                = 3600 // 1 hour
 	secondsBeforeTTLRefresh = 15
+	tokenRetryAttempts      = 2
 )
 
 // Service is used to query the EC2 instance metadata service v1 and v2
@@ -119,41 +120,57 @@ func New(metadataURL string, tries int) *Service {
 
 // GetScheduledMaintenanceEvents retrieves EC2 scheduled maintenance events from imds
 func (e *Service) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
-	resp, err := e.Request(ScheduledEventPath)
-	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	for i := 0; i < tokenRetryAttempts; i++ {
+		resp, err := e.Request(ScheduledEventPath)
+		if resp != nil && resp.StatusCode == 401 {
+			e.v2Token = ""
+			continue
+		}
+		if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+			return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+		}
+		defer resp.Body.Close()
+		var scheduledEvents []ScheduledEventDetail
+		err = json.NewDecoder(resp.Body).Decode(&scheduledEvents)
+		if err != nil {
+			return nil, fmt.Errorf("Could not decode json retrieved from imds: %w", err)
+		}
+		return scheduledEvents, nil
 	}
-	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
-	}
-	defer resp.Body.Close()
-	var scheduledEvents []ScheduledEventDetail
-	err = json.NewDecoder(resp.Body).Decode(&scheduledEvents)
-	if err != nil {
-		return nil, fmt.Errorf("Could not decode json retrieved from imds: %w", err)
-	}
-	return scheduledEvents, nil
+	log.Log().Msg("Stopping NITH")
+	panic(fmt.Sprintf("Not able to get a non 401 response"))
 }
 
 // GetSpotITNEvent retrieves EC2 spot interruption events from imds
 func (e *Service) GetSpotITNEvent() (instanceAction *InstanceAction, err error) {
-	resp, err := e.Request(SpotInstanceActionPath)
-	// 404s are normal when querying for the 'latest/meta-data/spot' path
-	if resp != nil && resp.StatusCode == 404 {
-		return nil, nil
-	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
-	}
-	defer resp.Body.Close()
+	for i := 0; i < tokenRetryAttempts; i++ {
+		resp, err := e.Request(SpotInstanceActionPath)
+		if resp != nil && resp.StatusCode == 401 {
+			e.v2Token = ""
+			continue
+		}
+		// 404s are normal when querying for the 'latest/meta-data/spot' path
+		if resp != nil && resp.StatusCode == 404 {
+			return nil, nil
+		} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+			return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+		}
+		defer resp.Body.Close()
 
-	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
-	if err != nil {
-		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
+		err = json.NewDecoder(resp.Body).Decode(&instanceAction)
+		if err != nil {
+			return nil, fmt.Errorf("Could not decode instance action response: %w", err)
+		}
+		return instanceAction, nil
 	}
-	return instanceAction, nil
+	log.Log().Msg("Stopping NITH")
+	panic(fmt.Sprintf("Not able to get a non 401 response"))
 }
 
 // GetMetadataInfo generic function for retrieving ec2 metadata
