@@ -114,6 +114,37 @@ func TestRequest500(t *testing.T) {
 	h.Equals(t, 500, resp.StatusCode)
 }
 
+func TestRequest401(t *testing.T) {
+	var requestPath string = "/some/path"
+
+	tokenGenerationCounter := 0
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.URL.String(), requestPath)
+		if tokenGenerationCounter < 1 {
+			rw.WriteHeader(401)
+			tokenGenerationCounter++
+		} else {
+			rw.WriteHeader(200)
+		}
+
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	resp, err := imds.Request(requestPath)
+	h.Ok(t, err)
+	h.Equals(t, 200, resp.StatusCode)
+	h.Equals(t, 1, tokenGenerationCounter)
+}
+
 func TestRequestConstructFail(t *testing.T) {
 	imds := ec2metadata.New("test", 0)
 
