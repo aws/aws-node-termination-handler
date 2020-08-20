@@ -34,9 +34,10 @@ import (
 )
 
 const (
-	scheduledMaintenance = "Scheduled Maintenance"
-	spotITN              = "Spot ITN"
-	timeFormat           = "2006/01/02 15:04:05"
+	scheduledMaintenance  = "Scheduled Maintenance"
+	spotITN               = "Spot ITN"
+	timeFormat            = "2006/01/02 15:04:05"
+	duplicateErrThreshold = 3
 )
 
 func main() {
@@ -100,11 +101,23 @@ func main() {
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
 			log.Log().Msgf("Started monitoring for %s events", monitor.Kind())
+			var previousErr error
+			var duplicateErrCount int
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
 				if err != nil {
 					log.Log().Msgf("There was a problem monitoring for %s events: %v", monitor.Kind(), err)
 					metrics.ErrorEventsInc(monitor.Kind())
+					if err == previousErr {
+						duplicateErrCount++
+					} else {
+						duplicateErrCount = 0
+						previousErr = err
+					}
+					if duplicateErrCount > duplicateErrThreshold {
+						log.Log().Msg("Stopping NITH - Duplicate Error Threshold hit.")
+						panic(fmt.Sprintf("%v",err))
+					}
 				}
 			}
 		}(fn)

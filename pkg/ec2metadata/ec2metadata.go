@@ -52,6 +52,7 @@ const (
 	tokenRequestHeader      = "X-aws-ec2-metadata-token"
 	tokenTTL                = 3600 // 1 hour
 	secondsBeforeTTLRefresh = 15
+	tokenRetryAttempts      = 2
 )
 
 // Service is used to query the EC2 instance metadata service v1 and v2
@@ -181,28 +182,37 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to construct an http get request to IDMS for %s: %w", e.metadataURL+contextPath, err)
 	}
-	if e.v2Token == "" || e.tokenTTL <= secondsBeforeTTLRefresh {
-		e.Lock()
-		token, ttl, err := e.getV2Token()
-		if err != nil {
-			e.v2Token = ""
-			e.tokenTTL = -1
-			log.Log().Msgf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1: %v", err)
-		} else {
-			e.v2Token = token
-			e.tokenTTL = ttl
+	var resp *http.Response
+	for i := 0; i < tokenRetryAttempts; i++ {
+		if e.v2Token == "" || e.tokenTTL <= secondsBeforeTTLRefresh {
+			e.Lock()
+			token, ttl, err := e.getV2Token()
+			if err != nil {
+				e.v2Token = ""
+				e.tokenTTL = -1
+				log.Log().Msgf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1: %v", err)
+			} else {
+				e.v2Token = token
+				e.tokenTTL = ttl
+			}
+			e.Unlock()
 		}
-		e.Unlock()
-	}
-	if e.v2Token != "" {
-		req.Header.Add(tokenRequestHeader, e.v2Token)
-	}
-	httpReq := func() (*http.Response, error) {
-		return e.httpClient.Do(req)
-	}
-	resp, err := retry(e.tries, 2*time.Second, httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
+		if e.v2Token != "" {
+			req.Header.Add(tokenRequestHeader, e.v2Token)
+		}
+		httpReq := func() (*http.Response, error) {
+			return e.httpClient.Do(req)
+		}
+		resp, err = retry(e.tries, 2*time.Second, httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
+		}
+		if resp != nil && resp.StatusCode == 401 {
+			e.v2Token = ""
+			e.tokenTTL = 0
+		} else {
+			break
+		}
 	}
 	ttl, err := ttlHeaderToInt(resp)
 	if err == nil {
