@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 TMP_DIR="$SCRIPTPATH/../../build"
 PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
-HELM3_VERSION="3.2.4"
-HELM2_VERSION="2.16.9"
+HELM3_VERSION="3.3.1"
+HELM2_VERSION="2.16.10"
 HELM_DIR="${SCRIPTPATH}/../../config/helm"
 
 mkdir -p $TMP_DIR

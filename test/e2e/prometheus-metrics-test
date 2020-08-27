@@ -80,6 +80,7 @@ aemm_helm_args=(
   --set servicePort="$IMDS_PORT"
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
+  --set 'rbac.pspEnabled=true'
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     aemm_helm_args+=("${common_helm_args[@]}")
