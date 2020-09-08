@@ -145,9 +145,9 @@ else
     kubectl cp "$SCRIPTPATH/../assets/uptime-root kube-system/$(get_nth_worker_pod):$mock_uptime_filepath"
 fi
 
-echo "Remove amazon-ec2-metadata-mock to prevent another drain event but keep regular-test-pod"
-daemonset=$(kubectl get daemonsets | grep 'amazon-ec2-metadata-mock' | cut -d' ' -f1)
-kubectl delete daemonsets "$daemonset"
+echo "Remove amazon-ec2-metadata-mock to prevent another drain event"
+deployment=$(kubectl get deployments | grep 'amazon-ec2-metadata-mock' | cut -d' ' -f1)
+kubectl delete deployments "$deployment"
 
 ## Restart NTH which will simulate a system reboot by mounting a new uptime file
 anth_helm_args=(
