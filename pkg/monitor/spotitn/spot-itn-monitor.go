@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -54,7 +53,6 @@ func (m SpotInterruptionMonitor) Monitor() error {
 		return err
 	}
 	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {
-		log.Log().Msg("Sending interruption event to the interruption channel")
 		m.InterruptionChan <- *interruptionEvent
 	}
 	return nil

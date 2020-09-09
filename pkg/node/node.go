@@ -89,11 +89,13 @@ func (n Node) CordonAndDrain(nodeName string) error {
 		log.Log().Msgf("Node %s would have been cordoned and drained, but dry-run flag was set", nodeName)
 		return nil
 	}
+	log.Log().Msg("Cordoning the node")
 	err := n.Cordon(nodeName)
 	if err != nil {
 		return err
 	}
 	// Delete all pods on the node
+	log.Log().Msg("Draining the node")
 	err = drain.RunNodeDrain(n.drainHelper, nodeName)
 	if err != nil {
 		return err
