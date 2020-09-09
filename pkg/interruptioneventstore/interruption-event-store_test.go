@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -160,6 +162,9 @@ func TestIgnoreEvent(t *testing.T) {
 
 // BenchmarkDrainEventStore tests concurrent read/write patterns. We don't really care about the timings as long as deadlock doesn't occur
 func BenchmarkDrainEventStore(b *testing.B) {
+	// too many logs can break the Travis build, so we'll disable logging for this test
+	zerolog.SetGlobalLevel(zerolog.Disabled)
+
 	idBound := 10
 	store := interruptioneventstore.New(config.Config{})
 	b.RunParallel(func(pb *testing.PB) {
