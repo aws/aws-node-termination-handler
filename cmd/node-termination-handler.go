@@ -123,11 +123,11 @@ func main() {
 		}(fn)
 	}
 
-	go watchForInterruptionEvents(interruptionChan, interruptionEventStore, nodeMetadata)
+	go watchForInterruptionEvents(interruptionChan, interruptionEventStore)
 	log.Log().Msg("Started watching for interruption events")
 	log.Log().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
 
-	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, nodeMetadata, metrics)
+	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, metrics)
 	log.Log().Msg("Started watching for event cancellations")
 
 	for range time.NewTicker(1 * time.Second).C {
@@ -162,19 +162,17 @@ func handleRebootUncordon(nodeName string, interruptionEventStore *interruptione
 	return nil
 }
 
-func watchForInterruptionEvents(interruptionChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, nodeMetadata ec2metadata.NodeMetadata) {
+func watchForInterruptionEvents(interruptionChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store) {
 	for {
 		interruptionEvent := <-interruptionChan
-		log.Log().Msgf("Got interruption event from channel %+v %+v", nodeMetadata, interruptionEvent)
 		interruptionEventStore.AddInterruptionEvent(&interruptionEvent)
 	}
 }
 
-func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
+func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics) {
 	for {
 		interruptionEvent := <-cancelChan
 		nodeName := interruptionEvent.NodeName
-		log.Log().Msgf("Got cancel event from channel %+v %+v", nodeMetadata, interruptionEvent)
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode(nodeName) {
 			log.Log().Msg("Uncordoning the node due to a cancellation event")

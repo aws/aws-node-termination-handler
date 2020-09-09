@@ -35,7 +35,7 @@ const (
 	instanceRetirementCode       = "instance-retirement"
 )
 
-// ScheduledEventMonitor is a struct definiiton that knows how to process scheduled events from IMDS
+// ScheduledEventMonitor is a struct definition that knows how to process scheduled events from IMDS
 type ScheduledEventMonitor struct {
 	IMDS             *ec2metadata.Service
 	InterruptionChan chan<- monitor.InterruptionEvent
@@ -61,10 +61,8 @@ func (m ScheduledEventMonitor) Monitor() error {
 	}
 	for _, interruptionEvent := range interruptionEvents {
 		if isStateCanceledOrCompleted(interruptionEvent.State) {
-			log.Log().Msg("Sending cancel events to the cancel channel")
 			m.CancelChan <- interruptionEvent
 		} else {
-			log.Log().Msg("Sending interruption events to the interruption channel")
 			m.InterruptionChan <- interruptionEvent
 		}
 	}

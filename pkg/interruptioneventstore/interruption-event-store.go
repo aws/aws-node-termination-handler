@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 )
@@ -54,8 +56,10 @@ func (s *Store) AddInterruptionEvent(interruptionEvent *monitor.InterruptionEven
 	if ok {
 		return
 	}
+
 	s.Lock()
 	defer s.Unlock()
+	log.Log().Interface("event", interruptionEvent).Msg("Adding new event to the event store")
 	s.interruptionEventStore[interruptionEvent.EventID] = interruptionEvent
 	if _, ignored := s.ignoredEvents[interruptionEvent.EventID]; !ignored {
 		s.atLeastOneEvent = true
