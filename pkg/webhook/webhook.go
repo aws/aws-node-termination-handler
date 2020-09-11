@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"text/template"
@@ -35,8 +36,21 @@ type combinedDrainData struct {
 
 // Post makes a http post to send drain event data to webhook url
 func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthconfig config.Config) {
+	var webhookTemplateContent = ""
 
-	webhookTemplate, err := template.New("message").Parse(nthconfig.WebhookTemplate)
+	if nthconfig.WebhookTemplateFile != "" {
+		content,err := ioutil.ReadFile(nthconfig.WebhookTemplateFile)
+		if err != nil {
+			log.Log().Msgf("Webhook Error: Template parsing failed - %s", err)
+			return
+		}
+		webhookTemplateContent = string(content)
+		log.Log().Msgf("Template file content - %s", webhookTemplateContent)
+	} else {
+		webhookTemplateContent = nthconfig.WebhookTemplate
+	}
+
+	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
 	if err != nil {
 		log.Log().Msgf("Webhook Error: Template parsing failed - %s", err)
 		return

@@ -44,6 +44,7 @@ const (
 	webhookHeadersConfigKey                 = "WEBHOOK_HEADERS"
 	webhookHeadersDefault                   = `{"Content-type":"application/json"}`
 	webhookTemplateConfigKey                = "WEBHOOK_TEMPLATE"
+	webhookTemplateFileConfigKey            = "WEBHOOK_TEMPLATE_FILE"
 	webhookTemplateDefault                  = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 	enableScheduledEventDrainingConfigKey   = "ENABLE_SCHEDULED_EVENT_DRAINING"
 	enableScheduledEventDrainingDefault     = false
@@ -79,6 +80,7 @@ type Config struct {
 	WebhookURL                     string
 	WebhookHeaders                 string
 	WebhookTemplate                string
+	WebhookTemplateFile            string
 	WebhookProxy                   string
 	EnableScheduledEventDraining   bool
 	EnableSpotInterruptionDraining bool
@@ -116,6 +118,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.WebhookProxy, "webhook-proxy", getEnv(webhookProxyConfigKey, webhookProxyDefault), "If specified, uses the HTTP(S) proxy to send webhooks. Example: --webhook-url='tcp://<ip-or-dns-to-proxy>:<port>'")
 	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
 	flag.StringVar(&config.WebhookTemplate, "webhook-template", getEnv(webhookTemplateConfigKey, webhookTemplateDefault), "If specified, replaces the default webhook message template.")
+	flag.StringVar(&config.WebhookTemplateFile, "webhook-template-file", getEnv(webhookTemplateFileConfigKey, ""), "If specified, replaces the default webhook message template with content from template file.")
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If false, do not drain nodes when the spot interruption termination notice is received")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
