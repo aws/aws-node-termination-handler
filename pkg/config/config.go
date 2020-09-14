@@ -146,49 +146,6 @@ func ParseCliArgs() (config Config, err error) {
 	os.Setenv(kubernetesServiceHostConfigKey, config.KubernetesServiceHost)
 	os.Setenv(kubernetesServicePortConfigKey, config.KubernetesServicePort)
 
-	// intentionally did not log webhook configuration as there may be secrets
-	fmt.Printf(
-		"aws-node-termination-handler arguments: \n"+
-			"\tdry-run: %t,\n"+
-			"\tnode-name: %s,\n"+
-			"\tmetadata-url: %s,\n"+
-			"\tkubernetes-service-host: %s,\n"+
-			"\tkubernetes-service-port: %s,\n"+
-			"\tdelete-local-data: %t,\n"+
-			"\tignore-daemon-sets: %t,\n"+
-			"\tpod-termination-grace-period: %d,\n"+
-			"\tnode-termination-grace-period: %d,\n"+
-			"\tenable-scheduled-event-draining: %t,\n"+
-			"\tenable-spot-interruption-draining: %t,\n"+
-			"\tmetadata-tries: %d,\n"+
-			"\tcordon-only: %t,\n"+
-			"\ttaint-node: %t,\n"+
-			"\tjson-logging: %t,\n"+
-			"\twebhook-proxy: %s,\n"+
-			"\tuptime-from-file: %s,\n"+
-			"\tenable-prometheus-server: %t,\n"+
-			"\tprometheus-server-port: %d,\n",
-		config.DryRun,
-		config.NodeName,
-		config.MetadataURL,
-		config.KubernetesServiceHost,
-		config.KubernetesServicePort,
-		config.DeleteLocalData,
-		config.IgnoreDaemonSets,
-		config.PodTerminationGracePeriod,
-		config.NodeTerminationGracePeriod,
-		config.EnableScheduledEventDraining,
-		config.EnableSpotInterruptionDraining,
-		config.MetadataTries,
-		config.CordonOnly,
-		config.TaintNode,
-		config.JsonLogging,
-		config.WebhookProxy,
-		config.UptimeFromFile,
-		config.EnablePrometheus,
-		config.PrometheusPort,
-	)
-
 	return config, err
 }
 

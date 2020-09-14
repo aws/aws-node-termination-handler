@@ -46,7 +46,7 @@ func parseScheduledEventTime(inputTime string) time.Time {
 func getExpectedMessage(event *monitor.InterruptionEvent) string {
 	webhookTemplate, err := template.New("").Parse(testWebhookTemplate)
 	if err != nil {
-		log.Log().Msgf("Webhook Error: Template parsing failed - %s", err)
+		log.Log().Err(err).Msg("Webhook Error: Template parsing failed")
 		return ""
 	}
 
