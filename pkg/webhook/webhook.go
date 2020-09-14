@@ -36,10 +36,10 @@ type combinedDrainData struct {
 
 // Post makes a http post to send drain event data to webhook url
 func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthconfig config.Config) {
-	var webhookTemplateContent = ""
+	var webhookTemplateContent string
 
 	if nthconfig.WebhookTemplateFile != "" {
-		content,err := ioutil.ReadFile(nthconfig.WebhookTemplateFile)
+		content, err := ioutil.ReadFile(nthconfig.WebhookTemplateFile)
 		if err != nil {
 			log.Log().Msgf("Webhook Error: Could not read template file %s - %s", nthconfig.WebhookTemplateFile, err)
 			return
