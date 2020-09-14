@@ -97,6 +97,8 @@ spec:
             value: {{ .Values.webhookURL | quote }}
           - name: WEBHOOK_HEADERS
             value: {{ .Values.webhookHeaders | quote }}
+          - name: WEBHOOK_TEMPLATE_FILE
+            value: {{ .Values.webhookTemplateFile | quote }}
           - name: WEBHOOK_TEMPLATE
             value: {{ .Values.webhookTemplate | quote }}
           - name: DRY_RUN

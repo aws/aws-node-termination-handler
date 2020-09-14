@@ -81,6 +81,10 @@ webhookProxy: ""
 # webhookHeaders if specified, replaces the default webhook headers.
 webhookHeaders: ""
 
+# webhookTemplateFile if specified, replaces the default webhook message template.
+# Template file must be manually mounted into container
+webhookTemplateFile: ""
+
 # webhookTemplate if specified, replaces the default webhook message template.
 webhookTemplate: ""
 

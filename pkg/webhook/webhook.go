@@ -41,7 +41,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	if nthconfig.WebhookTemplateFile != "" {
 		content,err := ioutil.ReadFile(nthconfig.WebhookTemplateFile)
 		if err != nil {
-			log.Log().Msgf("Webhook Error: Template parsing failed - %s", err)
+			log.Log().Msgf("Webhook Error: Could not read template file %s - %s", nthconfig.WebhookTemplateFile, err)
 			return
 		}
 		webhookTemplateContent = string(content)
