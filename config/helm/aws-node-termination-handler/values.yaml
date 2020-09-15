@@ -81,9 +81,12 @@ webhookProxy: ""
 # webhookHeaders if specified, replaces the default webhook headers.
 webhookHeaders: ""
 
-# webhookTemplateFile if specified, replaces the default webhook message template.
-# Template file must be manually mounted into container
-webhookTemplateFile: ""
+# webhook template file will be fetched from given config map name
+# if specified, replaces the default webhook message with the content of the template file
+webhookTemplateConfigMapName: ""
+
+# template file name stored in configmap
+webhookTemplateConfigMapKey: ""
 
 # webhookTemplate if specified, replaces the default webhook message template.
 webhookTemplate: ""
