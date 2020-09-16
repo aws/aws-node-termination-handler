@@ -103,13 +103,13 @@ func main() {
 
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
-			log.Log().Str("EventType", monitor.Kind()).Msg("Started monitoring for events")
+			log.Log().Str("event_type", monitor.Kind()).Msg("Started monitoring for events")
 			var previousErr error
 			var duplicateErrCount int
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
 				if err != nil {
-					log.Log().Str("EventType", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
+					log.Log().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
 					if err == previousErr {
 						duplicateErrCount++
@@ -210,7 +210,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
 				os.Exit(1)
 			}
-			log.Log().Str("NodeName", nodeName).Msg("Node successfully cordoned")
+			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
 			metrics.NodeActionsInc("cordon", nodeName, err)
 		} else {
 			err := node.CordonAndDrain(nodeName)
@@ -218,7 +218,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
 				os.Exit(1)
 			}
-			log.Log().Str("NodeName", nodeName).Msg("Node successfully cordoned and drained")
+			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		}
 
@@ -234,28 +234,28 @@ func logFormatLevel(interface{}) string {
 }
 
 func printJsonConfigArgs(config config.Config) {
-	// manually setting fields instead of using log.Log().Interface() to keep key values in line with flag names
+	// manually setting fields instead of using log.Log().Interface() to use snake_case instead of PascalCase
 	// intentionally did not log webhook configuration as there may be secrets
 	log.Log().
-		Bool("dry-run", config.DryRun).
-		Str("node-name", config.NodeName).
-		Str("metadata-url", config.MetadataURL).
-		Str("kubernetes-service-host", config.KubernetesServiceHost).
-		Str("kubernetes-service-port", config.KubernetesServicePort).
-		Bool("delete-local-data", config.DeleteLocalData).
-		Bool("ignore-daemon-sets", config.IgnoreDaemonSets).
-		Int("pod-termination-grace-period", config.PodTerminationGracePeriod).
-		Int("node-termination-grace-period", config.NodeTerminationGracePeriod).
-		Bool("enable-scheduled-event-draining", config.EnableScheduledEventDraining).
-		Bool("enable-spot-interruption-draining", config.EnableSpotInterruptionDraining).
-		Int("metadata-tries", config.MetadataTries).
-		Bool("cordon-only", config.CordonOnly).
-		Bool("taint-node", config.TaintNode).
-		Bool("json-logging", config.JsonLogging).
-		Str("webhook-proxy", config.WebhookProxy).
-		Str("uptime-from-file", config.UptimeFromFile).
-		Bool("enable-prometheus-server", config.EnablePrometheus).
-		Int("prometheus-server-port", config.PrometheusPort).
+		Bool("dry_run", config.DryRun).
+		Str("node_name", config.NodeName).
+		Str("metadata_url", config.MetadataURL).
+		Str("kubernetes_service_host", config.KubernetesServiceHost).
+		Str("kubernetes_service_port", config.KubernetesServicePort).
+		Bool("delete_local_data", config.DeleteLocalData).
+		Bool("ignore_daemon_sets", config.IgnoreDaemonSets).
+		Int("pod_termination_grace_period", config.PodTerminationGracePeriod).
+		Int("node_termination_grace_period", config.NodeTerminationGracePeriod).
+		Bool("enable_scheduled_event_draining", config.EnableScheduledEventDraining).
+		Bool("enable_spot_interruption_draining", config.EnableSpotInterruptionDraining).
+		Int("metadata_tries", config.MetadataTries).
+		Bool("cordon_only", config.CordonOnly).
+		Bool("taint_node", config.TaintNode).
+		Bool("json_logging", config.JsonLogging).
+		Str("webhook_proxy", config.WebhookProxy).
+		Str("uptime_from_file", config.UptimeFromFile).
+		Bool("enable_prometheus_server", config.EnablePrometheus).
+		Int("prometheus_server_port", config.PrometheusPort).
 		Msg("aws-node-termination-handler arguments")
 }
 

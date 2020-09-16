@@ -293,7 +293,7 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
 	metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
 
-	log.Log().Interface("Metadata", metadata).Msg("Startup Metadata Retrieved")
+	log.Log().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 
 	return metadata
 }

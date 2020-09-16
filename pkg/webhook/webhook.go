@@ -106,7 +106,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		log.Log().Int("StatusCode", response.StatusCode).Msg("Webhook Error: Received Non-Successful Status Code")
+		log.Log().Int("status_code", response.StatusCode).Msg("Webhook Error: Received Non-Successful Status Code")
 		return
 	}
 
