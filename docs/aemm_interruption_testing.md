@@ -87,5 +87,4 @@ info on the e2e tests.
 ---
 
 \* Only the first two unique IPs to request data from AEMM receive spot itn information in the response. This was introduced
-in AEMM v1.6.0. This can be overridden with a configuration paramter. For previous versions there is no unique IP restriction. 
-
+in AEMM v1.6.0. This can be overridden with a configuration parameter. For previous versions there is no unique IP restriction.
