@@ -35,19 +35,19 @@ type combinedDrainData struct {
 }
 
 // Post makes a http post to send drain event data to webhook url
-func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthconfig config.Config) {
+func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthConfig config.Config) {
 	var webhookTemplateContent string
 
-	if nthconfig.WebhookTemplateFile != "" {
-		content, err := ioutil.ReadFile(nthconfig.WebhookTemplateFile)
+	if nthConfig.WebhookTemplateFile != "" {
+		content, err := ioutil.ReadFile(nthConfig.WebhookTemplateFile)
 		if err != nil {
-			log.Log().Msgf("Webhook Error: Could not read template file %s - %s", nthconfig.WebhookTemplateFile, err)
+			log.Log().Msgf("Webhook Error: Could not read template file %s - %s", nthConfig.WebhookTemplateFile, err)
 			return
 		}
 		webhookTemplateContent = string(content)
-		log.Log().Msgf("Template file content - %s", webhookTemplateContent)
+		log.Debug().Msgf("Template file content - %s", webhookTemplateContent)
 	} else {
-		webhookTemplateContent = nthconfig.WebhookTemplate
+		webhookTemplateContent = nthConfig.WebhookTemplate
 	}
 
 	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
@@ -65,14 +65,14 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 		return
 	}
 
-	request, err := http.NewRequest("POST", nthconfig.WebhookURL, &byteBuffer)
+	request, err := http.NewRequest("POST", nthConfig.WebhookURL, &byteBuffer)
 	if err != nil {
 		log.Log().Msgf("Webhook Error: Http NewRequest failed - %s", err)
 		return
 	}
 
 	headerMap := make(map[string]interface{})
-	err = json.Unmarshal([]byte(nthconfig.WebhookHeaders), &headerMap)
+	err = json.Unmarshal([]byte(nthConfig.WebhookHeaders), &headerMap)
 	if err != nil {
 		log.Log().Msgf("Webhook Error: Header Unmarshal failed - %s", err)
 		return
@@ -86,10 +86,10 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 		Transport: &http.Transport{
 			IdleConnTimeout: 1 * time.Second,
 			Proxy: func(req *http.Request) (*url.URL, error) {
-				if nthconfig.WebhookProxy == "" {
+				if nthConfig.WebhookProxy == "" {
 					return nil, nil
 				}
-				proxy, err := url.Parse(nthconfig.WebhookProxy)
+				proxy, err := url.Parse(nthConfig.WebhookProxy)
 				if err != nil {
 					return nil, err
 				}
@@ -118,7 +118,20 @@ func ValidateWebhookConfig(nthConfig config.Config) error {
 	if nthConfig.WebhookURL == "" {
 		return nil
 	}
-	webhookTemplate, err := template.New("message").Parse(nthConfig.WebhookTemplate)
+
+	var webhookTemplateContent string
+
+	if nthConfig.WebhookTemplateFile != "" {
+		content, err := ioutil.ReadFile(nthConfig.WebhookTemplateFile)
+		if err != nil {
+			return fmt.Errorf("Webhook Error: Could not read template file %w", err)
+		}
+		webhookTemplateContent = string(content)
+	} else {
+		webhookTemplateContent = nthConfig.WebhookTemplate
+	}
+
+	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
 	if err != nil {
 		return fmt.Errorf("Unable to parse webhook template: %w", err)
 	}
