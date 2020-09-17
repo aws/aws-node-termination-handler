@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/uptime"
@@ -53,8 +55,8 @@ func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
 		IgnoreAllDaemonSets: true,
 		DeleteLocalData:     true,
 		Timeout:             time.Duration(120) * time.Second,
-		Out:                 os.Stdout,
-		ErrOut:              os.Stderr,
+		Out:                 log.Logger,
+		ErrOut:              log.Logger,
 	}
 }
 

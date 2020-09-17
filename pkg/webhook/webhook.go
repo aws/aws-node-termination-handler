@@ -41,7 +41,10 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	if nthConfig.WebhookTemplateFile != "" {
 		content, err := ioutil.ReadFile(nthConfig.WebhookTemplateFile)
 		if err != nil {
-			log.Log().Msgf("Webhook Error: Could not read template file %s - %s", nthConfig.WebhookTemplateFile, err)
+			log.Log().
+				Str("webhook_template_file", nthConfig.WebhookTemplateFile).
+				Err(err).
+				Msg("Webhook Error: Could not read template file")
 			return
 		}
 		webhookTemplateContent = string(content)
@@ -52,7 +55,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 
 	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
 	if err != nil {
-		log.Log().Msgf("Webhook Error: Template parsing failed - %s", err)
+		log.Log().Err(err).Msg("Webhook Error: Template parsing failed")
 		return
 	}
 
@@ -61,20 +64,20 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	var byteBuffer bytes.Buffer
 	err = webhookTemplate.Execute(&byteBuffer, combined)
 	if err != nil {
-		log.Log().Msgf("Webhook Error: Template execution failed - %s", err)
+		log.Log().Err(err).Msg("Webhook Error: Template execution failed")
 		return
 	}
 
 	request, err := http.NewRequest("POST", nthConfig.WebhookURL, &byteBuffer)
 	if err != nil {
-		log.Log().Msgf("Webhook Error: Http NewRequest failed - %s", err)
+		log.Log().Err(err).Msg("Webhook Error: Http NewRequest failed")
 		return
 	}
 
 	headerMap := make(map[string]interface{})
 	err = json.Unmarshal([]byte(nthConfig.WebhookHeaders), &headerMap)
 	if err != nil {
-		log.Log().Msgf("Webhook Error: Header Unmarshal failed - %s", err)
+		log.Log().Err(err).Msg("Webhook Error: Header Unmarshal failed")
 		return
 	}
 	for key, value := range headerMap {
@@ -99,14 +102,14 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Log().Msgf("Webhook Error: Client Do failed - %s", err)
+		log.Log().Err(err).Msg("Webhook Error: Client Do failed")
 		return
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		log.Log().Msgf("Webhook Error: Received Status Code %d", response.StatusCode)
+		log.Log().Int("status_code", response.StatusCode).Msg("Webhook Error: Received Non-Successful Status Code")
 		return
 	}
 

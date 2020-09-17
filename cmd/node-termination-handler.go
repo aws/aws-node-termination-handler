@@ -53,6 +53,13 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to parse cli args,")
 	}
 
+	if nthConfig.JsonLogging {
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+		printJsonConfigArgs(nthConfig)
+	} else {
+		printHumanConfigArgs(nthConfig)
+	}
+
 	err = webhook.ValidateWebhookConfig(nthConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Webhook validation failed,")
@@ -60,10 +67,6 @@ func main() {
 	node, err := node.New(nthConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
-	}
-
-	if nthConfig.JsonLogging {
-		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
 	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
@@ -79,7 +82,7 @@ func main() {
 	if nthConfig.EnableScheduledEventDraining {
 		err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 		if err != nil {
-			log.Log().Msgf("Unable to complete the uncordon after reboot workflow on startup: %v", err)
+			log.Log().Err(err).Msg("Unable to complete the uncordon after reboot workflow on startup")
 		}
 	}
 
@@ -100,13 +103,13 @@ func main() {
 
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
-			log.Log().Msgf("Started monitoring for %s events", monitor.Kind())
+			log.Log().Str("event_type", monitor.Kind()).Msg("Started monitoring for events")
 			var previousErr error
 			var duplicateErrCount int
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
 				if err != nil {
-					log.Log().Msgf("There was a problem monitoring for %s events: %v", monitor.Kind(), err)
+					log.Log().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
 					if err == previousErr {
 						duplicateErrCount++
@@ -178,7 +181,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			log.Log().Msg("Uncordoning the node due to a cancellation event")
 			err := node.Uncordon(nodeName)
 			if err != nil {
-				log.Log().Msgf("Uncordoning the node failed: %v", err)
+				log.Log().Err(err).Msg("Uncordoning the node failed")
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
 
@@ -196,7 +199,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if drainEvent.PreDrainTask != nil {
 			err := drainEvent.PreDrainTask(*drainEvent, node)
 			if err != nil {
-				log.Log().Msgf("There was a problem executing the pre-drain task: %v", err)
+				log.Log().Err(err).Msg("There was a problem executing the pre-drain task")
 			}
 			metrics.NodeActionsInc("pre-drain", nodeName, err)
 		}
@@ -204,18 +207,18 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if nthConfig.CordonOnly {
 			err := node.Cordon(nodeName)
 			if err != nil {
-				log.Log().Msgf("There was a problem while trying to cordon the node: %v", err)
+				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
 				os.Exit(1)
 			}
-			log.Log().Msgf("Node %q successfully cordoned.", nodeName)
+			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
 			metrics.NodeActionsInc("cordon", nodeName, err)
 		} else {
 			err := node.CordonAndDrain(nodeName)
 			if err != nil {
-				log.Log().Msgf("There was a problem while trying to cordon and drain the node: %v", err)
+				log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
 				os.Exit(1)
 			}
-			log.Log().Msgf("Node %q successfully cordoned and drained.", nodeName)
+			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		}
 
@@ -228,4 +231,75 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 
 func logFormatLevel(interface{}) string {
 	return ""
+}
+
+func printJsonConfigArgs(config config.Config) {
+	// manually setting fields instead of using log.Log().Interface() to use snake_case instead of PascalCase
+	// intentionally did not log webhook configuration as there may be secrets
+	log.Log().
+		Bool("dry_run", config.DryRun).
+		Str("node_name", config.NodeName).
+		Str("metadata_url", config.MetadataURL).
+		Str("kubernetes_service_host", config.KubernetesServiceHost).
+		Str("kubernetes_service_port", config.KubernetesServicePort).
+		Bool("delete_local_data", config.DeleteLocalData).
+		Bool("ignore_daemon_sets", config.IgnoreDaemonSets).
+		Int("pod_termination_grace_period", config.PodTerminationGracePeriod).
+		Int("node_termination_grace_period", config.NodeTerminationGracePeriod).
+		Bool("enable_scheduled_event_draining", config.EnableScheduledEventDraining).
+		Bool("enable_spot_interruption_draining", config.EnableSpotInterruptionDraining).
+		Int("metadata_tries", config.MetadataTries).
+		Bool("cordon_only", config.CordonOnly).
+		Bool("taint_node", config.TaintNode).
+		Bool("json_logging", config.JsonLogging).
+		Str("webhook_proxy", config.WebhookProxy).
+		Str("uptime_from_file", config.UptimeFromFile).
+		Bool("enable_prometheus_server", config.EnablePrometheus).
+		Int("prometheus_server_port", config.PrometheusPort).
+		Msg("aws-node-termination-handler arguments")
+}
+
+func printHumanConfigArgs(config config.Config) {
+	// intentionally did not log webhook configuration as there may be secrets
+	log.Log().Msgf(
+		"aws-node-termination-handler arguments: \n"+
+			"\tdry-run: %t,\n"+
+			"\tnode-name: %s,\n"+
+			"\tmetadata-url: %s,\n"+
+			"\tkubernetes-service-host: %s,\n"+
+			"\tkubernetes-service-port: %s,\n"+
+			"\tdelete-local-data: %t,\n"+
+			"\tignore-daemon-sets: %t,\n"+
+			"\tpod-termination-grace-period: %d,\n"+
+			"\tnode-termination-grace-period: %d,\n"+
+			"\tenable-scheduled-event-draining: %t,\n"+
+			"\tenable-spot-interruption-draining: %t,\n"+
+			"\tmetadata-tries: %d,\n"+
+			"\tcordon-only: %t,\n"+
+			"\ttaint-node: %t,\n"+
+			"\tjson-logging: %t,\n"+
+			"\twebhook-proxy: %s,\n"+
+			"\tuptime-from-file: %s,\n"+
+			"\tenable-prometheus-server: %t,\n"+
+			"\tprometheus-server-port: %d,\n",
+		config.DryRun,
+		config.NodeName,
+		config.MetadataURL,
+		config.KubernetesServiceHost,
+		config.KubernetesServicePort,
+		config.DeleteLocalData,
+		config.IgnoreDaemonSets,
+		config.PodTerminationGracePeriod,
+		config.NodeTerminationGracePeriod,
+		config.EnableScheduledEventDraining,
+		config.EnableSpotInterruptionDraining,
+		config.MetadataTries,
+		config.CordonOnly,
+		config.TaintNode,
+		config.JsonLogging,
+		config.WebhookProxy,
+		config.UptimeFromFile,
+		config.EnablePrometheus,
+		config.PrometheusPort,
+	)
 }

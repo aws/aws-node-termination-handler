@@ -14,9 +14,10 @@
 package spotitn
 
 import (
-	"os"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -39,8 +40,8 @@ func getSpotDrainHelper(client *fake.Clientset) *drain.Helper {
 		IgnoreAllDaemonSets: true,
 		DeleteLocalData:     true,
 		Timeout:             time.Duration(120) * time.Second,
-		Out:                 os.Stdout,
-		ErrOut:              os.Stderr,
+		Out:                 log.Logger,
+		ErrOut:              log.Logger,
 	}
 }
 

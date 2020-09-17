@@ -190,7 +190,7 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 			if err != nil {
 				e.v2Token = ""
 				e.tokenTTL = -1
-				log.Log().Msgf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1: %v", err)
+				log.Log().Err(err).Msg("Unable to retrieve an IMDSv2 token, continuing with IMDSv1")
 			} else {
 				e.v2Token = token
 				e.tokenTTL = ttl
@@ -293,7 +293,7 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
 	metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
 
-	log.Log().Msgf("Startup Metadata Retrieved: %+v", metadata)
+	log.Log().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 
 	return metadata
 }

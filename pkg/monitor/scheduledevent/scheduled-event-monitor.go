@@ -94,7 +94,7 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.Interruption
 		notAfter, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotAfter)
 		if err != nil {
 			notAfter = notBefore
-			log.Log().Msgf("Unable to parse scheduled event end time, continuing: %v", err)
+			log.Log().Err(err).Msg("Unable to parse scheduled event end time, continuing")
 		}
 		events = append(events, monitor.InterruptionEvent{
 			EventID:      scheduledEvent.EventID,

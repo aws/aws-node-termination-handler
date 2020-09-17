@@ -16,7 +16,6 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -86,7 +85,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper, uptime up
 // CordonAndDrain will cordon the node and evict pods based on the config
 func (n Node) CordonAndDrain(nodeName string) error {
 	if n.nthConfig.DryRun {
-		log.Log().Msgf("Node %s would have been cordoned and drained, but dry-run flag was set", nodeName)
+		log.Log().Str("node_name", nodeName).Msg("Node would have been cordoned and drained, but dry-run flag was set")
 		return nil
 	}
 	log.Log().Msg("Cordoning the node")
@@ -106,7 +105,7 @@ func (n Node) CordonAndDrain(nodeName string) error {
 // Cordon will add a NoSchedule on the node
 func (n Node) Cordon(nodeName string) error {
 	if n.nthConfig.DryRun {
-		log.Log().Msgf("Node %s would have been cordoned, but dry-run flag was set", nodeName)
+		log.Log().Str("node_name", nodeName).Msg("Node would have been cordoned, but dry-run flag was set")
 		return nil
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
@@ -123,7 +122,7 @@ func (n Node) Cordon(nodeName string) error {
 // Uncordon will remove the NoSchedule on the node
 func (n Node) Uncordon(nodeName string) error {
 	if n.nthConfig.DryRun {
-		log.Log().Msgf("Node %s would have been uncordoned, but dry-run flag was set", nodeName)
+		log.Log().Str("node_name", nodeName).Msg("Node would have been uncordoned, but dry-run flag was set")
 		return nil
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
@@ -178,7 +177,7 @@ func (n Node) GetEventID(nodeName string) (string, error) {
 	}
 	val, ok := node.Labels[EventIDLabelKey]
 	if n.nthConfig.DryRun && !ok {
-		log.Log().Msgf("Would have returned Error: Event ID Lable %s was not found on the node, but dry-run flag was set", EventIDLabelKey)
+		log.Log().Msgf("Would have returned Error: 'Event ID Label %s was not found on the node', but dry-run flag was set", EventIDLabelKey)
 		return "", nil
 	}
 	if !ok {
@@ -408,8 +407,8 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		IgnoreAllDaemonSets: nthConfig.IgnoreDaemonSets,
 		DeleteLocalData:     nthConfig.DeleteLocalData,
 		Timeout:             time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second,
-		Out:                 os.Stdout,
-		ErrOut:              os.Stderr,
+		Out:                 log.Logger,
+		ErrOut:              log.Logger,
 	}
 	if nthConfig.DryRun {
 		return drainHelper, nil
@@ -450,7 +449,10 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 			// Get the newest version of the node.
 			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 			if err != nil || freshNode == nil {
-				log.Log().Msgf("Error while adding %v taint on node %v: %v", taintKey, node.Name, err)
+				log.Log().
+					Str("taint_key", taintKey).
+					Str("node_name", node.Name).
+					Msg("Error while adding taint on node")
 				return fmt.Errorf("failed to get node %v: %v", node.Name, err)
 			}
 		}
@@ -471,10 +473,16 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 		}
 
 		if err != nil {
-			log.Log().Msgf("Error while adding %v taint on node %v: %v", taintKey, node.Name, err)
+			log.Log().
+				Str("taint_key", taintKey).
+				Str("node_name", node.Name).
+				Msg("Error while adding taint on node")
 			return err
 		}
-		log.Log().Msgf("Successfully added %v on node %v", taintKey, node.Name)
+		log.Log().
+			Str("taint_key", taintKey).
+			Str("node_name", node.Name).
+			Msg("Successfully added taint on node")
 		return nil
 	}
 }
@@ -482,7 +490,11 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 func addTaintToSpec(node *corev1.Node, taintKey string, taintValue string, effect corev1.TaintEffect) bool {
 	for _, taint := range node.Spec.Taints {
 		if taint.Key == taintKey {
-			log.Log().Msgf("%v already present on node %v, taint: %v", taintKey, node.Name, taint)
+			log.Log().
+				Str("taint_key", taintKey).
+				Interface("taint", taint).
+				Str("node_name", node.Name).
+				Msg("Taint key already present on node")
 			return false
 		}
 	}
@@ -504,14 +516,16 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 			// Get the newest version of the node.
 			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 			if err != nil || freshNode == nil {
-				log.Log().Msgf("Error while adding %v taint on node %v: %v", taintKey, node.Name, err)
 				return false, fmt.Errorf("failed to get node %v: %v", node.Name, err)
 			}
 		}
 		newTaints := make([]corev1.Taint, 0)
 		for _, taint := range freshNode.Spec.Taints {
 			if taint.Key == taintKey {
-				log.Log().Msgf("Releasing taint %+v on node %v", taint, node.Name)
+				log.Log().
+					Interface("taint", taint).
+					Str("node_name", node.Name).
+					Msg("Releasing taint on node")
 			} else {
 				newTaints = append(newTaints, taint)
 			}
@@ -535,10 +549,16 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 		}
 
 		if err != nil {
-			log.Log().Msgf("Error while releasing %v taint on node %v: %v", taintKey, node.Name, err)
+			log.Log().
+				Str("taint_key", taintKey).
+				Str("node_name", node.Name).
+				Msg("Error while releasing taint on node")
 			return false, err
 		}
-		log.Log().Msgf("Successfully released %v on node %v", taintKey, node.Name)
+		log.Log().
+			Str("taint_key", taintKey).
+			Str("node_name", node.Name).
+			Msg("Successfully released taint on node")
 		return true, nil
 	}
 }
