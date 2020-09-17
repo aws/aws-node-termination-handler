@@ -88,7 +88,6 @@ aemm_helm_args=(
   --wait
   --namespace default
   --set servicePort="$IMDS_PORT"
-  --set 'rbac.pspEnabled=true'
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     aemm_helm_args+=("${common_helm_args[@]}")

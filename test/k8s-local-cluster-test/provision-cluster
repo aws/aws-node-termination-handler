@@ -122,7 +122,7 @@ else
 fi
 
 echoerr "🥑 Creating k8s cluster using \"kind\""
-retry 3 kind create cluster --name "$CLUSTER_NAME" --image $K8_VERSION --config "$KIND_CONFIG_FILE" --kubeconfig $TMP_DIR/kubeconfig 1>&2
+retry 3 kind create cluster -q --name "$CLUSTER_NAME" --image $K8_VERSION --config "$KIND_CONFIG_FILE" --kubeconfig $TMP_DIR/kubeconfig 1>&2
 
 echo "$CLUSTER_NAME" > "$TMP_DIR/clustername"
 echoerr "👍 Created k8s cluster using \"kind\""
