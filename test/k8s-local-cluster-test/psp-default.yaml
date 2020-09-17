@@ -2,8 +2,7 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   annotations:
-    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'docker/default'
-    seccomp.security.alpha.kubernetes.io/defaultProfileName:  'docker/default'
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
   name: default
 spec:
   allowedCapabilities: []  # default set of capabilities are implicitly allowed

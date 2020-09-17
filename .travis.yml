@@ -5,13 +5,12 @@ services:
 - docker
 
 env:
+- E2E_TEST=true KUBE_VERSION=1.19
 - E2E_TEST=true KUBE_VERSION=1.18
 - E2E_TEST=true KUBE_VERSION=1.17
 - E2E_TEST=true KUBE_VERSION=1.16
 - E2E_TEST=true KUBE_VERSION=1.15
 - E2E_TEST=true KUBE_VERSION=1.14
-- E2E_TEST=true KUBE_VERSION=1.13
-- E2E_TEST=true KUBE_VERSION=1.12
 
 script: test/k8s-local-cluster-test/run-test -v $KUBE_VERSION
 
