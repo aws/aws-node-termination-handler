@@ -31,6 +31,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -80,10 +81,19 @@ func main() {
 	nodeMetadata := imds.GetNodeMetadata()
 
 	if nthConfig.EnableScheduledEventDraining {
-		err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
-		if err != nil {
-			log.Log().Err(err).Msg("Unable to complete the uncordon after reboot workflow on startup")
-		}
+		stopCh := make(chan struct{})
+		go func() {
+			time.Sleep(8 * time.Second)
+			stopCh <- struct{}{}
+		}()
+		//will retry 4 times with an interval of 2 seconds.
+		wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
+			if err != nil {
+				log.Log().Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
+			}
+			return false, nil
+		}, stopCh)
 	}
 
 	interruptionChan := make(chan monitor.InterruptionEvent)
