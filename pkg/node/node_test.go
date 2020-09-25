@@ -240,6 +240,30 @@ func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
 	h.Assert(t, err != nil, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label")
 }
 
+func TestLogPods(t *testing.T) {
+	resetFlagsForTest()
+
+	client := fake.NewSimpleClientset(
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "myPod",
+				Labels: map[string]string{
+					"spec.nodeName": nodeName,
+				},
+			},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+			},
+		},
+	)
+
+	tNode := getNode(t, getDrainHelper(client))
+	err := tNode.LogPods(nodeName)
+	h.Ok(t, err)
+}
+
 func TestIsLableledWithActionFailure(t *testing.T) {
 	resetFlagsForTest()
 

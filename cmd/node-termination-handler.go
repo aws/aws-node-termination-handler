@@ -221,6 +221,10 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				os.Exit(1)
 			}
 			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
+			err = node.LogPods(nodeName)
+			if err != nil {
+				log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
+			}
 			metrics.NodeActionsInc("cordon", nodeName, err)
 		} else {
 			err := node.CordonAndDrain(nodeName)

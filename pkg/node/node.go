@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/uptime"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -286,6 +287,21 @@ func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
+// LogPods logs all the pod names on a node
+func (n Node) LogPods(nodeName string) error {
+	podList, err := n.fetchAllPods(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch all pods from API: %w", err)
+	}
+	podNamesArr := zerolog.Arr()
+	for _, pod := range podList.Items {
+		podNamesArr = podNamesArr.Str(pod.Name)
+	}
+	log.Log().Array("pod_names", podNamesArr).Str("node_name", nodeName).Msg("Pods on node")
+
+	return nil
+}
+
 // TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
 func (n Node) TaintScheduledMaintenance(nodeName string, eventID string) error {
 	if !n.nthConfig.TaintNode {
@@ -397,6 +413,12 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 		return node, nil
 	}
 	return n.drainHelper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+}
+
+func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
+	return n.drainHelper.Client.CoreV1().Pods("").List(metav1.ListOptions{
+		FieldSelector: "spec.nodeName=" + nodeName,
+	})
 }
 
 func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
