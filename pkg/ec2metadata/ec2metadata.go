@@ -213,8 +213,10 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 			return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
 		}
 		if resp != nil && resp.StatusCode == 401 {
+			e.Lock()
 			e.v2Token = ""
 			e.tokenTTL = 0
+			e.Unlock()
 		} else {
 			break
 		}

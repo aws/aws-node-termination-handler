@@ -99,6 +99,8 @@ func main() {
 		if nthConfig.AWSSession != nil {
 			nthConfig.AWSSession.Config.Region = &nodeMetadata.Region
 		}
+	} else if nthConfig.AWSRegion == "" && nodeMetadata.Region == "" && nthConfig.EnableSQSTerminationDraining {
+		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
 	nthConfig.Print()
 
@@ -134,6 +136,7 @@ func main() {
 	}
 	if nthConfig.EnableSQSTerminationDraining {
 		sqsMonitor := sqsevent.SQSMonitor{
+			CheckIfManaged:   nthConfig.CheckASGTagBeforeDraining,
 			QueueURL:         nthConfig.QueueURL,
 			InterruptionChan: interruptionChan,
 			CancelChan:       cancelChan,
@@ -276,7 +279,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if drainEvent.PostDrainTask != nil {
 			err := drainEvent.PostDrainTask(*drainEvent, node)
 			if err != nil {
-				log.Log().Msgf("There was a problem executing the post-drain task: %v", err)
+				log.Err(err).Msg("There was a problem executing the post-drain task")
 			}
 			metrics.NodeActionsInc("post-drain", nodeName, err)
 		}

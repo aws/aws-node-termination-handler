@@ -132,6 +132,8 @@ spec:
             value: {{ .Values.awsSecretAccessKey | quote }}
           - name: AWS_ACCESS_KEY_ID
             value: {{ .Values.awsAccessKeyID | quote }}
+          - name: CHECK_ASG_TAG_BEFORE_DRAINING
+            value: {{ .Values.checkASGTagBeforeDraining | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.enablePrometheusServer }}

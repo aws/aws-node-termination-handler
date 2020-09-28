@@ -28,6 +28,7 @@ type InterruptionEvent struct {
 	Description   string
 	State         string
 	NodeName      string
+	InstanceID    string
 	StartTime     time.Time
 	EndTime       time.Time
 	Drained       bool

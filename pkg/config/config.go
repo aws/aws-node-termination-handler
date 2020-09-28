@@ -54,6 +54,8 @@ const (
 	enableSpotInterruptionDrainingDefault   = true
 	enableSQSTerminationDrainingConfigKey   = "ENABLE_SQS_TERMINATION_DRAINING"
 	enableSQSTerminationDrainingDefault     = false
+	checkASGTagBeforeDrainingConfigKey      = "CHECK_ASG_TAG_BEFORE_DRAINING"
+	checkASGTagBeforeDrainingDefault        = true
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
@@ -96,6 +98,7 @@ type Config struct {
 	EnableScheduledEventDraining   bool
 	EnableSpotInterruptionDraining bool
 	EnableSQSTerminationDraining   bool
+	CheckASGTagBeforeDraining      bool
 	MetadataTries                  int
 	CordonOnly                     bool
 	TaintNode                      bool
@@ -139,6 +142,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
 	flag.BoolVar(&config.EnableSQSTerminationDraining, "enable-sqs-termination-draining", getBoolEnv(enableSQSTerminationDrainingConfigKey, enableSQSTerminationDrainingDefault), "If true, drain nodes when an SQS termination event is received")
+	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
@@ -147,8 +151,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
 	flag.BoolVar(&config.EnablePrometheus, "enable-prometheus-server", getBoolEnv(enablePrometheusConfigKey, enablePrometheusDefault), "If true, a http server is used for exposing prometheus metrics in /metrics endpoint.")
 	flag.IntVar(&config.PrometheusPort, "prometheus-server-port", getIntEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
-	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls.")
-	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls.")
+	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls")
+	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
 
 	flag.Parse()
@@ -234,6 +238,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("aws_region", c.AWSRegion).
 		Str("aws_endpoint", c.AWSEndpoint).
 		Str("queue_url", c.QueueURL).
+		Bool("check_asg_tag_before_draining", c.CheckASGTagBeforeDraining).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -272,6 +277,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tprometheus-server-port: %d,\n"+
 			"\taws-region: %s,\n"+
 			"\tqueue-url: %s,\n"+
+			"\tcheck-asg-tag-before-draining: %t,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
@@ -299,6 +305,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.PrometheusPort,
 		c.AWSRegion,
 		c.QueueURL,
+		c.CheckASGTagBeforeDraining,
 		c.AWSEndpoint,
 	)
 }

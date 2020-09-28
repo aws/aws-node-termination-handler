@@ -67,7 +67,7 @@ run_instances_resp=$(kubectl exec -it $localstack_pod -- bash -c "$RUN_INSTANCE_
 private_dns_name=$(echo $run_instances_resp | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo $run_instances_resp | jq -r '.Instances[] .InstanceId')
 echo "🥑 Started mock EC2 instance ($instance_id) w/ private DNS name: ${private_dns_name}"
-
+set -x
 CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "$CLUSTER_NAME-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
 queue_url=$(kubectl exec -it $localstack_pod -- bash -c "$CREATE_SQS_CMD" | jq -r .QueueUrl)
 
@@ -84,6 +84,7 @@ anth_helm_args=(
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set awsRegion="${AWS_REGION}"
   --set awsEndpoint="http://localstack.default"
+  --set checkASGTagBeforeDraining=false
   --set enableSqsTerminationDraining=true
   --set enableScheduledEventDraining=false
   --set enableSpotInterruptionDraining=false

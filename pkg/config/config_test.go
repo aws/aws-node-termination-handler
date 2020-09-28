@@ -14,38 +14,51 @@
 package config_test
 
 import (
+	"bytes"
 	"flag"
 	"os"
 	"testing"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
+
+var envForTest = map[string]string{}
 
 func resetFlagsForTest() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	os.Args = []string{"cmd"}
+	for key := range envForTest {
+		os.Unsetenv(key)
+	}
+}
+
+func setEnvForTest(key string, val string) {
+	os.Setenv(key, val)
+	envForTest[key] = val
 }
 
 func TestParseCliArgsEnvSuccess(t *testing.T) {
 	resetFlagsForTest()
-	os.Setenv("DELETE_LOCAL_DATA", "false")
-	os.Setenv("DRY_RUN", "true")
-	os.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
-	os.Setenv("ENABLE_SPOT_INTERRUPTION_DRAINING", "false")
-	os.Setenv("GRACE_PERIOD", "12345")
-	os.Setenv("IGNORE_DAEMON_SETS", "false")
-	os.Setenv("KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_HOST")
-	os.Setenv("KUBERNETES_SERVICE_PORT", "KUBERNETES_SERVICE_PORT")
-	os.Setenv("NODE_NAME", "NODE_NAME")
-	os.Setenv("NODE_TERMINATION_GRACE_PERIOD", "12345")
-	os.Setenv("INSTANCE_METADATA_URL", "INSTANCE_METADATA_URL")
-	os.Setenv("POD_TERMINATION_GRACE_PERIOD", "12345")
-	os.Setenv("WEBHOOK_URL", "WEBHOOK_URL")
-	os.Setenv("WEBHOOK_HEADERS", "WEBHOOK_HEADERS")
-	os.Setenv("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
-	os.Setenv("METADATA_TRIES", "100")
-	os.Setenv("CORDON_ONLY", "false")
+	setEnvForTest("DELETE_LOCAL_DATA", "false")
+	setEnvForTest("DRY_RUN", "true")
+	setEnvForTest("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
+	setEnvForTest("ENABLE_SPOT_INTERRUPTION_DRAINING", "false")
+	setEnvForTest("GRACE_PERIOD", "12345")
+	setEnvForTest("IGNORE_DAEMON_SETS", "false")
+	setEnvForTest("KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_HOST")
+	setEnvForTest("KUBERNETES_SERVICE_PORT", "KUBERNETES_SERVICE_PORT")
+	setEnvForTest("NODE_NAME", "NODE_NAME")
+	setEnvForTest("NODE_TERMINATION_GRACE_PERIOD", "12345")
+	setEnvForTest("INSTANCE_METADATA_URL", "INSTANCE_METADATA_URL")
+	setEnvForTest("POD_TERMINATION_GRACE_PERIOD", "12345")
+	setEnvForTest("WEBHOOK_URL", "WEBHOOK_URL")
+	setEnvForTest("WEBHOOK_HEADERS", "WEBHOOK_HEADERS")
+	setEnvForTest("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
+	setEnvForTest("METADATA_TRIES", "100")
+	setEnvForTest("CORDON_ONLY", "false")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -128,23 +141,23 @@ func TestParseCliArgsSuccess(t *testing.T) {
 
 func TestParseCliArgsOverrides(t *testing.T) {
 	resetFlagsForTest()
-	os.Setenv("DELETE_LOCAL_DATA", "true")
-	os.Setenv("DRY_RUN", "false")
-	os.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "false")
-	os.Setenv("ENABLE_SPOT_INTERRUPTION_DRAINING", "true")
-	os.Setenv("GRACE_PERIOD", "99999")
-	os.Setenv("IGNORE_DAEMON_SETS", "true")
-	os.Setenv("KUBERNETES_SERVICE_HOST", "no")
-	os.Setenv("KUBERNETES_SERVICE_PORT", "no")
-	os.Setenv("NODE_NAME", "no")
-	os.Setenv("NODE_TERMINATION_GRACE_PERIOD", "99999")
-	os.Setenv("INSTANCE_METADATA_URL", "no")
-	os.Setenv("POD_TERMINATION_GRACE_PERIOD", "99999")
-	os.Setenv("WEBHOOK_URL", "no")
-	os.Setenv("WEBHOOK_HEADERS", "no")
-	os.Setenv("WEBHOOK_TEMPLATE", "no")
-	os.Setenv("METADATA_TRIES", "100")
-	os.Setenv("CORDON_ONLY", "true")
+	setEnvForTest("DELETE_LOCAL_DATA", "true")
+	setEnvForTest("DRY_RUN", "false")
+	setEnvForTest("ENABLE_SCHEDULED_EVENT_DRAINING", "false")
+	setEnvForTest("ENABLE_SPOT_INTERRUPTION_DRAINING", "true")
+	setEnvForTest("GRACE_PERIOD", "99999")
+	setEnvForTest("IGNORE_DAEMON_SETS", "true")
+	setEnvForTest("KUBERNETES_SERVICE_HOST", "no")
+	setEnvForTest("KUBERNETES_SERVICE_PORT", "no")
+	setEnvForTest("NODE_NAME", "no")
+	setEnvForTest("NODE_TERMINATION_GRACE_PERIOD", "99999")
+	setEnvForTest("INSTANCE_METADATA_URL", "no")
+	setEnvForTest("POD_TERMINATION_GRACE_PERIOD", "99999")
+	setEnvForTest("WEBHOOK_URL", "no")
+	setEnvForTest("WEBHOOK_HEADERS", "no")
+	setEnvForTest("WEBHOOK_TEMPLATE", "no")
+	setEnvForTest("METADATA_TRIES", "100")
+	setEnvForTest("CORDON_ONLY", "true")
 	os.Args = []string{
 		"cmd",
 		"--delete-local-data=false",
@@ -197,9 +210,9 @@ func TestParseCliArgsOverrides(t *testing.T) {
 
 func TestParseCliArgsWithGracePeriodSuccess(t *testing.T) {
 	resetFlagsForTest()
-	os.Setenv("POD_TERMINATION_GRACE_PERIOD", "")
-	os.Setenv("NODE_NAME", "bla")
-	os.Setenv("GRACE_PERIOD", "12")
+	setEnvForTest("POD_TERMINATION_GRACE_PERIOD", "")
+	setEnvForTest("NODE_NAME", "bla")
+	setEnvForTest("GRACE_PERIOD", "12")
 
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -208,14 +221,54 @@ func TestParseCliArgsWithGracePeriodSuccess(t *testing.T) {
 
 func TestParseCliArgsMissingNodeNameFailure(t *testing.T) {
 	resetFlagsForTest()
-	os.Setenv("NODE_NAME", "")
+	setEnvForTest("NODE_NAME", "")
 	_, err := config.ParseCliArgs()
 	h.Assert(t, err != nil, "Failed to return error when node-name not provided")
 }
 
 func TestParseCliArgsCreateFlagsFailure(t *testing.T) {
 	resetFlagsForTest()
-	os.Setenv("DELETE_LOCAL_DATA", "something not true or false")
+	setEnvForTest("DELETE_LOCAL_DATA", "something not true or false")
 	_, err := config.ParseCliArgs()
 	h.Assert(t, err != nil, "Failed to return error when creating flags")
+}
+
+func TestParseCliArgsAWSSession(t *testing.T) {
+	resetFlagsForTest()
+	setEnvForTest("ENABLE_SQS_TERMINATION_DRAINING", "true")
+	setEnvForTest("AWS_REGION", "us-weast-1")
+	setEnvForTest("NODE_NAME", "node")
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	h.Assert(t, nthConfig.AWSRegion == "us-weast-1", "Should find region as us-weast-1")
+}
+
+func TestPrint_Human(t *testing.T) {
+	resetFlagsForTest()
+	setEnvForTest("NODE_NAME", "node")
+	setEnvForTest("JSON_LOGGING", "false")
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	var printBuf bytes.Buffer
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: &printBuf})
+	nthConfig.Print()
+	var humanBuf bytes.Buffer
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: &humanBuf})
+	nthConfig.PrintHumanConfigArgs()
+	h.Assert(t, humanBuf.String() == printBuf.String(), "Should have printed non-JSON formatted config values")
+}
+
+func TestPrint_JSON(t *testing.T) {
+	resetFlagsForTest()
+	setEnvForTest("NODE_NAME", "node")
+	setEnvForTest("JSON_LOGGING", "true")
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	var printBuf bytes.Buffer
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: &printBuf})
+	nthConfig.Print()
+	var jsonBuf bytes.Buffer
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: &jsonBuf})
+	nthConfig.PrintJsonConfigArgs()
+	h.Assert(t, jsonBuf.String() == printBuf.String(), "Should have printed JSON formatted config values")
 }

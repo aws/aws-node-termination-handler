@@ -32,17 +32,19 @@
 
 ## Project Summary
 
-This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down. This handler can operate in two different modes. The aws-node-termination-handler **DaemonSet** will run a small pod on each host to perform monitoring and react accordingly. The aws-cluster-termination-handler **Deployment** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events and other termination events available. When we detect an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work.
+This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down. 
 
-The termination handler **DaemonSet** watches the [instance metadata service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) to determine when to make requests to the Kubernetes API to mark the node as non-schedulable.  If the maintenance event is a reboot, we also apply a custom label to the node so when it restarts we remove the cordon.
+The aws-node-termination-handler (NTH) can operate in two different modes: Instance Metadata Service (IMDS) or the Queue Processor. 
 
-The termiantion handler **Deployment** requires AWS account credentials to monitor and manage the SQS queue and to query the EC2 API.
+The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events` and react accordingly to drain and/or cordon the corresponding node. 
+
+The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, and Spot Interruption Termination Notice events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termiantion handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API.
 
 You can run the termination handler on any Kubernetes cluster running on AWS, including self-managed clusters and those created with Amazon [Elastic Kubernetes Service](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html).
 
 ## Major Features
 
-### DaemonSet
+### Instance Metadata Service Processor
 
 - Monitors EC2 Metadata for Scheduled Maintenance Events
 - Monitors EC2 Metadata for Spot Instance Termination Notifications
@@ -50,25 +52,27 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
-### Deployment
+### Queue Processor
 
-- Monitors an SQS Queue for EC2 Spot Interruption Notifications
-- Monitors an SQS Queue for EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
+- Monitors an SQS Queue for: 
+   - EC2 Spot Interruption Notifications
+   - EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
+   - EC2 Status Change Events
 - Helm installation and event configuration support
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
 ## Which one should I use? 
 
-If you only want to handle EC2 Spot Interruption Termination Notices and EC2 Scheduled Maintenance Events, and don't mind a DaemonSet running on all the hosts you're monitoring, then the aws-node-termination-handler **DaemonSet** will work great for you!
+If you only want to handle EC2 Spot Interruption Termination Notices and EC2 Scheduled Maintenance Events, and don't mind a DaemonSet running on all the nodes you're monitoring, then the aws-node-termination-handler **IMDS Processor** will work great for you!
 
-If you want to monitor for more events coming from AWS APIs like ASG termination lifecycle events (unhealthy instances, scale-in, az-rebalance, etc), Spot Interruption Termination Notices, and EC2 instance termination via the EC2 API or Console, then the aws-node-termination-handler **Deployment** is the best tool for you! The deployment only runs a couple of replicas to maintain high availability in your cluster, but it does require some more upfront infrastructure. The aws-node-termination-handler **Deployment** requires your ASGs to have termination lifecycle hooks, an Amazon EventBridge rule(s), and an SQS queue. 
+If you want to monitor for more events sourced from AWS APIs like ASG termination lifecycle events (unhealthy instances, scale-in, az-rebalance, etc), Spot Interruption Termination Notices, and EC2 instance termination via the EC2 API or Console, then the aws-node-termination-handler **Queue Processor** is the best tool for you! The deployment only runs a couple of replicas to maintain high availability in your cluster, but it does require some more upfront infrastructure. The aws-node-termination-handler **Queue Processor** requires your ASGs to have termination lifecycle hooks, Amazon EventBridge rule(s), and an SQS queue. 
 
 
 ## Installation and Configuration
 
-<details closed>
-<summary>AWS Node Termination Handler - DaemonSet</summary>
+<details opened>
+<summary>AWS Node Termination Handler - IMDS Processor</summary>
 <br>
 
 ### Installation and Configuration
@@ -146,8 +150,8 @@ For a full list of configuration options see our [Helm readme](https://github.co
 </details>
 
 
-<details close>
-<summary>AWS-Cluster-Termination-Handler Deployment (SQS Monitor)</summary>
+<details closed>
+<summary>AWS Node Termination Handler - Queue Processor (requires AWS IAM Permissions)</summary>
 <br>
 
 ### Infrastructure Setup
@@ -157,7 +161,7 @@ The termination handler deployment requires some infrastructure to be setup befo
 1. AutoScaling Group Termination Lifecycle Hook
 2. Amazon Simple Queue Service (SQS) Queue
 3. Amazon EventBridge Rule
-4. IAM Role for the aws-cluster-termination-handler Pods
+4. IAM Role for the aws-node-termination-handler Queue Processing Pods
 
 #### 1. Setup a Termination Lifecycle Hook on an ASG:
 
@@ -265,7 +269,7 @@ IAM Policy for aws-node-termination-handler Deployment:
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.7.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.7.0/all-resources-queue-processor.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
@@ -282,10 +286,12 @@ helm repo add eks https://aws.github.io/eks-charts
 
 Once that is complete you can install the termination handler. We've provided some sample setup options below.
 
-Zero Config:
+Minimal Config:
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
+  --set enableSqsTerminationDraining=true \
+  --set queueUrl=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   eks/aws-node-termination-handler
 ```
 
@@ -293,6 +299,8 @@ Webhook Configuration:
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
+  --set enableSqsTerminationDraining=true \
+  --set queueUrl=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
   eks/aws-node-termination-handler
 ```
@@ -306,6 +314,8 @@ kubectl create secret -n kube-system generic webhooksecret --from-literal=$WEBHO
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
+  --set enableSqsTerminationDraining=true \
+  --set queueUrl=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURLSecretName=webhooksecret \
   eks/aws-node-termination-handler
 ```

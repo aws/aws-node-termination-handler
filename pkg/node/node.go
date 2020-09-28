@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -101,6 +100,9 @@ func (n Node) CordonAndDrain(nodeName string) error {
 	// Delete all pods on the node
 	log.Log().Msg("Draining the node")
 	node, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return err
+	}
 	err = drain.RunNodeDrain(n.drainHelper, node.Name)
 	if err != nil {
 		return err
@@ -419,9 +421,10 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	}
 
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/hostname=": nodeName}}
-	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(v1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()})
+	listOptions := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(listOptions)
 	if err != nil || len(matchingNodes.Items) == 0 {
-		log.Warn().Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node! %v", err)
+		log.Warn().Err(err).Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node")
 		return n.drainHelper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 	}
 	return &matchingNodes.Items[0], nil
