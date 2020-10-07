@@ -14,11 +14,11 @@ set -euo pipefail
 
 
 function fail_and_exit {
-    echo "❌ ASG Lifecycle SQS Test failed $CLUSTER_NAME ❌"
+    echo "❌ EC2 State Change SQS Test failed $CLUSTER_NAME ❌"
     exit ${1:-1}
 }
 
-echo "Starting ASG Lifecycle SQS Test for Node Termination Handler"
+echo "Starting EC2 State Change SQS Test for Node Termination Handler"
 START_TIME=$(date -u +"%Y-%m-%dT%TZ")
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -67,7 +67,7 @@ run_instances_resp=$(kubectl exec -it $localstack_pod -- bash -c "$RUN_INSTANCE_
 private_dns_name=$(echo $run_instances_resp | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo $run_instances_resp | jq -r '.Instances[] .InstanceId')
 echo "🥑 Started mock EC2 instance ($instance_id) w/ private DNS name: ${private_dns_name}"
-set -x
+
 CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "$CLUSTER_NAME-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
 queue_url=$(kubectl exec -it $localstack_pod -- bash -c "$CREATE_SQS_CMD" | jq -r .QueueUrl)
 
@@ -140,35 +140,35 @@ if [[ $DEPLOYED -eq 0 ]]; then
     fail_and_exit 2
 fi
 
-ASG_TERMINATE_EVENT=$(cat <<EOF
+EC2_STATE_CHANGE_EVENT=$(cat <<EOF
 {
   "version": "0",
-  "id": "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
-  "detail-type": "EC2 Instance-terminate Lifecycle Action",
-  "source": "aws.autoscaling",
+  "id": "7bf73129-1428-4cd3-a780-95db273d1602",
+  "detail-type": "EC2 Instance State-change Notification",
+  "source": "aws.ec2",
   "account": "123456789012",
   "time": "$(date -u +"%Y-%m-%dT%TZ")",
-  "region": "${AWS_REGION}",
+  "region": "us-east-1",
   "resources": [
-    "arn:aws:autoscaling:us-east-1:123456789012:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/nth-integ-test"
+    "arn:aws:ec2:us-east-1:123456789012:instance/${instance_id}"
   ],
   "detail": {
-    "LifecycleActionToken": "0befcbdb-6ecd-498a-9ff7-ae9b54447cd6",
-    "AutoScalingGroupName": "nth-integ-test",
-    "LifecycleHookName": "cluster-termination-handler",
-    "EC2InstanceId": "${instance_id}",
-    "LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+    "instance-id": "${instance_id}",
+    "state": "stopping"
   }
 }
 EOF
 )
 
-ASG_TERMINATE_EVENT_ONE_LINE=$(echo ${ASG_TERMINATE_EVENT} | tr -d '\n' |sed 's/\"/\\"/g')
-SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${ASG_TERMINATE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+EC2_STATE_CHANGE_EVENT_ONE_LINE=$(echo ${EC2_STATE_CHANGE_EVENT} | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${EC2_STATE_CHANGE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
 kubectl exec -it $localstack_pod -- bash -c "$SEND_SQS_CMD"
-echo "✅ Sent Spot Interruption Event to SQS queue: ${queue_url}"
+echo "✅ Sent EC2 State Change Event to SQS queue: ${queue_url}"
+
+GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
 cordoned=0
+evicted=0
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes $test_node | grep SchedulingDisabled > /dev/null; then
@@ -178,9 +178,16 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
 
     if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
         echo "✅ Verified the regular-pod-test pod was evicted!"
-        echo "✅ ASG Lifecycle SQS Test Passed $CLUSTER_NAME! ✅"
+        evicted=1
+    fi
+
+    if [[ ${evicted} -eq 1 && $(kubectl exec -it $localstack_pod -- bash -c "$GET_ATTRS_SQS_CMD" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -it $localstack_pod -- bash -c "$GET_ATTRS_SQS_CMD"
+        echo "✅ Verified the message was deleted from the queue after processing!"
+        echo "✅ EC2 State Change SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
+
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
     sleep $TAINT_CHECK_SLEEP
 done
@@ -191,5 +198,5 @@ else
     echo "❌ regular-pod-test was not evicted"
 fi
 
-echo "❌ ASG Lifecycle SQS Test Failed $CLUSTER_NAME ❌"
+echo "❌ EC2 State Change SQS Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

@@ -176,6 +176,10 @@ $ aws autoscaling put-lifecycle-hook \
   --heartbeat-timeout=300
 ```
 
+By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ key=`aws-node-termination-handler/managed`, the value does not matter and can be empty.
+This is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle. 
+However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
+
 #### 2. Create an SQS Queue:
 
 Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
@@ -252,9 +256,10 @@ IAM Policy for aws-node-termination-handler Deployment:
             "Effect": "Allow",
             "Action": [
                 "autoscaling:CompleteLifecycleAction",
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:DescribeTags",
                 "ec2:DescribeInstances",
                 "sqs:DeleteMessage",
-                "sqs:DeleteMessageBatch",
                 "sqs:ReceiveMessage"
             ],
             "Resource": "*"

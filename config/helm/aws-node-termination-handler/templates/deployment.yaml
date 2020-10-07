@@ -50,6 +50,8 @@ spec:
       serviceAccountName: {{ template "aws-node-termination-handler.serviceAccountName" . }}
       hostNetwork: false
       dnsPolicy: {{ .Values.dnsPolicy | quote }}
+      securityContext:
+        fsGroup: {{ .Values.securityContext.runAsGroupID }}
       containers:
         - name: {{ include "aws-node-termination-handler.name" . }}
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -128,10 +130,12 @@ spec:
             value: {{ .Values.awsRegion | quote }}
           - name: AWS_ENDPOINT
             value: {{ .Values.awsEndpoint | quote }}
+          {{- if .Values.awsSecretAccessKey }}
           - name: AWS_SECRET_ACCESS_KEY
             value: {{ .Values.awsSecretAccessKey | quote }}
           - name: AWS_ACCESS_KEY_ID
             value: {{ .Values.awsAccessKeyID | quote }}
+          {{- end }}
           - name: CHECK_ASG_TAG_BEFORE_DRAINING
             value: {{ .Values.checkASGTagBeforeDraining | quote }}
           resources:

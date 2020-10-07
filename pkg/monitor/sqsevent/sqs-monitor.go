@@ -91,12 +91,21 @@ func (m SQSMonitor) checkForSQSMessage() (*monitor.InterruptionEvent, error) {
 			return nil, err
 		}
 	case "aws.ec2":
-		interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(event, messages)
+		if event.DetailType == "EC2 Instance State-change Notification" {
+			interruptionEvent, err = m.ec2StateChangeToInterruptionEvent(event, messages)
+		} else if event.DetailType == "EC2 Spot Instance Interruption Warning" {
+			interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(event, messages)
+		}
 		if err != nil {
 			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("Event source (%s) is not supported", event.Source)
+	}
+
+	// Bail if empty event is returned after parsing
+	if interruptionEvent.EventID == "" {
+		return nil, nil
 	}
 
 	if m.CheckIfManaged {

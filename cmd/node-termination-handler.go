@@ -135,6 +135,12 @@ func main() {
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
 	}
 	if nthConfig.EnableSQSTerminationDraining {
+		creds, err := nthConfig.AWSSession.Config.Credentials.Get()
+		if err != nil {
+			log.Warn().Err(err).Msg("Unable to get AWS credentials")
+		}
+		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
+
 		sqsMonitor := sqsevent.SQSMonitor{
 			CheckIfManaged:   nthConfig.CheckASGTagBeforeDraining,
 			QueueURL:         nthConfig.QueueURL,
