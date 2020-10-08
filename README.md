@@ -296,7 +296,7 @@ Minimal Config:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set enableSqsTerminationDraining=true \
-  --set queueUrl=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
+  --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   eks/aws-node-termination-handler
 ```
 
@@ -305,7 +305,7 @@ Webhook Configuration:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set enableSqsTerminationDraining=true \
-  --set queueUrl=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
+  --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
   eks/aws-node-termination-handler
 ```
@@ -320,7 +320,7 @@ kubectl create secret -n kube-system generic webhooksecret --from-literal=$WEBHO
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set enableSqsTerminationDraining=true \
-  --set queueUrl=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
+  --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURLSecretName=webhooksecret \
   eks/aws-node-termination-handler
 ```
