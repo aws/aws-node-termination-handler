@@ -164,35 +164,6 @@ echo "🥑 Creating SQS Queue ${SQS_QUEUE_NAME}"
 aws $EXTRA_AWS_PARAMS  sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json 
 echo "✅ Finished creating SQS Queue ${SQS_QUEUE_NAME}"
 
-# echo "🥑 Setting IAM policy so that we can retrieve SQS messages"
-# cat << EOF > /tmp/term-event-policy.json
-# {
-#     "Version": "2012-10-17",
-#     "Statement": [
-#         {
-#             "Effect": "Allow",
-#             "Action": [
-#                 "sqs:SendMessage"
-#             ],
-#             "Resource": [
-#                 "arn:aws:sqs:${AWS_REGION}:${ACCOUNT_ID}:${SQS_QUEUE_NAME}"
-#             ]
-#         }
-#     ]
-# }
-# EOF
-
-# echo "🥑 Setting role policy for IAM role"
-# cat << EOF > /tmp/assume-term-event-role-policy.json
-# {
-#     "Version": "2012-10-17",
-#     "Statement": {
-#         "Effect": "Allow",
-#         "Principal": {"Service": "events.amazonaws.com"},
-#         "Action": "sts:AssumeRole"
-#     }
-# }
-# EOF
 
 ### SETUP ASG Lifecycle Termination Hooks ###
 echo "🥑 Adding lifecycle hooks to ASGs in cluster ${CLUSTER_NAME}"

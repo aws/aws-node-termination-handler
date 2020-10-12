@@ -38,7 +38,7 @@ The aws-node-termination-handler (NTH) can operate in two different modes: Insta
 
 The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events` and react accordingly to drain and/or cordon the corresponding node. 
 
-The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, and Spot Interruption Termination Notice events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termiantion handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API.
+The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, and Spot Interruption Termination Notice events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termiantion handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API. The queue processor mode is currently in a beta preview, but we'd love your feedback on it!
 
 You can run the termination handler on any Kubernetes cluster running on AWS, including self-managed clusters and those created with Amazon [Elastic Kubernetes Service](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html).
 
@@ -152,6 +152,8 @@ For a full list of configuration options see our [Helm readme](https://github.co
 
 <details closed>
 <summary>AWS Node Termination Handler - Queue Processor (requires AWS IAM Permissions)</summary>
+
+## NOTE: THIS FUNCTIONALITY IS CURRENTLY IN BETA
 <br>
 
 ### Infrastructure Setup
@@ -176,11 +178,29 @@ $ aws autoscaling put-lifecycle-hook \
   --heartbeat-timeout=300
 ```
 
-By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ key=`aws-node-termination-handler/managed`, the value does not matter and can be empty.
-This is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle. 
+#### 2. Tag the ASGs:
+
+By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
+
+```
+$ aws autoscaling create-or-update-tags \
+  --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
+```
+
+The value of the key does not matter.
+
+This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle. 
 However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
 
-#### 2. Create an SQS Queue:
+You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules. 
+
+Take a look at the docs on how to create rules that only manage certain ASGs here: https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html 
+
+See all the different events docs here: https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types
+
+
+
+#### 3. Create an SQS Queue:
 
 Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
@@ -218,7 +238,7 @@ EOF
 $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json 
 ```
 
-#### 3. Create an Amazon EventBridge Rule
+#### 4. Create an Amazon EventBridge Rule
 
 Here is the AWS CLI command to create an Amazon EventBridge rule so that ASG termination events are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
@@ -238,7 +258,7 @@ $ aws events put-targets --rule MyK8sSpotTermRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 
-#### 4. Create an IAM Role for the Pods
+#### 5. Create an IAM Role for the Pods
 
 There are many different ways to allow the aws-node-termination-handler pods to assume a role:
 

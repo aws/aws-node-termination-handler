@@ -100,6 +100,7 @@ func main() {
 			nthConfig.AWSSession.Config.Region = &nodeMetadata.Region
 		}
 	} else if nthConfig.AWSRegion == "" && nodeMetadata.Region == "" && nthConfig.EnableSQSTerminationDraining {
+		nthConfig.Print()
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
 	nthConfig.Print()
