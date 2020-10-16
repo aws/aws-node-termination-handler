@@ -1,0 +1,55 @@
+cat << EOF > /tmp/spot-fleet-config.json
+{
+    "IamFleetRole": "arn:aws:iam::${ACCOUNT_ID}:role/aws-ec2-spot-fleet-tagging-role",
+    "AllocationStrategy": "capacityOptimized",
+    "TargetCapacity": 4,
+    "ValidFrom": "$(date -u +"%Y-%m-%dT%TZ")",
+    "ValidUntil": "2021-10-08T01:01:48Z",
+    "TerminateInstancesWithExpiration": true,
+    "LaunchSpecifications": [],
+    "Type": "request",
+    "LaunchTemplateConfigs": [
+        {
+            "LaunchTemplateSpecification": {
+                "LaunchTemplateId": "${LAUNCH_TEMPLATE_ID}",
+                "Version": "1"
+            },
+            "Overrides": [
+                {
+                    "InstanceType": "m5.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                },
+                {
+                    "InstanceType": "m5dn.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                },
+                {
+                    "InstanceType": "m5a.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                },
+                {
+                    "InstanceType": "r5ad.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                },
+                {
+                    "InstanceType": "m5n.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                },
+                {
+                    "InstanceType": "r5a.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                }
+            ]
+        }
+    ]
+}
+EOF
+
+
+
