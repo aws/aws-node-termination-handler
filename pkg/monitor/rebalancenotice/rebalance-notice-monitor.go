@@ -46,7 +46,7 @@ func NewRebalanceNoticeMonitor(imds *ec2metadata.Service, interruptionChan chan<
 	}
 }
 
-// Monitor continuously monitors metadata for spot ITNs and sends interruption events to the passed in channel
+// Monitor continuously monitors metadata for rebalance notices and sends interruption events to the passed in channel
 func (m RebalanceNoticeMonitor) Monitor() error {
 	interruptionEvent, err := m.checkForRebalanceNotice()
 	if err != nil {
@@ -63,7 +63,7 @@ func (m RebalanceNoticeMonitor) Kind() string {
 	return RebalanceNoticeKind
 }
 
-// checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
+// checkForRebalanceNotice Checks EC2 instance metadata for a rebalance notice
 func (m RebalanceNoticeMonitor) checkForRebalanceNotice() (*monitor.InterruptionEvent, error) {
 	rebalanceNotice, err := m.IMDS.GetRebalanceNoticeEvent()
 	if rebalanceNotice == nil && err == nil {
@@ -71,10 +71,10 @@ func (m RebalanceNoticeMonitor) checkForRebalanceNotice() (*monitor.Interruption
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("There was a problem checking for spot ITNs: %w", err)
+		return nil, fmt.Errorf("There was a problem checking for rebalance notices: %w", err)
 	}
 	nodeName := m.NodeName
-	interruptionTime, err := time.Parse(time.RFC3339, rebalanceNotice.NoticeTime)
+	noticeTime, err := time.Parse(time.RFC3339, rebalanceNotice.NoticeTime)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse time from rebalance notice metadata json: %w", err)
 	}
@@ -86,7 +86,7 @@ func (m RebalanceNoticeMonitor) checkForRebalanceNotice() (*monitor.Interruption
 	return &monitor.InterruptionEvent{
 		EventID:      fmt.Sprintf("rebalance-notice-%x", hash.Sum(nil)),
 		Kind:         RebalanceNoticeKind,
-		StartTime:    interruptionTime,
+		StartTime:    noticeTime,
 		NodeName:     nodeName,
 		Description:  fmt.Sprintf("Rebalance notice received. Instance will be cordoned at %s \n", rebalanceNotice.NoticeTime),
 		PreDrainTask: setInterruptionTaint,

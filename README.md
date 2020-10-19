@@ -47,6 +47,7 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 ### Instance Metadata Service Processor
 - Monitors EC2 Metadata for Scheduled Maintenance Events
 - Monitors EC2 Metadata for Spot Instance Termination Notifications
+- Monitors EC2 Metadata for Rebalance Recommendation Notifications
 - Helm installation and event configuration support
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
@@ -61,7 +62,7 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Unit & Integration Tests
 
 ## Which one should I use? 
-If you only want to handle EC2 Spot Interruption Termination Notices and EC2 Scheduled Maintenance Events, and don't mind a DaemonSet running on all the nodes you're monitoring, then the aws-node-termination-handler **IMDS Processor** will work great for you!
+If you only want to handle EC2 Spot Interruption Termination Notices, EC2 Scheduled Maintenance Events, and EC2 Rebalance Recommendation Notices, and don't mind a DaemonSet running on all the nodes you're monitoring, then the aws-node-termination-handler **IMDS Processor** will work great for you!
 
 If you want to monitor for more events sourced from AWS APIs like ASG termination lifecycle events (unhealthy instances, scale-in, az-rebalance, etc), Spot Interruption Termination Notices, and EC2 instance termination via the EC2 API or Console, then the aws-node-termination-handler **Queue Processor** is the best tool for you! The deployment only runs a couple of replicas to maintain high availability in your cluster, but it does require some more upfront infrastructure. The aws-node-termination-handler **Queue Processor** requires your ASGs to have termination lifecycle hooks, Amazon EventBridge rule(s), and an SQS queue. 
 
@@ -109,6 +110,7 @@ Enabling Features:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set enableSpotInterruptionDraining="true" \
+  --set enableRebalanceMonitoring="true" \
   --set enableScheduledEventDraining="false" \
   eks/aws-node-termination-handler
 ```
@@ -369,6 +371,7 @@ The termination handler relies on the following metadata endpoints to function p
 ```
 /latest/dynamic/instance-identity/document
 /latest/meta-data/spot/instance-action
+/latest/meta-data/events/recommendations/rebalance
 /latest/meta-data/events/maintenance/scheduled
 /latest/meta-data/instance-id
 /latest/meta-data/instance-type
