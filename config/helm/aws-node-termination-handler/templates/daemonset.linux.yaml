@@ -146,6 +146,8 @@ spec:
             value: {{ .Values.enableSpotInterruptionDraining | quote }}
           - name: ENABLE_SCHEDULED_EVENT_DRAINING
             value: {{ .Values.enableScheduledEventDraining | quote }}
+          - name: ENABLE_REBALANCE_MONITORING
+            value: {{ .Values.enableRebalanceMonitoring | quote }}
           - name: METADATA_TRIES
             value: {{ .Values.metadataTries | quote }}
           - name: CORDON_ONLY
