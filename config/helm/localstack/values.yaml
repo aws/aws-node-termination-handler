@@ -1,0 +1,23 @@
+nameOverride: ""
+fullnameOverride: ""
+priorityClassName: system-node-critical
+podAnnotations: {}
+rbac:
+    pspEnabled: true
+serviceAccount:
+    name: ls-sa
+    create: true
+    annotations: {}
+
+label: localstack
+port: 80
+containerPort: 4566
+image:
+  repository: localstack/localstack-light
+  tag: 0.11.2@sha256:d14cc1102e61c6daf6d416e3c9b0f3a7bc78330e93afdd9dfa6a461e776bb8a1
+  pullPolicy: IfNotPresent
+tolerations:
+  - operator: "Exists"
+nodeSelector: {}
+services: "events,sqs,ec2"
+defaultRegion: "us-east-1"

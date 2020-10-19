@@ -12,3 +12,4 @@ nodes:
         extraArgs:
           "enable-admission-plugins": "NodeRestriction,PodSecurityPolicy"
 - role: worker
+- role: worker

@@ -1,0 +1,389 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+export AWS_PAGER=""
+export AWS_REGION=""
+ENDPOINT_URL="" #"--endpoint-url=http://localhost:4566" <- This is for localstack
+EXTRA_AWS_PARAMS=""
+DELETE=0
+FLEET=0
+ACCOUNT_ID=""
+CLUSTER_NAME=""
+SQS_QUEUE_NAME="MyK8sTermQueue"
+EVENTBRIDGE_ASG_RULE_NAME="MyK8sASGTermRule"
+EVENTBRIDGE_SPOT_RULE_NAME="MyK8sSpotTermRule"
+EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME="MyK8sEC2StateChangeRule"
+LIFECYCLE_HOOK_NAME="my-k8s-term-hook"
+IAM_POLICY="term-event-policy"
+ROLE_NAME="term-event-role"
+POLICY_NAME="cth"
+RAND_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
+VERSION="v1.0.0-${RAND_ID}"
+SERVICE_ACCOUNT_NAME="aws-queue-processor-aws-node-termination-handler"
+
+USAGE=$(cat << EOM
+  Usage: `basename $0` [-n <name>] [-s] [-w] [-h]
+  Installs NTH from a local repo on a k8s cluster .
+  The script also provisions SQS, EventBridge, and EC2 ASG Lifecycle Hook resources.
+
+  Example: cth-setup -r my-test-cluster
+
+          Required:
+            -n          Name of the cluster (default is a random ID)
+            -r          Region (default us-east-2)
+
+          Optional:
+            -a          Account ID
+            -s          SQS Queue Name
+            -f          Add a Spot Fleet Node Group
+            -d          Delete infrastructure
+            -v          Verbose output
+            -h          Show this usage help
+EOM
+)
+
+usage() {
+  echo "$USAGE" 1>&2
+  exit "$1"
+}
+
+# Process our input arguments
+while getopts "hn:r:a:s:vdf" opt; do
+  case ${opt} in
+    a ) # Account ID
+        ACCOUNT_ID="${OPTARG}"
+      ;;
+    n ) # Name
+        CLUSTER_NAME="${OPTARG}"
+      ;;
+    s ) # SQS Queue Name?
+        SQS_QUEUE_NAME="${OPTARG}"
+      ;;
+    r ) # AWS Region
+        AWS_REGION="${OPTARG}"
+      ;;
+    d ) # Delete infa
+        DELETE=1
+      ;;
+    f ) # Spot Fleet for ITN testing
+        FLEET=1
+      ;;
+    v ) # VERBOSE
+        set -x
+      ;;
+    h ) # HELP
+        usage 0
+      ;;
+    \? )
+        usage 1
+      ;;
+  esac
+done
+
+if [[ -n "${ENDPOINT_URL}" ]]; then
+    EXTRA_AWS_PARAMS=" ${ENDPOINT_URL}"
+fi
+
+if [[ -z "${AWS_REGION}" ]]; then
+    echo "You must specify a region w/ -r"
+    exit 1
+fi
+
+if [[ -z "${CLUSTER_NAME}" ]]; then
+    echo "You must specify the cluster name w/ -n"
+    exit 1
+fi
+
+ECR_PLAYGROUND_REPO="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+POD_ROLE="cth-${CLUSTER_NAME}-role"
+
+ACTUAL_ACCOUNT_ID=$(aws sts get-caller-identity | jq -r .Account)
+if [[ "${ACTUAL_ACCOUNT_ID}" != "${ACCOUNT_ID}" ]]; then
+  echo "Credentials are for ${ACTUAL_ACCOUNT_ID} but you specified ${ACCOUNT_ID}"
+  echo "Setup credentials for ${ACCOUNT_ID} or correct the -a argument"
+  exit 1
+fi
+
+function printParams() {
+  echo "======================================================================"
+  echo "Using the following parameters: "
+  echo "                    AWS Account ID: ${ACCOUNT_ID}"
+  echo "                        AWS Region: ${AWS_REGION}"
+  echo "                           Cluster: ${CLUSTER_NAME}"
+  echo "                         SQS Queue: ${SQS_QUEUE_NAME}"
+  echo "              EventBridge ASG Rule: ${EVENTBRIDGE_ASG_RULE_NAME}"
+  echo "             EventBridge Spot Rule: ${EVENTBRIDGE_SPOT_RULE_NAME}"
+  echo " EventBridge EC2 State Change Rule: ${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}"
+  echo "                ASG Lifecycle Hook: ${LIFECYCLE_HOOK_NAME}"
+  echo "                        IAM Policy: ${IAM_POLICY}"
+  echo "                          IAM Role: ${ROLE_NAME}"
+  echo "                          ECR REPO: ${ECR_PLAYGROUND_REPO}"
+  echo "                     NTH++ Version: ${VERSION}"
+  echo "                          Pod Role: ${POD_ROLE}"
+  echo "                   Pod Role Policy: ${POLICY_NAME}"
+  echo "                   Service Account: ${SERVICE_ACCOUNT_NAME}"
+  echo "                             FLEET: ${FLEET}"
+  echo "======================================================================"
+}
+printParams
+echo "sleeping for 20 secs for review of the following parameters, abort w/ CTRL + c"
+sleep 20
+
+function deleteInfra() {
+    aws $EXTRA_AWS_PARAMS  sqs delete-queue --queue-url "https://sqs.${AWS_REGION}.amazonaws.com/${ACCOUNT_ID}/${SQS_QUEUE_NAME}" && sleep 50 || :
+
+    asgs=()
+    read -r -a asgs <<< "$(aws $EXTRA_AWS_PARAMS  autoscaling describe-tags --filters "Name=Value,Values=${CLUSTER_NAME}" | jq -r '.Tags[] .ResourceId' || : ))"
+    for asg in "${asgs[@]-}"; do 
+    aws $EXTRA_AWS_PARAMS  autoscaling delete-lifecycle-hook \
+        --lifecycle-hook-name="${LIFECYCLE_HOOK_NAME}" \
+        --auto-scaling-group-name=${asg} || :
+    done
+
+    aws $EXTRA_AWS_PARAMS  events remove-targets --rule "${EVENTBRIDGE_ASG_RULE_NAME}" --ids=1 || :
+    aws $EXTRA_AWS_PARAMS  events delete-rule --name "${EVENTBRIDGE_ASG_RULE_NAME}" || :
+    aws $EXTRA_AWS_PARAMS  events remove-targets --rule "${EVENTBRIDGE_SPOT_RULE_NAME}" --ids=1 || :
+    aws $EXTRA_AWS_PARAMS  events delete-rule --name "${EVENTBRIDGE_SPOT_RULE_NAME}" || :
+    aws $EXTRA_AWS_PARAMS  events remove-targets --rule "${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}" --ids=1 || :
+    aws $EXTRA_AWS_PARAMS  events delete-rule --name "${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}" || :
+
+    aws $EXTRA_AWS_PARAMS iam delete-role-policy --role-name "${POD_ROLE}" --policy-name "${POLICY_NAME}" || :
+    aws $EXTRA_AWS_PARAMS iam delete-role --role-name "${POD_ROLE}" || :
+}
+
+echo "🥑 Checking for resources from a previous run, if any are found, they will be deleted"
+deleteInfra
+echo "✅ Resources were cleaned up"
+if [[ "${DELETE}" -eq 1 ]]; then
+  echo "✅ Exiting since -d was specified."
+  exit 0
+fi
+
+echo "🥑 Setting SQS queue policy"
+QUEUE_POLICY=$(cat <<EOF
+{
+    "Version": "2012-10-17",
+    "Id": "MyQueuePolicy",
+    "Statement": [{                     
+        "Effect": "Allow",
+        "Principal": {
+            "Service": ["events.amazonaws.com", "sqs.amazonaws.com"]
+        },
+        "Action": "sqs:SendMessage",
+        "Resource": [
+            "arn:aws:sqs:${AWS_REGION}:${ACCOUNT_ID}:${SQS_QUEUE_NAME}"
+        ]
+    }]
+}
+EOF
+)
+
+echo "$QUEUE_POLICY" | jq . 
+
+echo "🥑 Setting SQS queue attributes"
+cat << EOF > /tmp/queue-attributes.json
+{
+  "MessageRetentionPeriod": "600",
+  "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g')"
+}
+EOF
+echo "🥑 Creating SQS Queue ${SQS_QUEUE_NAME}"
+aws $EXTRA_AWS_PARAMS  sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json 
+echo "✅ Finished creating SQS Queue ${SQS_QUEUE_NAME}"
+
+### SETUP ASG Lifecycle Termination Hooks ###
+echo "🥑 Adding lifecycle hooks to ASGs in cluster ${CLUSTER_NAME}"
+asgs=()
+read -r -a asgs <<< "$(aws $EXTRA_AWS_PARAMS  autoscaling describe-tags --filters "Name=Value,Values=${CLUSTER_NAME}" | jq -r '.Tags[] .ResourceId' || : ))"
+for asg in "${asgs[@]-}"; do 
+  echo "🥑 Adding lifecycle hook to ${asg}"
+  aws $EXTRA_AWS_PARAMS  autoscaling put-lifecycle-hook \
+    --lifecycle-hook-name="${LIFECYCLE_HOOK_NAME}" \
+    --auto-scaling-group-name=${asg} \
+    --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+    --default-result=CONTINUE \
+    --heartbeat-timeout=300
+  echo "✅ Added lifecycle hook to ${asg}"
+done
+echo "✅ Added all lifecycle hooks to ASGs in cluster ${CLUSTER_NAME}"
+
+
+### SETUP Amazon EventBridge Rules ###
+echo "🥑 Setting up EventBridge rules"
+echo "🥑 Setting up EventBridge rule for ASG"
+aws $EXTRA_AWS_PARAMS  events put-rule \
+  --name "${EVENTBRIDGE_ASG_RULE_NAME}" \
+  --event-pattern "{\"source\":[\"aws.autoscaling\"],\"detail-type\":[\"EC2 Instance-terminate Lifecycle Action\"]}"
+echo "✅ Finished creating ASG EventBridge Rule"
+
+echo "🥑 Setting up EventBridge rule to target the SQS queue ${SQS_QUEUE_NAME}"
+aws $EXTRA_AWS_PARAMS  events put-targets --rule "${EVENTBRIDGE_ASG_RULE_NAME}" \
+  --targets "Id=1,Arn=arn:aws:sqs:${AWS_REGION}:${ACCOUNT_ID}:${SQS_QUEUE_NAME}"
+echo "✅ Finished setting up EventBridge rule to target the SQS queue ${SQS_QUEUE_NAME}"
+
+echo "🥑 Setting up EventBridge rule for Spot ITN"
+aws $EXTRA_AWS_PARAMS  events put-rule \
+  --name "${EVENTBRIDGE_SPOT_RULE_NAME}" \
+  --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Spot Instance Interruption Warning\"]}"
+echo "✅ Finished setting up EventBridge rule for Spot ITN"
+
+echo "🥑 Setting up EventBridge rule to target the SQS queue ${SQS_QUEUE_NAME}"
+aws $EXTRA_AWS_PARAMS  events put-targets --rule "${EVENTBRIDGE_SPOT_RULE_NAME}" \
+  --targets "Id=1,Arn=arn:aws:sqs:${AWS_REGION}:${ACCOUNT_ID}:${SQS_QUEUE_NAME}"
+echo "✅ Finished setting up EventBridge rule to target the SQS queue ${SQS_QUEUE_NAME}"
+
+echo "🥑 Setting up EventBridge rule for EC2 State Change"
+aws $EXTRA_AWS_PARAMS  events put-rule \
+  --name "${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}" \
+  --event-pattern "{\"source\":[\"aws.ec2\"],\"detail-type\":[\"EC2 Instance State-change Notification\"]}"
+echo "✅ Finished creating EC2 State Change EventBridge Rule"
+
+echo "🥑 Setting up EventBridge rule to target the SQS queue ${SQS_QUEUE_NAME}"
+aws $EXTRA_AWS_PARAMS  events put-targets --rule "${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}" \
+  --targets "Id=1,Arn=arn:aws:sqs:${AWS_REGION}:${ACCOUNT_ID}:${SQS_QUEUE_NAME}"
+echo "✅ Finished setting up EventBridge rule to target the SQS queue ${SQS_QUEUE_NAME}"
+
+echo "✅ Finished Setting up EventBridge rules"
+
+### Build and Upload Docker Image to ECR ###
+
+echo "🥑 Building CTH docker image locally targeting linux/amd64"
+$SCRIPTPATH/../../scripts/build-docker-images -p linux/amd64 -d -r "${ECR_PLAYGROUND_REPO}/cth" -v "${VERSION}"
+echo "✅ Finished Building CTH docker image locally targeting linux/amd64 ${ECR_PLAYGROUND_REPO}/cth:${VERSION}"
+
+echo "🥑 Authing to ECR repo ${ECR_PLAYGROUND_REPO}"
+aws $EXTRA_AWS_PARAMS  ecr get-login-password | docker login --username AWS $EXTRA_AWS_PARAMS  --password-stdin "${ECR_PLAYGROUND_REPO}"
+echo "✅ AuthN to ECR repo ${ECR_PLAYGROUND_REPO}-linux-amd64 succeeded"
+
+echo "🥑 Pushing docker image to ${ECR_PLAYGROUND_REPO}/cth:${VERSION}-linux-amd64"
+docker push "${ECR_PLAYGROUND_REPO}/cth:${VERSION}-linux-amd64"
+echo "✅ Successfully pushed docker image to ${ECR_PLAYGROUND_REPO}/cth:${VERSION}-linux-amd64"
+
+### Install into cluster via Helm ###
+echo "🥑 Installing CTH into cluster via Helm"
+helm uninstall aws-queue-processor -n kube-system || :
+helm upgrade --install aws-queue-processor \
+  --namespace kube-system \
+  --set queueURL="https://sqs.${AWS_REGION}.amazonaws.com/${ACCOUNT_ID}/${SQS_QUEUE_NAME}" \
+  --set image.repository="${ECR_PLAYGROUND_REPO}/cth" \
+  --set image.tag="${VERSION}-linux-amd64" \
+  --set enableSqsTerminationDraining="true" \
+  --force \
+  --wait \
+  $SCRIPTPATH/../../config/helm/aws-node-termination-handler/
+echo "✅ Successfully installed CTH into cluster via Helm"
+
+echo "🥑 Getting OIDC Provider of the EKS cluster"
+OIDC_PROVIDER=$(aws eks describe-cluster --name "${CLUSTER_NAME}" --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
+echo "🥑 OIDC Provider is ${OIDC_PROVIDER}"
+set -x
+cat << EOF > /tmp/trust.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::${ACCOUNT_ID}:oidc-provider/${OIDC_PROVIDER}"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "${OIDC_PROVIDER}:sub": "system:serviceaccount:kube-system:${SERVICE_ACCOUNT_NAME}"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+echo "🥑 Creating IAM role"
+aws $EXTRA_AWS_PARAMS iam create-role --role-name "${POD_ROLE}" --assume-role-policy-document file:///tmp/trust.json
+cat << EOF > /tmp/cth-node-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:CompleteLifecycleAction",
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:DescribeTags",
+                "ec2:DescribeInstances",
+                "sqs:DeleteMessage",
+                "sqs:ReceiveMessage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+echo "✅ Created IAM role"
+
+echo "🥑 Creating IAM Policy"
+aws $EXTRA_AWS_PARAMS iam put-role-policy --role-name "${POD_ROLE}" --policy-name "${POLICY_NAME}" --policy-document file:///tmp/cth-node-policy.json 
+kubectl annotate serviceaccount -n kube-system \
+    ${SERVICE_ACCOUNT_NAME} \
+    eks.amazonaws.com/role-arn=arn:aws:iam::${ACCOUNT_ID}:role/${POD_ROLE}
+echo "✅ Created IAM Policy"
+
+if [[ "${FLEET}" -eq 1 ]]; then
+  asgs=()
+  read -r -a asgs <<< "$(aws $EXTRA_AWS_PARAMS  autoscaling describe-tags --filters "Name=Value,Values=${CLUSTER_NAME}" | jq -r '.Tags[] .ResourceId' || : ))"
+  asg_details=$(aws $EXTRA_AWS_PARAMS autoscaling describe-auto-scaling-groups --auto-scaling-group-names "${asgs[0]}")
+  LAUNCH_TEMPLATE_ID=$(echo "$asg_details" | jq -r .AutoScalingGroups[0].LaunchTemplate.LaunchTemplateId)
+  SUBNET_ID=$(echo "$asg_details" | jq -r .AutoScalingGroups[0].VPCZoneIdentifier | cut -d',' -f1)
+  cat << EOF > /tmp/spot-fleet-config.json
+{
+    "IamFleetRole": "arn:aws:iam::${ACCOUNT_ID}:role/aws-ec2-spot-fleet-tagging-role",
+    "AllocationStrategy": "capacityOptimized",
+    "TargetCapacity": 4,
+    "ValidFrom": "$(date -u +"%Y-%m-%dT%TZ")",
+    "ValidUntil": "2021-10-08T01:01:48Z",
+    "TerminateInstancesWithExpiration": true,
+    "LaunchSpecifications": [],
+    "Type": "maintain",
+    "LaunchTemplateConfigs": [
+        {
+            "LaunchTemplateSpecification": {
+                "LaunchTemplateId": "${LAUNCH_TEMPLATE_ID}",
+                "Version": "1"
+            },
+            "Overrides": [
+                {
+                    "InstanceType": "m5.large",
+                    "WeightedCapacity": 1,
+                    "SubnetId": "${SUBNET_ID}"
+                }
+            ]
+        }
+    ]
+}
+EOF
+  echo "🥑 Creating Spot Fleet"
+  FLEET_ID=$(aws $EXTRA_AWS_PARAMS ec2 request-spot-fleet --spot-fleet-request-config file:///tmp/spot-fleet-config.json | jq -r .SpotFleetRequestId)
+  echo "✅ Spot Fleet Created!"
+  echo "🥑 Waiting for instances to come online"
+  sleep 20
+  instances=()
+  read -r -a instances <<< "$(aws $EXTRA_AWS_PARAMS ec2 describe-spot-fleet-instances --spot-fleet-request-id ${FLEET_ID} | jq -r '.ActiveInstances[] .InstanceId')"
+  max_size=$(echo "${asg_details}" | jq -r '.AutoScalingGroups[0].MaxSize')
+  num_of_spot_instances="${#instances[*]}"
+  aws $EXTRA_AWS_PARAMS autoscaling update-auto-scaling-group --auto-scaling-group-name ${asgs[0]} --max-size $((max_size + num_of_spot_instances))
+  echo "🥑 Attaching spot fleet instances to node group ASG (${instances[*]})"
+  for instance in "${instances[@]}"; do
+    aws $EXTRA_AWS_PARAMS autoscaling attach-instances --auto-scaling-group-name ${asgs[0]} --instance-ids "${instance}"
+  done
+  echo "✅ Attached spot fleet instances to ASG"
+fi
+
+echo "🥑 Restarting CTH Pod"
+sleep 10
+kubectl delete pods -n kube-system -l k8s-app=aws-node-termination-handler
+echo "✅ Restarted CTH Pod"
+
+echo "🥂 Happy Testing!"
+
+printParams

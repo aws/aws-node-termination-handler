@@ -33,10 +33,29 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-## enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received
+# enableSqsTerminationDraining If true, drain nodes when an SQS termination event is received 
+enableSqsTerminationDraining: false
+
+# queueURL Listens for messages on the specified SQS queue URL
+queueURL: ""
+
+# checkASGTagBeforeDraining  If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node
+checkASGTagBeforeDraining: true
+
+# awsRegion If specified, use the AWS region for AWS API calls
+awsRegion: ""
+
+# awsEndpoint If specified, use the AWS endpoint to make API calls.
+awsEndpoint: ""
+
+# These should only be used for testing w/ localstack!
+awsSecretAccessKey:
+awsAccessKeyID:
+
+# enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received
 enableSpotInterruptionDraining: ""
 
-## enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
+# enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
 enableScheduledEventDraining: ""
 
 # Total number of times to try making the metadata request before failing.
@@ -51,7 +70,7 @@ taintNode: false
 # Log messages in JSON format.
 jsonLogging: false
 
-## dryRun tells node-termination-handler to only log calls to kubernetes control plane
+# dryRun tells node-termination-handler to only log calls to kubernetes control plane
 dryRun: false
 
 # deleteLocalData tells kubectl to continue even if there are pods using

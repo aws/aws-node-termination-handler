@@ -14,7 +14,7 @@ This doc details how the end-to-end (e2e) tests work for aws-node-termination-ha
 
 The e2e tests can be run on a local cluster or an eks cluster using one of the following `make` targets:
  * `make e2e-test`
-	* creates a [local kind cluster](https://github.com/aws/aws-node-termination-handler/blob/master/test/k8s-local-cluster-test/kind-two-node-cluster.yaml)
+	* creates a [local kind cluster](https://github.com/aws/aws-node-termination-handler/blob/master/test/k8s-local-cluster-test/kind-three-node-cluster.yaml)
 	
 * `make eks-cluster-test`
   * creates an [eks cluster](https://github.com/aws/aws-node-termination-handler/blob/master/test/eks-cluster-test/cluster-spec.yaml) 

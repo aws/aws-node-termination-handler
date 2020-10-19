@@ -2,6 +2,8 @@
 set -euo pipefail
 
 START=$(date +%s)
+START_FOR_QUERYING=$(date -u +"%Y-%m-%dT%TZ")
+export START_FOR_QUERYING
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 CLUSTER_NAME_BASE="nth-test"
 PRESERVE=false
@@ -20,12 +22,12 @@ AEMM_VERSION="1.6.0"
 AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
 WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local"}
 
-ASSERTION_SCRIPTS=$(find $SCRIPTPATH/../e2e -type f | sort)
+ASSERTION_SCRIPTS=$(find "$SCRIPTPATH/../e2e" -type f | sort)
 
 function timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
 
 function relpath() {
-  perl -e 'use File::Spec; print File::Spec->abs2rel(@ARGV) . "\n"' $1 $2
+  perl -e 'use File::Spec; print File::Spec->abs2rel(@ARGV) . "\n"' "$1" "$2"
 }
 
 function retry {
@@ -38,9 +40,9 @@ function retry {
   until "$@"; do
     exit=$?
     set -e
-    wait=$((2 ** $count))
-    count=$(($count + 1))
-    if [ $count -lt $retries ]; then
+    wait=$((2 ** count))
+    count=$((count + 1))
+    if [ $count -lt "$retries" ]; then
       echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
       sleep $wait
     else
@@ -55,7 +57,7 @@ export -f retry
 
 function clean_up {
     if [[ "$PRESERVE" == false ]]; then
-        $SCRIPTPATH/../k8s-local-cluster-test/delete-cluster $DELETE_CLUSTER_ARGS || :
+        "$SCRIPTPATH/../k8s-local-cluster-test/delete-cluster" "$DELETE_CLUSTER_ARGS" || :
         return
     fi
     echo "To resume test with the same cluster use: \"-c $TMP_DIR\""""
@@ -64,9 +66,9 @@ function clean_up {
 function exit_and_fail {
     local pod_id
     pod_id=$(get_nth_worker_pod || :)
-    kubectl logs $pod_id --namespace kube-system || :
+    kubectl logs "$pod_id" --namespace kube-system || :
     END=$(date +%s)
-    echo "⏰ Took $(expr $END - $START)sec"
+    echo "⏰ Took $((END - START))sec"
     echo "❌ NTH Integration Test FAILED $CLUSTER_NAME! ❌"
     exit 1
 }
@@ -74,17 +76,18 @@ function exit_and_fail {
 function reset_cluster {
     echo "Resetting cluster"
     charts=$(helm ls --all --short)
-    if [[ ! -z "$charts" ]]; then
+    if [[ -n "$charts" ]]; then
         helm del $charts --no-hooks || :
     fi
     system_charts=$(helm ls --all --short --namespace kube-system)
-    if [[ ! -z "$system_charts" ]]; then
+    if [[ -n "$system_charts" ]]; then
         helm del $system_charts --no-hooks --namespace kube-system || :
     fi
     for node in $(kubectl get nodes | tail -n+2 | cut -d' ' -f1); do
-        kubectl uncordon $node
-        kubectl taint node $node aws-node-termination-handler/scheduled-maintenance- || true
-        kubectl taint node $node aws-node-termination-handler/spot-itn- || true
+        kubectl uncordon "$node"
+        kubectl taint node "$node" aws-node-termination-handler/scheduled-maintenance- || true
+        kubectl taint node "$node" aws-node-termination-handler/spot-itn- || true
+        kubectl taint node "$node" aws-node-termination-handler/asg-lifecycle-termination- || true
     done
     remove_labels || :
     sleep 2
@@ -102,7 +105,7 @@ function remove_labels {
       for l in "${labels_to_remove[@]}"; do
         for n in $(kubectl get nodes -o json | jq -r '.items[].metadata.name'); do
           echo "Deleting label $l on node $n"
-          kubectl label node $n "$l"-
+          kubectl label node "$n" "$l"-
         done
       done
     fi
@@ -111,9 +114,10 @@ function remove_labels {
 function get_nth_worker_pod {
     kubectl get pods -n kube-system \
       --selector 'app.kubernetes.io/name=aws-node-termination-handler' \
-      --field-selector="spec.nodeName=$CLUSTER_NAME-worker,status.phase=Running" \
+      --field-selector="status.phase=Running" \
       --sort-by=.metadata.creationTimestamp \
-      --output jsonpath='{.items[-1].metadata.name}'
+      -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
+                                        | awk '$2 >= "'"${START_FOR_QUERYING//+0000/Z}"'" { print $1 }' | head -1
 }
 
 USAGE=$(cat << 'EOM'
@@ -158,7 +162,7 @@ while getopts "pdn:oc:a:b:v:w:" opt; do
         TMP_DIR=$OPTARG
       ;;
     a ) # Assertion script
-        ASSERTION_SCRIPTS=$(echo $OPTARG | tr "," "\n")
+        ASSERTION_SCRIPTS=$(echo "$OPTARG" | tr "," "\n")
       ;;
     b ) # Base cluster name
         CLUSTER_NAME_BASE=$OPTARG
@@ -177,44 +181,44 @@ while getopts "pdn:oc:a:b:v:w:" opt; do
 done
 
 if [[ -z $TMP_DIR ]]; then
-    TMP_DIR=$($SCRIPTPATH/../k8s-local-cluster-test/provision-cluster -b $CLUSTER_NAME_BASE -v $K8S_VERSION $PROVISION_CLUSTER_ARGS)
+    TMP_DIR=$("$SCRIPTPATH/../k8s-local-cluster-test/provision-cluster" -b "$CLUSTER_NAME_BASE" -v "$K8S_VERSION $PROVISION_CLUSTER_ARGS")
 fi
 if [[ $OVERRIDE_PATH -eq 0 ]]; then
   export PATH=$TMP_DIR:$PATH
 else
   export PATH=$PATH:$TMP_DIR
 fi
-CLUSTER_NAME=$(cat $TMP_DIR/clustername)
+CLUSTER_NAME=$(cat "$TMP_DIR/clustername")
 
 ## Build and Load Docker Images
 
 if [ -z "$NODE_TERMINATION_HANDLER_DOCKER_IMG" ]; then
     echo "🥑 Building the node-termination-handler docker image"
-    docker build $DOCKER_ARGS -t $DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG "$SCRIPTPATH/../../."
+    docker build $DOCKER_ARGS -t "$DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG" "$SCRIPTPATH/../../."
     NODE_TERMINATION_HANDLER_DOCKER_IMG="$DEFAULT_NODE_TERMINATION_HANDLER_DOCKER_IMG"
     echo "👍 Built the node-termination-handler docker image"
 else
     echo "🥑 Skipping building the node-termination-handler docker image, since one was specified ($NODE_TERMINATION_HANDLER_DOCKER_IMG)"
 fi
-echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" > $TMP_DIR/nth-docker-img
-NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f1)
-NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo $NODE_TERMINATION_HANDLER_DOCKER_IMG | cut -d':' -f2)
+echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" > "$TMP_DIR/nth-docker-img"
+NODE_TERMINATION_HANDLER_DOCKER_REPO=$(echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" | cut -d':' -f1)
+NODE_TERMINATION_HANDLER_DOCKER_TAG=$(echo "$NODE_TERMINATION_HANDLER_DOCKER_IMG" | cut -d':' -f2)
 
 if [ -z "$WEBHOOK_DOCKER_IMG" ]; then
     echo "🥑 Building the webhook-test-proxy docker image"
-    docker build $DOCKER_ARGS -t $DEFAULT_WEBHOOK_DOCKER_IMG "$SCRIPTPATH/../webhook-test-proxy/."
+    docker build $DOCKER_ARGS -t "$DEFAULT_WEBHOOK_DOCKER_IMG" "$SCRIPTPATH/../webhook-test-proxy/."
     WEBHOOK_DOCKER_IMG="$DEFAULT_WEBHOOK_DOCKER_IMG"
     echo "👍 Built the webhook-test-proxy docker image"
 else
     echo "🥑 Skipping building the webhook-test-proxy docker image, since one was specified ($WEBHOOK_DOCKER_IMG)"
 fi
-echo "$WEBHOOK_DOCKER_IMG" > $TMP_DIR/webhook-test-proxy-docker-img
-WEBHOOK_DOCKER_REPO=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f1)
-WEBHOOK_DOCKER_TAG=$(echo $WEBHOOK_DOCKER_IMG | cut -d':' -f2)
+echo "$WEBHOOK_DOCKER_IMG" > "$TMP_DIR/webhook-test-proxy-docker-img"
+WEBHOOK_DOCKER_REPO=$(echo "$WEBHOOK_DOCKER_IMG" | cut -d':' -f1)
+WEBHOOK_DOCKER_TAG=$(echo "$WEBHOOK_DOCKER_IMG" | cut -d':' -f2)
 
 echo "🥑 Loading both images into the cluster"
-kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $NODE_TERMINATION_HANDLER_DOCKER_IMG
-kind load docker-image --name $CLUSTER_NAME --nodes=$CLUSTER_NAME-worker,$CLUSTER_NAME-control-plane $WEBHOOK_DOCKER_IMG
+kind load docker-image --name "$CLUSTER_NAME" "$NODE_TERMINATION_HANDLER_DOCKER_IMG"
+kind load docker-image --name "$CLUSTER_NAME" "$WEBHOOK_DOCKER_IMG"
 echo "👍 Loaded both images into the cluster"
 
 export KUBECONFIG="$TMP_DIR/kubeconfig"
@@ -246,24 +250,33 @@ export NODE_TERMINATION_HANDLER_DOCKER_TAG
 export WEBHOOK_DOCKER_IMG
 export WEBHOOK_DOCKER_REPO
 export WEBHOOK_DOCKER_TAG
-export NTH_WORKER_LABEL="kubernetes\.io/hostname=$CLUSTER_NAME-worker"
+export AWS_REGION="us-east-1"
+export WORKER_IP="192.168.0.1"
+export NTH_CONTROL_LABEL="kubernetes\.io/hostname=$CLUSTER_NAME-control-plane"
+export NTH_WORKER_LABEL="kubernetes\.io/hostname=ip-${WORKER_IP//\./-}.ec2.internal"
 ###
+
+## Need to override hostname label for CTH localstack tests
+kubectl label node "${CLUSTER_NAME}-worker" "$(echo $NTH_WORKER_LABEL | tr -d '\')" --overwrite
+## Mark worker2 only for Critical Add-Ons like dns
+kubectl taint node "${CLUSTER_NAME}-worker2" CriticalAddonsOnly=true:NoSchedule --overwrite
 
 i=0
 for assert_script in $ASSERTION_SCRIPTS; do
   reset_cluster
-  IMDS_PORT=$(expr $i + 1338)
+  START_FOR_QUERYING=$(date -u +"%Y-%m-%dT%TZ")
+  IMDS_PORT=$((i + 1338))
   export IMDS_PORT
-  i=$(expr $i + 1)
+  i=$((i + 1))
   echo "======================================================================================================"
-  echo "🥑 Running assertion script $(basename $assert_script)"
+  echo "🥑 Running assertion script $(basename "$assert_script")"
   echo "======================================================================================================"
   assert_start=$(date +%s)
   $assert_script
   assert_end=$(date +%s)
-  echo "⏰ Took $(expr $assert_end - $assert_start)sec"
+  echo "⏰ Took $((assert_end - assert_start))sec"
   POD_ID=$(get_nth_worker_pod || :)
-  kubectl logs $POD_ID --namespace kube-system || :
+  kubectl logs "$POD_ID" --namespace kube-system || :
   ## Resets cluster to run another test on the same cluster
   reset_cluster
   echo "✅ Assertion test $assert_script PASSED! ✅"

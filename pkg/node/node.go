@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -49,6 +50,8 @@ const (
 	SpotInterruptionTaint = "aws-node-termination-handler/spot-itn"
 	// ScheduledMaintenanceTaint is a taint used to make spot instance unschedulable
 	ScheduledMaintenanceTaint = "aws-node-termination-handler/scheduled-maintenance"
+	// ASGLifecycleTerminationTaint is a taint used to make instances about to be shutdown by ASG unschedulable
+	ASGLifecycleTerminationTaint = "aws-node-termination-handler/asg-lifecycle-termination"
 
 	maxTaintValueLength = 63
 )
@@ -96,7 +99,11 @@ func (n Node) CordonAndDrain(nodeName string) error {
 	}
 	// Delete all pods on the node
 	log.Log().Msg("Draining the node")
-	err = drain.RunNodeDrain(n.drainHelper, nodeName)
+	node, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return err
+	}
+	err = drain.RunNodeDrain(n.drainHelper, node.Name)
 	if err != nil {
 		return err
 	}
@@ -287,6 +294,24 @@ func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
+// TaintASGLifecycleTermination adds the spot termination notice taint onto a node
+func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
+	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID, corev1.TaintEffectNoSchedule)
+}
+
 // LogPods logs all the pod names on a node
 func (n Node) LogPods(nodeName string) error {
 	podList, err := n.fetchAllPods(nodeName)
@@ -412,7 +437,15 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	if n.nthConfig.DryRun {
 		return node, nil
 	}
-	return n.drainHelper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/hostname=": nodeName}}
+	listOptions := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(listOptions)
+	if err != nil || len(matchingNodes.Items) == 0 {
+		log.Warn().Err(err).Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node")
+		return n.drainHelper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	}
+	return &matchingNodes.Items[0], nil
 }
 
 func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {

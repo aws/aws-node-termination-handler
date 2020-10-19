@@ -47,12 +47,10 @@ The command removes all the Kubernetes components associated with the chart and 
 
 The following tables lists the configurable parameters of the chart and their default values.
 
+### AWS Node Termination Handler Configuration
+
 Parameter | Description | Default
 --- | --- | ---
-`image.repository` | image repository | `amazon/aws-node-termination-handler`
-`image.tag` | image tag | `<VERSION>`
-`image.pullPolicy` | image pull policy | `IfNotPresent`
-`image.pullSecrets` | image pull secrets (for private docker registries) | `[]`
 `deleteLocalData` | Tells kubectl to continue even if there are pods using emptyDir (local data that will be deleted when the node is drained). | `false`
 `gracePeriod` | (DEPRECATED: Renamed to podTerminationGracePeriod) The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used. | `30`
 `podTerminationGracePeriod` | The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used. | `30`
@@ -66,13 +64,34 @@ Parameter | Description | Default
 `webhookTemplate` | Replaces the default webhook message template. | `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
 `webhookTemplateConfigMapName` | Pass Webhook template file as configmap | None
 `webhookTemplateConfigMapKey` | Name of the template file stored in the configmap| None
-`dryRun` | If true, only log if a node would be drained | `false`
 `enableScheduledEventDraining` | [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
-`enableSpotInterruptionDraining` | If false, do not drain nodes when the spot interruption termination notice is received | `true`
+`enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is received | `true`
+`enableSqsTerminationDraining` | If true, drain nodes when an SQS termination event is received | `false`
+`queueURL` | Listens for messages on the specified SQS queue URL | None
+`awsRegion` | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through AWS_REGION env var, IMDS, or the specified queue URL | ``
 `metadataTries` | The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3. | `3`
 `cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
-`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance` and `aws-node-termination-handler/spot-itn` | `false`
+`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, and `aws-node-termination-handler/asg-lifecycle-termination` | `false`
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
+
+### Testing Configuration (NOT RECOMMENDED FOR PROD DEPLOYMENTS)
+
+Parameter | Description | Default
+--- | --- | ---
+`procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
+`awsEndpoint` | (Used for testing) If specified, use the AWS endpoint to make API calls | None
+`awsSecretAccessKey` | (Used for testing) Pass-thru env var | None
+`awsAccessKeyID` | (Used for testing) Pass-thru env var | None
+`dryRun` | If true, only log if a node would be drained | `false`
+
+### Kubernetes Configuration
+
+Parameter | Description | Default
+--- | --- | ---
+`image.repository` | image repository | `amazon/aws-node-termination-handler`
+`image.tag` | image tag | `<VERSION>`
+`image.pullPolicy` | image pull policy | `IfNotPresent`
+`image.pullSecrets` | image pull secrets (for private docker registries) | `[]`
 `affinity` | node/pod affinities | None
 `linuxAffinity` | Linux node/pod affinities | None
 `windowsAffinity` | Windows node/pod affinities | None
@@ -94,7 +113,6 @@ Parameter | Description | Default
 `serviceAccount.create` | If `true`, create a new service account | `true`
 `serviceAccount.name` | Service account to be used | None
 `serviceAccount.annotations` | Specifies the annotations for ServiceAccount       | `{}`
-`procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
 `securityContext.runAsUserID` | User ID to run the container | `1000`
 `securityContext.runAsGroupID` | Group ID to run the container | `1000`
 `nodeSelectorTermsOs` | Operating System Node Selector Key | >=1.14: `kubernetes.io/os`, <1.14: `beta.kubernetes.io/os`

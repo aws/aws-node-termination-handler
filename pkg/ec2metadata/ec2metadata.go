@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +46,8 @@ const (
 	LocalIPPath = "/latest/meta-data/local-ipv4"
 	// AZPlacementPath path to availability zone placement
 	AZPlacementPath = "/latest/meta-data/placement/availability-zone"
+	// IdentityDocPath is the path to the instance identity document
+	IdentityDocPath = "/latest/dynamic/instance-identity/document"
 
 	// IMDSv2 token related constants
 	tokenRefreshPath        = "/latest/api/token"
@@ -94,13 +97,15 @@ type InstanceAction struct {
 
 // NodeMetadata contains information that applies to every drain event
 type NodeMetadata struct {
-	InstanceID       string
-	InstanceType     string
-	PublicHostname   string
-	PublicIP         string
-	LocalHostname    string
-	LocalIP          string
-	AvailabilityZone string
+	AccountId        string `json:"accountId"`
+	InstanceID       string `json:"instanceId"`
+	InstanceType     string `json:"instanceType"`
+	PublicHostname   string `json:"publicHostname"`
+	PublicIP         string `json:"publicIp"`
+	LocalHostname    string `json:"localHostname"`
+	LocalIP          string `json:"privateIp"`
+	AvailabilityZone string `json:"availabilityZone"`
+	Region           string `json:"region"`
 }
 
 // New constructs an instance of the Service client
@@ -208,8 +213,10 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 			return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
 		}
 		if resp != nil && resp.StatusCode == 401 {
+			e.Lock()
 			e.v2Token = ""
 			e.tokenTTL = 0
+			e.Unlock()
 		} else {
 			break
 		}
@@ -285,13 +292,21 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 // GetNodeMetadata attempts to gather additional ec2 instance information from the metadata service
 func (e *Service) GetNodeMetadata() NodeMetadata {
 	var metadata NodeMetadata
-	metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
-	metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
+	identityDoc, _ := e.GetMetadataInfo(IdentityDocPath)
+	err := json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
+	if err != nil {
+		log.Log().Msg("Unable to fetch instance identity document from ec2 metadata")
+		metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
+		metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
+		metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
+		metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
+		if len(metadata.AvailabilityZone) > 1 {
+			metadata.Region = metadata.AvailabilityZone[0 : len(metadata.AvailabilityZone)-1]
+		}
+	}
 	metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
 	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
 	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
-	metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
-	metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
 
 	log.Log().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 
