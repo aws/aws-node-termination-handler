@@ -294,6 +294,24 @@ func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
+// TaintASGLifecycleTermination adds the spot termination notice taint onto a node
+func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
+	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID, corev1.TaintEffectNoSchedule)
+}
+
 // LogPods logs all the pod names on a node
 func (n Node) LogPods(nodeName string) error {
 	podList, err := n.fetchAllPods(nodeName)

@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/rs/zerolog/log"
 )
 
 /* Example EC2 State Change Event:
@@ -79,13 +78,6 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 		errs := m.deleteMessages([]*sqs.Message{messages[0]})
 		if errs != nil {
 			return errs[0]
-		}
-		return nil
-	}
-	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-		err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
-		if err != nil {
-			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.SpotInterruptionTaint, interruptionEvent.EventID)
 		}
 		return nil
 	}

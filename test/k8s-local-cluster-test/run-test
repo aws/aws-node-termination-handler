@@ -87,6 +87,7 @@ function reset_cluster {
         kubectl uncordon "$node"
         kubectl taint node "$node" aws-node-termination-handler/scheduled-maintenance- || true
         kubectl taint node "$node" aws-node-termination-handler/spot-itn- || true
+        kubectl taint node "$node" aws-node-termination-handler/asg-lifecycle-termination- || true
     done
     remove_labels || :
     sleep 2

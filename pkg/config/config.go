@@ -226,6 +226,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Int("node_termination_grace_period", c.NodeTerminationGracePeriod).
 		Bool("enable_scheduled_event_draining", c.EnableScheduledEventDraining).
 		Bool("enable_spot_interruption_draining", c.EnableSpotInterruptionDraining).
+		Bool("enable_sqs_termination_draining", c.EnableSQSTerminationDraining).
 		Int("metadata_tries", c.MetadataTries).
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).

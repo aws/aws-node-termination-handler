@@ -21,7 +21,7 @@ ROLE_NAME="term-event-role"
 POLICY_NAME="cth"
 RAND_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 VERSION="v1.0.0-${RAND_ID}"
-SERVICE_ACCOUNT_NAME="aws-cluster-termination-handler-aws-node-termination-handler"
+SERVICE_ACCOUNT_NAME="aws-queue-processor-aws-node-termination-handler"
 
 USAGE=$(cat << EOM
   Usage: `basename $0` [-n <name>] [-s] [-w] [-h]
@@ -106,35 +106,36 @@ if [[ "${ACTUAL_ACCOUNT_ID}" != "${ACCOUNT_ID}" ]]; then
   exit 1
 fi
 
-echo "======================================================================"
-echo "Using the following parameters: "
-echo "                    AWS Account ID: ${ACCOUNT_ID}"
-echo "                        AWS Region: ${AWS_REGION}"
-echo "                           Cluster: ${CLUSTER_NAME}"
-echo "                         SQS Queue: ${SQS_QUEUE_NAME}"
-echo "              EventBridge ASG Rule: ${EVENTBRIDGE_ASG_RULE_NAME}"
-echo "             EventBridge Spot Rule: ${EVENTBRIDGE_SPOT_RULE_NAME}"
-echo " EventBridge EC2 State Change Rule: ${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}"
-echo "                ASG Lifecycle Hook: ${LIFECYCLE_HOOK_NAME}"
-echo "                        IAM Policy: ${IAM_POLICY}"
-echo "                          IAM Role: ${ROLE_NAME}"
-echo "                          ECR REPO: ${ECR_PLAYGROUND_REPO}"
-echo "                     NTH++ Version: ${VERSION}"
-echo "                          Pod Role: ${POD_ROLE}"
-echo "                   Pod Role Policy: ${POLICY_NAME}"
-echo "                   Service Account: ${SERVICE_ACCOUNT_NAME}"
-echo "                             FLEET: ${FLEET}"
-echo "======================================================================"
-
+function printParams() {
+  echo "======================================================================"
+  echo "Using the following parameters: "
+  echo "                    AWS Account ID: ${ACCOUNT_ID}"
+  echo "                        AWS Region: ${AWS_REGION}"
+  echo "                           Cluster: ${CLUSTER_NAME}"
+  echo "                         SQS Queue: ${SQS_QUEUE_NAME}"
+  echo "              EventBridge ASG Rule: ${EVENTBRIDGE_ASG_RULE_NAME}"
+  echo "             EventBridge Spot Rule: ${EVENTBRIDGE_SPOT_RULE_NAME}"
+  echo " EventBridge EC2 State Change Rule: ${EVENTBRIDGE_EC2_STATE_CHANGE_RULE_NAME}"
+  echo "                ASG Lifecycle Hook: ${LIFECYCLE_HOOK_NAME}"
+  echo "                        IAM Policy: ${IAM_POLICY}"
+  echo "                          IAM Role: ${ROLE_NAME}"
+  echo "                          ECR REPO: ${ECR_PLAYGROUND_REPO}"
+  echo "                     NTH++ Version: ${VERSION}"
+  echo "                          Pod Role: ${POD_ROLE}"
+  echo "                   Pod Role Policy: ${POLICY_NAME}"
+  echo "                   Service Account: ${SERVICE_ACCOUNT_NAME}"
+  echo "                             FLEET: ${FLEET}"
+  echo "======================================================================"
+}
+printParams
 echo "sleeping for 20 secs for review of the following parameters, abort w/ CTRL + c"
-sleep 5
+sleep 20
 
 function deleteInfra() {
     aws $EXTRA_AWS_PARAMS  sqs delete-queue --queue-url "https://sqs.${AWS_REGION}.amazonaws.com/${ACCOUNT_ID}/${SQS_QUEUE_NAME}" && sleep 50 || :
 
     asgs=()
     read -r -a asgs <<< "$(aws $EXTRA_AWS_PARAMS  autoscaling describe-tags --filters "Name=Value,Values=${CLUSTER_NAME}" | jq -r '.Tags[] .ResourceId' || : ))"
-    # asgs+=($(aws $EXTRA_AWS_PARAMS  autoscaling describe-tags --filters "Name=Value,Values=${CLUSTER_NAME}" | jq -r '.Tags[] .ResourceId' || : ))
     for asg in "${asgs[@]-}"; do 
     aws $EXTRA_AWS_PARAMS  autoscaling delete-lifecycle-hook \
         --lifecycle-hook-name="${LIFECYCLE_HOOK_NAME}" \
@@ -262,8 +263,8 @@ echo "✅ Successfully pushed docker image to ${ECR_PLAYGROUND_REPO}/cth:${VERSI
 
 ### Install into cluster via Helm ###
 echo "🥑 Installing CTH into cluster via Helm"
-helm uninstall aws-cluster-termination-handler -n kube-system || :
-helm upgrade --install aws-cluster-termination-handler \
+helm uninstall aws-queue-processor -n kube-system || :
+helm upgrade --install aws-queue-processor \
   --namespace kube-system \
   --set queueURL="https://sqs.${AWS_REGION}.amazonaws.com/${ACCOUNT_ID}/${SQS_QUEUE_NAME}" \
   --set image.repository="${ECR_PLAYGROUND_REPO}/cth" \
@@ -384,3 +385,5 @@ kubectl delete pods -n kube-system -l k8s-app=aws-node-termination-handler
 echo "✅ Restarted CTH Pod"
 
 echo "🥂 Happy Testing!"
+
+printParams
