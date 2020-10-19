@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package spotitn
+package rebalancenotice
 
 import (
 	"crypto/sha256"
@@ -24,21 +24,21 @@ import (
 )
 
 const (
-	// SpotITNKind is a const to define a Spot ITN kind of interruption event
-	SpotITNKind = "SPOT_ITN"
+	// RebalanceNoticeKind is a const to define a Rebalance Notice kind of event
+	RebalanceNoticeKind = "REBALANCE_NOTICE"
 )
 
-// SpotInterruptionMonitor is a struct definition which facilitates monitoring of spot ITNs from IMDS
-type SpotInterruptionMonitor struct {
+// RebalanceNoticeMonitor is a struct definition which facilitates monitoring of rebalance notices from IMDS
+type RebalanceNoticeMonitor struct {
 	IMDS             *ec2metadata.Service
 	InterruptionChan chan<- monitor.InterruptionEvent
 	CancelChan       chan<- monitor.InterruptionEvent
 	NodeName         string
 }
 
-// NewSpotInterruptionMonitor creates an instance of a spot ITN IMDS monitor
-func NewSpotInterruptionMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string) SpotInterruptionMonitor {
-	return SpotInterruptionMonitor{
+// NewRebalanceNoticeMonitor creates an instance of a rebalance notice IMDS monitor
+func NewRebalanceNoticeMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string) RebalanceNoticeMonitor {
+	return RebalanceNoticeMonitor{
 		IMDS:             imds,
 		InterruptionChan: interruptionChan,
 		CancelChan:       cancelChan,
@@ -47,48 +47,48 @@ func NewSpotInterruptionMonitor(imds *ec2metadata.Service, interruptionChan chan
 }
 
 // Monitor continuously monitors metadata for spot ITNs and sends interruption events to the passed in channel
-func (m SpotInterruptionMonitor) Monitor() error {
-	interruptionEvent, err := m.checkForSpotInterruptionNotice()
+func (m RebalanceNoticeMonitor) Monitor() error {
+	interruptionEvent, err := m.checkForRebalanceNotice()
 	if err != nil {
 		return err
 	}
-	if interruptionEvent != nil && interruptionEvent.Kind == SpotITNKind {
+	if interruptionEvent != nil && interruptionEvent.Kind == RebalanceNoticeKind {
 		m.InterruptionChan <- *interruptionEvent
 	}
 	return nil
 }
 
 // Kind denotes the kind of event that is processed
-func (m SpotInterruptionMonitor) Kind() string {
-	return SpotITNKind
+func (m RebalanceNoticeMonitor) Kind() string {
+	return RebalanceNoticeKind
 }
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
-func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.InterruptionEvent, error) {
-	instanceAction, err := m.IMDS.GetSpotITNEvent()
-	if instanceAction == nil && err == nil {
-		// if there are no spot itns and no errors
+func (m RebalanceNoticeMonitor) checkForRebalanceNotice() (*monitor.InterruptionEvent, error) {
+	rebalanceNotice, err := m.IMDS.GetRebalanceNoticeEvent()
+	if rebalanceNotice == nil && err == nil {
+		// if there are no rebalance notices and no errors
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("There was a problem checking for spot ITNs: %w", err)
 	}
 	nodeName := m.NodeName
-	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
+	interruptionTime, err := time.Parse(time.RFC3339, rebalanceNotice.NoticeTime)
 	if err != nil {
-		return nil, fmt.Errorf("Could not parse time from spot interruption notice metadata json: %w", err)
+		return nil, fmt.Errorf("Could not parse time from rebalance notice metadata json: %w", err)
 	}
 
 	// There's no EventID returned so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
-	hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
+	hash.Write([]byte(fmt.Sprintf("%v", rebalanceNotice)))
 
 	return &monitor.InterruptionEvent{
-		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
-		Kind:         SpotITNKind,
+		EventID:      fmt.Sprintf("rebalance-notice-%x", hash.Sum(nil)),
+		Kind:         RebalanceNoticeKind,
 		StartTime:    interruptionTime,
 		NodeName:     nodeName,
-		Description:  fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
+		Description:  fmt.Sprintf("Rebalance notice received. Instance will be cordoned at %s \n", rebalanceNotice.NoticeTime),
 		PreDrainTask: setInterruptionTaint,
 	}, nil
 }

@@ -32,6 +32,8 @@ const (
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
 	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
 	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
+	// RebalanceNoticePath is the context path to events/recommendations/rebalance within IMDS
+	RebalanceNoticePath = "/latest/meta-data/events/recommendations/rebalance"
 	// InstanceIDPath path to instance id
 	InstanceIDPath = "/latest/meta-data/instance-id"
 	// InstanceTypePath path to instance type
@@ -93,6 +95,11 @@ type ScheduledEventDetail struct {
 type InstanceAction struct {
 	Action string `json:"action"`
 	Time   string `json:"time"`
+}
+
+// RebalanceNotice metadata structure for json parsing
+type RebalanceNotice struct {
+	NoticeTime string `json:"noticeTime"`
 }
 
 // NodeMetadata contains information that applies to every drain event
@@ -160,6 +167,27 @@ func (e *Service) GetSpotITNEvent() (instanceAction *InstanceAction, err error) 
 		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
 	}
 	return instanceAction, nil
+}
+
+// GetRebalanceNoticeEvent retrieves rebalance notice events from imds
+func (e *Service) GetRebalanceNoticeEvent() (rebalanceNotice *RebalanceNotice, err error) {
+	resp, err := e.Request(RebalanceNoticePath)
+	// 404s are normal when querying for the 'events/recommendations/rebalance' path
+	if resp != nil && resp.StatusCode == 404 {
+		return nil, nil
+	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(&rebalanceNotice)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode rebalance notice response: %w", err)
+	}
+	return rebalanceNotice, nil
 }
 
 // GetMetadataInfo generic function for retrieving ec2 metadata
