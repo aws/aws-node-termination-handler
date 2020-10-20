@@ -61,7 +61,7 @@ Parameter | Description | Default
 `webhookURLSecretName` | Pass Webhook URL as a secret. Secret Key: `webhookurl`, Value: `<WEBHOOK_URL>` | None
 `webhookProxy` | Uses the specified HTTP(S) proxy for sending webhooks | ``
 `webhookHeaders` | Replaces the default webhook headers. | `{"Content-type":"application/json"}`
-`webhookTemplate` | Replaces the default webhook message template. | `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - State: {{ .State }} - Start Time: {{ .StartTime }}"}`
+`webhookTemplate` | Replaces the default webhook message template. | `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 `webhookTemplateConfigMapName` | Pass Webhook template file as configmap | None
 `webhookTemplateConfigMapKey` | Name of the template file stored in the configmap| None
 `enableScheduledEventDraining` | [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
