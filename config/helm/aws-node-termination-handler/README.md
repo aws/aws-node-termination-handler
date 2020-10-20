@@ -107,6 +107,7 @@ Parameter | Description | Default
 `nodeSelector` | Tells the all daemon sets where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
 `linuxNodeSelector` | Tells the Linux daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
 `windowsNodeSelector` | Tells the Windows daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
+`useHostNetwork` | If `true`, enables `hostNetwork` for the Linux DaemonSet. NOTE: setting this to `false` may cause issues accessing IMDSv2 if your account is not configured with an IP hop count of 2 | `true`
 `tolerations` | list of node taints to tolerate | `[ {"operator": "Exists"} ]`
 `rbac.create` | if `true`, create and use RBAC resources | `true`
 `rbac.pspEnabled` | If `true`, create and use a restricted pod security policy | `false`
