@@ -37,7 +37,7 @@ anth_helm_args=(
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableScheduledEventDraining="false"
-  --set enableSpotInterruptionDraining="false"
+  --set enableSpotInterruptionDraining="true"
   --set enableRebalanceMonitoring="true"
   --set taintNode="true"
   --set tolerations=""
@@ -79,6 +79,7 @@ aemm_helm_args=(
   --wait
   --namespace default
   --set servicePort="$IMDS_PORT"
+  --set aemm.mockDelaySec=25
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
   --set arguments='{spot}'
@@ -112,6 +113,7 @@ fi
 
 cordoned=0
 tainted=0
+not_evicted=0
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
@@ -126,8 +128,9 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
 
     if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified the regular-pod-test pod was NOT evicted!"
-        echo "✅ Rebalance Notice Cordon Only Test Passed $CLUSTER_NAME! ✅"
-        exit 0
+        echo "✅ Rebalance Notice Cordon Only passed!"
+        not_evicted=1
+        break
     fi
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
     sleep $TAINT_CHECK_SLEEP
@@ -135,11 +138,28 @@ done
 
 if [[ $cordoned -eq 0 ]]; then
   echo "❌ Worker node was not cordoned"
+  fail_and_exit 3
 elif [[ $tainted -eq 0 ]]; then
   echo "❌ Worker node was not tainted"
-else
+  fail_and_exit 3
+elif [[ $not_evicted -eq 0 ]]; then
   echo "❌ regular-pod-test was evicted"
+  fail_and_exit 3
 fi
+
+echo "🥑 Waiting for Spot ITN..."
+# Spot ITN will eventually become available since aemm.MockDelaySec will not exceed TAINT_CHECK_CYCLES x TAINT_CHECK_SLEEP
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        echo "✅ Rebalance Notice Spot ITN Test Passed $CLUSTER_NAME! ✅"
+        exit 0
+    fi
+    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+echo "❌ regular-pod-test was NOT evicted"
 
 echo "❌ Rebalance Notice Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

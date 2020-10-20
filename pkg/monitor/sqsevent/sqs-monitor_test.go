@@ -67,6 +67,22 @@ var asgLifecycleEvent = sqsevent.EventBridgeEvent{
 	  }`),
 }
 
+var rebalanceNoticeEvent = sqsevent.EventBridgeEvent{
+	Version:    "0",
+	ID:         "5d5555d5-dd55-5555-5555-5555dd55d55d",
+	DetailType: "EC2 Instance Rebalance Recommendation",
+	Source:     "aws.ec2",
+	Account:    "123456789012",
+	Time:       "2020-10-26T14:14:14Z",
+	Region:     "us-east-1",
+	Resources: []string{
+		"arn:aws:ec2:us-east-1b:instance/i-0b662ef9931388ba0",
+	},
+	Detail: []byte(`{
+		"instance-id": "i-0b662ef9931388ba0"
+	}`),
+}
+
 func TestKind(t *testing.T) {
 	h.Assert(t, sqsevent.SQSMonitor{}.Kind() == sqsevent.SQSTerminateKind, "SQSMonitor kind should return the kind constant for the event")
 }
@@ -74,7 +90,7 @@ func TestKind(t *testing.T) {
 func TestMonitor_Success(t *testing.T) {
 	spotItnEventNoTime := spotItnEvent
 	spotItnEventNoTime.Time = ""
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceNoticeEvent} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -112,7 +128,7 @@ func TestMonitor_Success(t *testing.T) {
 }
 
 func TestMonitor_DrainTasks(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, rebalanceNoticeEvent} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{

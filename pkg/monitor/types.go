@@ -14,6 +14,7 @@
 package monitor
 
 import (
+	"strings"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/node"
@@ -39,6 +40,11 @@ type InterruptionEvent struct {
 // TimeUntilEvent returns the duration until the event start time
 func (e *InterruptionEvent) TimeUntilEvent() time.Duration {
 	return e.StartTime.Sub(time.Now())
+}
+
+// IsRebalanceNotice returns true if the interruption event is a rebalance recommendation
+func (e *InterruptionEvent) IsRebalanceNotice() bool {
+	return strings.Contains(e.EventID, "rebalance-notice")
 }
 
 // Monitor is an interface which can be implemented for various sources of interruption events

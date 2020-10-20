@@ -263,7 +263,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 			metrics.NodeActionsInc("pre-drain", nodeName, err)
 		}
 
-		if nthConfig.CordonOnly || drainEvent.Kind == rebalancenotice.RebalanceNoticeKind {
+		if nthConfig.CordonOnly || drainEvent.IsRebalanceNotice() {
 			err := node.Cordon(nodeName)
 			if err != nil {
 				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")

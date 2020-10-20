@@ -66,12 +66,12 @@ func (m RebalanceNoticeMonitor) Kind() string {
 // checkForRebalanceNotice Checks EC2 instance metadata for a rebalance notice
 func (m RebalanceNoticeMonitor) checkForRebalanceNotice() (*monitor.InterruptionEvent, error) {
 	rebalanceNotice, err := m.IMDS.GetRebalanceNoticeEvent()
-	if rebalanceNotice == nil && err == nil {
-		// if there are no rebalance notices and no errors
-		return nil, nil
-	}
 	if err != nil {
 		return nil, fmt.Errorf("There was a problem checking for rebalance notices: %w", err)
+	}
+	if rebalanceNotice == nil {
+		// if there are no rebalance notices and no errors
+		return nil, nil
 	}
 	nodeName := m.NodeName
 	noticeTime, err := time.Parse(time.RFC3339, rebalanceNotice.NoticeTime)

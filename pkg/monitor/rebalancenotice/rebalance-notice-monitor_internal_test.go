@@ -30,7 +30,7 @@ import (
 	"k8s.io/kubectl/pkg/drain"
 )
 
-var spotNodeName = "NAME"
+const spotNodeName = "NAME"
 
 func getSpotDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
