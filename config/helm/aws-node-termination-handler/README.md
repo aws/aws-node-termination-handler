@@ -82,7 +82,7 @@ Parameter | Description | Default
 
 Parameter | Description | Default
 --- | --- | ---
-`enableSqsTerminationDraining` | If true, drain nodes when an SQS termination event is received | `false`
+`enableSqsTerminationDraining` | If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received| `false`
 `queueURL` | Listens for messages on the specified SQS queue URL | None
 `awsRegion` | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through AWS_REGION env var, IMDS, or the specified queue URL | ``
 

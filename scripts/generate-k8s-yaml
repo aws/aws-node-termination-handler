@@ -10,10 +10,16 @@ NAMESPACE="kube-system"
 MAKEFILEPATH=$SCRIPTPATH/../Makefile
 VERSION=$(make -s -f $MAKEFILEPATH version)
 BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
+
 INDV_RESOURCES_DIR=$BUILD_DIR/individual-resources
 TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources.tar
 AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
 mkdir -p $INDV_RESOURCES_DIR
+
+QP_INDV_RESOURCES_DIR=$BUILD_DIR/individual-resources-queue-processor
+QP_TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources-queue-processor.tar
+QP_AGG_RESOURCES_YAML=$BUILD_DIR/all-resources-queue-processor.yaml
+mkdir -p $QP_INDV_RESOURCES_DIR
 
 USAGE=$(cat << 'EOM'
   Usage: generate-k8s-yaml  [-n <K8s_NAMESPACE>]
@@ -46,30 +52,58 @@ mv $BUILD_DIR/$PLATFORM-amd64/helm $BUILD_DIR/.
 rm -rf $BUILD_DIR/$PLATFORM-amd64
 chmod +x $BUILD_DIR/helm
 
+## IMDS Mode
 $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --set targetNodeOs="linux windows" \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $AGG_RESOURCES_YAML
 
-# remove helm annotations from template
+## Queue Processor Mode
+$BUILD_DIR/helm template aws-node-termination-handler \
+    --namespace $NAMESPACE \
+    --set enableSqsTerminationDraining="true" \
+    $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $QP_AGG_RESOURCES_YAML
+
+# IMDS mode - remove helm annotations from template
 cat $AGG_RESOURCES_YAML | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Helm' > $BUILD_DIR/helm_annotations_removed.yaml
 mv $BUILD_DIR/helm_annotations_removed.yaml $AGG_RESOURCES_YAML
 
+# Queue Processor Mode - remove helm annotations from template
+cat $QP_AGG_RESOURCES_YAML | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Helm' > $BUILD_DIR/helm_annotations_removed.yaml
+mv $BUILD_DIR/helm_annotations_removed.yaml $QP_AGG_RESOURCES_YAML
+
+# IMDS Mode
 $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --set targetNodeOs="linux windows" \
     --output-dir $INDV_RESOURCES_DIR/ \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/
 
-# remove helm annotations from template
+# Queue Processor Mode
+$BUILD_DIR/helm template aws-node-termination-handler \
+    --namespace $NAMESPACE \
+    --set enableSqsTerminationDraining="true" \
+    --output-dir $QP_INDV_RESOURCES_DIR/ \
+    $SCRIPTPATH/../config/helm/aws-node-termination-handler/
+
+# Queue Processor Mode - remove helm annotations from template
 for i in $INDV_RESOURCES_DIR/aws-node-termination-handler/templates/*; do
   cat $i | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Helm' > $BUILD_DIR/helm_annotations_removed.yaml
   mv $BUILD_DIR/helm_annotations_removed.yaml $i
 done
 
+# IMDS Mode - remove helm annotations from template
+for i in $QP_INDV_RESOURCES_DIR/aws-node-termination-handler/templates/*; do
+  cat $i | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Helm' > $BUILD_DIR/helm_annotations_removed.yaml
+  mv $BUILD_DIR/helm_annotations_removed.yaml $i
+done
+
 cd $INDV_RESOURCES_DIR/aws-node-termination-handler/ && tar cvf $TAR_RESOURCES_FILE templates/*
+cd $QP_INDV_RESOURCES_DIR/aws-node-termination-handler/ && tar cvf $QP_TAR_RESOURCES_FILE templates/*
 cd $SCRIPTPATH
 
 echo "Generated aws-node-termination-handler kubernetes yaml resources files in:"
 echo "    - $AGG_RESOURCES_YAML"
 echo "    - $TAR_RESOURCES_FILE"
+echo "    - $QP_AGG_RESOURCES_YAML"
+echo "    - $QP_TAR_RESOURCES_FILE"

@@ -33,7 +33,7 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-# enableSqsTerminationDraining If true, drain nodes when an SQS termination event is received 
+# enableSqsTerminationDraining If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received 
 enableSqsTerminationDraining: false
 
 # queueURL Listens for messages on the specified SQS queue URL
