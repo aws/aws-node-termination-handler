@@ -10,6 +10,8 @@ BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
 BINARY_DIR=$SCRIPTPATH/../build/bin
 INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources.tar
 AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
+QP_TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources-queue-processor.tar
+QP_AGG_RESOURCES_YAML=$BUILD_DIR/all-resources-queue-processor.yaml
 BINARIES_ONLY="false"
 
 USAGE=$(cat << 'EOM'
@@ -66,7 +68,7 @@ gather_assets_to_upload() {
       resources+=("$binary")
     done
     if [ $BINARIES_ONLY != "true" ]; then
-      resources+=("$INDV_K8S_RESOURCES" "$AGG_RESOURCES_YAML")
+      resources+=("$INDV_K8S_RESOURCES" "$AGG_RESOURCES_YAML" "$QP_INDV_K8S_RESOURCES" "$QP_AGG_RESOURCES_YAML")
     fi
     echo "${resources[@]}"
 }

@@ -33,7 +33,7 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-# enableSqsTerminationDraining If true, drain nodes when an SQS termination event is received 
+# enableSqsTerminationDraining If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received 
 enableSqsTerminationDraining: false
 
 # queueURL Listens for messages on the specified SQS queue URL
@@ -174,3 +174,8 @@ updateStrategy:
     maxUnavailable: 1
 linuxUpdateStrategy: ""
 windowsUpdateStrategy: ""
+
+# Determines if NTH uses host networking for Linux when running the DaemonSet (only IMDS mode; queue-processor never runs with host networking)
+# If you have disabled IMDSv1 and are relying on IMDSv2, you'll need to increase the IP hop count to 2 before switching this to false
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+useHostNetwork: true
