@@ -79,7 +79,7 @@ func TestInterruptionTaintAlreadyPresent(t *testing.T) {
 	newNode := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: spotNodeName},
 		Spec: v1.NodeSpec{Taints: []v1.Taint{{
-			Key:    node.SpotInterruptionTaint,
+			Key:    node.RebalanceNoticeTaint,
 			Value:  drainEvent.EventID[:63],
 			Effect: v1.TaintEffectNoSchedule,
 		},

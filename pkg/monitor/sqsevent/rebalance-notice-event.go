@@ -67,16 +67,16 @@ func (m SQSMonitor) rebalanceNoticeToInterruptionEvent(event EventBridgeEvent, m
 		Description: fmt.Sprintf("Rebalance notice event received. Instance will be cordoned at %s \n", event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-		errs := m.deleteMessages([]*sqs.Message{messages[0]})
+		errs := m.deleteMessages(messages)
 		if errs != nil {
 			return errs[0]
 		}
 		return nil
 	}
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-		err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
+		err := n.TaintRebalanceNotice(interruptionEvent.NodeName, interruptionEvent.EventID)
 		if err != nil {
-			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.SpotInterruptionTaint, interruptionEvent.EventID)
+			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.RebalanceNoticeTaint, interruptionEvent.EventID)
 		}
 		return nil
 	}

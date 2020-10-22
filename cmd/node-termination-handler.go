@@ -138,7 +138,7 @@ func main() {
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
 	}
 	if nthConfig.EnableRebalanceMonitoring {
-		imdsRebalanceMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+		imdsRebalanceMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, interruptionChan, nthConfig.NodeName)
 		monitoringFns[rebalanceNotice] = imdsRebalanceMonitor
 	}
 	if nthConfig.EnableSQSTerminationDraining {

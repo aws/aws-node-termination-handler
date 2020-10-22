@@ -32,16 +32,14 @@ const (
 type RebalanceNoticeMonitor struct {
 	IMDS             *ec2metadata.Service
 	InterruptionChan chan<- monitor.InterruptionEvent
-	CancelChan       chan<- monitor.InterruptionEvent
 	NodeName         string
 }
 
 // NewRebalanceNoticeMonitor creates an instance of a rebalance notice IMDS monitor
-func NewRebalanceNoticeMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string) RebalanceNoticeMonitor {
+func NewRebalanceNoticeMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, nodeName string) RebalanceNoticeMonitor {
 	return RebalanceNoticeMonitor{
 		IMDS:             imds,
 		InterruptionChan: interruptionChan,
-		CancelChan:       cancelChan,
 		NodeName:         nodeName,
 	}
 }
@@ -94,9 +92,9 @@ func (m RebalanceNoticeMonitor) checkForRebalanceNotice() (*monitor.Interruption
 }
 
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-	err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
+	err := n.TaintRebalanceNotice(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.SpotInterruptionTaint, interruptionEvent.EventID, err)
+		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.RebalanceNoticeTaint, interruptionEvent.EventID, err)
 	}
 
 	return nil

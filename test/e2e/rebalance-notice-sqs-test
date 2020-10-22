@@ -180,7 +180,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/spot-itn" >/dev/null; then
+    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/rebalance-notice" >/dev/null; then
       echo "✅ Verified the worker node was tainted!"
       tainted=1
     fi

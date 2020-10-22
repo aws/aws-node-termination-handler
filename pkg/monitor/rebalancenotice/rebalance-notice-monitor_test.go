@@ -50,7 +50,6 @@ func TestMonitor_Success(t *testing.T) {
 	defer server.Close()
 
 	drainChan := make(chan monitor.InterruptionEvent)
-	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
 	go func() {
@@ -61,7 +60,7 @@ func TestMonitor_Success(t *testing.T) {
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, cancelChan, nodeName)
+	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Ok(t, err)
 }
@@ -76,11 +75,10 @@ func TestMonitor_MetadataParseFailure(t *testing.T) {
 	defer server.Close()
 
 	drainChan := make(chan monitor.InterruptionEvent)
-	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, cancelChan, nodeName)
+	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
@@ -99,11 +97,10 @@ func TestMonitor_404Response(t *testing.T) {
 	defer server.Close()
 
 	drainChan := make(chan monitor.InterruptionEvent)
-	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, cancelChan, nodeName)
+	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Ok(t, err)
 }
@@ -122,11 +119,10 @@ func TestMonitor_500Response(t *testing.T) {
 	defer server.Close()
 
 	drainChan := make(chan monitor.InterruptionEvent)
-	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, cancelChan, nodeName)
+	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
@@ -145,11 +141,10 @@ func TestMonitor_NoticeTimeParseFailure(t *testing.T) {
 	defer server.Close()
 
 	drainChan := make(chan monitor.InterruptionEvent)
-	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, cancelChan, nodeName)
+	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }
