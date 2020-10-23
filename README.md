@@ -83,7 +83,7 @@ The termination handler DaemonSet installs into your cluster a [ServiceAccount](
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.8.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.9.0/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
@@ -294,7 +294,7 @@ IAM Policy for aws-node-termination-handler Deployment:
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.7.0/all-resources-queue-processor.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.9.0/all-resources-queue-processor.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
