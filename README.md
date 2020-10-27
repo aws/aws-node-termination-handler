@@ -55,16 +55,24 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 ### Queue Processor
 - Monitors an SQS Queue for: 
    - EC2 Spot Interruption Notifications
+   - EC2 Instance Rebalance Recommendation
    - EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
    - EC2 Status Change Events
 - Helm installation and event configuration support
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
-## Which one should I use? 
-If you only want to handle EC2 Spot Interruption Termination Notices, EC2 Scheduled Maintenance Events, and EC2 Rebalance Recommendation Notices, and don't mind a DaemonSet running on all the nodes you're monitoring, then the aws-node-termination-handler **IMDS Processor** will work great for you!
-
-If you want to monitor for more events sourced from AWS APIs like ASG termination lifecycle events (unhealthy instances, scale-in, az-rebalance, etc), Spot Interruption Termination Notices, and EC2 instance termination via the EC2 API or Console, then the aws-node-termination-handler **Queue Processor** is the best tool for you! The deployment only runs a couple of replicas to maintain high availability in your cluster, but it does require some more upfront infrastructure. The aws-node-termination-handler **Queue Processor** requires your ASGs to have termination lifecycle hooks, Amazon EventBridge rule(s), and an SQS queue. 
+## Which one should I use?
+Feature |IMDS Processor | Queue Processor
+:---:|:---:|:---:
+K8s DaemonSet | ✅ | ❌
+K8s Deployment | ❌ | ✅
+Spot ITN | ✅ | ✅
+Scheduled Events | ✅ | ✅
+Rebalance Recommendation | ✅ | ✅
+ASG Lifecycle Hooks | ❌ | ✅
+EC2 Status Changes | ❌ | ✅
+Setup Required | ❌ | ✅ 
 
 
 ## Installation and Configuration
@@ -254,6 +262,13 @@ $ aws events put-rule \
   --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Spot Instance Interruption Warning\"]}"
 
 $ aws events put-targets --rule MyK8sSpotTermRule \
+  --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
+
+$ aws events put-rule \
+  --name MyK8sRebalanceRule \
+  --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance Rebalance Recommendation\"]}"
+
+$ aws events put-targets --rule MyK8sRebalanceRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 
