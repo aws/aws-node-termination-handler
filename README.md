@@ -16,7 +16,7 @@
     <img src="https://goreportcard.com/badge/github.com/aws/aws-node-termination-handler" alt="go-report-card">
   </a>
   <a href="https://travis-ci.org/aws/aws-node-termination-handler">
-    <img src="https://travis-ci.org/aws/aws-node-termination-handler.svg?branch=master" alt="build-status">
+    <img src="https://travis-ci.org/aws/aws-node-termination-handler.svg?branch=main" alt="build-status">
   </a>
   <a href="https://codecov.io/gh/aws/aws-node-termination-handler">
     <img src="https://img.shields.io/codecov/c/github/aws/aws-node-termination-handler" alt="build-status">
@@ -392,7 +392,7 @@ For build instructions please consult [BUILD.md](./BUILD.md).
 * Check out the open source [Amazon EC2 Spot Instances Integrations Roadmap](https://github.com/aws/ec2-spot-instances-integrations-roadmap) to see what we're working on and give us feedback! 
 
 ##  Contributing
-Contributions are welcome! Please read our [guidelines](https://github.com/aws/aws-node-termination-handler/blob/master/CONTRIBUTING.md) and our [Code of Conduct](https://github.com/aws/aws-node-termination-handler/blob/master/CODE_OF_CONDUCT.md)
+Contributions are welcome! Please read our [guidelines](https://github.com/aws/aws-node-termination-handler/blob/main/CONTRIBUTING.md) and our [Code of Conduct](https://github.com/aws/aws-node-termination-handler/blob/main/CODE_OF_CONDUCT.md)
 
 ## License
 This project is licensed under the Apache-2.0 License.

@@ -14,10 +14,10 @@ This doc details how the end-to-end (e2e) tests work for aws-node-termination-ha
 
 The e2e tests can be run on a local cluster or an eks cluster using one of the following `make` targets:
  * `make e2e-test`
-	* creates a [local kind cluster](https://github.com/aws/aws-node-termination-handler/blob/master/test/k8s-local-cluster-test/kind-three-node-cluster.yaml)
+	* creates a [local kind cluster](https://github.com/aws/aws-node-termination-handler/blob/main/test/k8s-local-cluster-test/kind-three-node-cluster.yaml)
 	
 * `make eks-cluster-test`
-  * creates an [eks cluster](https://github.com/aws/aws-node-termination-handler/blob/master/test/eks-cluster-test/cluster-spec.yaml) 
+  * creates an [eks cluster](https://github.com/aws/aws-node-termination-handler/blob/main/test/eks-cluster-test/cluster-spec.yaml) 
   * *Note if testing Windows, `eks-cluster-test` must be used*
 
 **Using Test Drivers**
@@ -31,15 +31,15 @@ use **-p when starting a local cluster test to PRESERVE the created cluster:** `
 
 Whether the tests succeed or fail, the cluster will be preserved for further exploration. By default, the cluster will be deleted regardless of test status.
 
-Once clusters are created, each test in [e2e folder](https://github.com/aws/aws-node-termination-handler/tree/master/test/e2e) will be executed sequentially until a test fails or all have succeeded.
+Once clusters are created, each test in [e2e folder](https://github.com/aws/aws-node-termination-handler/tree/main/test/e2e) will be executed sequentially until a test fails or all have succeeded.
 
 
 #### Configuring
-As noted in [eks-cluster-test/run-test](https://github.com/aws/aws-node-termination-handler/blob/master/test/eks-cluster-test/run-test#L23) a `CONFIG` file can be provided if users want to test on an existing eks cluster or use an existing ecr repo for supplying the Docker images. Users will need to invoke the test driver for eks-cluster-test directly to pass CONFIG as a param as detailed in the section above.
+As noted in [eks-cluster-test/run-test](https://github.com/aws/aws-node-termination-handler/blob/main/test/eks-cluster-test/run-test#L23) a `CONFIG` file can be provided if users want to test on an existing eks cluster or use an existing ecr repo for supplying the Docker images. Users will need to invoke the test driver for eks-cluster-test directly to pass CONFIG as a param as detailed in the section above.
 
 
 #### Example
-Using [maintenance-event-cancellation-test](https://github.com/aws/aws-node-termination-handler/blob/master/test/e2e/maintenance-event-cancellation-test) as an example. 
+Using [maintenance-event-cancellation-test](https://github.com/aws/aws-node-termination-handler/blob/main/test/e2e/maintenance-event-cancellation-test) as an example. 
 
 Keep in mind what NTH is expected to do: **...cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work** - [NTH ReadMe](https://github.com/aws/aws-node-termination-handler)
 
