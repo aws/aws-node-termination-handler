@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package rebalancenotice
+package rebalancerecommendation
 
 import (
 	"testing"
@@ -79,7 +79,7 @@ func TestInterruptionTaintAlreadyPresent(t *testing.T) {
 	newNode := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: spotNodeName},
 		Spec: v1.NodeSpec{Taints: []v1.Taint{{
-			Key:    node.RebalanceNoticeTaint,
+			Key:    node.RebalanceRecommendationTaint,
 			Value:  drainEvent.EventID[:63],
 			Effect: v1.TaintEffectNoSchedule,
 		},

@@ -67,7 +67,7 @@ var asgLifecycleEvent = sqsevent.EventBridgeEvent{
 	  }`),
 }
 
-var rebalanceNoticeEvent = sqsevent.EventBridgeEvent{
+var rebalanceRecommendationEvent = sqsevent.EventBridgeEvent{
 	Version:    "0",
 	ID:         "5d5555d5-dd55-5555-5555-5555dd55d55d",
 	DetailType: "EC2 Instance Rebalance Recommendation",
@@ -90,7 +90,7 @@ func TestKind(t *testing.T) {
 func TestMonitor_Success(t *testing.T) {
 	spotItnEventNoTime := spotItnEvent
 	spotItnEventNoTime.Time = ""
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceNoticeEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceRecommendationEvent} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -128,7 +128,7 @@ func TestMonitor_Success(t *testing.T) {
 }
 
 func TestMonitor_DrainTasks(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, rebalanceNoticeEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, rebalanceRecommendationEvent} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{

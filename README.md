@@ -67,12 +67,12 @@ Feature |IMDS Processor | Queue Processor
 :---:|:---:|:---:
 K8s DaemonSet | ✅ | ❌
 K8s Deployment | ❌ | ✅
-Spot ITN | ✅ | ✅
+Spot Instance Interruptions (ITN) | ✅ | ✅
 Scheduled Events | ✅ | ✅
-Rebalance Recommendation | ✅ | ✅
+EC2 Instance Rebalance Recommendation | ✅ | ✅
 ASG Lifecycle Hooks | ❌ | ✅
 EC2 Status Changes | ❌ | ✅
-Setup Required | ❌ | ✅ 
+Setup Required | ❌ | ✅
 
 
 ## Installation and Configuration

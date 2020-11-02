@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package rebalancenotice_test
+package rebalancerecommendation_test
 
 import (
 	"net/http"
@@ -21,7 +21,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancenotice"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -32,12 +32,12 @@ const (
 	nodeName         = "test-node"
 )
 
-var rebalanceNoticeResponse = []byte(`{
+var rebalanceRecommendationResponse = []byte(`{
 	"noticeTime":"` + startTime + `"
 }`)
 
 func TestMonitor_Success(t *testing.T) {
-	requestPath := ec2metadata.RebalanceNoticePath
+	requestPath := ec2metadata.RebalanceRecommendationPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -45,7 +45,7 @@ func TestMonitor_Success(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		rw.Write(rebalanceNoticeResponse)
+		rw.Write(rebalanceRecommendationResponse)
 	}))
 	defer server.Close()
 
@@ -54,13 +54,13 @@ func TestMonitor_Success(t *testing.T) {
 
 	go func() {
 		result := <-drainChan
-		h.Equals(t, rebalancenotice.RebalanceNoticeKind, result.Kind)
+		h.Equals(t, rebalancerecommendation.RebalanceRecommendationKind, result.Kind)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
 		h.Assert(t, strings.Contains(result.Description, startTime),
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)
 	}()
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
+	rebalanceNoticeMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Ok(t, err)
 }
@@ -78,13 +78,13 @@ func TestMonitor_MetadataParseFailure(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
+	rebalanceNoticeMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error metadata parse fails")
 }
 
 func TestMonitor_404Response(t *testing.T) {
-	requestPath := ec2metadata.RebalanceNoticePath
+	requestPath := ec2metadata.RebalanceRecommendationPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -100,13 +100,13 @@ func TestMonitor_404Response(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
+	rebalanceNoticeMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Ok(t, err)
 }
 
 func TestMonitor_500Response(t *testing.T) {
-	requestPath := ec2metadata.RebalanceNoticePath
+	requestPath := ec2metadata.RebalanceRecommendationPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -122,13 +122,13 @@ func TestMonitor_500Response(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
+	rebalanceNoticeMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
 
 func TestMonitor_NoticeTimeParseFailure(t *testing.T) {
-	requestPath := ec2metadata.RebalanceNoticePath
+	requestPath := ec2metadata.RebalanceRecommendationPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -144,7 +144,7 @@ func TestMonitor_NoticeTimeParseFailure(t *testing.T) {
 	imds := ec2metadata.New(server.URL, 1)
 	nodeName := "test-node"
 
-	rebalanceNoticeMonitor := rebalancenotice.NewRebalanceNoticeMonitor(imds, drainChan, nodeName)
+	rebalanceNoticeMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, drainChan, nodeName)
 	err := rebalanceNoticeMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when failed to parse time")
 }

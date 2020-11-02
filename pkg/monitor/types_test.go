@@ -33,34 +33,34 @@ func TestTimeUntilEvent(t *testing.T) {
 	h.Equals(t, expected, result.Round(time.Second))
 }
 
-func TestIsRebalanceNotice_Monitor_Success(t *testing.T) {
-	monitorEventId := "rebalance-notice-"
+func TestIsRebalanceRecommendation_Monitor_Success(t *testing.T) {
+	monitorEventId := "rebalance-recommendation-"
 	event := &monitor.InterruptionEvent{
 		EventID: monitorEventId,
 	}
 
-	h.Equals(t, true, event.IsRebalanceNotice())
+	h.Equals(t, true, event.IsRebalanceRecommendation())
 }
 
-func TestIsRebalanceNotice_SQS_Success(t *testing.T) {
-	sqsEventId := "rebalance-notice-event-"
+func TestIsRebalanceRecommendation_SQS_Success(t *testing.T) {
+	sqsEventId := "rebalance-recommendation-event-"
 	event := &monitor.InterruptionEvent{
 		EventID: sqsEventId,
 	}
 
-	h.Equals(t, true, event.IsRebalanceNotice())
+	h.Equals(t, true, event.IsRebalanceRecommendation())
 }
 
-func TestIsRebalanceNotice_Failure(t *testing.T) {
-	eventId := "reblaance-notice"
+func TestIsRebalanceRecommendation_Failure(t *testing.T) {
+	eventId := "reblaance-recommendation"
 	event := &monitor.InterruptionEvent{
 		EventID: eventId,
 	}
 
-	h.Equals(t, false, event.IsRebalanceNotice())
+	h.Equals(t, false, event.IsRebalanceRecommendation())
 }
 
-func TestIsRebalanceNotice_Empty_Failure(t *testing.T) {
+func TestIsRebalanceRecommendation_Empty_Failure(t *testing.T) {
 	event := &monitor.InterruptionEvent{}
-	h.Equals(t, false, event.IsRebalanceNotice())
+	h.Equals(t, false, event.IsRebalanceRecommendation())
 }

@@ -41,30 +41,30 @@ import (
 }
 */
 
-// RebalanceNoticeDetail holds the event details for rebalance recommendation events from Amazon EventBridge
-type RebalanceNoticeDetail struct {
+// RebalanceRecommendationDetail holds the event details for rebalance recommendation events from Amazon EventBridge
+type RebalanceRecommendationDetail struct {
 	InstanceID string `json:"instance-id"`
 }
 
-func (m SQSMonitor) rebalanceNoticeToInterruptionEvent(event EventBridgeEvent, messages []*sqs.Message) (monitor.InterruptionEvent, error) {
-	rebalanceNoticeDetail := &RebalanceNoticeDetail{}
-	err := json.Unmarshal(event.Detail, rebalanceNoticeDetail)
+func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridgeEvent, messages []*sqs.Message) (monitor.InterruptionEvent, error) {
+	rebalanceRecDetail := &RebalanceRecommendationDetail{}
+	err := json.Unmarshal(event.Detail, rebalanceRecDetail)
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
 
-	nodeName, err := m.retrieveNodeName(rebalanceNoticeDetail.InstanceID)
+	nodeName, err := m.retrieveNodeName(rebalanceRecDetail.InstanceID)
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
 
 	interruptionEvent := monitor.InterruptionEvent{
-		EventID:     fmt.Sprintf("rebalance-notice-event-%x", event.ID),
+		EventID:     fmt.Sprintf("rebalance-recommendation-event-%x", event.ID),
 		Kind:        SQSTerminateKind,
 		StartTime:   event.getTime(),
 		NodeName:    nodeName,
-		InstanceID:  rebalanceNoticeDetail.InstanceID,
-		Description: fmt.Sprintf("Rebalance notice event received. Instance will be cordoned at %s \n", event.getTime()),
+		InstanceID:  rebalanceRecDetail.InstanceID,
+		Description: fmt.Sprintf("Rebalance recommendation event received. Instance will be cordoned at %s \n", event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		errs := m.deleteMessages(messages)
@@ -74,9 +74,9 @@ func (m SQSMonitor) rebalanceNoticeToInterruptionEvent(event EventBridgeEvent, m
 		return nil
 	}
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-		err := n.TaintRebalanceNotice(interruptionEvent.NodeName, interruptionEvent.EventID)
+		err := n.TaintRebalanceRecommendation(interruptionEvent.NodeName, interruptionEvent.EventID)
 		if err != nil {
-			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.RebalanceNoticeTaint, interruptionEvent.EventID)
+			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.RebalanceRecommendationTaint, interruptionEvent.EventID)
 		}
 		return nil
 	}

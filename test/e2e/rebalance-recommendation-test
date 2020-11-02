@@ -13,11 +13,11 @@ set -euo pipefail
 #   $AEMM_VERSION
 
 function fail_and_exit {
-    echo "❌ Rebalance Notice test failed $CLUSTER_NAME ❌"
+    echo "❌ Rebalance Recommendation test failed $CLUSTER_NAME ❌"
     exit "${1:-1}"
 }
 
-echo "Starting Rebalance Notice Test for Node Termination Handler"
+echo "Starting Rebalance Recommendation Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
@@ -79,7 +79,7 @@ aemm_helm_args=(
   --wait
   --namespace default
   --set servicePort="$IMDS_PORT"
-  --set aemm.mockDelaySec=25
+  --set aemm.mockDelaySec=60
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
   --set arguments='{spot}'
@@ -121,14 +121,14 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/rebalance-notice" >/dev/null; then
+    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/rebalance-recommendation" >/dev/null; then
       echo "✅ Verified the worker node was tainted!"
       tainted=1
     fi
 
     if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified the regular-pod-test pod was NOT evicted!"
-        echo "✅ Rebalance Notice Cordon Only passed!"
+        echo "✅ Rebalance Recommendation Cordon Only passed!"
         not_evicted=1
         break
     fi
@@ -152,7 +152,7 @@ echo "🥑 Waiting for Spot ITN..."
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
         echo "✅ Verified the regular-pod-test pod was evicted!"
-        echo "✅ Rebalance Notice Spot ITN Test Passed $CLUSTER_NAME! ✅"
+        echo "✅ Rebalance Recommendation Spot ITN Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
@@ -161,5 +161,5 @@ done
 
 echo "❌ regular-pod-test was NOT evicted"
 
-echo "❌ Rebalance Notice Test Failed $CLUSTER_NAME ❌"
+echo "❌ Rebalance Recommendation Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

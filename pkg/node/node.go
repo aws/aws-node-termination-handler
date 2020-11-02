@@ -52,8 +52,8 @@ const (
 	ScheduledMaintenanceTaint = "aws-node-termination-handler/scheduled-maintenance"
 	// ASGLifecycleTerminationTaint is a taint used to make instances about to be shutdown by ASG unschedulable
 	ASGLifecycleTerminationTaint = "aws-node-termination-handler/asg-lifecycle-termination"
-	// RebalanceNoticeTaint is a taint used to make spot instance unschedulable
-	RebalanceNoticeTaint = "aws-node-termination-handler/rebalance-notice"
+	// RebalanceRecommendationTaint is a taint used to make spot instance unschedulable
+	RebalanceRecommendationTaint = "aws-node-termination-handler/rebalance-recommendation"
 
 	maxTaintValueLength = 63
 )
@@ -314,8 +314,8 @@ func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) erro
 	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
-// TaintRebalanceNotice adds the rebalance notice taint onto a node
-func (n Node) TaintRebalanceNotice(nodeName string, eventID string) error {
+// TaintRebalanceRecommendation adds the rebalance recommendation notice taint onto a node
+func (n Node) TaintRebalanceRecommendation(nodeName string, eventID string) error {
 	if !n.nthConfig.TaintNode {
 		return nil
 	}
@@ -329,7 +329,7 @@ func (n Node) TaintRebalanceNotice(nodeName string, eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, RebalanceNoticeTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, RebalanceRecommendationTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
 // LogPods logs all the pod names on a node
@@ -376,7 +376,7 @@ func (n Node) RemoveNTHTaints(nodeName string) error {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
 	}
 
-	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint, ASGLifecycleTerminationTaint, RebalanceNoticeTaint}
+	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint, ASGLifecycleTerminationTaint, RebalanceRecommendationTaint}
 
 	for _, taint := range taints {
 		_, err = removeTaint(k8sNode, n.drainHelper.Client, taint)

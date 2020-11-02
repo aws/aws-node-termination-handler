@@ -14,11 +14,11 @@ set -euo pipefail
 
 
 function fail_and_exit {
-    echo "❌ Rebalance Notice SQS Test failed $CLUSTER_NAME ❌"
+    echo "❌ Rebalance Recommendation SQS Test failed $CLUSTER_NAME ❌"
     exit "${1:-1}"
 }
 
-echo "Starting Rebalance Notice SQS Test for Node Termination Handler"
+echo "Starting Rebalance Recommendation SQS Test for Node Termination Handler"
 START_TIME=$(date -u +"%Y-%m-%dT%TZ")
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -165,7 +165,7 @@ EOF
 REBALANCE_EVENT_ONE_LINE=$(echo "${REBALANCE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${REBALANCE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
 kubectl exec -it "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
-echo "✅ Sent Rebalance Notice to SQS queue: ${queue_url}"
+echo "✅ Sent Rebalance Recommendation to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
@@ -180,7 +180,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/rebalance-notice" >/dev/null; then
+    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/rebalance-recommendation" >/dev/null; then
       echo "✅ Verified the worker node was tainted!"
       tainted=1
     fi
@@ -253,7 +253,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ ${evicted} -eq 1 && $(kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
         kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
-        echo "✅ Rebalance Notice SQS Test Passed $CLUSTER_NAME! ✅"
+        echo "✅ Rebalance Recommendation SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
 
@@ -261,5 +261,5 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     sleep $TAINT_CHECK_SLEEP
 done
 
-echo "❌ Rebalance Notice SQS Test Failed $CLUSTER_NAME ❌"
+echo "❌ Rebalance Recommendation SQS Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1
