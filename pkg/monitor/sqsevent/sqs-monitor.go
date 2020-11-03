@@ -194,6 +194,7 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 		return false, err
 	}
 	if len(asgs.AutoScalingInstances) == 0 {
+		log.Debug().Str("instance_id", instanceID).Msg("Did not find an Auto Scaling Instance for the given instance id")
 		return false, nil
 	}
 	asgName := asgs.AutoScalingInstances[0].AutoScalingGroupName
@@ -214,5 +215,10 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 		return true
 	})
 
+	if !isManaged {
+		log.Debug().
+			Str("instance_id", instanceID).
+			Msgf("The instance's Auto Scaling Group is not tagged as managed with tag key: %s", NTHManagedASG)
+	}
 	return isManaged, err
 }
