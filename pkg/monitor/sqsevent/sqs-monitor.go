@@ -194,7 +194,7 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 		return false, err
 	}
 	if len(asgs.AutoScalingInstances) == 0 {
-		log.Debug().Str("instance_id", instanceID).Msg("Did not find an Auto Scaling Instance for the given instance id")
+		log.Debug().Str("instance_id", instanceID).Msg("Did not find an Auto Scaling Group for the given instance id")
 		return false, nil
 	}
 	asgName := asgs.AutoScalingInstances[0].AutoScalingGroupName
