@@ -6,7 +6,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 PRESERVE=true
 
 export TEST_WINDOWS="false"
-export AEMM_VERSION="1.6.0"
+export AEMM_VERSION="1.7.0"
 export AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
 export CLUSTER_CONFIG_FILE=$SCRIPTPATH/cluster-spec.yaml
 

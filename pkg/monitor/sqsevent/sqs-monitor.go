@@ -95,6 +95,8 @@ func (m SQSMonitor) checkForSQSMessage() (*monitor.InterruptionEvent, error) {
 			interruptionEvent, err = m.ec2StateChangeToInterruptionEvent(event, messages)
 		} else if event.DetailType == "EC2 Spot Instance Interruption Warning" {
 			interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(event, messages)
+		} else if event.DetailType == "EC2 Instance Rebalance Recommendation" {
+			interruptionEvent, err = m.rebalanceRecommendationToInterruptionEvent(event, messages)
 		}
 		if err != nil {
 			return nil, err

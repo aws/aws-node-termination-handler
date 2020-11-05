@@ -92,6 +92,7 @@ Parameter | Description | Default
 --- | --- | ---
 `enableScheduledEventDraining` | [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
 `enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is received | `true`
+`enableRebalanceMonitoring` | If true, cordon nodes when rebalance recommendation is received | `false`
 `useHostNetwork` | If `true`, enables `hostNetwork` for the Linux DaemonSet. NOTE: setting this to `false` may cause issues accessing IMDSv2 if your account is not configured with an IP hop count of 2 | `true`
 
 ### Kubernetes Configuration

@@ -32,6 +32,8 @@ const (
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
 	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
 	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
+	// RebalanceRecommendationPath is the context path to events/recommendations/rebalance within IMDS
+	RebalanceRecommendationPath = "/latest/meta-data/events/recommendations/rebalance"
 	// InstanceIDPath path to instance id
 	InstanceIDPath = "/latest/meta-data/instance-id"
 	// InstanceTypePath path to instance type
@@ -93,6 +95,11 @@ type ScheduledEventDetail struct {
 type InstanceAction struct {
 	Action string `json:"action"`
 	Time   string `json:"time"`
+}
+
+// RebalanceRecommendation metadata structure for json parsing
+type RebalanceRecommendation struct {
+	NoticeTime string `json:"noticeTime"`
 }
 
 // NodeMetadata contains information that applies to every drain event
@@ -160,6 +167,27 @@ func (e *Service) GetSpotITNEvent() (instanceAction *InstanceAction, err error) 
 		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
 	}
 	return instanceAction, nil
+}
+
+// GetRebalanceRecommendationEvent retrieves rebalance recommendation events from imds
+func (e *Service) GetRebalanceRecommendationEvent() (rebalanceRec *RebalanceRecommendation, err error) {
+	resp, err := e.Request(RebalanceRecommendationPath)
+	// 404s are normal when querying for the 'events/recommendations/rebalance' path
+	if resp != nil && resp.StatusCode == 404 {
+		return nil, nil
+	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(&rebalanceRec)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode rebalance recommendation response: %w", err)
+	}
+	return rebalanceRec, nil
 }
 
 // GetMetadataInfo generic function for retrieving ec2 metadata

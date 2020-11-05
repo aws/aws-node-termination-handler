@@ -372,6 +372,117 @@ func TestGetScheduledMaintenanceEventsRequestFailure(t *testing.T) {
 	h.Assert(t, err != nil, "error expected because no server should be running")
 }
 
+func TestGetRebalanceRecommendationEventSuccess(t *testing.T) {
+	const (
+		noticeTime = "2020-10-26T15:55:55Z"
+	)
+	requestPath := "/latest/meta-data/events/recommendations/rebalance"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
+		h.Equals(t, req.URL.String(), requestPath)
+		rw.Write([]byte(fmt.Sprintf(`{
+			"noticeTime": "%s"
+		}`, noticeTime)))
+	}))
+	defer server.Close()
+
+	expectedStruct := &ec2metadata.RebalanceRecommendation{
+		NoticeTime: noticeTime,
+	}
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	rebalanceNotice, err := imds.GetRebalanceRecommendationEvent()
+	h.Ok(t, err)
+	h.Equals(t, expectedStruct, rebalanceNotice)
+}
+
+func TestGetRebalanceRecommendationEvent404Success(t *testing.T) {
+	requestPath := "/latest/meta-data/events/recommendations/rebalance"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
+		h.Equals(t, req.URL.String(), requestPath)
+		rw.WriteHeader(404)
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	rebalanceNotice, err := imds.GetRebalanceRecommendationEvent()
+	h.Ok(t, err)
+	h.Assert(t, rebalanceNotice == nil, "Rebalance Notice Event should be nil")
+}
+
+func TestGetRebalanceRecommendationEventBadJSON(t *testing.T) {
+	requestPath := "/latest/meta-data/events/recommendations/rebalance"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
+		h.Equals(t, req.URL.String(), requestPath)
+		rw.Write([]byte(`{"action": false, "noticeTime": 2020-10-26T15:55:55Z}`))
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	_, err := imds.GetRebalanceRecommendationEvent()
+	h.Assert(t, err != nil, "JSON returned should not be in the correct format")
+}
+
+func TestGetRebalanceRecommendationEvent500Failure(t *testing.T) {
+	requestPath := "/latest/meta-data/events/recommendations/rebalance"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
+		if req.URL.String() == "/latest/api/token" {
+			rw.WriteHeader(200)
+			rw.Write([]byte(`token`))
+			return
+		}
+		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
+		h.Equals(t, req.URL.String(), requestPath)
+		rw.WriteHeader(500)
+	}))
+	defer server.Close()
+
+	// Use URL from our local test server
+	imds := ec2metadata.New(server.URL, 1)
+
+	_, err := imds.GetRebalanceRecommendationEvent()
+	h.Assert(t, err != nil, "error expected on non-200 or non-404 status code")
+}
+
+func TestGetRebalanceRecommendationEventRequestFailure(t *testing.T) {
+	// Use URL from our local test server
+	imds := ec2metadata.New("/some-path-that-will-error", 1)
+
+	_, err := imds.GetRebalanceRecommendationEvent()
+	h.Assert(t, err != nil, "error expected because no server should be running")
+}
+
 func TestGetMetadataServiceRequest404(t *testing.T) {
 	var requestPath string = "/latest/meta-data/instance-type"
 

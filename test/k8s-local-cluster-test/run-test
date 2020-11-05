@@ -18,7 +18,7 @@ WEBHOOK_DOCKER_IMG=""
 OVERRIDE_PATH=0
 K8S_VERSION="1.16"
 AEMM_URL="amazon-ec2-metadata-mock-service.default.svc.cluster.local"
-AEMM_VERSION="1.6.0"
+AEMM_VERSION="1.7.0"
 AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
 WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local"}
 
@@ -88,6 +88,7 @@ function reset_cluster {
         kubectl taint node "$node" aws-node-termination-handler/scheduled-maintenance- || true
         kubectl taint node "$node" aws-node-termination-handler/spot-itn- || true
         kubectl taint node "$node" aws-node-termination-handler/asg-lifecycle-termination- || true
+        kubectl taint node "$node" aws-node-termination-handler/rebalance-recommendation- || true
     done
     remove_labels || :
     sleep 2

@@ -52,6 +52,8 @@ const (
 	ScheduledMaintenanceTaint = "aws-node-termination-handler/scheduled-maintenance"
 	// ASGLifecycleTerminationTaint is a taint used to make instances about to be shutdown by ASG unschedulable
 	ASGLifecycleTerminationTaint = "aws-node-termination-handler/asg-lifecycle-termination"
+	// RebalanceRecommendationTaint is a taint used to make spot instance unschedulable
+	RebalanceRecommendationTaint = "aws-node-termination-handler/rebalance-recommendation"
 
 	maxTaintValueLength = 63
 )
@@ -312,6 +314,24 @@ func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) erro
 	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID, corev1.TaintEffectNoSchedule)
 }
 
+// TaintRebalanceRecommendation adds the rebalance recommendation notice taint onto a node
+func (n Node) TaintRebalanceRecommendation(nodeName string, eventID string) error {
+	if !n.nthConfig.TaintNode {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	if len(eventID) > 63 {
+		eventID = eventID[:maxTaintValueLength]
+	}
+
+	return addTaint(k8sNode, n, RebalanceRecommendationTaint, eventID, corev1.TaintEffectNoSchedule)
+}
+
 // LogPods logs all the pod names on a node
 func (n Node) LogPods(nodeName string) error {
 	podList, err := n.fetchAllPods(nodeName)
@@ -356,7 +376,7 @@ func (n Node) RemoveNTHTaints(nodeName string) error {
 		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
 	}
 
-	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint}
+	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint, ASGLifecycleTerminationTaint, RebalanceRecommendationTaint}
 
 	for _, taint := range taints {
 		_, err = removeTaint(k8sNode, n.drainHelper.Client, taint)

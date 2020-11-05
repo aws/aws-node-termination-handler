@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
@@ -40,11 +41,12 @@ import (
 )
 
 const (
-	scheduledMaintenance  = "Scheduled Maintenance"
-	spotITN               = "Spot ITN"
-	sqsEvents             = "SQS Event"
-	timeFormat            = "2006/01/02 15:04:05"
-	duplicateErrThreshold = 3
+	scheduledMaintenance    = "Scheduled Maintenance"
+	spotITN                 = "Spot ITN"
+	rebalanceRecommendation = "Rebalance Recommendation"
+	sqsEvents               = "SQS Event"
+	timeFormat              = "2006/01/02 15:04:05"
+	duplicateErrThreshold   = 3
 )
 
 func main() {
@@ -134,6 +136,10 @@ func main() {
 	if nthConfig.EnableScheduledEventDraining {
 		imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
+	}
+	if nthConfig.EnableRebalanceMonitoring {
+		imdsRebalanceMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, interruptionChan, nthConfig.NodeName)
+		monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
 	}
 	if nthConfig.EnableSQSTerminationDraining {
 		creds, err := nthConfig.AWSSession.Config.Credentials.Get()
@@ -257,7 +263,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 			metrics.NodeActionsInc("pre-drain", nodeName, err)
 		}
 
-		if nthConfig.CordonOnly {
+		if nthConfig.CordonOnly || drainEvent.IsRebalanceRecommendation() {
 			err := node.Cordon(nodeName)
 			if err != nil {
 				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")

@@ -96,7 +96,7 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.Inte
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.ScheduledMaintenanceTaint, interruptionEvent.EventID, err)
+		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.SpotInterruptionTaint, interruptionEvent.EventID, err)
 	}
 
 	return nil
