@@ -28,27 +28,21 @@ branches+=("master")
 clone_urls+=("https://github.com/aws/eks-charts.git")
 
 for i in "${!branches[@]}"; do
-    git clone --branch "${branches[$i]}" "${clone_urls[$i]}" $TMP_DIR/pr$i
-    DIFF_OUTPUT=$(diff -r $TMP_DIR/pr$i/stable/aws-node-termination-handler $SCRIPTPATH/../../config/helm/aws-node-termination-handler)
-    DIFF_ECODE=$?
-    echo "$DIFF_OUTPUT" > $TMP_DIR/chart-diff-pr$i.txt
-
-    if [[ $DIFF_ECODE -eq 0 ]]; then
-        if [[ $i -eq 0 ]]; then
-            echo "✅ AWS Node Termination Handler helm chart is in-sync with the eks-charts repo!"
-        else
-            echo "✅ AWS Node Termination Handler helm chart is in-sync with a PR (${clone_urls[$i]} -branch ${branches[$i]}) in eks-charts repo!"
-        fi
-        exit 0
-    else
-        echo "===================================== DIFF ========================================================"
-        echo "${clone_urls[$i]} -branch ${branches[$i]}"
-        echo "$DIFF_OUTPUT"
-        echo "===================================== END DIFF ===================================================="
+    git clone --branch "${branches[$i]}" "${clone_urls[$i]}" $TMP_DIR/pr$i || continue
+    if [[ ! -d $TMP_DIR/pr$i/stable/aws-node-termination-handler ]]; then
+       continue
     fi
+    diff -r $TMP_DIR/pr$i/stable/aws-node-termination-handler $SCRIPTPATH/../../config/helm/aws-node-termination-handler | tee $TMP_DIR/chart-diff-pr$i.txt || continue
+   
+    if [[ $i -eq 0 ]]; then
+        echo "✅ AWS Node Termination Handler helm chart is in-sync with the eks-charts repo!"
+    else
+        echo "✅ AWS Node Termination Handler helm chart is in-sync with a PR (${clone_urls[$i]} -branch ${branches[$i]}) in eks-charts repo!"
+    fi
+    exit 0
 done
 
-echo "❌ The Helm chart is NOT in-sync with the eks-charts repo. The diff is printed above. Please make a PR to eks-charts before merging this code."
+echo "❌ The Helm chart is NOT in-sync with the eks-charts repo. Please make a PR to eks-charts before merging this code."
 echo "Check $TMP_DIR for more details"
 
 exit 1
