@@ -31,8 +31,6 @@ import (
 const (
 	// SQSTerminateKind is a const to define an SQS termination kind of interruption event
 	SQSTerminateKind = "SQS_TERMINATE"
-	// NTHManagedASG is the ASG tag key to determine if NTH is managing the ASG
-	NTHManagedASG = "aws-node-termination-handler/managed"
 )
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
@@ -44,6 +42,7 @@ type SQSMonitor struct {
 	ASG              autoscalingiface.AutoScalingAPI
 	EC2              ec2iface.EC2API
 	CheckIfManaged   bool
+	ManagedAsgTag    string
 }
 
 // Kind denotes the kind of event that is processed
@@ -207,7 +206,7 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 	isManaged := false
 	err = m.ASG.DescribeTagsPages(&asgDescribeTagsInput, func(resp *autoscaling.DescribeTagsOutput, next bool) bool {
 		for _, tag := range resp.Tags {
-			if *tag.Key == NTHManagedASG {
+			if *tag.Key == m.ManagedAsgTag {
 				isManaged = true
 				// breaks paging loop
 				return false
@@ -220,7 +219,7 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 	if !isManaged {
 		log.Debug().
 			Str("instance_id", instanceID).
-			Msgf("The instance's Auto Scaling Group is not tagged as managed with tag key: %s", NTHManagedASG)
+			Msgf("The instance's Auto Scaling Group is not tagged as managed with tag key: %s", m.ManagedAsgTag)
 	}
 	return isManaged, err
 }

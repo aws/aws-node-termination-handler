@@ -58,6 +58,8 @@ const (
 	enableRebalanceMonitoringDefault        = false
 	checkASGTagBeforeDrainingConfigKey      = "CHECK_ASG_TAG_BEFORE_DRAINING"
 	checkASGTagBeforeDrainingDefault        = true
+	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
+	managedAsgTagDefault                    = "aws-node-termination-handler/managed"
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
@@ -102,6 +104,7 @@ type Config struct {
 	EnableSQSTerminationDraining   bool
 	EnableRebalanceMonitoring      bool
 	CheckASGTagBeforeDraining      bool
+	ManagedAsgTag                  string
 	MetadataTries                  int
 	CordonOnly                     bool
 	TaintNode                      bool
@@ -147,6 +150,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableSQSTerminationDraining, "enable-sqs-termination-draining", getBoolEnv(enableSQSTerminationDrainingConfigKey, enableSQSTerminationDrainingDefault), "If true, drain nodes when an SQS termination event is received")
 	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received")
 	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node")
+	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "Sets the tag to check for on instances that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
@@ -245,6 +249,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("aws_endpoint", c.AWSEndpoint).
 		Str("queue_url", c.QueueURL).
 		Bool("check_asg_tag_before_draining", c.CheckASGTagBeforeDraining).
+		Str("ManagedAsgTag", c.ManagedAsgTag).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -314,6 +319,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.AWSRegion,
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
+		c.ManagedAsgTag,
 		c.AWSEndpoint,
 	)
 }
