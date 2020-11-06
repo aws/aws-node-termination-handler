@@ -290,6 +290,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\taws-region: %s,\n"+
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
+			"\tmanaged-asg-tag: %s,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
