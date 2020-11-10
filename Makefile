@@ -1,4 +1,7 @@
 VERSION = $(shell git describe --tags --always --dirty)
+LATEST_RELEASE_TAG=$(shell git describe --tags --abbrev=0)
+PREVIOUS_RELEASE_TAG=$(shell git describe --abbrev=0 --tags `git rev-list --tags --skip=1  --max-count=1`)
+REPO_FULL_NAME=aws/aws-node-termination-handler
 IMG ?= amazon/aws-node-termination-handler
 IMG_TAG ?= ${VERSION}
 IMG_W_TAG = ${IMG}:${IMG_TAG}
@@ -52,6 +55,15 @@ push-docker-images-windows:
 version:
 	@echo ${VERSION}
 
+latest-release-tag:
+	@echo ${LATEST_RELEASE_TAG}
+
+previous-release-tag:
+	@echo ${PREVIOUS_RELEASE_TAG}
+
+repo-full-name:
+	@echo ${REPO_FULL_NAME}
+
 image:
 	@echo ${IMG_W_TAG}
 
@@ -97,6 +109,12 @@ generate-k8s-yaml:
 sync-readme-to-dockerhub:
 	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
+ekscharts-sync:
+	${MAKEFILE_PATH}/scripts/sync-to-aws-eks-charts -b ${BINARY_NAME} -r ${REPO_FULL_NAME}
+
+ekscharts-sync-release:
+	${MAKEFILE_PATH}/scripts/sync-to-aws-eks-charts -b ${BINARY_NAME} -r ${REPO_FULL_NAME} -n
+
 unit-test:
 	go test -bench=. ${MAKEFILE_PATH}/... -v -coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
 
@@ -124,3 +142,30 @@ test: spellcheck shellcheck unit-test e2e-test compatibility-test license-test g
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*$$' $(MAKEFILE_LIST) | sort
+
+## Targets intended to be run in preparation for a new release
+create-local-release-tag-major:
+	${MAKEFILE_PATH}/scripts/create-local-tag-for-release -m
+
+create-local-release-tag-minor:
+	${MAKEFILE_PATH}/scripts/create-local-tag-for-release -i
+
+create-local-release-tag-patch:
+	${MAKEFILE_PATH}/scripts/create-local-tag-for-release -p
+
+create-release-prep-pr:
+	${MAKEFILE_PATH}/scripts/prepare-for-release
+
+create-release-prep-pr-draft:
+	${MAKEFILE_PATH}/scripts/prepare-for-release -d
+
+release-prep-major: create-local-release-tag-major create-release-prep-pr
+
+release-prep-minor: create-local-release-tag-minor create-release-prep-pr
+
+release-prep-patch: create-local-release-tag-patch create-release-prep-pr
+
+release-prep-custom: # Run make NEW_VERSION=v1.2.3 release-prep-custom to prep for a custom release version
+ifdef NEW_VERSION
+	$(shell echo "${MAKEFILE_PATH}/scripts/create-local-tag-for-release -v $(NEW_VERSION) && echo && make create-release-prep-pr")
+endif
