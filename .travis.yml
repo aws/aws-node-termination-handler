@@ -58,7 +58,7 @@ jobs:
       script: test/license-test/run-license-test.sh
       name: License Test
     - stage: Test
-      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
+      if: commit_message !~ /(Skip Helm E2E Tests)/ OR (type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/)
       script: make helm-tests
       name: Helm Sync and Version Test
     - stage: Deploy
@@ -69,6 +69,10 @@ jobs:
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
       script: make release
       name: Release Artifacts Linux
+    - stage: Deploy
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(GITHUB_TOKEN) IS present
+      script: make ekscharts-sync-release
+      name: Sync to EKS Charts
     - stage: Windows Deploy
       name: Release Artifacts Windows
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
