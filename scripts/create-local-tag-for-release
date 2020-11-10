@@ -1,0 +1,150 @@
+#!/bin/bash
+
+# Script to create a new local tag in preparation for a release
+# This script is idempotent i.e. it always fetches remote tags to create the new tag.
+# E.g. If the current remote release tag is v1.0.0,
+## 1) running `create-local-tag-for-release -p` will create a new tag v1.0.1
+## 2) immediately running `create-local-tag-for-release -m` will create a new tag v2.0.0
+
+set -euo pipefail
+
+REPO_ROOT_PATH="$( cd "$(dirname "$0")"; cd ../; pwd -P )"
+MAKEFILE_PATH=$REPO_ROOT_PATH/Makefile
+TAG_REGEX="^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z]*)?$"
+
+HELP=$(cat << 'EOM'
+  Create a new local tag in preparation for a release. This script is idempotent i.e. it always fetches remote tags to create the new tag.
+
+  Usage: create-local-tag-for-release [options]
+
+  Options:
+    -v      new tag / version number. The script relies on the user to specify a valid and accurately incremented tag.
+    -m      increment major version
+    -i      increment minor version
+    -p      increment patch version
+    -h      help
+
+  Examples:
+    create-local-tag-for-release -v v1.0.0      Create local tag for new version v1.0.0
+    create-local-tag-for-release -i             Create local tag for new version by incrementing minor version only (previous tag=v1.0.0, new tag=v1.1.0)
+EOM
+)
+
+MAJOR_INC=false
+MINOR_INC=false
+PATCH_INC=false
+NEW_TAG=""
+CURR_REMOTE_RELEASE_TAG=""
+
+process_args() {
+    while getopts "hmipv:" opt; do
+        case ${opt} in
+            h )
+            echo -e "$HELP" 1>&2
+            exit 0
+            ;;
+            m )
+            MAJOR_INC=true
+            ;;
+            i )
+            MINOR_INC=true
+            ;;
+            p )
+            PATCH_INC=true
+            ;;
+            v )
+            NEW_TAG="${OPTARG}"
+            ;;
+            \? )
+            echo "$HELP" 1>&2
+            exit 0
+            ;;
+        esac
+    done
+}
+
+validate_args() {
+    if [[ ! -z $NEW_TAG ]]; then
+        if ! [[ $NEW_TAG =~ $TAG_REGEX ]]; then
+            echo "❌ Invalid new tag specified $NEW_TAG. Examples: v1.2.3, v1.2.3-dirty"
+            exit 1
+        fi
+
+        echo "🥑 Using the new tag specified with -v flag. All other flags, if specified, will be ignored."
+        echo "   NOTE:The script relies on the user to specify a valid and accurately incremented tag."
+        return
+    fi
+
+    if ($MAJOR_INC && $MINOR_INC) || ($MAJOR_INC && $PATCH_INC) || ($MINOR_INC && $PATCH_INC); then
+        echo "❌ Invalid arguments passed. Specify only one of 3 tag parts to increment for the new tag: -m (major) or -i (minor) or -p (patch)."
+        exit 1
+    fi
+
+    if $MAJOR_INC || $MINOR_INC || $PATCH_INC; then
+        return
+    fi
+
+    echo -e "❌ Invalid arguments passed. Specify atleast one argument.\n$HELP"
+    exit 1
+}
+
+sync_local_tags_from_remote() {
+    # setup remote upstream tracking to fetch tags
+    git remote add the-real-upstream https://github.com/aws/aws-node-termination-handler.git &> /dev/null || true
+    git fetch the-real-upstream
+
+    # delete all local tags
+    git tag -l | xargs git tag -d
+
+    # fetch remote tags
+    git fetch the-real-upstream --tags
+
+    # record the latest release tag in remote, before creating a new tag
+    CURR_REMOTE_RELEASE_TAG=$(get_latest_tag)
+
+    # clean up tracking
+    git remote remove the-real-upstream
+}
+
+create_tag() {
+    git tag $NEW_TAG
+    echo -e "\n✅ Created new tag $NEW_TAG (Current latest release tag in remote: v$CURR_REMOTE_RELEASE_TAG)\n"
+    exit 0
+}
+
+get_latest_tag() {
+    make -s -f $MAKEFILE_PATH latest-release-tag | cut -b 2-
+}
+
+main() {
+    process_args "$@"
+    validate_args
+
+    sync_local_tags_from_remote
+
+    # if new tag is specified, create it
+    if [[ ! -z $NEW_TAG ]]; then
+        create_tag
+    fi
+
+    # increment version
+    if $MAJOR_INC || $MINOR_INC || $PATCH_INC; then
+        curr_major_v=$(echo $CURR_REMOTE_RELEASE_TAG | tr '.' '\n' | head -1)
+        curr_minor_v=$(echo $CURR_REMOTE_RELEASE_TAG | tr '.' '\n' | head -2 | tail -1)
+        curr_patch_v=$(echo $CURR_REMOTE_RELEASE_TAG | tr '.' '\n' | tail -1)
+
+        if [[ $MAJOR_INC == true ]]; then
+            new_major_v=$(echo $(($curr_major_v + 1)))
+            NEW_TAG=$(echo v$new_major_v.0.0)
+        elif [[ $MINOR_INC == true ]]; then
+            new_minor_v=$(echo $(($curr_minor_v + 1)))
+            NEW_TAG=$(echo v$curr_major_v.$new_minor_v.0)
+        elif [[ $PATCH_INC == true ]]; then
+            new_patch_v=$(echo $(($curr_patch_v + 1)))
+            NEW_TAG=$(echo v$curr_major_v.$curr_minor_v.$new_patch_v)
+        fi
+        create_tag
+    fi
+}
+
+main "$@"
