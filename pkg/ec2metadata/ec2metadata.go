@@ -121,7 +121,7 @@ func New(metadataURL string, tries int) *Service {
 		metadataURL: metadataURL,
 		tries:       tries,
 		httpClient: http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 2 * time.Second,
 			Transport: &http.Transport{
 				MaxIdleConns:    10,
 				IdleConnTimeout: 30 * time.Second,
@@ -320,8 +320,12 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 // GetNodeMetadata attempts to gather additional ec2 instance information from the metadata service
 func (e *Service) GetNodeMetadata() NodeMetadata {
 	var metadata NodeMetadata
-	identityDoc, _ := e.GetMetadataInfo(IdentityDocPath)
-	err := json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
+	identityDoc, err := e.GetMetadataInfo(IdentityDocPath)
+	if err != nil {
+		log.Log().Err(err).Msg("Unable to fetch metadata from IMDS")
+		return metadata
+	}
+	err = json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
 	if err != nil {
 		log.Log().Msg("Unable to fetch instance identity document from ec2 metadata")
 		metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
