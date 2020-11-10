@@ -75,4 +75,7 @@ jobs:
       os: windows
       install: choco install make && choco install zip
       script: RefreshEnv.cmd && make release-windows
-
+    - stage: EKS Charts Sync
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(GITHUB_TOKEN) IS present
+      script: make ekscharts-sync-release
+      name: Sync to EKS Charts
