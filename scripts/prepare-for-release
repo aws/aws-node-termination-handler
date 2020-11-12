@@ -1,0 +1,237 @@
+#!/bin/bash
+
+# Script to:
+## 1) create and checkout a new branch with the latest tag name
+## 2) update NTH versions
+## 3) commit release prep changes to new branch
+## 4) create a PR from the new branch to upstream/main
+
+set -euo pipefail
+
+REPO_ROOT_PATH="$( cd "$(dirname "$0")"; cd ../; pwd -P )"
+MAKEFILE_PATH=$REPO_ROOT_PATH/Makefile
+LATEST_VERSION=$(make -s -f $MAKEFILE_PATH latest-release-tag | cut -b 2- )
+PREVIOUS_VERSION=$(make -s -f $MAKEFILE_PATH previous-release-tag | cut -b 2- )
+
+# files with versions, to update
+REPO_README=$REPO_ROOT_PATH/README.md
+CHART=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/Chart.yaml
+CHART_VALUES=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/values.yaml
+FILES=("$REPO_README"  "$CHART" "$CHART_VALUES")
+FILES_CHANGED=()
+
+# release prep
+LATEST_TAG="v$LATEST_VERSION"
+NEW_BRANCH="pr/$LATEST_TAG-release"
+COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep [Skip Helm E2E Tests] 🤖🥑"
+
+# PR details
+DEFAULT_REPO_FULL_NAME=$(make -s -f $MAKEFILE_PATH repo-full-name)
+PR_BASE=main  # target
+PR_TITLE="🥑🤖 $LATEST_TAG release prep"
+PR_BODY="🥑🤖 Auto-generated PR for $LATEST_TAG release. Updating release versions in repo."
+PR_LABEL_1="release-prep"
+PR_LABEL_2="🤖 auto-generated🤖"
+
+HELP=$(cat << 'EOM'
+  Update repo with the new release version and create a pr from a new release prep branch.
+  This script prompts the user with complete details about the PR before pushing the new local branch to remote and creating the PR.
+  The new release version is the latest local git tag.
+  Note: The local tag creation for a new release is separated from this script. A new tag must be created before this script is run which is automated when this script is run via make targets. 
+
+  Usage: prepare-for-release [options]
+
+  Options:
+    -d      create a draft pr
+    -r      target repo full name for the pr (default: aws/aws-node-termination-handler)
+    -h      help
+
+  Examples:
+    prepare-for-release -d                                          update release version in repo and create a draft pr against aws/aws-node-termination-handler
+    prepare-for-release -r username/aws-node-termination-handler    update release version in repo and create a pr against username/aws-node-termination-handler
+EOM
+)
+
+DRAFT=false
+REPO_FULL_NAME=""
+NEED_ROLLBACK=true
+
+process_args() {
+    while getopts "hdr:" opt; do
+        case ${opt} in
+            h )
+            echo -e "$HELP" 1>&2
+            exit 0
+            ;;
+            d )
+            DRAFT=true
+            ;;
+            r )
+            # todo: validate $REPO_FULL_NAME
+            REPO_FULL_NAME="${OPTARG}"
+            ;;
+            \? )
+            echo "$HELP" 1>&2
+            exit 0
+            ;;
+        esac
+    done
+
+    # set repo full name to the default value if unset
+    if [ -z $REPO_FULL_NAME ]; then
+        REPO_FULL_NAME=$DEFAULT_REPO_FULL_NAME
+    fi
+}
+
+# output formatting
+export TERM="xterm"
+RED=$(tput setaf 1)
+MAGENTA=$(tput setaf 5)
+RESET_FMT=$(tput sgr 0)
+BOLD=$(tput bold)
+
+# verify origin tracking before creating and pushing new branches
+verify_origin_tracking() {
+    origin=$(git remote get-url origin 2>&1) || true
+
+    if [[ $origin == "fatal: No such remote 'origin'" ]] || [[ $origin == "https://github.com/aws/aws-node-termination-handler.git" ]]; then
+        echo -e "❌ ${RED}Expected remote 'origin' to be tracking fork but found \"$origin\". Set it up before running this script again.${RESET_FMT}"
+        NEED_ROLLBACK=false
+        exit 1
+    fi
+}
+
+create_release_branch() {
+    exists=$(git checkout -b $NEW_BRANCH 2>&1) || true
+
+    if [[ $exists == "fatal: A branch named '$NEW_BRANCH' already exists." ]]; then
+        echo -e "❌ ${RED}$exists${RESET_FMT}"
+        NEED_ROLLBACK=false
+        exit 1
+    fi
+    echo -e "✅ ${BOLD}Created new release branch $NEW_BRANCH\n\n${RESET_FMT}"
+}
+
+update_versions() {
+    # update release version for release prep
+    echo -e "🥑 Attempting to update NTH release version in preparation for a new release."
+
+    for f in "${FILES[@]}"; do
+        has_incorrect_version=$(cat $f | grep $PREVIOUS_VERSION)
+        if [[ ! -z  $has_incorrect_version ]]; then
+            sed -i '' "s/$PREVIOUS_VERSION/$LATEST_VERSION/g" $f
+            FILES_CHANGED+=("$f")
+        fi
+    done
+
+    if [[ ${#FILES_CHANGED[@]} -eq 0 ]]; then
+        echo -e "\nNo files were modified. Either all files already use git the latest release version $LATEST_VERSION or the files don't currently have the previous version $PREVIOUS_VERSION."
+    else
+        echo -e "✅✅ ${BOLD}Updated versions from $PREVIOUS_VERSION to $LATEST_VERSION in files: \n$(echo "${FILES_CHANGED[@]}" | tr ' ' '\n')"
+        echo -e "To see changes, run \`git diff HEAD^ HEAD\`${RESET_FMT}"
+    fi
+    echo
+}
+
+commit_changes() {
+    echo -e "\n🥑 Adding and committing release version changes."
+    git add "${FILES_CHANGED[@]}"
+    git commit -m"$COMMIT_MESSAGE"
+    echo -e "✅✅✅ ${BOLD}Committed release prep changes to new branch $NEW_BRANCH with commit message '$COMMIT_MESSAGE'\n\n${RESET_FMT}"
+}
+
+confirm_with_user_and_create_pr(){
+    git checkout $NEW_BRANCH # checkout new branch before printing git diff
+
+    echo -e "\n🥑${BOLD}The following PR will be created:\n"
+    cat << EOM
+    PR draft mode: $DRAFT
+    PR target repository: $REPO_FULL_NAME
+    PR source branch: $NEW_BRANCH
+    PR target branch: $REPO_FULL_NAME/$PR_BASE
+    PR title: $PR_TITLE
+    PR body: $PR_BODY
+    PR labels: $PR_LABEL_1, $PR_LABEL_2
+    Changes in $NEW_BRANCH:
+    ${MAGENTA}$(git diff HEAD^ HEAD)${RESET_FMT}
+EOM
+    while true; do
+        read -p "🥑${BOLD}Do you wish to create the release prep PR? Enter y/n  " yn
+        case $yn in
+            [Yy]* ) create_pr; break;;
+            [Nn]* ) rollback; exit;;
+            * ) echo "🥑Please answer yes or no.";;
+        esac
+    done
+    echo "${RESET_FMT}"
+}
+
+create_pr() {
+    git push -u origin $NEW_BRANCH # sets source branch for PR to NEW_BRANCH on the fork or origin
+    git checkout $NEW_BRANCH # checkout new branch before creating a pr
+
+    if [[ $DRAFT == true ]]; then
+        gh pr create \
+            --repo "$REPO_FULL_NAME" \
+            --base "$PR_BASE" \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --label "$PR_LABEL_1" --label "$PR_LABEL_2" \
+            --draft
+    else
+        gh pr create \
+            --repo "$REPO_FULL_NAME" \
+            --base "$PR_BASE" \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --label "$PR_LABEL_1" --label "$PR_LABEL_2"
+    fi
+
+    if [[ $? == 0 ]]; then
+        echo -e "✅✅✅✅ ${BOLD}Created $LATEST_TAG release prep PR\n${RESET_FMT}"
+    else
+        echo -e "❌ ${RED}PR creation failed.${RESET_FMT}❌"
+        exit 1
+    fi
+}
+
+# rollback partial changes to make this script atomic, iff the current execution of the script created a new branch and made changes
+rollback() {
+    if [[ $NEED_ROLLBACK == true ]]; then
+        echo "🥑${BOLD}Rolling back"
+
+        # checkout of current branch to main
+        git checkout main
+
+        # delete local and remote release branch only if current execution of the script created them
+        git branch -D $NEW_BRANCH
+        git push origin --delete $NEW_BRANCH
+    fi
+    echo "${RESET_FMT}"
+}
+
+handle_errors() {
+    # error handling
+    if [ $1 != "0" ]; then
+        FAILED_COMMAND=${*:2}
+        echo -e "\n❌ ${RED}Error occurred while running command '$FAILED_COMMAND'.${RESET_FMT}❌"
+        rollback
+        exit 1
+    fi
+    exit $1
+}
+
+main() {
+    process_args "$@"
+    trap 'handle_errors $? $BASH_COMMAND' EXIT
+
+    verify_origin_tracking
+
+    echo -e "🥑 Attempting to create a release prep branch and PR with release version updates.\n   Previous version: $PREVIOUS_VERSION ---> Latest version: $LATEST_VERSION"
+    create_release_branch
+    update_versions
+    commit_changes
+    confirm_with_user_and_create_pr
+}
+
+main "$@"

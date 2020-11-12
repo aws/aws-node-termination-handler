@@ -42,7 +42,7 @@ for i in "${!branches[@]}"; do
     exit 0
 done
 
-echo "❌ The Helm chart is NOT in-sync with the eks-charts repo. Please make a PR to eks-charts before merging this code."
+echo "❌ The Helm chart is NOT in-sync with the eks-charts repo. Please submit a PR to eks-charts via 'make ekscharts-sync' before merging this code."
 echo "Check $TMP_DIR for more details"
 
 exit 1
