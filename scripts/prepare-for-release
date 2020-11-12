@@ -23,7 +23,7 @@ FILES_CHANGED=()
 # release prep
 LATEST_TAG="v$LATEST_VERSION"
 NEW_BRANCH="pr/$LATEST_TAG-release"
-COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep [Skip Helm E2E Tests] 🤖🥑"
+COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep 🤖🥑"
 
 # PR details
 DEFAULT_REPO_FULL_NAME=$(make -s -f $MAKEFILE_PATH repo-full-name)
