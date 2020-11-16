@@ -52,7 +52,11 @@ func TestIsInstanceManaged(t *testing.T) {
 			},
 		},
 	}
-	monitor := SQSMonitor{ASG: asgMock}
+	monitor := SQSMonitor{
+		ASG:            asgMock,
+		CheckIfManaged: true,
+		ManagedAsgTag:  "aws-node-termination-handler/managed",
+	}
 	isManaged, err := monitor.isInstanceManaged("i-0123456789")
 	h.Ok(t, err)
 	h.Equals(t, true, isManaged)
