@@ -539,7 +539,7 @@ func mockIsManagedTrue(asg *h.MockedASG) h.MockedASG {
 	}
 	asg.DescribeTagsPagesResp = autoscaling.DescribeTagsOutput{
 		Tags: []*autoscaling.TagDescription{
-			{Key: aws.String(sqsevent.NTHManagedASG)},
+			{Key: aws.String("aws-node-termination-handler/managed")},
 		},
 	}
 	return *asg

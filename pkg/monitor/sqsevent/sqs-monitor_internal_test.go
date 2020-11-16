@@ -48,7 +48,7 @@ func TestIsInstanceManaged(t *testing.T) {
 		},
 		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
 			Tags: []*autoscaling.TagDescription{
-				{Key: aws.String(NTHManagedASG)},
+				{Key: aws.String("aws-node-termination-handler/managed")},
 			},
 		},
 	}
