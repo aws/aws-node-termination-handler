@@ -79,3 +79,7 @@ jobs:
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(GITHUB_TOKEN) IS present
       script: make ekscharts-sync-release
       name: Sync to EKS Charts
+    - stage: ReadMe Version Sync
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(GITHUB_TOKEN) IS present
+      script: make create-release-prep-pr-readme
+      name: Sync ReadMe versions
