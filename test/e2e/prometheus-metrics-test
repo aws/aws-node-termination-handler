@@ -20,9 +20,10 @@ common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
-helm repo add stable https://kubernetes-charts.storage.googleapis.com
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add stable https://charts.helm.sh/stable
 helm repo update
-retry 5 helm install prometheus-operator stable/prometheus-operator --set prometheusOperator.admissionWebhooks.enabled="false"
+retry 5 helm install prometheus-operator prometheus-community/kube-prometheus-stack --set prometheusOperator.admissionWebhooks.enabled="false"
 
 anth_helm_args=(
   upgrade
