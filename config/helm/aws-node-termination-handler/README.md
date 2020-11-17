@@ -85,6 +85,8 @@ Parameter | Description | Default
 `enableSqsTerminationDraining` | If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received| `false`
 `queueURL` | Listens for messages on the specified SQS queue URL | None
 `awsRegion` | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through AWS_REGION env var, IMDS, or the specified queue URL | ``
+`checkASGTagBeforeDraining` | If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node | `true`
+`managedAsgTag` | The tag to ensure is on a node if checkASGTagBeforeDraining is true | `aws-node-termination-handler/managed`
 
 ### AWS Node Termination Handler - IMDS Mode Configuration
 

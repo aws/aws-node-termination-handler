@@ -45,6 +45,9 @@ queueURL: ""
 # checkASGTagBeforeDraining  If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node
 checkASGTagBeforeDraining: true
 
+# managedAsgTag  The tag to ensure is on a node if checkASGTagBeforeDraining is true
+managedAsgTag: "aws-node-termination-handler/managed"
+
 # awsRegion If specified, use the AWS region for AWS API calls
 awsRegion: ""
 
