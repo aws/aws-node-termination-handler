@@ -17,13 +17,14 @@ PREVIOUS_VERSION=$(make -s -f $MAKEFILE_PATH previous-release-tag | cut -b 2- )
 REPO_README=$REPO_ROOT_PATH/README.md
 CHART=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/Chart.yaml
 CHART_VALUES=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/values.yaml
-FILES=("$REPO_README"  "$CHART" "$CHART_VALUES")
+# ReadMe will be updated post-release due to long NTH release time
+FILES=("$CHART" "$CHART_VALUES")
 FILES_CHANGED=()
 
 # release prep
 LATEST_TAG="v$LATEST_VERSION"
 NEW_BRANCH="pr/$LATEST_TAG-release"
-COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep [Skip Helm E2E Tests] 🤖🥑"
+COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep 🤖🥑"
 
 # PR details
 DEFAULT_REPO_FULL_NAME=$(make -s -f $MAKEFILE_PATH repo-full-name)
@@ -43,6 +44,7 @@ HELP=$(cat << 'EOM'
 
   Options:
     -d      create a draft pr
+    -m      update versions in ReadMe only
     -r      target repo full name for the pr (default: aws/aws-node-termination-handler)
     -h      help
 
@@ -57,7 +59,7 @@ REPO_FULL_NAME=""
 NEED_ROLLBACK=true
 
 process_args() {
-    while getopts "hdr:" opt; do
+    while getopts "hdmr:" opt; do
         case ${opt} in
             h )
             echo -e "$HELP" 1>&2
@@ -65,6 +67,12 @@ process_args() {
             ;;
             d )
             DRAFT=true
+            ;;
+            m )
+            FILES=("$REPO_README")
+            # release should be completed, so no longer prep
+            COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release 🤖🥑"
+            PR_TITLE="🥑🤖 $LATEST_TAG release"
             ;;
             r )
             # todo: validate $REPO_FULL_NAME
