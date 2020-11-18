@@ -150,6 +150,7 @@ func main() {
 
 		sqsMonitor := sqsevent.SQSMonitor{
 			CheckIfManaged:   nthConfig.CheckASGTagBeforeDraining,
+			ManagedAsgTag:    nthConfig.ManagedAsgTag,
 			QueueURL:         nthConfig.QueueURL,
 			InterruptionChan: interruptionChan,
 			CancelChan:       cancelChan,

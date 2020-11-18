@@ -140,6 +140,8 @@ spec:
           {{- end }}
           - name: CHECK_ASG_TAG_BEFORE_DRAINING
             value: {{ .Values.checkASGTagBeforeDraining | quote }}
+          - name: MANAGED_ASG_TAG
+            value: {{ .Values.managedAsgTag | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.enablePrometheusServer }}

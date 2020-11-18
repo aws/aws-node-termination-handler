@@ -48,11 +48,15 @@ func TestIsInstanceManaged(t *testing.T) {
 		},
 		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
 			Tags: []*autoscaling.TagDescription{
-				{Key: aws.String(NTHManagedASG)},
+				{Key: aws.String("aws-node-termination-handler/managed")},
 			},
 		},
 	}
-	monitor := SQSMonitor{ASG: asgMock}
+	monitor := SQSMonitor{
+		ASG:            asgMock,
+		CheckIfManaged: true,
+		ManagedAsgTag:  "aws-node-termination-handler/managed",
+	}
 	isManaged, err := monitor.isInstanceManaged("i-0123456789")
 	h.Ok(t, err)
 	h.Equals(t, true, isManaged)
