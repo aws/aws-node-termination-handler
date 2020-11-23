@@ -40,7 +40,7 @@ spec:
     spec:
       {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
       volumes:
-      - name: "webhookTemplate"
+      - name: "webhook-template"
         configMap:
           name: {{ .Values.webhookTemplateConfigMapName }}
       {{- end }}
@@ -72,7 +72,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
           volumeMounts:
-          - name: "webhookTemplate"
+          - name: "webhook-template"
             mountPath: "/config/"
           {{- end }}
           env:

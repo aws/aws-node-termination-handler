@@ -43,7 +43,7 @@ spec:
           hostPath:
             path: {{ .Values.procUptimeFile | default "/proc/uptime" | quote }}
         {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
-        - name: "webhookTemplate"
+        - name: "webhook-template"
           configMap:
             name: {{ .Values.webhookTemplateConfigMapName }}
         {{- end }}
@@ -91,7 +91,7 @@ spec:
               mountPath: {{ .Values.procUptimeFile | default "/proc/uptime" | quote }}
               readOnly: true
             {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
-            - name: "webhookTemplate"
+            - name: "webhook-template"
               mountPath: "/config/"
             {{- end }}
           env:
