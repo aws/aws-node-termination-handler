@@ -125,7 +125,7 @@ git push -u origin "${DEFAULT_BRANCH}"
 FORK_RELEASE_BRANCH="${BINARY_BASE}-${VERSION}-${PR_ID}"
 git checkout -b "${FORK_RELEASE_BRANCH}" upstream/${DEFAULT_BRANCH}
 
-cp -r "$NTH_HELM_CHART_DIR/*" "${FORK_DIR}/stable/aws-node-termination-handler/"
+cp -r "$NTH_HELM_CHART_DIR/" "${FORK_DIR}/stable/aws-node-termination-handler/"
 
 git add --all
 git commit -m "${BINARY_BASE}: ${VERSION}"
