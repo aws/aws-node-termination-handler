@@ -4,7 +4,6 @@ on: [push, pull_request, workflow_dispatch]
 
 env:
   DEFAULT_GO_VERSION: ^1.15
-  IS_RELEASE: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }} 
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -55,7 +54,6 @@ jobs:
   buildLinuxDocker:
     name: Build Linux Docker Images
     runs-on: ubuntu-20.04
-    
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -86,7 +84,6 @@ jobs:
   buildWindowsDocker:
     name: Build Windows Docker Images
     runs-on: windows-2019
-    
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -121,67 +118,58 @@ jobs:
     name: Release Linux
     runs-on: ubuntu-20.04
     needs: [e2e, buildWindows, buildWindowsDocker, buildLinux, buildLinuxDocker, fastTests]
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     steps:
     - name: Set up Go 1.x
-      if: ${{ env.IS_RELEASE }}
       uses: actions/setup-go@v2
       with:
         go-version: ${{ env.DEFAULT_GO_VERSION }}
 
     - name: Check out code into the Go module directory
-      if: ${{ env.IS_RELEASE == true }}
       uses: actions/checkout@v2
 
     - name: License Check
-      if: ${{ env.IS_RELEASE == true }}
       run: make license-test
 
     - name: Release Linux Assets
-      if: ${{ env.IS_RELEASE == true }}
       run: make release
 
   releaseWindows:
     name: Release Windows
     runs-on: windows-2019
     needs: [e2e, buildWindows, buildWindowsDocker, buildLinux, buildLinuxDocker, fastTests]
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     steps:
     - name: Set up Go 1.x
-      if: ${{ env.IS_RELEASE == true }}
       uses: actions/setup-go@v2
       with:
         go-version: ${{ env.DEFAULT_GO_VERSION }}
 
     - name: Check out code into the Go module directory
-      if: ${{ env.IS_RELEASE == true }}
       uses: actions/checkout@v2
 
     - name: Release Windows Assets
-      if: ${{ env.IS_RELEASE == true }}
       run: choco install make && choco install zip && RefreshEnv.cmd && make release-windows
 
   release:
     name: Release
     runs-on: ubuntu-20.04
     needs: [releaseLinux, releaseWindows]
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     steps:
     - name: Set up Go 1.x
-      if: ${{ env.IS_RELEASE == true }}
       uses: actions/setup-go@v2
       with:
         go-version: ${{ env.DEFAULT_GO_VERSION }}
 
     - name: Check out code into the Go module directory
-      if: ${{ env.IS_RELEASE == true }}
       uses: actions/checkout@v2
     
     - name: Create eks-charts PR
-      if: ${{ env.IS_RELEASE == true }}
       run: make ekscharts-sync-release
     
     - name: Sync Readme to Dockerhub
-      if: ${{ env.IS_RELEASE == true }}
       run: make sync-readme-to-dockerhub
     
     - name: Create NTH README Update PR
-      if: ${{ env.IS_RELEASE == true }}
       run: make create-release-prep-pr-readme
