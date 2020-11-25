@@ -65,9 +65,9 @@ if [[ -z "${REPO}" ]]; then
 fi
 
 if [[ -z $(command -v gh) ]] || [[ ! $(gh --version) =~ $GH_CLI_VERSION ]]; then
-  mkdir -p ${BUILD_DIR}/gh
-  curl -Lo ${BUILD_DIR}/gh/gh.tar.gz "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_${OS}_amd64.tar.gz"
-  tar -C ${BUILD_DIR}/gh -xvf "${BUILD_DIR}/gh/gh.tar.gz"
+  mkdir -p "${BUILD_DIR}"/gh
+  curl -Lo "${BUILD_DIR}"/gh/gh.tar.gz "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_${OS}_amd64.tar.gz"
+  tar -C "${BUILD_DIR}"/gh -xvf "${BUILD_DIR}/gh/gh.tar.gz"
   export PATH="${BUILD_DIR}/gh/gh_${GH_CLI_VERSION}_${OS}_amd64/bin:$PATH"
   if [[ ! $(gh --version) =~ $GH_CLI_VERSION ]]; then
     echo "❌ Failed install of github cli"
@@ -104,7 +104,7 @@ mkdir -p "${SYNC_DIR}"
 cd "${SYNC_DIR}"
 gh repo fork $CHARTS_REPO --clone --remote
 cd "${FORK_DIR}"
-git remote set-url origin https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${CHARTS_REPO_NAME}.git
+git remote set-url origin https://"${GITHUB_USERNAME}":"${GITHUB_TOKEN}"@github.com/"${GITHUB_USERNAME}"/"${CHARTS_REPO_NAME}".git
 DEFAULT_BRANCH=$(git rev-parse --abbrev-ref HEAD | tr -d '\n')
 
 
@@ -123,8 +123,9 @@ git pull upstream "${DEFAULT_BRANCH}"
 git push -u origin "${DEFAULT_BRANCH}"
 
 FORK_RELEASE_BRANCH="${BINARY_BASE}-${VERSION}-${PR_ID}"
-git checkout -b "${FORK_RELEASE_BRANCH}" upstream/${DEFAULT_BRANCH}
+git checkout -b "${FORK_RELEASE_BRANCH}" upstream/"${DEFAULT_BRANCH}"
 
+rm -rf "${FORK_DIR}"/stable/aws-node-termination-handler/
 cp -r "$NTH_HELM_CHART_DIR/" "${FORK_DIR}/stable/aws-node-termination-handler/"
 
 git add --all
@@ -137,11 +138,11 @@ EOM
 
 if [[ "${INCLUDE_NOTES}" -eq 1 ]]; then
   RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-    https://api.github.com/repos/${REPO}/releases | \
+    https://api.github.com/repos/"${REPO}"/releases | \
     jq --arg VERSION "$VERSION" '.[] | select(.tag_name==$VERSION) | .id')
 
   RELEASE_NOTES=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-    https://api.github.com/repos/${REPO}/releases/${RELEASE_ID} | \
+    https://api.github.com/repos/"${REPO}"/releases/"${RELEASE_ID}" | \
     jq -r '.body')
 
   PR_BODY=$(cat << EOM

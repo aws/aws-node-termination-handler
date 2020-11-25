@@ -10,6 +10,7 @@ SYNC_DIR="${BUILD_DIR}/eks-charts-sync"
 FORK_DIR="${SYNC_DIR}/${CHARTS_REPO_NAME}"
 STABLE="${FORK_DIR}/stable"
 
+function version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 
 EXIT_CODE=0
 # Helm yaml changes should increment Chart version EXCEPT FOR test.yaml
@@ -36,6 +37,9 @@ cd "${STABLE}"
 LAST_RELEASE_CHART_VERSION=$(git --no-pager show "$LAST_RELEASE_HASH":stable/aws-node-termination-handler/Chart.yaml | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
 if [[ $LAST_RELEASE_CHART_VERSION == "$LATEST_COMMIT_CHART_VERSION" ]]; then
   echo "❌ This commit's NTH Chart has the same Chart version as the latest release $LATEST_COMMIT_CHART_VERSION -- please increment Chart version in NTH"
+  EXIT_CODE=1
+elif [[ $(version $LATEST_COMMIT_CHART_VERSION) -lt $(version $LAST_RELEASE_CHART_VERSION) ]]; then
+  echo "❌ This commit's NTH Chart version $LATEST_COMMIT_CHART_VERSION is BEHIND the latest release's chart version $LAST_RELEASE_CHART_VERSION -- please increment Chart version in NTH"
   EXIT_CODE=1
 else
   echo "✅ This commit's NTH Chart has a different version since the last eks-charts release ($LAST_RELEASE_CHART_VERSION -> $LATEST_COMMIT_CHART_VERSION)"
