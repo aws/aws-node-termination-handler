@@ -91,6 +91,9 @@ helm-version-sync-test:
 helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint
 
+helm-validate-eks-versions:
+	${MAKEFILE_PATH}/test/helm/validate-chart-versions
+
 build-binaries:
 	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -d
 
@@ -129,7 +132,7 @@ spellcheck:
 
 build: compile
 
-helm-tests: helm-sync-test helm-version-sync-test helm-lint
+helm-tests: helm-version-sync-test helm-lint helm-validate-eks-versions
 
 eks-cluster-test:
 	${MAKEFILE_PATH}/test/eks-cluster-test/run-test

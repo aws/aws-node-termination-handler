@@ -58,7 +58,7 @@ jobs:
       script: test/license-test/run-license-test.sh
       name: License Test
     - stage: Test
-      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
+      if: type = push AND env(GITHUB_TOKEN) IS present
       script: make helm-tests
       name: Helm Sync and Version Test
     - stage: Deploy
@@ -79,6 +79,10 @@ jobs:
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(GITHUB_TOKEN) IS present
       script: make ekscharts-sync-release
       name: Sync to EKS Charts
+    - stage: EKS Charts Sync Check
+      if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(DOCKER_USERNAME) IS present
+      script: make helm-sync-test
+      name: Validate Charts in sync
     - stage: ReadMe Version Sync
       if: type = push AND tag =~ /^v\d+\.\d+(\.\d+)?(-\S*)?$/ AND env(GITHUB_TOKEN) IS present
       script: make create-release-prep-pr-readme
