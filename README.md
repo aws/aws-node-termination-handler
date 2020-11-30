@@ -77,6 +77,20 @@ Setup Required | ❌ | ✅
 
 ## Installation and Configuration
 
+The aws-node-termination-handler can operate in two different modes: IMDS Processor and Queue Processor. The `enableSqsTerminationDraining` helm configuration key or the `ENABLE_SQS_TERMINATION_DRAINING` environment variable are used to enable the Queue Processor mode of operation. If `enableSqsTerminationDraining` is set to true, then IMDS paths will NOT be monitored. If the `enableSqsTerminationDraining` is set to false, then IMDS Processor Mode will be enabled. Queue Processor Mode and IMDS Processor Mode cannot be run at the same time.
+
+IMDS Processor Mode allows for a fine-grained configuration of IMDS paths that are monitored. There are currently 3 paths supported that can be enabled or disabled by using the following helm configuration keys:
+ - `enableSpotInterruptionDraining`
+ - `enableRebalanceMonitoring`
+ - `enableScheduledEventDraining`
+ 
+The `enableSqsTerminationDraining` must be set to false for these configuration values to be considered.
+
+The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events. 
+
+
+The `enableSqsTerminationDraining` flag turns on the SQS Processor Mode. When SQS Processor Mode is enabled, IMDS mode cannot be active. NTH cannot respond to queue events AND monitor IMDS paths. SQS Processor Mode still queries for node information on startup, but this information is not required for normal operation, so it is safe to disable IMDS for the NTH pod. 
+
 <details opened>
 <summary>AWS Node Termination Handler - IMDS Processor</summary>
 <br>
@@ -84,6 +98,7 @@ Setup Required | ❌ | ✅
 ### Installation and Configuration
 
 The termination handler DaemonSet installs into your cluster a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
+
 
 #### Kubectl Apply
 
@@ -122,6 +137,8 @@ helm upgrade --install aws-node-termination-handler \
   --set enableScheduledEventDraining="false" \
   eks/aws-node-termination-handler
 ```
+
+The `enable*` configuration flags above enable or disable IMDS monitoring paths.
 
 Running Only On Specific Nodes:
 ```
