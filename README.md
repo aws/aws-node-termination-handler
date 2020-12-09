@@ -89,7 +89,7 @@ The `enableSqsTerminationDraining` must be set to false for these configuration 
 The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events. 
 
 
-The `enableSqsTerminationDraining` flag turns on the SQS Processor Mode. When SQS Processor Mode is enabled, IMDS mode cannot be active. NTH cannot respond to queue events AND monitor IMDS paths. SQS Processor Mode still queries for node information on startup, but this information is not required for normal operation, so it is safe to disable IMDS for the NTH pod. 
+The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queue Processor Mode is enabled, IMDS mode cannot be active. NTH cannot respond to queue events AND monitor IMDS paths. Queue Processor Mode still queries for node information on startup, but this information is not required for normal operation, so it is safe to disable IMDS for the NTH pod.
 
 <details opened>
 <summary>AWS Node Termination Handler - IMDS Processor</summary>
@@ -104,7 +104,7 @@ The termination handler DaemonSet installs into your cluster a [ServiceAccount](
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.10.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.11.0/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
