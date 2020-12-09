@@ -112,6 +112,8 @@ spec:
             value: {{ .Values.taintNode | quote }}
           - name: JSON_LOGGING
             value: {{ .Values.jsonLogging | quote }}
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel | quote }}
           - name: WEBHOOK_PROXY
             value: {{ .Values.webhookProxy | quote }}
           - name: ENABLE_PROMETHEUS_SERVER
