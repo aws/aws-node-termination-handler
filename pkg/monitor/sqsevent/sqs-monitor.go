@@ -15,6 +15,7 @@ package sqsevent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -32,6 +33,9 @@ const (
 	// SQSTerminateKind is a const to define an SQS termination kind of interruption event
 	SQSTerminateKind = "SQS_TERMINATE"
 )
+
+// ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
+var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
@@ -54,6 +58,10 @@ func (m SQSMonitor) Kind() string {
 func (m SQSMonitor) Monitor() error {
 	interruptionEvent, err := m.checkForSQSMessage()
 	if err != nil {
+		if errors.Is(err, ErrNodeStateNotRunning) {
+			log.Warn().Err(err).Msg("dropping event for an already terminated node")
+			return nil
+		}
 		return err
 	}
 	if interruptionEvent != nil && interruptionEvent.Kind == SQSTerminateKind {
@@ -175,10 +183,24 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 	}
 
 	instance := result.Reservations[0].Instances[0]
-	log.Debug().Msgf("Got nodename from private ip %s", *instance.PrivateDnsName)
+	nodeName := *instance.PrivateDnsName
+	log.Debug().Msgf("Got nodename from private ip %s", nodeName)
 	instanceJSON, _ := json.MarshalIndent(*instance, " ", "    ")
 	log.Debug().Msgf("Got nodename from ec2 describe call: %s", instanceJSON)
-	return *instance.PrivateDnsName, nil
+
+	if nodeName == "" {
+		state := "unknown"
+		// safe access instance.State potentially being nil
+		if instance.State != nil {
+			state = *instance.State.Name
+		}
+		// anything except running might not contain PrivateDnsName
+		if state != ec2.InstanceStateNameRunning {
+			return "", ErrNodeStateNotRunning
+		}
+		return "", fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
+	}
+	return nodeName, nil
 }
 
 // isInstanceManaged returns whether the instance specified should be managed by node termination handler

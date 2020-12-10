@@ -410,6 +410,42 @@ func TestMonitor_EC2NoDNSName(t *testing.T) {
 	h.Ok(t, err)
 }
 
+func TestMonitor_EC2NoDNSNameOnTerminatedInstance(t *testing.T) {
+	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	h.Ok(t, err)
+	messages := []*sqs.Message{
+		&msg,
+	}
+	sqsMock := h.MockedSQS{
+		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+		ReceiveMessageErr:  nil,
+		DeleteMessageResp:  sqs.DeleteMessageOutput{},
+	}
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(""),
+	}
+	ec2Mock.DescribeInstancesResp.Reservations[0].Instances[0].State = &ec2.InstanceState{
+		Name: aws.String("running"),
+	}
+	drainChan := make(chan monitor.InterruptionEvent)
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		SQS:              sqsMock,
+		EC2:              ec2Mock,
+		ASG:              mockIsManagedTrue(nil),
+		CheckIfManaged:   true,
+		QueueURL:         "https://test-queue",
+		InterruptionChan: drainChan,
+	}
+	go func() {
+		result := <-drainChan
+		h.Equals(t, result.Kind, sqsevent.SQSTerminateKind)
+	}()
+
+	err = sqsMonitor.Monitor()
+	h.Nok(t, err)
+}
+
 func TestMonitor_SQSDeleteFailure(t *testing.T) {
 	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
 	h.Ok(t, err)
