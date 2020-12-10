@@ -37,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -267,23 +268,33 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		if nthConfig.CordonOnly || drainEvent.IsRebalanceRecommendation() {
 			err := node.Cordon(nodeName)
 			if err != nil {
-				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
-				os.Exit(1)
+				if errors.IsNotFound(err) {
+					log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
+				} else {
+					log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
+					os.Exit(1)
+				}
+			} else {
+				log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
+				err = node.LogPods(nodeName)
+				if err != nil {
+					log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
+				}
+				metrics.NodeActionsInc("cordon", nodeName, err)
 			}
-			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
-			err = node.LogPods(nodeName)
-			if err != nil {
-				log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
-			}
-			metrics.NodeActionsInc("cordon", nodeName, err)
 		} else {
 			err := node.CordonAndDrain(nodeName)
 			if err != nil {
-				log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
-				os.Exit(1)
+				if errors.IsNotFound(err) {
+					log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
+				} else {
+					log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
+					os.Exit(1)
+				}
+			} else {
+				log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
+				metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 			}
-			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
-			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		}
 
 		interruptionEventStore.MarkAllAsDrained(nodeName)
