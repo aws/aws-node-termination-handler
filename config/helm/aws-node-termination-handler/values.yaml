@@ -76,6 +76,9 @@ taintNode: false
 # Log messages in JSON format.
 jsonLogging: false
 
+# Sets the log level
+logLevel: "info"
+
 # dryRun tells node-termination-handler to only log calls to kubernetes control plane
 dryRun: false
 

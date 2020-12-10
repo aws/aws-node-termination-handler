@@ -71,6 +71,7 @@ Parameter | Description | Default
 `cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
 `taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, and `aws-node-termination-handler/asg-lifecycle-termination` | `false`
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
+`logLevel` | Sets the log level (INFO, DEBUG, or ERROR) | `INFO`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
 `prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
 `podMonitor.create` | if `true`, create a PodMonitor | `false`
