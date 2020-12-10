@@ -171,7 +171,7 @@ func main() {
 				if err != nil {
 					log.Log().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
-					if err == previousErr {
+					if previousErr != nil && err.Error() == previousErr.Error() {
 						duplicateErrCount++
 					} else {
 						duplicateErrCount = 0
