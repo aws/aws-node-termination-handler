@@ -35,7 +35,7 @@ docker-run:
 	docker run ${IMG_W_TAG}
 
 docker-push:
-	@echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+	@docker login -u ${DOCKER_USERNAME} -p="${DOCKER_PASSWORD}"
 	docker push ${IMG_W_TAG}
 
 build-docker-images:
@@ -45,11 +45,11 @@ build-docker-images-windows:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION}
 
 push-docker-images:
-	@echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+	@docker login -u ${DOCKER_USERNAME} -p="${DOCKER_PASSWORD}"
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION} -m
 
 push-docker-images-windows:
-	@echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+	@docker login -u ${DOCKER_USERNAME} -p="${DOCKER_PASSWORD}"
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION} -m
 
 version:
