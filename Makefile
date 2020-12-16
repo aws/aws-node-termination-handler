@@ -2,6 +2,8 @@ VERSION = $(shell git describe --tags --always --dirty)
 LATEST_RELEASE_TAG=$(shell git describe --tags --abbrev=0)
 PREVIOUS_RELEASE_TAG=$(shell git describe --abbrev=0 --tags `git rev-list --tags --skip=1  --max-count=1`)
 REPO_FULL_NAME=aws/aws-node-termination-handler
+ECR_REGISTRY ?= public.ecr.aws/r6b0f9a1
+ECR_REPO ?= ${ECR_REGISTRY}/aws-node-termination-handler
 IMG ?= amazon/aws-node-termination-handler
 IMG_TAG ?= ${VERSION}
 IMG_W_TAG = ${IMG}:${IMG_TAG}
@@ -47,10 +49,16 @@ build-docker-images-windows:
 push-docker-images:
 	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION} -m
+	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
+	@docker login --username AWS -p="$(shell aws ecr-public get-login-password --region us-east-1)" ${ECR_REGISTRY}
+	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${ECR_REPO} -v ${VERSION} -m
 
 push-docker-images-windows:
 	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION} -m
+	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
+	@docker login --username AWS -p="$(shell aws ecr-public get-login-password --region us-east-1)" ${ECR_REGISTRY}
+	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
 
 version:
 	@echo ${VERSION}

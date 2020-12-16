@@ -1,0 +1,55 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+REPO_ROOT_PATH=$SCRIPTPATH/../
+MAKE_FILE_PATH=$REPO_ROOT_PATH/Makefile
+
+VERSION=$(make -s -f $MAKE_FILE_PATH version)
+PLATFORMS=("linux/amd64")
+
+
+USAGE=$(cat << 'EOM'
+  Usage: retag-docker-images  [-p <platform pairs>]
+  Tags created docker images with a new prefix
+
+  Example: retag-docker-images -p "linux/amd64,linux/arm" -o <OLD_REPO_PREFIX> -n <NEW_REPO_PREFIX>
+          Optional:
+            -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
+            -o          OLD IMAGE REPO to retag
+            -n          NEW IMAGE REPO to tag with
+            -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]
+EOM
+)
+
+# Process our input arguments
+while getopts "p:o:n:v:" opt; do
+  case ${opt} in
+    p ) # Platform Pairs
+        IFS=',' read -ra PLATFORMS <<< "$OPTARG"
+      ;;
+    o ) # Old Image Repo
+        OLD_IMAGE_REPO="$OPTARG"
+      ;;
+    n ) # New Image Repo
+        NEW_IMAGE_REPO="$OPTARG"
+      ;;
+    v ) # Image Version
+        VERSION="$OPTARG"
+      ;;
+    \? )
+        echo "$USAGE" 1>&2
+        exit
+      ;;
+  esac
+done
+
+for os_arch in "${PLATFORMS[@]}"; do
+    os=$(echo $os_arch | cut -d'/' -f1)
+    arch=$(echo $os_arch | cut -d'/' -f2)
+
+    old_img_tag="$OLD_IMAGE_REPO:$VERSION-$os-$arch"
+    new_img_tag="$NEW_IMAGE_REPO:$VERSION-$os-$arch"
+    docker tag ${old_img_tag} ${new_img_tag}
+done
