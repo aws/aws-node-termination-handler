@@ -133,6 +133,9 @@ jobs:
 
     - name: Release Linux Assets
       run: make release
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   releaseWindows:
     name: Release Windows
@@ -150,6 +153,9 @@ jobs:
 
     - name: Release Windows Assets
       run: choco install make && choco install zip && RefreshEnv.cmd && make release-windows
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   release:
     name: Release
