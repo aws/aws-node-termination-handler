@@ -9,13 +9,12 @@ touch "${RELEASE_NOTES}"
 
 >&2 git fetch --all --tags
 
-if $(git describe HEAD --tags | grep -Eq "^v[0-9]+(\.[0-9]+)*(-[a-z0-9]+)?$"); then
+if git describe HEAD --tags | grep -Eq "^v[0-9]+(\.[0-9]+)*(-[a-z0-9]+)?$"; then
     LAST_RELEASE_HASH=$(git rev-list --tags --max-count=1 --skip=1 --no-walk)
 else 
     TAG=$(git describe HEAD --tags | grep -Eo "^v[0-9]+(\.[0-9]+)*")
     LAST_RELEASE_HASH=$(git rev-list -1 $TAG)
 fi
-LAST_RELEASE_TAG=$(git describe $LAST_RELEASE_HASH --tags)
 
 echo "## Changes"  | tee -a "${RELEASE_NOTES}"
 for change in $(git rev-list $LAST_RELEASE_HASH..HEAD); do
