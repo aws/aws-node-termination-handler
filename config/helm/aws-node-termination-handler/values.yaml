@@ -4,7 +4,7 @@
 
 image:
   repository: public.ecr.aws/r6b0f9a1/aws-node-termination-handler
-  tag: v1.11.1
+  tag: v1.11.2
   pullPolicy: IfNotPresent
   pullSecrets: []
 
