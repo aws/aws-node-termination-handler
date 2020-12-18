@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GIT_REPO_ROOT=$(git rev-parse --show-toplevel)
+BUILD_DIR="${GIT_REPO_ROOT}/build"
+
+RELEASE_NOTES="${BUILD_DIR}/release-notes.md"
+touch "${RELEASE_NOTES}"
+
+>&2 git fetch --all --tags
+
+if git describe HEAD --tags | grep -Eq "^v[0-9]+(\.[0-9]+)*(-[a-z0-9]+)?$"; then
+    LAST_RELEASE_HASH=$(git rev-list --tags --max-count=1 --skip=1 --no-walk)
+else 
+    TAG=$(git describe HEAD --tags | grep -Eo "^v[0-9]+(\.[0-9]+)*")
+    LAST_RELEASE_HASH=$(git rev-list -1 $TAG)
+fi
+
+echo "## Changes"  | tee -a "${RELEASE_NOTES}"
+for change in $(git rev-list $LAST_RELEASE_HASH..HEAD); do
+    one_line_msg=$(git --no-pager log --pretty='%s (thanks to %an)'  "${change}" -n1 |  sed 's/^\[.*\]//' | xargs)
+    echo "  - ${one_line_msg}" | tee -a "${RELEASE_NOTES}"
+done
+
+>&2 echo -e "\n\nRelease notes file: ${RELEASE_NOTES}"
