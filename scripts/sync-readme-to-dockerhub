@@ -8,7 +8,7 @@ image="amazon/aws-node-termination-handler"
 if git --no-pager diff --name-only HEAD^ HEAD | grep 'README.md'; then
     token=$(curl -s -X POST \
         -H "Content-Type: application/json" \
-        -d '{"username": "'"${DOCKER_USERNAME}"'", "password": "'"${DOCKERHUB_PASSWORD}"'"}' \
+        -d '{"username": "'"${DOCKER_USERNAME}"'", "password": "'"${DOCKER_PASSWORD}"'"}' \
         https://hub.docker.com/v2/users/login/ | jq -r .token)
 
     rcode=$(jq -n --arg msg "$(<$SCRIPTPATH/../README.md)" \
