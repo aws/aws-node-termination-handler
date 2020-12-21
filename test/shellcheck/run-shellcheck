@@ -21,7 +21,7 @@ export PATH="${BUILD_DIR}/shellcheck-v${SHELLCHECK_VERSION}:$PATH"
 shell_files=()
 while IFS='' read -r line; do 
    shell_files+=("$line"); 
-done < <(grep -Rnl -e '#!.*/bin/bash' -e '#!.*/usr/bin/env bash' ${SCRIPTPATH}/../../)
+done < <(grep -Rnl --exclude-dir=build -e '#!.*/bin/bash' -e '#!.*/usr/bin/env bash' ${SCRIPTPATH}/../../)
 shellcheck -S warning "${shell_files[@]}"
 
 echo "✅ All shell scripts look good! 😎"

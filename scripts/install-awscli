@@ -1,0 +1,47 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+BUILD_DIR=$SCRIPTPATH/../build/
+
+VERSION="2.1.13"
+os=$(uname)
+arch=$(uname -m)
+
+function exit_and_fail() {
+    echo "❌ Unable to install awscli v${VERSION} for OS ${os} and arch ${arch}"
+}
+trap exit_and_fail INT TERM ERR
+
+if [[ "${os}" = "Linux" ]]; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-${arch}-${VERSION}.zip" -o "${BUILD_DIR}/awscliv2.zip"
+    unzip "${BUILD_DIR}/awscliv2.zip" -d "${BUILD_DIR}/awscliv2"
+    ${BUILD_DIR}/awscliv2/aws/install -i ${BUILD_DIR}/awscliv2 -b "${BUILD_DIR}"
+elif [[ "${os}" = "Darwin" ]]; then
+    curl "https://awscli.amazonaws.com/AWSCLIV2-${VERSION}.pkg" -o "${BUILD_DIR}/awscliv2.pkg"
+    CHOICES_XML="${BUILD_DIR}/aws-cli-mac.plist"
+    cat << EOF > "${CHOICES_XML}"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <array>
+    <dict>
+      <key>choiceAttribute</key>
+      <string>customLocation</string>
+      <key>attributeSetting</key>
+      <string>${BUILD_DIR}</string>
+      <key>choiceIdentifier</key>
+      <string>default</string>
+    </dict>
+  </array>
+</plist>
+EOF
+    installer -pkg ${BUILD_DIR}/awscliv2.pkg \
+        -target CurrentUserHomeDirectory \
+        -applyChoiceChangesXML "${CHOICES_XML}"
+    ln -s "${BUILD_DIR}/aws-cli/aws" "${BUILD_DIR}/aws"
+else # windows
+    choco install awscli --version ${VERSION} --force -y || :
+fi
+
+echo "✅ Install AWS CLI v${VERSION} for OS ${os} and arch ${arch}"
