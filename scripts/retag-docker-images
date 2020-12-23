@@ -45,11 +45,31 @@ while getopts "p:o:n:v:" opt; do
   esac
 done
 
+function exit_and_fail() {
+  echo "❌ Failed retagging docker images"
+}
+
+trap "exit_and_fail" INT TERM ERR
+
 for os_arch in "${PLATFORMS[@]}"; do
     os=$(echo $os_arch | cut -d'/' -f1)
     arch=$(echo $os_arch | cut -d'/' -f2)
 
     old_img_tag="$OLD_IMAGE_REPO:$VERSION-$os-$arch"
     new_img_tag="$NEW_IMAGE_REPO:$VERSION-$os-$arch"
+
+    current_os=$(uname)
+    # Windows will append '\r' to the end of $img which
+    # results in docker failing to create the manifest due to invalid reference format.
+    # However, MacOS does not recognize '\r' as carriage return
+    # and attempts to remove literal 'r' chars; therefore, made this so portable
+    if [[ $current_os != "Darwin" ]]; then
+      old_img_tag=$(echo $old_img_tag | sed -e 's/\r//')
+      new_img_tag=$(echo $new_img_tag | sed -e 's/\r//')
+    fi
+    
     docker tag ${old_img_tag} ${new_img_tag}
+    echo "✅ Successfully retagged docker image $old_img_tag to $new_img_tag"
 done
+
+echo "✅ Done Retagging!"
