@@ -33,6 +33,7 @@ type InterruptionEvent struct {
 	StartTime     time.Time
 	EndTime       time.Time
 	Drained       bool
+	InProgress    bool
 	PreDrainTask  DrainTask `json:"-"`
 	PostDrainTask DrainTask `json:"-"`
 }

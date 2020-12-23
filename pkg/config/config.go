@@ -70,6 +70,8 @@ const (
 	logLevelDefault                         = "INFO"
 	uptimeFromFileConfigKey                 = "UPTIME_FROM_FILE"
 	uptimeFromFileDefault                   = ""
+	workersConfigKey                        = "WORKERS"
+	workersDefault                          = 10
 	// prometheus
 	enablePrometheusDefault   = false
 	enablePrometheusConfigKey = "ENABLE_PROMETHEUS_SERVER"
@@ -116,6 +118,7 @@ type Config struct {
 	AWSRegion                      string
 	AWSEndpoint                    string
 	QueueURL                       string
+	Workers                        int
 	AWSSession                     *session.Session
 }
 
@@ -162,6 +165,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls")
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
+	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
 
 	flag.Parse()
 

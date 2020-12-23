@@ -79,7 +79,6 @@ Parameter | Description | Default
 `podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
 `podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
 
-
 ### AWS Node Termination Handler - Queue-Processor Mode Configuration
 
 Parameter | Description | Default
@@ -89,6 +88,7 @@ Parameter | Description | Default
 `awsRegion` | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through AWS_REGION env var, IMDS, or the specified queue URL | ``
 `checkASGTagBeforeDraining` | If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node | `true`
 `managedAsgTag` | The tag to ensure is on a node if checkASGTagBeforeDraining is true | `aws-node-termination-handler/managed`
+`workers` | The maximum amount of parallel event processors | `10`
 
 ### AWS Node Termination Handler - IMDS Mode Configuration
 

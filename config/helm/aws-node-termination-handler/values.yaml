@@ -188,3 +188,6 @@ windowsUpdateStrategy: ""
 # If you have disabled IMDSv1 and are relying on IMDSv2, you'll need to increase the IP hop count to 2 before switching this to false
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
 useHostNetwork: true
+
+# The maximal amount of parallel event processors to handle concurrent events
+workers: 10
