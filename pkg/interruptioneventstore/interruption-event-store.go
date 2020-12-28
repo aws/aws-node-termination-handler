@@ -30,6 +30,7 @@ type Store struct {
 	interruptionEventStore map[string]*monitor.InterruptionEvent
 	ignoredEvents          map[string]struct{}
 	atLeastOneEvent        bool
+	Workers                chan int
 }
 
 // New Creates a new interruption event store
@@ -38,6 +39,7 @@ func New(nthConfig config.Config) *Store {
 		NthConfig:              nthConfig,
 		interruptionEventStore: make(map[string]*monitor.InterruptionEvent),
 		ignoredEvents:          make(map[string]struct{}),
+		Workers:                make(chan int, nthConfig.Workers),
 	}
 }
 

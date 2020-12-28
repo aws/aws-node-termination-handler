@@ -196,7 +196,7 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 		}
 		// anything except running might not contain PrivateDnsName
 		if state != ec2.InstanceStateNameRunning {
-			return "", ErrNodeStateNotRunning
+			return "", fmt.Errorf("node: '%s' in state '%s': %w", instanceID, state, ErrNodeStateNotRunning)
 		}
 		return "", fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
 	}

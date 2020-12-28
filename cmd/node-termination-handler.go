@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -194,16 +195,30 @@ func main() {
 	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, metrics)
 	log.Log().Msg("Started watching for event cancellations")
 
+	var wg sync.WaitGroup
+
 	for range time.NewTicker(1 * time.Second).C {
 		select {
-		case _ = <-signalChan:
+		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			drainOrCordonIfNecessary(interruptionEventStore, *node, nthConfig, nodeMetadata, metrics)
+			for event, ok := interruptionEventStore.GetActiveEvent(); ok && !event.InProgress; event, ok = interruptionEventStore.GetActiveEvent() {
+				select {
+				case interruptionEventStore.Workers <- 1:
+					event.InProgress = true
+					wg.Add(1)
+					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, &wg)
+				default:
+					log.Warn().Msg("all workers busy, waiting")
+					break
+				}
+			}
 		}
 	}
 	log.Log().Msg("AWS Node Termination Handler is shutting down")
+	wg.Wait()
+	log.Debug().Msg("all event processors finished")
 }
 
 func handleRebootUncordon(nodeName string, interruptionEventStore *interruptioneventstore.Store, node node.Node) error {
@@ -254,59 +269,60 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 	}
 }
 
-func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics) {
-	if drainEvent, ok := interruptionEventStore.GetActiveEvent(); ok {
-		nodeName := drainEvent.NodeName
-		if drainEvent.PreDrainTask != nil {
-			err := drainEvent.PreDrainTask(*drainEvent, node)
-			if err != nil {
-				log.Log().Err(err).Msg("There was a problem executing the pre-drain task")
-			}
-			metrics.NodeActionsInc("pre-drain", nodeName, err)
+func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, wg *sync.WaitGroup) {
+	defer wg.Done()
+	nodeName := drainEvent.NodeName
+	if drainEvent.PreDrainTask != nil {
+		err := drainEvent.PreDrainTask(*drainEvent, node)
+		if err != nil {
+			log.Log().Err(err).Msg("There was a problem executing the pre-drain task")
 		}
+		metrics.NodeActionsInc("pre-drain", nodeName, err)
+	}
 
-		if nthConfig.CordonOnly || drainEvent.IsRebalanceRecommendation() {
-			err := node.Cordon(nodeName)
-			if err != nil {
-				if errors.IsNotFound(err) {
-					log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
-				} else {
-					log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
-					os.Exit(1)
-				}
+	if nthConfig.CordonOnly || drainEvent.IsRebalanceRecommendation() {
+		err := node.Cordon(nodeName)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
-				log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
-				err = node.LogPods(nodeName)
-				if err != nil {
-					log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
-				}
-				metrics.NodeActionsInc("cordon", nodeName, err)
+				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
+				os.Exit(1)
 			}
 		} else {
-			err := node.CordonAndDrain(nodeName)
+			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
+			err = node.LogPods(nodeName)
 			if err != nil {
-				if errors.IsNotFound(err) {
-					log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
-				} else {
-					log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
-					os.Exit(1)
-				}
+				log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
+			}
+			metrics.NodeActionsInc("cordon", nodeName, err)
+		}
+	} else {
+		err := node.CordonAndDrain(nodeName)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
-				log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
-				metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
+				log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
+				os.Exit(1)
 			}
-		}
-
-		interruptionEventStore.MarkAllAsDrained(nodeName)
-		if nthConfig.WebhookURL != "" {
-			webhook.Post(nodeMetadata, drainEvent, nthConfig)
-		}
-		if drainEvent.PostDrainTask != nil {
-			err := drainEvent.PostDrainTask(*drainEvent, node)
-			if err != nil {
-				log.Err(err).Msg("There was a problem executing the post-drain task")
-			}
-			metrics.NodeActionsInc("post-drain", nodeName, err)
+		} else {
+			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
+			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		}
 	}
+
+	interruptionEventStore.MarkAllAsDrained(nodeName)
+	if nthConfig.WebhookURL != "" {
+		webhook.Post(nodeMetadata, drainEvent, nthConfig)
+	}
+	if drainEvent.PostDrainTask != nil {
+		err := drainEvent.PostDrainTask(*drainEvent, node)
+		if err != nil {
+			log.Err(err).Msg("There was a problem executing the post-drain task")
+		}
+		metrics.NodeActionsInc("post-drain", nodeName, err)
+	}
+	<-interruptionEventStore.Workers
+
 }

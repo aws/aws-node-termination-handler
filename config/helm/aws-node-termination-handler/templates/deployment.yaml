@@ -144,6 +144,8 @@ spec:
             value: {{ .Values.checkASGTagBeforeDraining | quote }}
           - name: MANAGED_ASG_TAG
             value: {{ .Values.managedAsgTag | quote }}
+          - name: WORKERS
+            value: {{ .Values.workers | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.enablePrometheusServer }}
