@@ -125,7 +125,8 @@ update_versions() {
     echo -e "🥑 Attempting to update NTH release version in preparation for a new release."
 
     for f in "${FILES[@]}"; do
-        has_incorrect_version=$(cat $f | grep $PREVIOUS_VERSION)
+        # do not exit if grep doesn't find $PREVIOUS_VERSION; continue to exit on all other exit codes
+        has_incorrect_version=$(cat $f | grep $PREVIOUS_VERSION || [[ $? == 1 ]])
         if [[ ! -z  $has_incorrect_version ]]; then
             sed -i '' "s/$PREVIOUS_VERSION/$LATEST_VERSION/g" $f
             FILES_CHANGED+=("$f")
