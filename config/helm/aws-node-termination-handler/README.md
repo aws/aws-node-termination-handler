@@ -103,7 +103,7 @@ Parameter | Description | Default
 
 Parameter | Description | Default
 --- | --- | ---
-`image.repository` | image repository | `amazon/aws-node-termination-handler`
+`image.repository` | image repository | `public.ecr.aws/aws-ec2/aws-node-termination-handler`
 `image.tag` | image tag | `<VERSION>`
 `image.pullPolicy` | image pull policy | `IfNotPresent`
 `image.pullSecrets` | image pull secrets (for private docker registries) | `[]`
