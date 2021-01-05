@@ -2,7 +2,7 @@ VERSION = $(shell git describe --tags --always --dirty)
 LATEST_RELEASE_TAG=$(shell git describe --tags --abbrev=0)
 PREVIOUS_RELEASE_TAG=$(shell git describe --abbrev=0 --tags `git rev-list --tags --skip=1  --max-count=1`)
 REPO_FULL_NAME=aws/aws-node-termination-handler
-ECR_REGISTRY ?= public.ecr.aws/r6b0f9a1
+ECR_REGISTRY ?= public.ecr.aws/aws-ec2
 ECR_REPO ?= ${ECR_REGISTRY}/aws-node-termination-handler
 IMG ?= amazon/aws-node-termination-handler
 IMG_TAG ?= ${VERSION}
