@@ -12,10 +12,16 @@ REPO_ROOT_PATH="$( cd "$(dirname "$0")"; cd ../; pwd -P )"
 MAKEFILE_PATH=$REPO_ROOT_PATH/Makefile
 LATEST_VERSION=$(make -s -f $MAKEFILE_PATH latest-release-tag | cut -b 2- )
 PREVIOUS_VERSION=$(make -s -f $MAKEFILE_PATH previous-release-tag | cut -b 2- )
+MAJOR_INC=false
+MINOR_INC=false
+PATCH_INC=false
+os=$(uname)
 
 # files with versions, to update
 REPO_README=$REPO_ROOT_PATH/README.md
 CHART=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/Chart.yaml
+CURR_CHART_VERSION=$(cat $CHART | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
+UPDATED_CHART_VERSION=""
 CHART_VALUES=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/values.yaml
 # ReadMe will be updated post-release due to long NTH release time
 FILES=("$CHART" "$CHART_VALUES")
@@ -25,6 +31,7 @@ FILES_CHANGED=()
 LATEST_TAG="v$LATEST_VERSION"
 NEW_BRANCH="pr/$LATEST_TAG-release"
 COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep 🤖🥑"
+RELEASE_PREP=true
 
 # PR details
 DEFAULT_REPO_FULL_NAME=$(make -s -f $MAKEFILE_PATH repo-full-name)
@@ -33,6 +40,9 @@ PR_TITLE="🥑🤖 $LATEST_TAG release prep"
 PR_BODY="🥑🤖 Auto-generated PR for $LATEST_TAG release. Updating release versions in repo."
 PR_LABEL_1="release-prep"
 PR_LABEL_2="🤖 auto-generated🤖"
+EC2_BOT_USER="ec2-bot 🤖"
+EC2_BOT_EMAIL="ec2-bot@users.noreply.github.com"
+EC2_BOT_SET=false
 
 HELP=$(cat << 'EOM'
   Update repo with the new release version and create a pr from a new release prep branch.
@@ -73,6 +83,7 @@ process_args() {
             # release should be completed, so no longer prep
             COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release 🤖🥑"
             PR_TITLE="🥑🤖 $LATEST_TAG release"
+            RELEASE_PREP=false
             ;;
             r )
             # todo: validate $REPO_FULL_NAME
@@ -97,6 +108,47 @@ RED=$(tput setaf 1)
 MAGENTA=$(tput setaf 5)
 RESET_FMT=$(tput sgr 0)
 BOLD=$(tput bold)
+
+
+determine_increment() {
+  prev=$1
+  updated=$2
+
+  prev_major_v=$(echo $prev | tr '.' '\n' | head -1)
+  prev_minor_v=$(echo $prev | tr '.' '\n' | head -2 | tail -1)
+  prev_patch_v=$(echo $prev | tr '.' '\n' | tail -1)
+  curr_major_v=$(echo $updated | tr '.' '\n' | head -1)
+  curr_minor_v=$(echo $updated | tr '.' '\n' | head -2 | tail -1)
+  curr_patch_v=$(echo $updated | tr '.' '\n' | tail -1)
+
+  if [[ "$prev_major_v" -ne "$curr_major_v" ]]; then
+    MAJOR_INC=true
+  elif [[ "$prev_minor_v" -ne "$curr_minor_v" ]]; then
+    MINOR_INC=true
+  elif [[ "$prev_patch_v" -ne "$curr_patch_v" ]]; then
+    PATCH_INC=true
+  fi
+}
+
+increment_chart() {
+  curr_chart_version=$1
+  curr_major_v=$(echo $curr_chart_version | tr '.' '\n' | head -1)
+  curr_minor_v=$(echo $curr_chart_version | tr '.' '\n' | head -2 | tail -1)
+  curr_patch_v=$(echo $curr_chart_version | tr '.' '\n' | tail -1)
+
+  if [[ $MAJOR_INC == true ]]; then
+      new_major_v=$(echo $(($curr_major_v + 1)))
+      UPDATED_CHART_VERSION=$(echo $new_major_v.0.0)
+  elif [[ $MINOR_INC == true ]]; then
+      new_minor_v=$(echo $(($curr_minor_v + 1)))
+      UPDATED_CHART_VERSION=$(echo $curr_major_v.$new_minor_v.0)
+  elif [[ $PATCH_INC == true ]]; then
+      new_patch_v=$(echo $(($curr_patch_v + 1)))
+      UPDATED_CHART_VERSION=$(echo $curr_major_v.$curr_minor_v.$new_patch_v)
+  fi
+
+  echo $UPDATED_CHART_VERSION
+}
 
 # verify origin tracking before creating and pushing new branches
 verify_origin_tracking() {
@@ -123,18 +175,30 @@ create_release_branch() {
 update_versions() {
     # update release version for release prep
     echo -e "🥑 Attempting to update NTH release version in preparation for a new release."
+    UPDATED_CHART_VERSION=$(increment_chart $CURR_CHART_VERSION)
 
     for f in "${FILES[@]}"; do
         # do not exit if grep doesn't find $PREVIOUS_VERSION; continue to exit on all other exit codes
         has_incorrect_version=$(cat $f | grep $PREVIOUS_VERSION || [[ $? == 1 ]])
-        if [[ ! -z  $has_incorrect_version ]]; then
-            sed -i '' "s/$PREVIOUS_VERSION/$LATEST_VERSION/g" $f
+        chart_should_increment=$(cat $f | grep $CURR_CHART_VERSION || [[ $? == 1 ]])
+        if [[ ! -z  $has_incorrect_version ]] || [[ ! -z  $chart_should_increment ]]; then
+            if [[ "${os}" = "Linux" ]]; then
+              sed -i "s/$PREVIOUS_VERSION/$LATEST_VERSION/g" $f
+              sed -i "s/$CURR_CHART_VERSION/$UPDATED_CHART_VERSION/g" $f
+            elif [[ "${os}" = "Darwin" ]]; then
+              sed -i '' "s/$PREVIOUS_VERSION/$LATEST_VERSION/g" $f
+              sed -i '' "s/$CURR_CHART_VERSION/$UPDATED_CHART_VERSION/g" $f
+            else
+              echo -e "❌ ${RED}Platform ${os} does not support NTH release. Please use: Linux or macOS ${RESET_FMT}"
+              exit 1
+            fi
             FILES_CHANGED+=("$f")
         fi
     done
 
     if [[ ${#FILES_CHANGED[@]} -eq 0 ]]; then
         echo -e "\nNo files were modified. Either all files already use git the latest release version $LATEST_VERSION or the files don't currently have the previous version $PREVIOUS_VERSION."
+        exit 0
     else
         echo -e "✅✅ ${BOLD}Updated versions from $PREVIOUS_VERSION to $LATEST_VERSION in files: \n$(echo "${FILES_CHANGED[@]}" | tr ' ' '\n')"
         echo -e "To see changes, run \`git diff HEAD^ HEAD\`${RESET_FMT}"
@@ -144,8 +208,11 @@ update_versions() {
 
 commit_changes() {
     echo -e "\n🥑 Adding and committing release version changes."
+    git config user.name "$EC2_BOT_USER"
+    git config user.email "$EC2_BOT_EMAIL"
+    EC2_BOT_SET=true
     git add "${FILES_CHANGED[@]}"
-    git commit -m"$COMMIT_MESSAGE"
+    git commit -m "$COMMIT_MESSAGE"
     echo -e "✅✅✅ ${BOLD}Committed release prep changes to new branch $NEW_BRANCH with commit message '$COMMIT_MESSAGE'\n\n${RESET_FMT}"
 }
 
@@ -164,14 +231,20 @@ confirm_with_user_and_create_pr(){
     Changes in $NEW_BRANCH:
     ${MAGENTA}$(git diff HEAD^ HEAD)${RESET_FMT}
 EOM
-    while true; do
-        read -p "🥑${BOLD}Do you wish to create the release prep PR? Enter y/n  " yn
-        case $yn in
-            [Yy]* ) create_pr; break;;
-            [Nn]* ) rollback; exit;;
-            * ) echo "🥑Please answer yes or no.";;
-        esac
-    done
+
+    # gh actions cannot respond to prompts
+    if [[ $RELEASE_PREP == true ]]; then
+      while true; do
+          read -p "🥑${BOLD}Do you wish to create the release prep PR? Enter y/n  " yn
+          case $yn in
+              [Yy]* ) create_pr; break;;
+              [Nn]* ) rollback; exit;;
+              * ) echo "🥑Please answer yes or no.";;
+          esac
+      done
+    else
+      create_pr
+    fi
     echo "${RESET_FMT}"
 }
 
@@ -215,6 +288,14 @@ rollback() {
         # delete local and remote release branch only if current execution of the script created them
         git branch -D $NEW_BRANCH
         git push origin --delete $NEW_BRANCH
+
+        # if multiple user.name are set, then only the latest(ec2-bot) will be removed
+        if [[ $EC2_BOT_SET == true ]]; then
+          echo "🥑${BOLD}Rolling back ec2-bot git config"
+          git config --unset user.name
+          git config --unset user.email
+        fi
+
     fi
     echo "${RESET_FMT}"
 }
@@ -230,11 +311,34 @@ handle_errors() {
     exit $1
 }
 
+sync_local_tags_from_remote() {
+    # setup remote upstream tracking to fetch tags
+    git remote add the-real-upstream https://github.com/aws/aws-node-termination-handler.git &> /dev/null || true
+    git fetch the-real-upstream
+
+    # delete all local tags
+    git tag -l | xargs git tag -d
+
+    # fetch remote tags
+    git fetch the-real-upstream --tags
+
+    # clean up tracking
+    git remote remove the-real-upstream
+}
+
 main() {
     process_args "$@"
     trap 'handle_errors $? $BASH_COMMAND' EXIT
 
     verify_origin_tracking
+    sync_local_tags_from_remote
+
+    # if previous and latest version are equal, then the previous previous release versions may be present
+    if [[ $PREVIOUS_VERSION == "$LATEST_VERSION" ]]; then
+      PREVIOUS_VERSION=$(git tag -l --sort=-v:refname | sed -n '2 p' | cut -b 2-)
+    fi
+
+    determine_increment $PREVIOUS_VERSION $LATEST_VERSION
 
     echo -e "🥑 Attempting to create a release prep branch and PR with release version updates.\n   Previous version: $PREVIOUS_VERSION ---> Latest version: $LATEST_VERSION"
     create_release_branch
