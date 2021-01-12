@@ -1,0 +1,32 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+REPO_NAME="aws-node-termination-handler"
+#about and usage section char max
+MAX_CHAR_COUNT=10240
+USAGE_TEXT="See About section"
+ADDITIONAL_MSG="...
+
+**truncated due to char limits**...
+A complete version of the ReadMe can be found [here](https://github.com/aws/aws-node-termination-handler#aws-node-termination-handler)\""
+
+
+if git --no-pager diff --name-only HEAD^ HEAD | grep 'README.md'; then
+    #converting to json to insert esc chars, then replace newlines for proper markdown render
+    raw_about=$(jq -n --arg msg "$(<$SCRIPTPATH/../README.md)" '{"usageText": $msg}' | jq '.usageText' | sed 's/\\n/\
+/g')
+    char_to_trunc="$(($MAX_CHAR_COUNT-${#ADDITIONAL_MSG}))"
+    raw_truncated="${raw_about:0:$char_to_trunc}"
+    raw_truncated+="$ADDITIONAL_MSG"
+    resp=$(aws ecr-public put-repository-catalog-data --repository-name="${REPO_NAME}" --catalog-data aboutText="${raw_truncated}",usageText="${USAGE_TEXT}" --region us-east-1)
+
+    if [[ $resp -ge 1 ]]; then
+        echo "README sync to ecr-public failed"
+        exit 1
+    else
+        echo "README sync to ecr-public succeeded!"
+    fi
+else
+    echo "README.md did not change in the last commit. Not taking any action."
+fi

@@ -15,9 +15,6 @@
   <a href="https://goreportcard.com/report/github.com/aws/aws-node-termination-handler">
     <img src="https://goreportcard.com/badge/github.com/aws/aws-node-termination-handler" alt="go-report-card">
   </a>
-  <a href="https://travis-ci.org/aws/aws-node-termination-handler">
-    <img src="https://travis-ci.org/aws/aws-node-termination-handler.svg?branch=main" alt="build-status">
-  </a>
   <a href="https://codecov.io/gh/aws/aws-node-termination-handler">
     <img src="https://img.shields.io/codecov/c/github/aws/aws-node-termination-handler" alt="build-status">
   </a>
@@ -25,6 +22,8 @@
     <img src="https://img.shields.io/docker/pulls/amazon/aws-node-termination-handler" alt="docker-pulls">
   </a>
 </p>
+
+![NTH Continuous Integration and Release](https://github.com/aws/aws-node-termination-handler/workflows/NTH%20Continuous%20Integration%20and%20Release/badge.svg)
 
 <div>
 <hr>
