@@ -166,6 +166,12 @@ spec:
             value: {{ .Values.enablePrometheusServer | quote }}
           - name: PROMETHEUS_SERVER_PORT
             value: {{ .Values.prometheusServerPort | quote }}
+          - name: ENABLE_PROBES_SERVER
+            value: {{ .Values.enableProbesServer | quote }}
+          - name: PROBES_SERVER_PORT
+            value: {{ .Values.probesServerPort | quote }}
+          - name: PROBES_SERVER_ENDPOINT
+            value: {{ .Values.probesServerEndpoint | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.enablePrometheusServer }}
@@ -173,6 +179,13 @@ spec:
           - containerPort: {{ .Values.prometheusServerPort }}
             hostPort: {{ .Values.prometheusServerPort }}
             name: http-metrics
+            protocol: TCP
+          {{- end }}
+          {{- if .Values.enableProbesServer }}
+          ports:
+          - containerPort: {{ .Values.probesServerPort }}
+            hostPort: {{ .Values.probesServerPort }}
+            name: liveness-probe
             protocol: TCP
           {{- end }}
       nodeSelector:

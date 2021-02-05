@@ -78,6 +78,13 @@ const (
 	// https://github.com/prometheus/prometheus/wiki/Default-port-allocations
 	prometheusPortDefault   = 9092
 	prometheusPortConfigKey = "PROMETHEUS_SERVER_PORT"
+	// probes
+	enableProbesDefault     = false
+	enableProbesConfigKey   = "ENABLE_PROBES_SERVER"
+	probesPortDefault       = 8080
+	probesPortConfigKey     = "PROBES_SERVER_PORT"
+	probesEndpointDefault   = "/healthz"
+	probesEndpointConfigKey = "PROBES_SERVER_ENDPOINT"
 	region                  = ""
 	awsRegionConfigKey      = "AWS_REGION"
 	awsEndpointConfigKey    = "AWS_ENDPOINT"
@@ -115,6 +122,9 @@ type Config struct {
 	UptimeFromFile                 string
 	EnablePrometheus               bool
 	PrometheusPort                 int
+	EnableProbes                   bool
+	ProbesPort                     int
+	ProbesEndpoint                 string
 	AWSRegion                      string
 	AWSEndpoint                    string
 	QueueURL                       string
@@ -162,6 +172,9 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
 	flag.BoolVar(&config.EnablePrometheus, "enable-prometheus-server", getBoolEnv(enablePrometheusConfigKey, enablePrometheusDefault), "If true, a http server is used for exposing prometheus metrics in /metrics endpoint.")
 	flag.IntVar(&config.PrometheusPort, "prometheus-server-port", getIntEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
+	flag.BoolVar(&config.EnableProbes, "enable-probes-server", getBoolEnv(enableProbesConfigKey, enableProbesDefault), "If true, a http server is used for exposing probes in /healthz endpoint.")
+	flag.IntVar(&config.ProbesPort, "probes-server-port", getIntEnv(probesPortConfigKey, probesPortDefault), "The port for running the probes http server.")
+	flag.StringVar(&config.ProbesEndpoint, "probes-server-endpoint", getEnv(probesEndpointConfigKey, probesEndpointDefault), "If specified, use this endpoint to make liveness probe")
 	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls")
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")

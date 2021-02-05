@@ -118,6 +118,8 @@ spec:
             value: {{ .Values.webhookProxy | quote }}
           - name: ENABLE_PROMETHEUS_SERVER
             value: {{ .Values.enablePrometheusServer | quote }}
+          - name: ENABLE_PROBES_SERVER
+            value: {{ .Values.enableProbesServer | quote }}
           - name: ENABLE_SPOT_INTERRUPTION_DRAINING
             value: "false"
           - name: ENABLE_SCHEDULED_EVENT_DRAINING
@@ -130,6 +132,10 @@ spec:
             value: {{ .Values.queueURL | quote }}
           - name: PROMETHEUS_SERVER_PORT
             value: {{ .Values.prometheusServerPort | quote }}
+          - name: PROBES_SERVER_PORT
+            value: {{ .Values.probesServerPort | quote }}
+          - name: PROBES_SERVER_ENDPOINT
+            value: {{ .Values.probesServerEndpoint | quote }}
           - name: AWS_REGION
             value: {{ .Values.awsRegion | quote }}
           - name: AWS_ENDPOINT
@@ -153,6 +159,13 @@ spec:
           - containerPort: {{ .Values.prometheusServerPort }}
             hostPort: {{ .Values.prometheusServerPort }}
             name: http-metrics
+            protocol: TCP
+          {{- end }}
+          {{- if .Values.enableProbesServer }}
+          ports:
+          - containerPort: {{ .Values.probesServerPort }}
+            hostPort: {{ .Values.probesServerPort }}
+            name: liveness-probe
             protocol: TCP
           {{- end }}
       nodeSelector:

@@ -93,6 +93,12 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
 	}
 
+	err = observability.InitProbes(nthConfig.EnableProbes, nthConfig.ProbesPort, nthConfig.ProbesEndpoint)
+	if err != nil {
+		nthConfig.Print()
+		log.Fatal().Err(err).Msg("Unable to instantiate probes service,")
+	}
+
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)

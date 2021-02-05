@@ -25,6 +25,14 @@ podLabels: {}
 linuxPodLabels: {}
 windowsPodLabels: {}
 
+# liveness probe settings.
+probes:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
 resources:
   requests:
     memory: "64Mi"
@@ -143,6 +151,10 @@ nodeSelectorTermsArch: ""
 
 enablePrometheusServer: false
 prometheusServerPort: 9092
+
+enableProbesServer: false
+probesServerPort: 8080
+probesServerEndpoint: "/healthz"
 
 tolerations:
   - operator: "Exists"
