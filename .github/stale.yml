@@ -11,7 +11,7 @@ daysUntilClose: 3
 onlyLabels: []
 
 # Issues or Pull Requests with these labels will never be considered stale. Set to `[]` to disable
-exemptLabels: []
+exemptLabels: ['Type: Enhancement']
 
 # Set to true to ignore issues in a project (defaults to false)
 exemptProjects: false
@@ -23,38 +23,31 @@ exemptMilestones: false
 exemptAssignees: false
 
 # Label to use when marking as stale
-staleLabel: stale
-
-# Comment to post when marking as stale. Set to `false` to disable
-markComment: >
-  This pull request has been automatically marked as stale because it has not had
-  recent activity. It will be closed if no further activity occurs. Thank you
-  for your contributions.
-
-# Comment to post when removing the stale label.
-# unmarkComment: >
-#   Your comment here.
-
-# Comment to post when closing a stale Issue or Pull Request.
-closeComment: >
-  This pull request has been automatically closed because it has not had recent
-  activity. Please feel free to resubmit the pull request if this has been in
-  error. Thank you for your contributions.
+staleLabel: 'Status: Stale'
 
 # Limit the number of actions per hour, from 1-30. Default is 30
 limitPerRun: 30
 
 # Limit to only `issues` or `pulls`
-only: pulls
+# only: pulls
 
 # Optionally, specify configuration settings that are specific to just 'issues' or 'pulls':
-# pulls:
-#   daysUntilStale: 30
-#   markComment: >
-#     This pull request has been automatically marked as stale because it has not had
-#     recent activity. It will be closed if no further activity occurs. Thank you
-#     for your contributions.
+pulls:
+  markComment: >
+    This pull request has been automatically marked as stale because it has not had
+    recent activity. It will be closed if no further activity occurs. Thank you
+    for your contributions.
+  closeComment: >
+    This pull request has been automatically closed because it has not had recent
+    activity. Please feel free to resubmit the pull request if this has been in
+    error. Thank you for your contributions.
 
-# issues:
-#   exemptLabels:
-#     - confirmed
+issues:
+  markComment: >
+    This issue has been automatically marked as stale because it has not had
+    recent activity. It will be closed if no further activity occurs. Thank you
+    for your contributions.
+  closeComment: >
+    This issue has been automatically closed because it has not had recent
+    activity. Please feel free to reopen issue if this has been in
+    error. Thank you for your contributions.
