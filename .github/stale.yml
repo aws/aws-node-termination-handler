@@ -11,7 +11,7 @@ daysUntilClose: 3
 onlyLabels: []
 
 # Issues or Pull Requests with these labels will never be considered stale. Set to `[]` to disable
-exemptLabels: ['Type: Enhancement']
+exemptLabels: ['Type: Enhancement', 'Type: Bug']
 
 # Set to true to ignore issues in a project (defaults to false)
 exemptProjects: false
@@ -44,10 +44,12 @@ pulls:
 
 issues:
   markComment: >
-    This issue has been automatically marked as stale because it has not had
-    recent activity. It will be closed if no further activity occurs. Thank you
+    Hello! This issue has been automatically marked as stale because it has not had
+    any recent activity. Has your question been answered? Do you still need more 
+    information? If the answer is no, then feel free to close the issue. Otherwise,
+    this issue will be closed for you if no further activity occurs. Thank you 
     for your contributions.
   closeComment: >
     This issue has been automatically closed because it has not had recent
-    activity. Please feel free to reopen issue if this has been in
-    error. Thank you for your contributions.
+    activity. Please feel free to reopen issue if you still require information.
+    Thank you for your contributions.
