@@ -56,35 +56,34 @@ func (m SQSMonitor) Kind() string {
 
 // Monitor continuously monitors SQS for events and sends interruption events to the passed in channel
 func (m SQSMonitor) Monitor() error {
-	interruptionEvent, err := m.checkForSQSMessage()
-	if err != nil {
-		if errors.Is(err, ErrNodeStateNotRunning) {
-			log.Warn().Err(err).Msg("dropping event for an already terminated node")
-			return nil
-		}
-		return err
-	}
-	if interruptionEvent != nil && interruptionEvent.Kind == SQSTerminateKind {
-		log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
-		m.InterruptionChan <- *interruptionEvent
-	}
-	return nil
-}
-
-// checkForSpotInterruptionNotice checks sqs for new messages and returns interruption events
-func (m SQSMonitor) checkForSQSMessage() (*monitor.InterruptionEvent, error) {
-
 	log.Debug().Msg("Checking for queue messages")
 	messages, err := m.receiveQueueMessages(m.QueueURL)
 	if err != nil {
-		return nil, err
-	}
-	if len(messages) == 0 {
-		return nil, nil
+		return err
 	}
 
+	for _, message := range messages {
+		interruptionEvent, err := m.processSQSMessage(message)
+		if err != nil {
+			if errors.Is(err, ErrNodeStateNotRunning) {
+				log.Warn().Err(err).Msg("dropping event for an already terminated node")
+				return nil
+			}
+			return err
+		}
+		if interruptionEvent != nil && interruptionEvent.Kind == SQSTerminateKind {
+			log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
+			m.InterruptionChan <- *interruptionEvent
+		}
+	}
+
+	return nil
+}
+
+// processSQSMessage checks sqs for new messages and returns interruption events
+func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	event := EventBridgeEvent{}
-	err = json.Unmarshal([]byte(*messages[0].Body), &event)
+	err := json.Unmarshal([]byte(*message.Body), &event)
 	if err != nil {
 		return nil, err
 	}
@@ -93,17 +92,17 @@ func (m SQSMonitor) checkForSQSMessage() (*monitor.InterruptionEvent, error) {
 
 	switch event.Source {
 	case "aws.autoscaling":
-		interruptionEvent, err = m.asgTerminationToInterruptionEvent(event, messages)
+		interruptionEvent, err = m.asgTerminationToInterruptionEvent(event, message)
 		if err != nil {
 			return nil, err
 		}
 	case "aws.ec2":
 		if event.DetailType == "EC2 Instance State-change Notification" {
-			interruptionEvent, err = m.ec2StateChangeToInterruptionEvent(event, messages)
+			interruptionEvent, err = m.ec2StateChangeToInterruptionEvent(event, message)
 		} else if event.DetailType == "EC2 Spot Instance Interruption Warning" {
-			interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(event, messages)
+			interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(event, message)
 		} else if event.DetailType == "EC2 Instance Rebalance Recommendation" {
-			interruptionEvent, err = m.rebalanceRecommendationToInterruptionEvent(event, messages)
+			interruptionEvent, err = m.rebalanceRecommendationToInterruptionEvent(event, message)
 		}
 		if err != nil {
 			return nil, err

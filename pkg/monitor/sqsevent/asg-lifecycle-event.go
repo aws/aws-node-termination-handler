@@ -57,7 +57,7 @@ type LifecycleDetail struct {
 	LifecycleTransition  string `json:"LifecycleTransition"`
 }
 
-func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, messages []*sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
@@ -94,7 +94,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 		log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
 			lifecycleDetail.LifecycleHookName,
 			lifecycleDetail.EC2InstanceID)
-		errs := m.deleteMessages(messages)
+		errs := m.deleteMessages([]*sqs.Message{message})
 		if errs != nil {
 			return errs[0]
 		}
@@ -111,7 +111,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 
 	if nodeName == "" {
 		log.Info().Msg("Node name is empty, assuming instance was already terminated, deleting queue message")
-		errs := m.deleteMessages(messages)
+		errs := m.deleteMessages([]*sqs.Message{message})
 		if errs != nil {
 			log.Warn().Errs("errors", errs).Msg("There was an error deleting the messages")
 		}
