@@ -153,7 +153,7 @@ func (m SQSMonitor) receiveQueueMessages(qURL string) ([]*sqs.Message, error) {
 			aws.String(sqs.QueueAttributeNameAll),
 		},
 		QueueUrl:            &qURL,
-		MaxNumberOfMessages: aws.Int64(2),
+		MaxNumberOfMessages: aws.Int64(5),
 		VisibilityTimeout:   aws.Int64(20), // 20 seconds
 		WaitTimeSeconds:     aws.Int64(0),
 	})
