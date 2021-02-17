@@ -320,18 +320,9 @@ IAM Policy for aws-node-termination-handler Deployment:
 
 ### Installation
 
-#### Kubectl Apply
-
-You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
-```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.12.0/all-resources-queue-processor.yaml
-```
-
-For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
-
 #### Helm
 
-The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
+The easiest and most commonly used method to configure the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
 
 To get started you need to add the eks-charts repo to helm
 
@@ -376,6 +367,20 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
+
+#### Kubectl Apply
+
+Queue Processor needs an **sqs queue url** to function; therefore, manifest changes are **REQUIRED** before using kubectl to directly add all of the above resources into your cluster.
+
+Minimal Config:
+
+```
+curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.12.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
+<open all-resources-queue-processor.yaml and update QUEUE_URL value>
+kubectl apply -f ./all-resources-queue-processor.yaml
+```
+
+For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
 
 </details>
 
