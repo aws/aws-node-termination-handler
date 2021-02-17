@@ -67,9 +67,11 @@ func (m SQSMonitor) Monitor() error {
 		if err != nil {
 			if errors.Is(err, ErrNodeStateNotRunning) {
 				log.Warn().Err(err).Msg("dropping event for an already terminated node")
-				return nil
+				m.deleteMessages([]*sqs.Message{message})
+			} else {
+				log.Warn().Err(err).Msg("ignoring event due to error")
 			}
-			return err
+			continue
 		}
 		if interruptionEvent != nil && interruptionEvent.Kind == SQSTerminateKind {
 			log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
