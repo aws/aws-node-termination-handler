@@ -307,7 +307,7 @@ func TestMonitor_Failure(t *testing.T) {
 		}
 
 		err = sqsMonitor.Monitor()
-		h.Ok(t, err)
+		h.Nok(t, err)
 
 		select {
 		case <-drainChan:
@@ -403,7 +403,7 @@ func TestMonitor_SQSJsonErr(t *testing.T) {
 			InterruptionChan: drainChan,
 		}
 		err := sqsMonitor.Monitor()
-		h.Ok(t, err)
+		h.Nok(t, err)
 
 		select {
 		case <-drainChan:
@@ -439,7 +439,7 @@ func TestMonitor_EC2Failure(t *testing.T) {
 		}
 
 		err = sqsMonitor.Monitor()
-		h.Ok(t, err)
+		h.Nok(t, err)
 
 		select {
 		case <-drainChan:
@@ -474,7 +474,7 @@ func TestMonitor_EC2NoInstances(t *testing.T) {
 		}
 
 		err = sqsMonitor.Monitor()
-		h.Ok(t, err)
+		h.Nok(t, err)
 
 		select {
 		case <-drainChan:
@@ -552,7 +552,7 @@ func TestMonitor_EC2NoDNSNameOnTerminatedInstance(t *testing.T) {
 	}
 
 	err = sqsMonitor.Monitor()
-	h.Ok(t, err)
+	h.Nok(t, err)
 
 	select {
 	case <-drainChan:
@@ -590,7 +590,7 @@ func TestMonitor_SQSDeleteFailure(t *testing.T) {
 	}
 
 	err = sqsMonitor.Monitor()
-	h.Ok(t, err)
+	h.Nok(t, err)
 
 	select {
 	case <-drainChan:
@@ -667,7 +667,7 @@ func TestMonitor_InstanceManagedErr(t *testing.T) {
 		}
 
 		err = sqsMonitor.Monitor()
-		h.Ok(t, err)
+		h.Nok(t, err)
 
 		select {
 		case <-drainChan:

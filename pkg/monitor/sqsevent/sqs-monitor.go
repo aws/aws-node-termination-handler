@@ -62,21 +62,33 @@ func (m SQSMonitor) Monitor() error {
 		return err
 	}
 
+	failedEvents := 0
 	for _, message := range messages {
 		interruptionEvent, err := m.processSQSMessage(message)
-		if err != nil {
-			if errors.Is(err, ErrNodeStateNotRunning) {
-				log.Warn().Err(err).Msg("dropping event for an already terminated node")
-				m.deleteMessages([]*sqs.Message{message})
-			} else {
-				log.Warn().Err(err).Msg("ignoring event due to error")
+		switch {
+		case errors.Is(err, ErrNodeStateNotRunning):
+			// If the node is no longer running, just log and delete the message.  If message deletion fails, count it as an error.
+			log.Warn().Err(err).Msg("dropping event for an already terminated node")
+			errs := m.deleteMessages([]*sqs.Message{message})
+			if len(errs) > 0 {
+				log.Warn().Err(errs[0]).Msg("error deleting event for already terminated node")
+				failedEvents++
 			}
-			continue
-		}
-		if interruptionEvent != nil && interruptionEvent.Kind == SQSTerminateKind {
+
+		case err != nil:
+			// Log errors and record as failed events
+			log.Warn().Err(err).Msg("ignoring event due to error")
+			failedEvents++
+
+		case err == nil && interruptionEvent != nil && interruptionEvent.Kind == SQSTerminateKind:
+			// Successfully processed SQS message into a SQSTerminateKind interruption event
 			log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
 			m.InterruptionChan <- *interruptionEvent
 		}
+	}
+
+	if len(messages) > 0 && failedEvents == len(messages) {
+		return fmt.Errorf("All of the waiting queue events could not be processed")
 	}
 
 	return nil
