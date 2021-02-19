@@ -2,6 +2,7 @@ FROM golang:1
 
 WORKDIR /app
 
+ARG GO111MODULE=auto
 RUN go get github.com/gojp/goreportcard
 RUN cd $GOPATH/src/github.com/gojp/goreportcard && (make install || cd / && curl -L https://git.io/vp6lP | sh)
 
