@@ -18,7 +18,7 @@
   <a href="https://codecov.io/gh/aws/aws-node-termination-handler">
     <img src="https://img.shields.io/codecov/c/github/aws/aws-node-termination-handler" alt="build-status">
   </a>
-  <a href="https://hub.docker.com/r/amazon/aws-node-termination-handler">
+  <a href="https://gallery.ecr.aws/aws-ec2/aws-node-termination-handler">
     <img src="https://img.shields.io/docker/pulls/amazon/aws-node-termination-handler" alt="docker-pulls">
   </a>
 </p>
