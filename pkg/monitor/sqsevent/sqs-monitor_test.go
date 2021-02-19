@@ -184,7 +184,7 @@ func TestMonitor_DrainTasks(t *testing.T) {
 }
 
 func TestMonitor_DrainTasks_Errors(t *testing.T) {
-	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, sqsevent.EventBridgeEvent{}, rebalanceRecommendationEvent}
+	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, {}, rebalanceRecommendationEvent}
 	messages := make([]*sqs.Message, 0, len(testEvents))
 	for _, event := range testEvents {
 		msg, err := getSQSMessageFromEvent(event)
