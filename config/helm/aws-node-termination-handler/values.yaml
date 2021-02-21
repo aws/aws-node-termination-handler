@@ -142,7 +142,7 @@ nodeSelectorTermsOs: ""
 nodeSelectorTermsArch: ""
 
 enablePrometheusServer: false
-prometheusServerPort: "9092"
+prometheusServerPort: 9092
 
 tolerations:
   - operator: "Exists"

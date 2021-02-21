@@ -12,6 +12,11 @@ spec:
   hostIPC: false
   hostNetwork: {{ .Values.useHostNetwork }} 
   hostPID: false
+{{- if and .Values.rbac.pspEnabled .Values.enablePrometheusServer }}
+  hostPorts:
+  - min: {{ .Values.prometheusServerPort }}
+    max: {{ .Values.prometheusServerPort }}
+{{- end }}
   readOnlyRootFilesystem: false
   allowPrivilegeEscalation: false
   allowedCapabilities:
