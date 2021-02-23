@@ -122,7 +122,7 @@ windowsNodeSelector: {
 }
 
 enablePrometheusServer: true
-prometheusServerPort: "9092"
+prometheusServerPort: 9092
 
 tolerations:
 - operator: "Exists"
