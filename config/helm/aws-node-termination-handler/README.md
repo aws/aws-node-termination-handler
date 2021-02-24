@@ -78,6 +78,7 @@ Parameter | Description | Default
 `podMonitor.interval` | Prometheus scrape interval | `30s`
 `podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
 `podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
+`podMonitor.namespace` | override podMonitor Helm release namespace | `{{.Release.Namespace}}`
 
 ### AWS Node Termination Handler - Queue-Processor Mode Configuration
 
