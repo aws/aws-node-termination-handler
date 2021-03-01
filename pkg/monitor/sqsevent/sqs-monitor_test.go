@@ -474,7 +474,7 @@ func TestMonitor_EC2NoInstances(t *testing.T) {
 		}
 
 		err = sqsMonitor.Monitor()
-		h.Nok(t, err)
+		h.Ok(t, err)
 
 		select {
 		case <-drainChan:
