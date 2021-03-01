@@ -109,13 +109,5 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 		return nil
 	}
 
-	if nodeName == "" {
-		log.Info().Msg("Node name is empty, assuming instance was already terminated, deleting queue message")
-		errs := m.deleteMessages([]*sqs.Message{message})
-		if errs != nil {
-			log.Warn().Errs("errors", errs).Msg("There was an error deleting the messages")
-		}
-	}
-
 	return interruptionEvent, nil
 }

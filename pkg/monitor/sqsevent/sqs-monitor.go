@@ -192,14 +192,15 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 		return "", err
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		return "", fmt.Errorf("No instance found with instance-id %s", instanceID)
+		log.Info().Msgf("No instance found with instance-id %s", instanceID)
+		return "", ErrNodeStateNotRunning
 	}
 
 	instance := result.Reservations[0].Instances[0]
 	nodeName := *instance.PrivateDnsName
 	log.Debug().Msgf("Got nodename from private ip %s", nodeName)
 	instanceJSON, _ := json.MarshalIndent(*instance, " ", "    ")
-	log.Debug().Msgf("Got nodename from ec2 describe call: %s", instanceJSON)
+	log.Debug().Msgf("Got instance data from ec2 describe call: %s", instanceJSON)
 
 	if nodeName == "" {
 		state := "unknown"
