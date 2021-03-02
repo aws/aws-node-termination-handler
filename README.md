@@ -375,7 +375,7 @@ Queue Processor needs an **sqs queue url** to function; therefore, manifest chan
 Minimal Config:
 
 ```
-curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.12.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
+curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.12.1/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
 <open all-resources-queue-processor.yaml and update QUEUE_URL value>
 kubectl apply -f ./all-resources-queue-processor.yaml
 ```
