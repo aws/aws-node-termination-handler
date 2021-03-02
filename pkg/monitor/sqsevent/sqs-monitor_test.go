@@ -134,6 +134,54 @@ func TestMonitor_Success(t *testing.T) {
 	}
 }
 
+func TestMonitor_Success_MatchingTagValue(t *testing.T) {
+	spotItnEventNoTime := spotItnEvent
+	spotItnEventNoTime.Time = ""
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceRecommendationEvent} {
+		msg, err := getSQSMessageFromEvent(event)
+		h.Ok(t, err)
+		messages := []*sqs.Message{
+			&msg,
+		}
+		sqsMock := h.MockedSQS{
+			ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+			ReceiveMessageErr:  nil,
+		}
+		dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+		ec2Mock := h.MockedEC2{
+			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+		}
+		drainChan := make(chan monitor.InterruptionEvent, 1)
+
+		sqsMonitor := sqsevent.SQSMonitor{
+			SQS:                sqsMock,
+			EC2:                ec2Mock,
+			ManagedAsgTag:      "aws-node-termination-handler/managed",
+			ManagedAsgTagValue: "my-cluster",
+			ASG:                mockIsManagedTrueWithValue(nil, "my-cluster"),
+			CheckIfManaged:     true,
+			QueueURL:           "https://test-queue",
+			InterruptionChan:   drainChan,
+		}
+
+		err = sqsMonitor.Monitor()
+		h.Ok(t, err)
+
+		select {
+		case result := <-drainChan:
+			h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+			h.Equals(t, result.NodeName, dnsNodeName)
+			h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
+			h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+			err = result.PostDrainTask(result, node.Node{})
+			h.Ok(t, err)
+		default:
+			h.Ok(t, fmt.Errorf("Expected an event to be generated"))
+		}
+
+	}
+}
+
 func TestMonitor_DrainTasks(t *testing.T) {
 	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, rebalanceRecommendationEvent}
 	messages := make([]*sqs.Message, 0, len(testEvents))
@@ -678,6 +726,47 @@ func TestMonitor_InstanceManagedErr(t *testing.T) {
 	}
 }
 
+func TestMonitor_InstanceNotManaged_noMatchingTagValue(t *testing.T) {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+		msg, err := getSQSMessageFromEvent(event)
+		h.Ok(t, err)
+		messages := []*sqs.Message{
+			&msg,
+		}
+		sqsMock := h.MockedSQS{
+			ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+			ReceiveMessageErr:  nil,
+		}
+		dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+		ec2Mock := h.MockedEC2{
+			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+		}
+
+		drainChan := make(chan monitor.InterruptionEvent, 1)
+
+		sqsMonitor := sqsevent.SQSMonitor{
+			SQS:                sqsMock,
+			EC2:                ec2Mock,
+			ManagedAsgTag:      "aws-node-termination-handler/managed",
+			ManagedAsgTagValue: "my-cluster",
+			ASG:                mockIsManagedTrueWithValue(nil, "my-second-cluster"),
+			CheckIfManaged:     true,
+			QueueURL:           "https://test-queue",
+			InterruptionChan:   drainChan,
+		}
+
+		err = sqsMonitor.Monitor()
+		h.Ok(t, err)
+
+		select {
+		case <-drainChan:
+			h.Ok(t, fmt.Errorf("Expected no events"))
+		default:
+			h.Ok(t, nil)
+		}
+	}
+}
+
 // AWS Mock Helpers specific to sqs-monitor tests
 
 func getDescribeInstancesResp(privateDNSName string) ec2.DescribeInstancesOutput {
@@ -716,6 +805,23 @@ func mockIsManagedTrue(asg *h.MockedASG) h.MockedASG {
 	asg.DescribeTagsPagesResp = autoscaling.DescribeTagsOutput{
 		Tags: []*autoscaling.TagDescription{
 			{Key: aws.String("aws-node-termination-handler/managed")},
+		},
+	}
+	return *asg
+}
+
+func mockIsManagedTrueWithValue(asg *h.MockedASG, tagValue string) h.MockedASG {
+	if asg == nil {
+		asg = &h.MockedASG{}
+	}
+	asg.DescribeAutoScalingInstancesResp = autoscaling.DescribeAutoScalingInstancesOutput{
+		AutoScalingInstances: []*autoscaling.InstanceDetails{
+			{AutoScalingGroupName: aws.String("test-asg")},
+		},
+	}
+	asg.DescribeTagsPagesResp = autoscaling.DescribeTagsOutput{
+		Tags: []*autoscaling.TagDescription{
+			{Key: aws.String("aws-node-termination-handler/managed"), Value: aws.String(tagValue)},
 		},
 	}
 	return *asg

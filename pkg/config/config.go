@@ -60,6 +60,7 @@ const (
 	checkASGTagBeforeDrainingDefault        = true
 	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
 	managedAsgTagDefault                    = "aws-node-termination-handler/managed"
+	managedAsgTagConfigValue                = "MANAGED_ASG_TAG_VALUE"
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
@@ -107,6 +108,7 @@ type Config struct {
 	EnableRebalanceMonitoring      bool
 	CheckASGTagBeforeDraining      bool
 	ManagedAsgTag                  string
+	ManagedAsgTagValue             string
 	MetadataTries                  int
 	CordonOnly                     bool
 	TaintNode                      bool
@@ -154,6 +156,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received")
 	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node")
 	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "Sets the tag to check for on instances that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")
+	flag.StringVar(&config.ManagedAsgTagValue, "managed-asg-tag-value", getEnv(managedAsgTagConfigValue, ""), "Sets the tag value to check that the ASG is related to this EKS before taking action.")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
@@ -254,6 +257,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("queue_url", c.QueueURL).
 		Bool("check_asg_tag_before_draining", c.CheckASGTagBeforeDraining).
 		Str("ManagedAsgTag", c.ManagedAsgTag).
+		Str("ManagedAsgTagValue", c.ManagedAsgTagValue).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -295,6 +299,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
 			"\tmanaged-asg-tag: %s,\n"+
+			"\tmanaged-asg-tag-value: %s,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
@@ -325,6 +330,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
 		c.ManagedAsgTag,
+		c.ManagedAsgTagValue,
 		c.AWSEndpoint,
 	)
 }

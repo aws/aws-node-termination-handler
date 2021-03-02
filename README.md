@@ -215,6 +215,8 @@ The value of the key does not matter.
 This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle. 
 However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
 
+In the case of multiple EKS clusters with they own set of ASGs. To ensure that the ASGs belong to that EKS cluster the aws-node-termination-handler can also check against the value of the tagged key, setting the value `--managed-asg-tag-value=my-cluster` or environment variable `MANAGED_ASG_TAG_VALUE=my-cluster`.
+
 You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules. 
 
 Take a look at the docs on how to create rules that only manage certain ASGs here: https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html 

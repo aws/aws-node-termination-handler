@@ -39,14 +39,15 @@ var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
-	InterruptionChan chan<- monitor.InterruptionEvent
-	CancelChan       chan<- monitor.InterruptionEvent
-	QueueURL         string
-	SQS              sqsiface.SQSAPI
-	ASG              autoscalingiface.AutoScalingAPI
-	EC2              ec2iface.EC2API
-	CheckIfManaged   bool
-	ManagedAsgTag    string
+	InterruptionChan   chan<- monitor.InterruptionEvent
+	CancelChan         chan<- monitor.InterruptionEvent
+	QueueURL           string
+	SQS                sqsiface.SQSAPI
+	ASG                autoscalingiface.AutoScalingAPI
+	EC2                ec2iface.EC2API
+	CheckIfManaged     bool
+	ManagedAsgTag      string
+	ManagedAsgTagValue string
 }
 
 // Kind denotes the kind of event that is processed
@@ -240,10 +241,16 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 		Filters: []*autoscaling.Filter{&asgFilter},
 	}
 	isManaged := false
+	isManagedTagFound := false
 	err = m.ASG.DescribeTagsPages(&asgDescribeTagsInput, func(resp *autoscaling.DescribeTagsOutput, next bool) bool {
 		for _, tag := range resp.Tags {
 			if *tag.Key == m.ManagedAsgTag {
-				isManaged = true
+				isManagedTagFound = true
+				if m.ManagedAsgTagValue == "" {
+					isManaged = true
+				} else if *tag.Value == m.ManagedAsgTagValue {
+					isManaged = true
+				}
 				// breaks paging loop
 				return false
 			}
@@ -253,9 +260,15 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 	})
 
 	if !isManaged {
-		log.Debug().
-			Str("instance_id", instanceID).
-			Msgf("The instance's Auto Scaling Group is not tagged as managed with tag key: %s", m.ManagedAsgTag)
+		if !isManagedTagFound {
+			log.Debug().
+				Str("instance_id", instanceID).
+				Msgf("The instance's Auto Scaling Group is not tagged as managed with tag key: %s", m.ManagedAsgTag)
+		} else {
+			log.Debug().
+				Str("instance_id", instanceID).
+				Msgf("The instance's Auto Scaling Group is tagged as managed but the value is not: %s", m.ManagedAsgTagValue)
+		}
 	}
 	return isManaged, err
 }
