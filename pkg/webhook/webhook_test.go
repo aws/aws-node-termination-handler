@@ -35,7 +35,7 @@ import (
 const (
 	testDateFormat      = "02 Jan 2006 15:04:05 GMT"
 	testWebhookHeaders  = `{"Content-type":"application/json"}`
-	testWebhookTemplate = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
+	testWebhookTemplate = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Node: {{ .NodeName }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 )
 
 func parseScheduledEventTime(inputTime string) time.Time {
@@ -71,6 +71,7 @@ func TestPostSuccess(t *testing.T) {
 		State:       "active",
 		StartTime:   parseScheduledEventTime("21 Jan 2019 09:00:43 GMT"),
 		EndTime:     parseScheduledEventTime("21 Jan 2019 09:17:23 GMT"),
+		NodeName:    "e2e-test-abcd",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
