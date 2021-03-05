@@ -97,6 +97,10 @@ func main() {
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
 	nodeMetadata := imds.GetNodeMetadata()
+	nodeMetadata.NodeLabels, err = (*node).GetNodeLabels(nthConfig.NodeName)
+	if err != nil {
+		log.Warn().Err(err).Msg("Unable to fetch node labels")
+	}
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region

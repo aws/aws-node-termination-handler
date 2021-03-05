@@ -104,15 +104,16 @@ type RebalanceRecommendation struct {
 
 // NodeMetadata contains information that applies to every drain event
 type NodeMetadata struct {
-	AccountId        string `json:"accountId"`
-	InstanceID       string `json:"instanceId"`
-	InstanceType     string `json:"instanceType"`
-	PublicHostname   string `json:"publicHostname"`
-	PublicIP         string `json:"publicIp"`
-	LocalHostname    string `json:"localHostname"`
-	LocalIP          string `json:"privateIp"`
-	AvailabilityZone string `json:"availabilityZone"`
-	Region           string `json:"region"`
+	AccountId        string            `json:"accountId"`
+	InstanceID       string            `json:"instanceId"`
+	InstanceType     string            `json:"instanceType"`
+	PublicHostname   string            `json:"publicHostname"`
+	PublicIP         string            `json:"publicIp"`
+	LocalHostname    string            `json:"localHostname"`
+	LocalIP          string            `json:"privateIp"`
+	AvailabilityZone string            `json:"availabilityZone"`
+	Region           string            `json:"region"`
+	NodeLabels       map[string]string `json:"nodeLabels"`
 }
 
 // New constructs an instance of the Service client
