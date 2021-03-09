@@ -65,14 +65,15 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
-
+	asgName, err := m.retrieveAutoScalingGroupName(ec2StateChangeDetail.InstanceID)
 	interruptionEvent := monitor.InterruptionEvent{
-		EventID:     fmt.Sprintf("ec2-state-change-event-%x", event.ID),
-		Kind:        SQSTerminateKind,
-		StartTime:   event.getTime(),
-		NodeName:    nodeName,
-		InstanceID:  ec2StateChangeDetail.InstanceID,
-		Description: fmt.Sprintf("EC2 State Change event received. Instance went into %s at %s \n", ec2StateChangeDetail.State, event.getTime()),
+		EventID:              fmt.Sprintf("ec2-state-change-event-%x", event.ID),
+		Kind:                 SQSTerminateKind,
+		StartTime:            event.getTime(),
+		NodeName:             nodeName,
+		AutoScalingGroupName: asgName,
+		InstanceID:           ec2StateChangeDetail.InstanceID,
+		Description:          fmt.Sprintf("EC2 State Change event received. Instance went into %s at %s \n", ec2StateChangeDetail.State, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		errs := m.deleteMessages([]*sqs.Message{message})

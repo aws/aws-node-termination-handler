@@ -222,20 +222,11 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 	if instanceID == "" {
 		return false, fmt.Errorf("Instance ID was empty when calling isInstanceManaged")
 	}
-	asgDescribeInstanceInput := autoscaling.DescribeAutoScalingInstancesInput{
-		InstanceIds: []*string{&instanceID},
-		MaxRecords:  aws.Int64(50),
-	}
-	asgs, err := m.ASG.DescribeAutoScalingInstances(&asgDescribeInstanceInput)
-	if err != nil {
+	asgName, err := m.retrieveAutoScalingGroupName(instanceID)
+	if asgName == "" {
 		return false, err
 	}
-	if len(asgs.AutoScalingInstances) == 0 {
-		log.Debug().Str("instance_id", instanceID).Msg("Did not find an Auto Scaling Group for the given instance id")
-		return false, nil
-	}
-	asgName := asgs.AutoScalingInstances[0].AutoScalingGroupName
-	asgFilter := autoscaling.Filter{Name: aws.String("auto-scaling-group"), Values: []*string{asgName}}
+	asgFilter := autoscaling.Filter{Name: aws.String("auto-scaling-group"), Values: []*string{aws.String(asgName)}}
 	asgDescribeTagsInput := autoscaling.DescribeTagsInput{
 		Filters: []*autoscaling.Filter{&asgFilter},
 	}
@@ -258,4 +249,22 @@ func (m SQSMonitor) isInstanceManaged(instanceID string) (bool, error) {
 			Msgf("The instance's Auto Scaling Group is not tagged as managed with tag key: %s", m.ManagedAsgTag)
 	}
 	return isManaged, err
+}
+
+// retrieveAutoScalingGroupName returns the autoscaling group name for a given instanceID
+func (m SQSMonitor) retrieveAutoScalingGroupName(instanceID string) (string, error) {
+	asgDescribeInstanceInput := autoscaling.DescribeAutoScalingInstancesInput{
+		InstanceIds: []*string{&instanceID},
+		MaxRecords:  aws.Int64(50),
+	}
+	asgs, err := m.ASG.DescribeAutoScalingInstances(&asgDescribeInstanceInput)
+	if err != nil {
+		return "", err
+	}
+	if len(asgs.AutoScalingInstances) == 0 {
+		log.Debug().Str("instance_id", instanceID).Msg("Did not find an Auto Scaling Group for the given instance id")
+		return "", nil
+	}
+	asgName := asgs.AutoScalingInstances[0].AutoScalingGroupName
+	return *asgName, err
 }
