@@ -113,7 +113,6 @@ type NodeMetadata struct {
 	LocalIP          string            `json:"privateIp"`
 	AvailabilityZone string            `json:"availabilityZone"`
 	Region           string            `json:"region"`
-	NodeLabels       map[string]string `json:"nodeLabels"`
 }
 
 // New constructs an instance of the Service client

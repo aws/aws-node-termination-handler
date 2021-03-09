@@ -29,6 +29,7 @@ type InterruptionEvent struct {
 	Description   string
 	State         string
 	NodeName      string
+	NodeLabels    map[string]string
 	InstanceID    string
 	StartTime     time.Time
 	EndTime       time.Time

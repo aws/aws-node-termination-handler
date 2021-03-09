@@ -97,10 +97,6 @@ func main() {
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
 	nodeMetadata := imds.GetNodeMetadata()
-	nodeMetadata.NodeLabels, err = (*node).GetNodeLabels(nthConfig.NodeName)
-	if err != nil {
-		log.Warn().Err(err).Msg("Unable to fetch node labels")
-	}
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region
@@ -276,6 +272,12 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nodeName := drainEvent.NodeName
+	nodeLabels, err := node.GetNodeLabels(nodeName)
+	if err != nil {
+		log.Warn().Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
+	} else {
+		drainEvent.NodeLabels = nodeLabels
+	}
 	if drainEvent.PreDrainTask != nil {
 		err := drainEvent.PreDrainTask(*drainEvent, node)
 		if err != nil {
