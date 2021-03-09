@@ -70,12 +70,13 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 	}
 
 	interruptionEvent := monitor.InterruptionEvent{
-		EventID:     fmt.Sprintf("asg-lifecycle-term-%x", event.ID),
-		Kind:        SQSTerminateKind,
-		StartTime:   event.getTime(),
-		NodeName:    nodeName,
-		InstanceID:  lifecycleDetail.EC2InstanceID,
-		Description: fmt.Sprintf("ASG Lifecycle Termination event received. Instance will be interrupted at %s \n", event.getTime()),
+		EventID:              fmt.Sprintf("asg-lifecycle-term-%x", event.ID),
+		Kind:                 SQSTerminateKind,
+		AutoScalingGroupName: lifecycleDetail.AutoScalingGroupName,
+		StartTime:            event.getTime(),
+		NodeName:             nodeName,
+		InstanceID:           lifecycleDetail.EC2InstanceID,
+		Description:          fmt.Sprintf("ASG Lifecycle Termination event received. Instance will be interrupted at %s \n", event.getTime()),
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
