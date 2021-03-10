@@ -24,19 +24,20 @@ type DrainTask func(InterruptionEvent, node.Node) error
 
 // InterruptionEvent gives more context of the interruption event
 type InterruptionEvent struct {
-	EventID       string
-	Kind          string
-	Description   string
-	State         string
-	NodeName      string
-	NodeLabels    map[string]string
-	InstanceID    string
-	StartTime     time.Time
-	EndTime       time.Time
-	Drained       bool
-	InProgress    bool
-	PreDrainTask  DrainTask `json:"-"`
-	PostDrainTask DrainTask `json:"-"`
+	EventID              string
+	Kind                 string
+	Description          string
+	State                string
+	AutoScalingGroupName string
+	NodeName             string
+	NodeLabels           map[string]string
+	InstanceID           string
+	StartTime            time.Time
+	EndTime              time.Time
+	Drained              bool
+	InProgress           bool
+	PreDrainTask         DrainTask `json:"-"`
+	PostDrainTask        DrainTask `json:"-"`
 }
 
 // TimeUntilEvent returns the duration until the event start time
