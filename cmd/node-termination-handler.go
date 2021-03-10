@@ -275,9 +275,8 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	nodeLabels, err := node.GetNodeLabels(nodeName)
 	if err != nil {
 		log.Warn().Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
-	} else {
-		drainEvent.NodeLabels = nodeLabels
 	}
+	drainEvent.NodeLabels = nodeLabels
 	if drainEvent.PreDrainTask != nil {
 		err := drainEvent.PreDrainTask(*drainEvent, node)
 		if err != nil {
