@@ -278,6 +278,19 @@ func (n Node) removeLabel(nodeName string, key string) error {
 	return nil
 }
 
+// GetNodeLabels will fetch node labels for a given nodeName
+func (n Node) GetNodeLabels(nodeName string) (map[string]string, error) {
+	if n.nthConfig.DryRun {
+		log.Log().Str("node_name", nodeName).Msg("Node labels would have been fetched, but dry-run flag was set")
+		return nil, nil
+	}
+	node, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return nil, err
+	}
+	return node.Labels, nil
+}
+
 // TaintSpotItn adds the spot termination notice taint onto a node
 func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 	if !n.nthConfig.TaintNode {
