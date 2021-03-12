@@ -296,7 +296,12 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 			}
 		} else {
 			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
-			err = node.LogPods(nodeName)
+			podNameList, err := node.FetchPodNameList(nodeName)
+			if err != nil {
+				log.Log().Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
+			}
+			drainEvent.Pods = podNameList
+			err = node.LogPods(podNameList, nodeName)
 			if err != nil {
 				log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
 			}
