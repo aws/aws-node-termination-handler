@@ -389,7 +389,10 @@ For a full list of releases and associated artifacts see our [releases page](htt
 <summary>Use with Kiam</summary>
 <br>
 
-## Use with Kiam
+## Use with Kiam 
+
+If you are using IMDS mode which defaults to `hostNetworking: true`, or if you are using queue-processor mode, then this section does not apply. The configuration below only needs to be used if you are explicitly changing NTH IMDS mode to `hostNetworking: false` .
+
 To use the termination handler alongside [Kiam](https://github.com/uswitch/kiam) requires some extra configuration on Kiam's end.
 By default Kiam will block all access to the metadata address, so you need to make sure it passes through the requests the termination handler relies on.
 
