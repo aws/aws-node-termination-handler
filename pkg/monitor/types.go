@@ -31,6 +31,7 @@ type InterruptionEvent struct {
 	AutoScalingGroupName string
 	NodeName             string
 	NodeLabels           map[string]string
+	Pods                 []string
 	InstanceID           string
 	StartTime            time.Time
 	EndTime              time.Time

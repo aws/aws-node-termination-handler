@@ -346,18 +346,27 @@ func (n Node) TaintRebalanceRecommendation(nodeName string, eventID string) erro
 }
 
 // LogPods logs all the pod names on a node
-func (n Node) LogPods(nodeName string) error {
-	podList, err := n.fetchAllPods(nodeName)
-	if err != nil {
-		return fmt.Errorf("Unable to fetch all pods from API: %w", err)
-	}
+func (n Node) LogPods(podList []string, nodeName string) error {
 	podNamesArr := zerolog.Arr()
-	for _, pod := range podList.Items {
-		podNamesArr = podNamesArr.Str(pod.Name)
+	for _, pod := range podList {
+		podNamesArr = podNamesArr.Str(pod)
 	}
 	log.Log().Array("pod_names", podNamesArr).Str("node_name", nodeName).Msg("Pods on node")
 
 	return nil
+}
+
+// FetchPodNameList fetches list of all the pods names running on given nodeName
+func (n Node) FetchPodNameList(nodeName string) ([]string, error) {
+	podList, err := n.fetchAllPods(nodeName)
+	if err != nil {
+		return nil, err
+	}
+	var podNamesList []string
+	for _, pod := range podList.Items {
+		podNamesList = append(podNamesList, pod.Name)
+	}
+	return podNamesList, nil
 }
 
 // TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
