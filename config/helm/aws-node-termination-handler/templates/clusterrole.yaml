@@ -19,6 +19,7 @@ rules:
   verbs:
     - list
     - get
+    - watch
 - apiGroups:
     - ""
   resources:
