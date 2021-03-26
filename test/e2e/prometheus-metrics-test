@@ -143,7 +143,7 @@ PORT_FORWARD_PID=$!
 trap 'kill ${PORT_FORWARD_PID}' EXIT SIGINT SIGTERM ERR
 echo "✅ Port-forwarded pod $POD_NAME"
 
-sleep 1
+sleep 30
 
 METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
 echo "✅ Fetched /metrics."
