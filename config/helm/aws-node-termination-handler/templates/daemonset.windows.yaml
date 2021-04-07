@@ -122,10 +122,16 @@ spec:
             value: {{ .Values.enableScheduledEventDraining | quote }}
           - name: ENABLE_REBALANCE_MONITORING
             value: {{ .Values.enableRebalanceMonitoring | quote }}
+          - name: CHECK_ASG_TAG_BEFORE_DRAINING
+            value: {{ .Values.checkASGTagBeforeDraining | quote }}
+          - name: MANAGED_ASG_TAG
+            value: {{ .Values.managedAsgTag | quote }}
           - name: METADATA_TRIES
             value: {{ .Values.metadataTries | quote }}
           - name: CORDON_ONLY
             value: {{ .Values.cordonOnly | quote }}
+          - name: DRAIN_ON_REBALANCE
+            value: {{ .Values.drainOnRebalance | quote }}
           - name: TAINT_NODE
             value: {{ .Values.taintNode | quote }}
           - name: JSON_LOGGING

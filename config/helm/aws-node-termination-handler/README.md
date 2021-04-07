@@ -69,7 +69,8 @@ Parameter | Description | Default
 `webhookTemplateConfigMapKey` | Name of the template file stored in the configmap| None
 `metadataTries` | The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3. | `3`
 `cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
-`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, and `aws-node-termination-handler/asg-lifecycle-termination` | `false`
+`drainOnRebalance` | If true, nodes will be drained when a rebalance recommendation notice is received. | `false`
+`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, `aws-node-termination-handler/asg-lifecycle-termination` and `aws-node-termination-handler/rebalance-recommendation`| `false`
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
 `logLevel` | Sets the log level (INFO, DEBUG, or ERROR) | `INFO`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`

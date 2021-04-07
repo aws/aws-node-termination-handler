@@ -41,7 +41,7 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-# enableSqsTerminationDraining If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received 
+# enableSqsTerminationDraining If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received
 enableSqsTerminationDraining: false
 
 # enableRebalanceMonitoring If true, cordon nodes when a rebalance recommendation notice is received
@@ -77,6 +77,9 @@ metadataTries: 3
 
 # Cordon but do not drain nodes upon spot interruption termination notice.
 cordonOnly: false
+
+# If true, nodes will be drained when a rebalance recommendation notice is received.
+drainOnRebalance: false
 
 # Taint node upon spot interruption termination notice.
 taintNode: false

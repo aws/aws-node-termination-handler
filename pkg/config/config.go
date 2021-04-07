@@ -63,6 +63,7 @@ const (
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
+	drainOnRebalance                        = "DRAIN_ON_REBALANCE"
 	taintNode                               = "TAINT_NODE"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
@@ -116,6 +117,7 @@ type Config struct {
 	ManagedAsgTag                  string
 	MetadataTries                  int
 	CordonOnly                     bool
+	DrainOnRebalance               bool
 	TaintNode                      bool
 	JsonLogging                    bool
 	LogLevel                       string
@@ -166,6 +168,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "Sets the tag to check for on instances that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
+	flag.BoolVar(&config.DrainOnRebalance, "drain-on-rebalance", getBoolEnv(drainOnRebalance, false), "If true, nodes will be drained when a rebalance recommendation notice is received.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
@@ -255,6 +258,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("enable_rebalance_monitoring", c.EnableRebalanceMonitoring).
 		Int("metadata_tries", c.MetadataTries).
 		Bool("cordon_only", c.CordonOnly).
+		Bool("drain_on_rebalance", c.DrainOnRebalance).
 		Bool("taint_node", c.TaintNode).
 		Bool("json_logging", c.JsonLogging).
 		Str("log_level", c.LogLevel).
@@ -294,6 +298,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tenable-rebalance-monitoring: %t,\n"+
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
+			"\tdrain-on-rebalance: %t,\n"+
 			"\ttaint-node: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\tlog-level: %s,\n"+
@@ -324,6 +329,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.EnableRebalanceMonitoring,
 		c.MetadataTries,
 		c.CordonOnly,
+		c.DrainOnRebalance,
 		c.TaintNode,
 		c.JsonLogging,
 		c.LogLevel,

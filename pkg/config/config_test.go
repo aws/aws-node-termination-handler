@@ -61,6 +61,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	setEnvForTest("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
 	setEnvForTest("METADATA_TRIES", "100")
 	setEnvForTest("CORDON_ONLY", "false")
+	setEnvForTest("DRAIN_ON_REBALANCE", "false")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -83,6 +84,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
+	h.Equals(t, false, nthConfig.DrainOnRebalance)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -116,6 +118,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=100",
 		"--cordon-only=false",
+		"--drain-on-rebalance=false",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -139,6 +142,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
+	h.Equals(t, false, nthConfig.DrainOnRebalance)
 	h.Equals(t, false, nthConfig.EnablePrometheus)
 
 	// Check that env vars were set
@@ -168,6 +172,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	setEnvForTest("WEBHOOK_TEMPLATE", "no")
 	setEnvForTest("METADATA_TRIES", "100")
 	setEnvForTest("CORDON_ONLY", "true")
+	setEnvForTest("DRAIN_ON_REBALANCE", "true")
 	os.Args = []string{
 		"cmd",
 		"--delete-local-data=false",
@@ -188,6 +193,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=101",
 		"--cordon-only=false",
+		"--drain-on-rebalance=false",
 		"--enable-prometheus-server=true",
 		"--prometheus-server-port=2112",
 	}
@@ -213,6 +219,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 101, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
+	h.Equals(t, false, nthConfig.DrainOnRebalance)
 	h.Equals(t, true, nthConfig.EnablePrometheus)
 	h.Equals(t, 2112, nthConfig.PrometheusPort)
 
