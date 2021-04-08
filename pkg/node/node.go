@@ -91,16 +91,16 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper, uptime up
 // CordonAndDrain will cordon the node and evict pods based on the config
 func (n Node) CordonAndDrain(nodeName string) error {
 	if n.nthConfig.DryRun {
-		log.Log().Str("node_name", nodeName).Msg("Node would have been cordoned and drained, but dry-run flag was set")
+		log.Info().Str("node_name", nodeName).Msg("Node would have been cordoned and drained, but dry-run flag was set")
 		return nil
 	}
-	log.Log().Msg("Cordoning the node")
+	log.Info().Msg("Cordoning the node")
 	err := n.Cordon(nodeName)
 	if err != nil {
 		return err
 	}
 	// Delete all pods on the node
-	log.Log().Msg("Draining the node")
+	log.Info().Msg("Draining the node")
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func (n Node) CordonAndDrain(nodeName string) error {
 // Cordon will add a NoSchedule on the node
 func (n Node) Cordon(nodeName string) error {
 	if n.nthConfig.DryRun {
-		log.Log().Str("node_name", nodeName).Msg("Node would have been cordoned, but dry-run flag was set")
+		log.Info().Str("node_name", nodeName).Msg("Node would have been cordoned, but dry-run flag was set")
 		return nil
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
@@ -132,7 +132,7 @@ func (n Node) Cordon(nodeName string) error {
 // Uncordon will remove the NoSchedule on the node
 func (n Node) Uncordon(nodeName string) error {
 	if n.nthConfig.DryRun {
-		log.Log().Str("node_name", nodeName).Msg("Node would have been uncordoned, but dry-run flag was set")
+		log.Info().Str("node_name", nodeName).Msg("Node would have been uncordoned, but dry-run flag was set")
 		return nil
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
@@ -149,7 +149,7 @@ func (n Node) Uncordon(nodeName string) error {
 // IsUnschedulable checks if the node is marked as unschedulable
 func (n Node) IsUnschedulable(nodeName string) (bool, error) {
 	if n.nthConfig.DryRun {
-		log.Log().Msg("IsUnschedulable returning false since dry-run is set")
+		log.Info().Msg("IsUnschedulable returning false since dry-run is set")
 		return false, nil
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
@@ -187,7 +187,7 @@ func (n Node) GetEventID(nodeName string) (string, error) {
 	}
 	val, ok := node.Labels[EventIDLabelKey]
 	if n.nthConfig.DryRun && !ok {
-		log.Log().Msgf("Would have returned Error: 'Event ID Label %s was not found on the node', but dry-run flag was set", EventIDLabelKey)
+		log.Warn().Msgf("Would have returned Error: 'Event ID Label %s was not found on the node', but dry-run flag was set", EventIDLabelKey)
 		return "", nil
 	}
 	if !ok {
@@ -237,7 +237,7 @@ func (n Node) addLabel(nodeName string, key string, value string) error {
 		return err
 	}
 	if n.nthConfig.DryRun {
-		log.Log().Msgf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, nodeName)
+		log.Info().Msgf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, nodeName)
 		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, payloadBytes)
@@ -268,7 +268,7 @@ func (n Node) removeLabel(nodeName string, key string) error {
 		return err
 	}
 	if n.nthConfig.DryRun {
-		log.Log().Msgf("Would have removed label with key %s from node %s, but dry-run flag was set", key, nodeName)
+		log.Info().Msgf("Would have removed label with key %s from node %s, but dry-run flag was set", key, nodeName)
 		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, payload)
@@ -281,7 +281,7 @@ func (n Node) removeLabel(nodeName string, key string) error {
 // GetNodeLabels will fetch node labels for a given nodeName
 func (n Node) GetNodeLabels(nodeName string) (map[string]string, error) {
 	if n.nthConfig.DryRun {
-		log.Log().Str("node_name", nodeName).Msg("Node labels would have been fetched, but dry-run flag was set")
+		log.Info().Str("node_name", nodeName).Msg("Node labels would have been fetched, but dry-run flag was set")
 		return nil, nil
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
@@ -351,7 +351,7 @@ func (n Node) LogPods(podList []string, nodeName string) error {
 	for _, pod := range podList {
 		podNamesArr = podNamesArr.Str(pod)
 	}
-	log.Log().Array("pod_names", podNamesArr).Str("node_name", nodeName).Msg("Pods on node")
+	log.Info().Array("pod_names", podNamesArr).Str("node_name", nodeName).Msg("Pods on node")
 
 	return nil
 }
@@ -431,7 +431,7 @@ func (n Node) UncordonIfRebooted(nodeName string) error {
 	}
 	timeVal, ok := k8sNode.Labels[ActionLabelTimeKey]
 	if !ok {
-		log.Log().Msgf("There was no %s label found requiring action label handling", ActionLabelTimeKey)
+		log.Debug().Msgf("There was no %s label found requiring action label handling", ActionLabelTimeKey)
 		return nil
 	}
 	timeValNum, err := strconv.ParseInt(timeVal, 10, 64)
@@ -446,7 +446,7 @@ func (n Node) UncordonIfRebooted(nodeName string) error {
 			return err
 		}
 		if secondsSinceLabel < uptime {
-			log.Log().Msg("The system has not restarted yet.")
+			log.Debug().Msg("The system has not restarted yet.")
 			return nil
 		}
 		err = n.Uncordon(nodeName)
@@ -463,9 +463,9 @@ func (n Node) UncordonIfRebooted(nodeName string) error {
 			return err
 		}
 
-		log.Log().Msgf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
+		log.Info().Msgf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
 	default:
-		log.Log().Msg("There are no label actions to handle.")
+		log.Debug().Msg("There are no label actions to handle.")
 	}
 	return nil
 }
@@ -484,7 +484,7 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	listOptions := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
 	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(listOptions)
 	if err != nil || len(matchingNodes.Items) == 0 {
-		log.Warn().Err(err).Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node")
+		log.Err(err).Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node")
 		return n.drainHelper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 	}
 	return &matchingNodes.Items[0], nil
@@ -532,7 +532,7 @@ func jsonPatchEscape(value string) string {
 
 func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, effect corev1.TaintEffect) error {
 	if nth.nthConfig.DryRun {
-		log.Log().Msgf("Would have added taint (%s=%s:%s) to node %s, but dry-run flag was set", taintKey, taintValue, effect, nth.nthConfig.NodeName)
+		log.Info().Msgf("Would have added taint (%s=%s:%s) to node %s, but dry-run flag was set", taintKey, taintValue, effect, nth.nthConfig.NodeName)
 		return nil
 	}
 
@@ -546,7 +546,7 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 			// Get the newest version of the node.
 			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 			if err != nil || freshNode == nil {
-				log.Log().
+				log.Warn().
 					Str("taint_key", taintKey).
 					Str("node_name", node.Name).
 					Msg("Error while adding taint on node")
@@ -570,13 +570,13 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 		}
 
 		if err != nil {
-			log.Log().
+			log.Warn().
 				Str("taint_key", taintKey).
 				Str("node_name", node.Name).
 				Msg("Error while adding taint on node")
 			return err
 		}
-		log.Log().
+		log.Warn().
 			Str("taint_key", taintKey).
 			Str("node_name", node.Name).
 			Msg("Successfully added taint on node")
@@ -587,7 +587,7 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 func addTaintToSpec(node *corev1.Node, taintKey string, taintValue string, effect corev1.TaintEffect) bool {
 	for _, taint := range node.Spec.Taints {
 		if taint.Key == taintKey {
-			log.Log().
+			log.Debug().
 				Str("taint_key", taintKey).
 				Interface("taint", taint).
 				Str("node_name", node.Name).
@@ -619,7 +619,7 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 		newTaints := make([]corev1.Taint, 0)
 		for _, taint := range freshNode.Spec.Taints {
 			if taint.Key == taintKey {
-				log.Log().
+				log.Info().
 					Interface("taint", taint).
 					Str("node_name", node.Name).
 					Msg("Releasing taint on node")
@@ -646,13 +646,13 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 		}
 
 		if err != nil {
-			log.Log().
+			log.Warn().
 				Str("taint_key", taintKey).
 				Str("node_name", node.Name).
 				Msg("Error while releasing taint on node")
 			return false, err
 		}
-		log.Log().
+		log.Warn().
 			Str("taint_key", taintKey).
 			Str("node_name", node.Name).
 			Msg("Successfully released taint on node")

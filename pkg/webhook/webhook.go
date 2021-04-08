@@ -42,8 +42,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	if nthConfig.WebhookTemplateFile != "" {
 		content, err := ioutil.ReadFile(nthConfig.WebhookTemplateFile)
 		if err != nil {
-			log.Log().
-				Str("webhook_template_file", nthConfig.WebhookTemplateFile).
+			log.Info().Str("webhook_template_file", nthConfig.WebhookTemplateFile).
 				Err(err).
 				Msg("Webhook Error: Could not read template file")
 			return
@@ -56,7 +55,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 
 	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
 	if err != nil {
-		log.Log().Err(err).Msg("Webhook Error: Template parsing failed")
+		log.Err(err).Msg("Webhook Error: Template parsing failed")
 		return
 	}
 
@@ -70,20 +69,20 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	var byteBuffer bytes.Buffer
 	err = webhookTemplate.Execute(&byteBuffer, combined)
 	if err != nil {
-		log.Log().Err(err).Msg("Webhook Error: Template execution failed")
+		log.Err(err).Msg("Webhook Error: Template execution failed")
 		return
 	}
 
 	request, err := http.NewRequest("POST", nthConfig.WebhookURL, &byteBuffer)
 	if err != nil {
-		log.Log().Err(err).Msg("Webhook Error: Http NewRequest failed")
+		log.Err(err).Msg("Webhook Error: Http NewRequest failed")
 		return
 	}
 
 	headerMap := make(map[string]interface{})
 	err = json.Unmarshal([]byte(nthConfig.WebhookHeaders), &headerMap)
 	if err != nil {
-		log.Log().Err(err).Msg("Webhook Error: Header Unmarshal failed")
+		log.Err(err).Msg("Webhook Error: Header Unmarshal failed")
 		return
 	}
 	for key, value := range headerMap {
@@ -108,18 +107,18 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Log().Err(err).Msg("Webhook Error: Client Do failed")
+		log.Err(err).Msg("Webhook Error: Client Do failed")
 		return
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		log.Log().Int("status_code", response.StatusCode).Msg("Webhook Error: Received Non-Successful Status Code")
+		log.Warn().Int("status_code", response.StatusCode).Msg("Webhook Error: Received Non-Successful Status Code")
 		return
 	}
 
-	log.Log().Msg("Webhook Success: Notification Sent!")
+	log.Info().Msg("Webhook Success: Notification Sent!")
 }
 
 // ValidateWebhookConfig will check if the template provided in nthConfig with parse and execute

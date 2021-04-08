@@ -79,7 +79,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
 		if err != nil {
-			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.SpotInterruptionTaint, interruptionEvent.EventID)
+			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.SpotInterruptionTaint, interruptionEvent.EventID)
 		}
 		return nil
 	}
