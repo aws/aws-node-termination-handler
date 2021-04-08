@@ -108,8 +108,6 @@ spec:
             value: {{ .Values.metadataTries | quote }}
           - name: CORDON_ONLY
             value: {{ .Values.cordonOnly | quote }}
-          - name: DRAIN_ON_REBALANCE
-            value: {{ .Values.drainOnRebalance | quote }}
           - name: TAINT_NODE
             value: {{ .Values.taintNode | quote }}
           - name: JSON_LOGGING
@@ -127,6 +125,8 @@ spec:
           - name: ENABLE_SCHEDULED_EVENT_DRAINING
             value: "false"
           - name: ENABLE_REBALANCE_MONITORING
+            value: "false"
+          - name: ENABLE_REBALANCE_DRAINING
             value: "false"
           - name: ENABLE_SQS_TERMINATION_DRAINING
             value: "true"

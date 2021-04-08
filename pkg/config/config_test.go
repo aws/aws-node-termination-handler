@@ -48,6 +48,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	setEnvForTest("ENABLE_SPOT_INTERRUPTION_DRAINING", "false")
 	setEnvForTest("ENABLE_SQS_TERMINATION_DRAINING", "false")
 	setEnvForTest("ENABLE_REBALANCE_MONITORING", "true")
+	setEnvForTest("ENABLE_REBALANCE_DRAINING", "true")
 	setEnvForTest("GRACE_PERIOD", "12345")
 	setEnvForTest("IGNORE_DAEMON_SETS", "false")
 	setEnvForTest("KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_HOST")
@@ -61,7 +62,6 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	setEnvForTest("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
 	setEnvForTest("METADATA_TRIES", "100")
 	setEnvForTest("CORDON_ONLY", "false")
-	setEnvForTest("DRAIN_ON_REBALANCE", "false")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -72,6 +72,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
 	h.Equals(t, false, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, true, nthConfig.EnableRebalanceMonitoring)
+	h.Equals(t, true, nthConfig.EnableRebalanceDraining)
 	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
 	h.Equals(t, "KUBERNETES_SERVICE_HOST", nthConfig.KubernetesServiceHost)
 	h.Equals(t, "KUBERNETES_SERVICE_PORT", nthConfig.KubernetesServicePort)
@@ -84,7 +85,6 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
-	h.Equals(t, false, nthConfig.DrainOnRebalance)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -106,6 +106,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--enable-spot-interruption-draining=false",
 		"--enable-sqs-termination-draining=false",
 		"--enable-rebalance-monitoring=true",
+		"--enable-rebalance-draining=true",
 		"--ignore-daemon-sets=false",
 		"--kubernetes-service-host=KUBERNETES_SERVICE_HOST",
 		"--kubernetes-service-port=KUBERNETES_SERVICE_PORT",
@@ -118,7 +119,6 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=100",
 		"--cordon-only=false",
-		"--drain-on-rebalance=false",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -130,6 +130,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
 	h.Equals(t, false, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, true, nthConfig.EnableRebalanceMonitoring)
+	h.Equals(t, true, nthConfig.EnableRebalanceDraining)
 	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
 	h.Equals(t, "KUBERNETES_SERVICE_HOST", nthConfig.KubernetesServiceHost)
 	h.Equals(t, "KUBERNETES_SERVICE_PORT", nthConfig.KubernetesServicePort)
@@ -142,7 +143,6 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
-	h.Equals(t, false, nthConfig.DrainOnRebalance)
 	h.Equals(t, false, nthConfig.EnablePrometheus)
 
 	// Check that env vars were set
@@ -159,6 +159,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	setEnvForTest("ENABLE_SPOT_INTERRUPTION_DRAINING", "true")
 	setEnvForTest("ENABLE_SQS_TERMINATION_DRAINING", "false")
 	setEnvForTest("ENABLE_REBALANCE_MONITORING", "true")
+	setEnvForTest("ENABLE_REBALANCE_DRAINING", "true")
 	setEnvForTest("GRACE_PERIOD", "99999")
 	setEnvForTest("IGNORE_DAEMON_SETS", "true")
 	setEnvForTest("KUBERNETES_SERVICE_HOST", "no")
@@ -172,7 +173,6 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	setEnvForTest("WEBHOOK_TEMPLATE", "no")
 	setEnvForTest("METADATA_TRIES", "100")
 	setEnvForTest("CORDON_ONLY", "true")
-	setEnvForTest("DRAIN_ON_REBALANCE", "true")
 	os.Args = []string{
 		"cmd",
 		"--delete-local-data=false",
@@ -181,6 +181,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--enable-spot-interruption-draining=false",
 		"--enable-sqs-termination-draining=true",
 		"--enable-rebalance-monitoring=false",
+		"--enable-rebalance-draining=false",
 		"--ignore-daemon-sets=false",
 		"--kubernetes-service-host=KUBERNETES_SERVICE_HOST",
 		"--kubernetes-service-port=KUBERNETES_SERVICE_PORT",
@@ -193,7 +194,6 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=101",
 		"--cordon-only=false",
-		"--drain-on-rebalance=false",
 		"--enable-prometheus-server=true",
 		"--prometheus-server-port=2112",
 	}
@@ -207,6 +207,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
 	h.Equals(t, true, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, false, nthConfig.EnableRebalanceMonitoring)
+	h.Equals(t, false, nthConfig.EnableRebalanceDraining)
 	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
 	h.Equals(t, "KUBERNETES_SERVICE_HOST", nthConfig.KubernetesServiceHost)
 	h.Equals(t, "KUBERNETES_SERVICE_PORT", nthConfig.KubernetesServicePort)
@@ -219,7 +220,6 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 101, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
-	h.Equals(t, false, nthConfig.DrainOnRebalance)
 	h.Equals(t, true, nthConfig.EnablePrometheus)
 	h.Equals(t, 2112, nthConfig.PrometheusPort)
 

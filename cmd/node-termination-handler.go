@@ -291,7 +291,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		metrics.NodeActionsInc("pre-drain", nodeName, err)
 	}
 
-	if nthConfig.CordonOnly || drainEvent.IsRebalanceRecommendation() && !nthConfig.DrainOnRebalance {
+	if nthConfig.CordonOnly || (drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
 		err := node.Cordon(nodeName)
 		if err != nil {
 			if errors.IsNotFound(err) {
