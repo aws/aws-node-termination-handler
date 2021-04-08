@@ -13,11 +13,11 @@ set -euo pipefail
 #   $AEMM_VERSION
 
 function fail_and_exit {
-    echo "❌ Rebalance Recommendation Drain test failed $CLUSTER_NAME ❌"
+    echo "❌ Rebalance Recommendation Dry Run test failed $CLUSTER_NAME ❌"
     exit "${1:-1}"
 }
 
-echo "Starting Rebalance Recommendation Drain Test for Node Termination Handler"
+echo "Starting Rebalance Recommendation Dry Run Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
@@ -38,9 +38,9 @@ anth_helm_args=(
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set dryRun="true"
   --set enableScheduledEventDraining="false"
-  --set enableSpotInterruptionDraining="true"
+  --set enableSpotInterruptionDraining="false"
   --set enableRebalanceMonitoring="true"
-  --set drainOnRebalance="true"
+  --set enableRebalanceDraining="true"
   --set taintNode="true"
   --set tolerations=""
 )
@@ -124,7 +124,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
 
   if [[ $logs -eq 1 ]] && kubectl get nodes $test_node --no-headers | grep -v SchedulingDisabled >/dev/null; then
       echo "✅ Verified the worker node was not cordoned!"
-      echo "✅ Spot Interruption Dry Run Test Passed $CLUSTER_NAME! ✅"
+      echo "✅ Rebalance Recommendation Dry Run Test Passed $CLUSTER_NAME! ✅"
       exit 0
   fi
   echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
