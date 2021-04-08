@@ -223,7 +223,7 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 			if err != nil {
 				e.v2Token = ""
 				e.tokenTTL = -1
-				log.Err(err).Msg("Unable to retrieve an IMDSv2 token, continuing with IMDSv1")
+				log.Warn().Msgf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1, %v", err)
 			} else {
 				e.v2Token = token
 				e.tokenTTL = ttl
