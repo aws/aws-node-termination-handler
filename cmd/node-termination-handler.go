@@ -263,7 +263,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			log.Info().Msg("Uncordoning the node due to a cancellation event")
 			err := node.Uncordon(nodeName)
 			if err != nil {
-				log.Info().Err(err).Msg("Uncordoning the node failed")
+				log.Err(err).Msg("Uncordoning the node failed")
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
 

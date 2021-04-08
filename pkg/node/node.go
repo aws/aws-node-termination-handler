@@ -546,11 +546,12 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 			// Get the newest version of the node.
 			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 			if err != nil || freshNode == nil {
-				log.Warn().
+				nodeErr := fmt.Errorf("failed to get node %v: %w", node.Name, err)
+				log.Err(nodeErr).
 					Str("taint_key", taintKey).
 					Str("node_name", node.Name).
 					Msg("Error while adding taint on node")
-				return fmt.Errorf("failed to get node %v: %v", node.Name, err)
+				return nodeErr
 			}
 		}
 
@@ -570,7 +571,7 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 		}
 
 		if err != nil {
-			log.Warn().
+			log.Err(err).
 				Str("taint_key", taintKey).
 				Str("node_name", node.Name).
 				Msg("Error while adding taint on node")
@@ -646,13 +647,13 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 		}
 
 		if err != nil {
-			log.Warn().
+			log.Err(err).
 				Str("taint_key", taintKey).
 				Str("node_name", node.Name).
 				Msg("Error while releasing taint on node")
 			return false, err
 		}
-		log.Warn().
+		log.Info().
 			Str("taint_key", taintKey).
 			Str("node_name", node.Name).
 			Msg("Successfully released taint on node")
