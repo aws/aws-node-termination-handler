@@ -191,6 +191,7 @@ func ParseCliArgs() (config Config, err error) {
 			sess.Config.Region = &config.AWSRegion
 		} else if *sess.Config.Region == "" && config.QueueURL != "" {
 			config.AWSRegion = getRegionFromQueueURL(config.QueueURL)
+			log.Debug().Str("Retrieved AWS region from queue-url: \"%s\"", config.AWSRegion)
 			sess.Config.Region = &config.AWSRegion
 		} else {
 			config.AWSRegion = *sess.Config.Region
