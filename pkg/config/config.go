@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/rs/zerolog/log"
 )
@@ -189,7 +190,7 @@ func ParseCliArgs() (config Config, err error) {
 		if config.AWSRegion != "" {
 			sess.Config.Region = &config.AWSRegion
 		} else if *sess.Config.Region == "" && config.QueueURL != "" {
-			config.AWSRegion = strings.Split(config.QueueURL, ".")[1]
+			config.AWSRegion = getRegionFromQueueURL(config.QueueURL)
 			sess.Config.Region = &config.AWSRegion
 		} else {
 			config.AWSRegion = *sess.Config.Region
@@ -389,4 +390,15 @@ func isConfigProvided(cliArgName string, envVarName string) bool {
 		}
 	})
 	return cliArgProvided
+}
+
+func getRegionFromQueueURL(queueURL string) string {
+	for _, partition := range endpoints.DefaultPartitions() {
+		for regionID := range partition.Regions() {
+			if strings.Contains(queueURL, regionID) {
+				return regionID
+			}
+		}
+	}
+	return ""
 }
