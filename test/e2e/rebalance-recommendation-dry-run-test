@@ -39,7 +39,6 @@ anth_helm_args=(
   --set dryRun="true"
   --set enableScheduledEventDraining="false"
   --set enableSpotInterruptionDraining="false"
-  --set enableRebalanceMonitoring="true"
   --set enableRebalanceDraining="true"
   --set taintNode="true"
   --set tolerations=""

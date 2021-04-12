@@ -145,7 +145,7 @@ func main() {
 		imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
 	}
-	if nthConfig.EnableRebalanceMonitoring {
+	if nthConfig.EnableRebalanceMonitoring || nthConfig.EnableRebalanceDraining {
 		imdsRebalanceMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, interruptionChan, nthConfig.NodeName)
 		monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
 	}

@@ -38,7 +38,6 @@ anth_helm_args=(
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableScheduledEventDraining="false"
   --set enableSpotInterruptionDraining="false"
-  --set enableRebalanceMonitoring="true"
   --set enableRebalanceDraining="true"
   --set taintNode="true"
   --set tolerations=""
