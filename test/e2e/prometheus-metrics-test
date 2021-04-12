@@ -143,45 +143,49 @@ PORT_FORWARD_PID=$!
 trap 'kill ${PORT_FORWARD_PID}' EXIT SIGINT SIGTERM ERR
 echo "✅ Port-forwarded pod $POD_NAME"
 
-sleep 30
+sleep 10
 
-METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
-echo "✅ Fetched /metrics."
+for i in $(seq 1 10); do 
+    METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
+    echo "✅ Fetched /metrics."
 
-if [[ $METRICS_RESPONSE == *"cordon-and-drain"* ]]; then
-    echo "✅ Metric cordon-and-drain!"
-else
-    echo "❌ Failed checking metric for cordon-and-drain"
-    EXIT_STATUS=3
-fi
+    if [[ $METRICS_RESPONSE == *"cordon-and-drain"* ]]; then
+        echo "✅ Metric cordon-and-drain!"
+    else
+        echo "❌ Failed checking metric for cordon-and-drain"
+        EXIT_STATUS=3
+    fi
 
-if [[ $METRICS_RESPONSE == *"pre-drain"* ]]; then
-    echo "✅ Metric pre-drain!"
-else
-    echo "❌ Failed checking metric for pre-drain"
-    EXIT_STATUS=3
-fi
+    if [[ $METRICS_RESPONSE == *"pre-drain"* ]]; then
+        echo "✅ Metric pre-drain!"
+    else
+        echo "❌ Failed checking metric for pre-drain"
+        EXIT_STATUS=3
+    fi
 
-if [[ $METRICS_RESPONSE == *"runtime_go_gc"* ]]; then
-    echo "✅ Metric runtime_go_gc!"
-else
-    echo "❌ Failed checking runtime_go_gc metric"
-    EXIT_STATUS=3
-fi
+    if [[ $METRICS_RESPONSE == *"runtime_go_gc"* ]]; then
+        echo "✅ Metric runtime_go_gc!"
+    else
+        echo "❌ Failed checking runtime_go_gc metric"
+        EXIT_STATUS=3
+    fi
 
-if [[ $METRICS_RESPONSE == *"runtime_go_goroutines"* ]]; then
-    echo "✅ Metric runtime_go_goroutines!"
-else
-    echo "❌ Failed checking runtime_go_goroutines metric"
-    EXIT_STATUS=3
-fi
+    if [[ $METRICS_RESPONSE == *"runtime_go_goroutines"* ]]; then
+        echo "✅ Metric runtime_go_goroutines!"
+    else
+        echo "❌ Failed checking runtime_go_goroutines metric"
+        EXIT_STATUS=3
+    fi
 
-if [[ $METRICS_RESPONSE == *"runtime_go_mem"* ]]; then
-    echo "✅ Metric runtime_go_mem!"
-else
-    echo "❌ Failed checking runtime_go_mem metric"
-    EXIT_STATUS=3
-fi
+    if [[ $METRICS_RESPONSE == *"runtime_go_mem"* ]]; then
+        echo "✅ Metric runtime_go_mem!"
+    else
+        echo "❌ Failed checking runtime_go_mem metric"
+        EXIT_STATUS=3
+    fi
 
+    sleep 10
+    [[ $EXIT_STATUS -ne 0 ]] || break
+done
 
 exit $EXIT_STATUS

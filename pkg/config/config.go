@@ -205,9 +205,9 @@ func ParseCliArgs() (config Config, err error) {
 	}
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
-		log.Log().Msg("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
+		log.Warn().Msg("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
 	} else if isConfigProvided("grace-period", gracePeriodConfigKey) {
-		log.Log().Msg("Deprecated argument \"grace-period\" was provided. This argument will eventually be removed. Please switch to \"pod-termination-grace-period\" instead.")
+		log.Warn().Msg("Deprecated argument \"grace-period\" was provided. This argument will eventually be removed. Please switch to \"pod-termination-grace-period\" instead.")
 		config.PodTerminationGracePeriod = gracePeriod
 	}
 
@@ -243,7 +243,7 @@ func (c Config) Print() {
 func (c Config) PrintJsonConfigArgs() {
 	// manually setting fields instead of using log.Log().Interface() to use snake_case instead of PascalCase
 	// intentionally did not log webhook configuration as there may be secrets
-	log.Log().
+	log.Info().
 		Bool("dry_run", c.DryRun).
 		Str("node_name", c.NodeName).
 		Str("metadata_url", c.MetadataURL).
@@ -282,7 +282,7 @@ func (c Config) PrintHumanConfigArgs() {
 		webhookURLDisplay = "<provided-not-displayed>"
 	}
 	// intentionally did not log webhook configuration as there may be secrets
-	log.Log().Msgf(
+	log.Info().Msgf(
 		"aws-node-termination-handler arguments: \n"+
 			"\tdry-run: %t,\n"+
 			"\tnode-name: %s,\n"+

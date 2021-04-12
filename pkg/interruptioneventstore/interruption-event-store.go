@@ -61,7 +61,7 @@ func (s *Store) AddInterruptionEvent(interruptionEvent *monitor.InterruptionEven
 
 	s.Lock()
 	defer s.Unlock()
-	log.Log().Interface("event", interruptionEvent).Msg("Adding new event to the event store")
+	log.Info().Interface("event", interruptionEvent).Msg("Adding new event to the event store")
 	s.interruptionEventStore[interruptionEvent.EventID] = interruptionEvent
 	if _, ignored := s.ignoredEvents[interruptionEvent.EventID]; !ignored {
 		s.atLeastOneEvent = true

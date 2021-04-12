@@ -78,7 +78,7 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		err := n.TaintRebalanceRecommendation(interruptionEvent.NodeName, interruptionEvent.EventID)
 		if err != nil {
-			log.Warn().Err(err).Msgf("Unable to taint node with taint %s:%s", node.RebalanceRecommendationTaint, interruptionEvent.EventID)
+			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.RebalanceRecommendationTaint, interruptionEvent.EventID)
 		}
 		return nil
 	}

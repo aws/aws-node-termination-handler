@@ -223,7 +223,7 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 			if err != nil {
 				e.v2Token = ""
 				e.tokenTTL = -1
-				log.Log().Err(err).Msg("Unable to retrieve an IMDSv2 token, continuing with IMDSv1")
+				log.Warn().Msgf("Unable to retrieve an IMDSv2 token, continuing with IMDSv1, %v", err)
 			} else {
 				e.v2Token = token
 				e.tokenTTL = ttl
@@ -267,7 +267,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	httpReq := func() (*http.Response, error) {
 		return e.httpClient.Do(req)
 	}
-	log.Log().Msg("Trying to get token from IMDSv2")
+	log.Debug().Msg("Trying to get token from IMDSv2")
 	resp, err := retry(1, 2*time.Second, httpReq)
 	if err != nil {
 		return "", -1, err
@@ -284,7 +284,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	if err != nil {
 		return "", -1, fmt.Errorf("IMDS v2 Token TTL header not sent in response: %w", err)
 	}
-	log.Log().Msg("Got token from IMDSv2")
+	log.Debug().Msg("Got token from IMDSv2")
 	return string(token), ttl, nil
 }
 
@@ -307,8 +307,7 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 			jitter := time.Duration(rand.Int63n(int64(sleep)))
 			sleep = sleep + jitter/2
 
-			log.Log().Msgf("Request failed. Attempts remaining: %d", attempts)
-			log.Log().Msgf("Sleep for %s seconds", sleep)
+			log.Warn().Msgf("Request failed. Attempts remaining: %d, sleeping for %s seconds", attempts, sleep)
 			time.Sleep(sleep)
 			return retry(attempts, 2*sleep, httpReq)
 		}
@@ -322,12 +321,12 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	var metadata NodeMetadata
 	identityDoc, err := e.GetMetadataInfo(IdentityDocPath)
 	if err != nil {
-		log.Log().Err(err).Msg("Unable to fetch metadata from IMDS")
+		log.Err(err).Msg("Unable to fetch metadata from IMDS")
 		return metadata
 	}
 	err = json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
 	if err != nil {
-		log.Log().Msg("Unable to fetch instance identity document from ec2 metadata")
+		log.Warn().Msg("Unable to fetch instance identity document from ec2 metadata")
 		metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
 		metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
 		metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
@@ -340,7 +339,7 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
 	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 
-	log.Log().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
+	log.Info().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 
 	return metadata
 }

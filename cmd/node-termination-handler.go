@@ -125,7 +125,7 @@ func main() {
 		wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
 			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 			if err != nil {
-				log.Log().Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
+				log.Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
 			}
 			return false, nil
 		}, stopCh)
@@ -152,7 +152,7 @@ func main() {
 	if nthConfig.EnableSQSTerminationDraining {
 		creds, err := nthConfig.AWSSession.Config.Credentials.Get()
 		if err != nil {
-			log.Warn().Err(err).Msg("Unable to get AWS credentials")
+			log.Err(err).Msg("Unable to get AWS credentials")
 		}
 		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
 
@@ -171,13 +171,13 @@ func main() {
 
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
-			log.Log().Str("event_type", monitor.Kind()).Msg("Started monitoring for events")
+			log.Info().Str("event_type", monitor.Kind()).Msg("Started monitoring for events")
 			var previousErr error
 			var duplicateErrCount int
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
 				if err != nil {
-					log.Log().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
+					log.Warn().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
 					if previousErr != nil && err.Error() == previousErr.Error() {
 						duplicateErrCount++
@@ -186,7 +186,7 @@ func main() {
 						previousErr = err
 					}
 					if duplicateErrCount >= duplicateErrThreshold {
-						log.Log().Msg("Stopping NTH - Duplicate Error Threshold hit.")
+						log.Warn().Msg("Stopping NTH - Duplicate Error Threshold hit.")
 						panic(fmt.Sprintf("%v", err))
 					}
 				}
@@ -195,11 +195,11 @@ func main() {
 	}
 
 	go watchForInterruptionEvents(interruptionChan, interruptionEventStore)
-	log.Log().Msg("Started watching for interruption events")
-	log.Log().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
+	log.Info().Msg("Started watching for interruption events")
+	log.Info().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
 
 	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, metrics)
-	log.Log().Msg("Started watching for event cancellations")
+	log.Info().Msg("Started watching for event cancellations")
 
 	var wg sync.WaitGroup
 
@@ -222,7 +222,7 @@ func main() {
 			}
 		}
 	}
-	log.Log().Msg("AWS Node Termination Handler is shutting down")
+	log.Info().Msg("AWS Node Termination Handler is shutting down")
 	wg.Wait()
 	log.Debug().Msg("all event processors finished")
 }
@@ -260,17 +260,17 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 		nodeName := interruptionEvent.NodeName
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode(nodeName) {
-			log.Log().Msg("Uncordoning the node due to a cancellation event")
+			log.Info().Msg("Uncordoning the node due to a cancellation event")
 			err := node.Uncordon(nodeName)
 			if err != nil {
-				log.Log().Err(err).Msg("Uncordoning the node failed")
+				log.Err(err).Msg("Uncordoning the node failed")
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
 
 			node.RemoveNTHLabels(nodeName)
 			node.RemoveNTHTaints(nodeName)
 		} else {
-			log.Log().Msg("Another interruption event is active, not uncordoning the node")
+			log.Info().Msg("Another interruption event is active, not uncordoning the node")
 		}
 	}
 }
@@ -280,13 +280,13 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	nodeName := drainEvent.NodeName
 	nodeLabels, err := node.GetNodeLabels(nodeName)
 	if err != nil {
-		log.Warn().Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
+		log.Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
 	}
 	drainEvent.NodeLabels = nodeLabels
 	if drainEvent.PreDrainTask != nil {
 		err := drainEvent.PreDrainTask(*drainEvent, node)
 		if err != nil {
-			log.Log().Err(err).Msg("There was a problem executing the pre-drain task")
+			log.Err(err).Msg("There was a problem executing the pre-drain task")
 		}
 		metrics.NodeActionsInc("pre-drain", nodeName, err)
 	}
@@ -295,21 +295,21 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err := node.Cordon(nodeName)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
+				log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
-				log.Log().Err(err).Msg("There was a problem while trying to cordon the node")
+				log.Err(err).Msg("There was a problem while trying to cordon the node")
 				os.Exit(1)
 			}
 		} else {
-			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned")
+			log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned")
 			podNameList, err := node.FetchPodNameList(nodeName)
 			if err != nil {
-				log.Log().Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
+				log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
 			}
 			drainEvent.Pods = podNameList
 			err = node.LogPods(podNameList, nodeName)
 			if err != nil {
-				log.Log().Err(err).Msg("There was a problem while trying to log all pod names on the node")
+				log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
 			}
 			metrics.NodeActionsInc("cordon", nodeName, err)
 		}
@@ -317,13 +317,13 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err := node.CordonAndDrain(nodeName)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				log.Warn().Err(err).Msgf("node '%s' not found in the cluster", nodeName)
+				log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
-				log.Log().Err(err).Msg("There was a problem while trying to cordon and drain the node")
+				log.Err(err).Msg("There was a problem while trying to cordon and drain the node")
 				os.Exit(1)
 			}
 		} else {
-			log.Log().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
+			log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		}
 	}
