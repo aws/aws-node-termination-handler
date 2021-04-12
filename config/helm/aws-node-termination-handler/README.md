@@ -69,7 +69,7 @@ Parameter | Description | Default
 `webhookTemplateConfigMapKey` | Name of the template file stored in the configmap| None
 `metadataTries` | The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3. | `3`
 `cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
-`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, and `aws-node-termination-handler/asg-lifecycle-termination` | `false`
+`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, `aws-node-termination-handler/asg-lifecycle-termination` and `aws-node-termination-handler/rebalance-recommendation`| `false`
 `jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
 `logLevel` | Sets the log level (INFO, DEBUG, or ERROR) | `INFO`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
@@ -100,7 +100,8 @@ Parameter | Description | Default
 --- | --- | ---
 `enableScheduledEventDraining` | [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
 `enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is received | `true`
-`enableRebalanceMonitoring` | If true, cordon nodes when rebalance recommendation is received | `false`
+`enableRebalanceMonitoring` | If true, cordon nodes when the rebalance recommendation notice is received | `false`
+`enableRebalanceDraining` | If true, drain nodes when the rebalance recommendation notice is received | `false`
 `useHostNetwork` | If `true`, enables `hostNetwork` for the Linux DaemonSet. NOTE: setting this to `false` may cause issues accessing IMDSv2 if your account is not configured with an IP hop count of 2 | `true`
 
 ### Kubernetes Configuration

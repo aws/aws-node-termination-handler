@@ -41,11 +41,14 @@ resources:
     memory: "128Mi"
     cpu: "100m"
 
-# enableSqsTerminationDraining If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received 
+# enableSqsTerminationDraining If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received
 enableSqsTerminationDraining: false
 
-# enableRebalanceMonitoring If true, cordon nodes when a rebalance recommendation notice is received
+# enableRebalanceMonitoring If true, cordon nodes when the rebalance recommendation notice is received
 enableRebalanceMonitoring: false
+
+# enableRebalanceDraining If true, drain nodes when the rebalance recommendation notice is received
+enableRebalanceDraining: false
 
 # queueURL Listens for messages on the specified SQS queue URL
 queueURL: ""

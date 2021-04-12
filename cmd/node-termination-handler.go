@@ -145,7 +145,7 @@ func main() {
 		imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
 	}
-	if nthConfig.EnableRebalanceMonitoring {
+	if nthConfig.EnableRebalanceMonitoring || nthConfig.EnableRebalanceDraining {
 		imdsRebalanceMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, interruptionChan, nthConfig.NodeName)
 		monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
 	}
@@ -291,7 +291,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		metrics.NodeActionsInc("pre-drain", nodeName, err)
 	}
 
-	if nthConfig.CordonOnly || drainEvent.IsRebalanceRecommendation() {
+	if nthConfig.CordonOnly || (drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
 		err := node.Cordon(nodeName)
 		if err != nil {
 			if errors.IsNotFound(err) {

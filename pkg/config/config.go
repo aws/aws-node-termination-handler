@@ -56,6 +56,8 @@ const (
 	enableSQSTerminationDrainingDefault     = false
 	enableRebalanceMonitoringConfigKey      = "ENABLE_REBALANCE_MONITORING"
 	enableRebalanceMonitoringDefault        = false
+	enableRebalanceDrainingConfigKey        = "ENABLE_REBALANCE_DRAINING"
+	enableRebalanceDrainingDefault          = false
 	checkASGTagBeforeDrainingConfigKey      = "CHECK_ASG_TAG_BEFORE_DRAINING"
 	checkASGTagBeforeDrainingDefault        = true
 	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
@@ -112,6 +114,7 @@ type Config struct {
 	EnableSpotInterruptionDraining bool
 	EnableSQSTerminationDraining   bool
 	EnableRebalanceMonitoring      bool
+	EnableRebalanceDraining        bool
 	CheckASGTagBeforeDraining      bool
 	ManagedAsgTag                  string
 	MetadataTries                  int
@@ -162,6 +165,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
 	flag.BoolVar(&config.EnableSQSTerminationDraining, "enable-sqs-termination-draining", getBoolEnv(enableSQSTerminationDrainingConfigKey, enableSQSTerminationDrainingDefault), "If true, drain nodes when an SQS termination event is received")
 	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received")
+	flag.BoolVar(&config.EnableRebalanceDraining, "enable-rebalance-draining", getBoolEnv(enableRebalanceDrainingConfigKey, enableRebalanceDrainingDefault), "If true, drain nodes when the rebalance recommendation notice is received")
 	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node")
 	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "Sets the tag to check for on instances that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
@@ -253,6 +257,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("enable_spot_interruption_draining", c.EnableSpotInterruptionDraining).
 		Bool("enable_sqs_termination_draining", c.EnableSQSTerminationDraining).
 		Bool("enable_rebalance_monitoring", c.EnableRebalanceMonitoring).
+		Bool("enable_rebalance_draining", c.EnableRebalanceDraining).
 		Int("metadata_tries", c.MetadataTries).
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).
@@ -292,6 +297,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tenable-spot-interruption-draining: %t,\n"+
 			"\tenable-sqs-termination-draining: %t,\n"+
 			"\tenable-rebalance-monitoring: %t,\n"+
+			"\tenable-rebalance-draining: %t,\n"+
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
@@ -322,6 +328,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.EnableSpotInterruptionDraining,
 		c.EnableSQSTerminationDraining,
 		c.EnableRebalanceMonitoring,
+		c.EnableRebalanceDraining,
 		c.MetadataTries,
 		c.CordonOnly,
 		c.TaintNode,
