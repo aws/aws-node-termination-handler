@@ -99,26 +99,26 @@ func TestShouldDrainNode(t *testing.T) {
 	h.Equals(t, true, store.ShouldDrainNode())
 }
 
-func TestMarkAllAsDrained(t *testing.T) {
+func TestMarkAllAsProcessed(t *testing.T) {
 	store := interruptioneventstore.New(config.Config{})
 	event1 := &monitor.InterruptionEvent{
-		EventID:   "1",
-		StartTime: time.Now().Add(time.Second * 20),
-		Drained:   false,
-		NodeName:  node1,
+		EventID:       "1",
+		StartTime:     time.Now().Add(time.Second * 20),
+		NodeProcessed: false,
+		NodeName:      node1,
 	}
 	event2 := &monitor.InterruptionEvent{
-		EventID:   "2",
-		StartTime: time.Now().Add(time.Second * 20),
-		Drained:   false,
-		NodeName:  node1,
+		EventID:       "2",
+		StartTime:     time.Now().Add(time.Second * 20),
+		NodeProcessed: false,
+		NodeName:      node1,
 	}
 
 	store.AddInterruptionEvent(event1)
 	store.AddInterruptionEvent(event2)
-	store.MarkAllAsDrained(node1)
+	store.MarkAllAsProcessed(node1)
 
-	// When events are marked as Drained=true, then they are no longer
+	// When events are marked as NodeProcessed=true, then they are no longer
 	// returned by the GetActiveEvent func, so we expect false
 	_, isActive := store.GetActiveEvent()
 	h.Equals(t, false, isActive)

@@ -95,7 +95,7 @@ func (s *Store) ShouldDrainNode() bool {
 
 func (s *Store) shouldEventDrain(interruptionEvent *monitor.InterruptionEvent) bool {
 	_, ignored := s.ignoredEvents[interruptionEvent.EventID]
-	if !ignored && !interruptionEvent.Drained && s.TimeUntilDrain(interruptionEvent) <= 0 {
+	if !ignored && !interruptionEvent.NodeProcessed && s.TimeUntilDrain(interruptionEvent) <= 0 {
 		return true
 	}
 	return false
@@ -108,19 +108,19 @@ func (s *Store) TimeUntilDrain(interruptionEvent *monitor.InterruptionEvent) tim
 	return drainTime.Sub(time.Now())
 }
 
-// MarkAllAsDrained should be called after the node has been drained to prevent further unnecessary drain calls to the k8s api
-func (s *Store) MarkAllAsDrained(nodeName string) {
+// MarkAllAsProcessed should be called after the node has been drained to prevent further unnecessary drain calls to the k8s api
+func (s *Store) MarkAllAsProcessed(nodeName string) {
 	s.Lock()
 	defer s.Unlock()
 	for _, interruptionEvent := range s.interruptionEventStore {
 		if interruptionEvent.NodeName == nodeName {
-			interruptionEvent.Drained = true
+			interruptionEvent.NodeProcessed = true
 		}
 	}
 }
 
 // IgnoreEvent will store an event ID so that monitor loops cannot write to the store with the same event ID
-// Drain actions are ignored on the passed in event ID by setting the Drained flag to true
+// Drain actions are ignored on the passed in event ID by setting the NodeProcessed flag to true
 func (s *Store) IgnoreEvent(eventID string) {
 	if eventID == "" {
 		return
