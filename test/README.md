@@ -15,9 +15,9 @@ This doc details how the end-to-end (e2e) tests work for aws-node-termination-ha
 The e2e tests can be run on a local cluster or an eks cluster using one of the following `make` targets:
  * `make e2e-test`
 	* creates a [local kind cluster](https://github.com/aws/aws-node-termination-handler/blob/main/test/k8s-local-cluster-test/kind-three-node-cluster.yaml)
-	
+
 * `make eks-cluster-test`
-  * creates an [eks cluster](https://github.com/aws/aws-node-termination-handler/blob/main/test/eks-cluster-test/cluster-spec.yaml) 
+  * creates an [eks cluster](https://github.com/aws/aws-node-termination-handler/blob/main/test/eks-cluster-test/cluster-spec.yaml)
   * *Note if testing Windows, `eks-cluster-test` must be used*
 
 **Using Test Drivers**
@@ -26,7 +26,7 @@ Users can also kick off the tests by invoking the test driver scripts:
 * **local cluster:** `./test/k8s-local-cluster-test/run-test`
 * **eks cluster:** `./test/eks-cluster-test/run-test`
 
-By invoking the test drivers directly, users will be able to pass in supported parameters to tailor their test run accordingly. For example, 
+By invoking the test drivers directly, users will be able to pass in supported parameters to tailor their test run accordingly. For example,
 use **-p when starting a local cluster test to PRESERVE the created cluster:** `./test/k8s-local-cluster-test/run-test -b e2e-test -d -p`
 
 Whether the tests succeed or fail, the cluster will be preserved for further exploration. By default, the cluster will be deleted regardless of test status.
@@ -39,7 +39,7 @@ As noted in [eks-cluster-test/run-test](https://github.com/aws/aws-node-terminat
 
 
 #### Example
-Using [maintenance-event-cancellation-test](https://github.com/aws/aws-node-termination-handler/blob/main/test/e2e/maintenance-event-cancellation-test) as an example. 
+Using [maintenance-event-cancellation-test](https://github.com/aws/aws-node-termination-handler/blob/main/test/e2e/maintenance-event-cancellation-test) as an example.
 
 Keep in mind what NTH is expected to do: **...cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work** - [NTH ReadMe](https://github.com/aws/aws-node-termination-handler)
 

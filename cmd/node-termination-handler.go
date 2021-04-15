@@ -99,6 +99,12 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate probes service,")
 	}
 
+	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.KubernetesEventsAnnotations, nthConfig.NodeName)
+	if err != nil {
+		nthConfig.Print()
+		log.Fatal().Err(err).Msg("Unable to create Kubernetes event recorder,")
+	}
+
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
@@ -179,6 +185,7 @@ func main() {
 				if err != nil {
 					log.Warn().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
+					recorder.Emit(observability.Warning, observability.MonitorErrReason, observability.MonitorErrMsgFmt, monitor.Kind())
 					if previousErr != nil && err.Error() == previousErr.Error() {
 						duplicateErrCount++
 					} else {
@@ -198,7 +205,7 @@ func main() {
 	log.Info().Msg("Started watching for interruption events")
 	log.Info().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
 
-	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, metrics)
+	go watchForCancellationEvents(cancelChan, interruptionEventStore, node, metrics, recorder)
 	log.Info().Msg("Started watching for event cancellations")
 
 	var wg sync.WaitGroup
@@ -214,7 +221,8 @@ func main() {
 				case interruptionEventStore.Workers <- 1:
 					event.InProgress = true
 					wg.Add(1)
-					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, &wg)
+					recorder.Emit(observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
+					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
 					break
@@ -254,7 +262,7 @@ func watchForInterruptionEvents(interruptionChan <-chan monitor.InterruptionEven
 	}
 }
 
-func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics) {
+func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
 	for {
 		interruptionEvent := <-cancelChan
 		nodeName := interruptionEvent.NodeName
@@ -264,8 +272,10 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			err := node.Uncordon(nodeName)
 			if err != nil {
 				log.Err(err).Msg("Uncordoning the node failed")
+				recorder.Emit(observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, err.Error())
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
+			recorder.Emit(observability.Normal, observability.UncordonReason, observability.UncordonMsg)
 
 			node.RemoveNTHLabels(nodeName)
 			node.RemoveNTHTaints(nodeName)
@@ -275,7 +285,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 	}
 }
 
-func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, wg *sync.WaitGroup) {
+func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nodeName := drainEvent.NodeName
 	nodeLabels, err := node.GetNodeLabels(nodeName)
@@ -287,6 +297,9 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err := drainEvent.PreDrainTask(*drainEvent, node)
 		if err != nil {
 			log.Err(err).Msg("There was a problem executing the pre-drain task")
+			recorder.Emit(observability.Warning, observability.PreDrainErrReason, observability.PreDrainErrMsgFmt, err.Error())
+		} else {
+			recorder.Emit(observability.Normal, observability.PreDrainReason, observability.PreDrainMsg)
 		}
 		metrics.NodeActionsInc("pre-drain", nodeName, err)
 	}
@@ -298,6 +311,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
 				log.Err(err).Msg("There was a problem while trying to cordon the node")
+				recorder.Emit(observability.Warning, observability.CordonErrReason, observability.CordonErrMsgFmt, err.Error())
 				os.Exit(1)
 			}
 		} else {
@@ -312,6 +326,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
 			}
 			metrics.NodeActionsInc("cordon", nodeName, err)
+			recorder.Emit(observability.Normal, observability.CordonReason, observability.CordonMsg)
 		}
 	} else {
 		err := node.CordonAndDrain(nodeName)
@@ -320,11 +335,14 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
 				log.Err(err).Msg("There was a problem while trying to cordon and drain the node")
+				metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
+				recorder.Emit(observability.Warning, observability.CordonAndDrainErrReason, observability.CordonAndDrainErrMsgFmt, err.Error())
 				os.Exit(1)
 			}
 		} else {
 			log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
+			recorder.Emit(observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 		}
 	}
 
@@ -336,6 +354,9 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err := drainEvent.PostDrainTask(*drainEvent, node)
 		if err != nil {
 			log.Err(err).Msg("There was a problem executing the post-drain task")
+			recorder.Emit(observability.Warning, observability.PostDrainErrReason, observability.PostDrainErrMsgFmt, err.Error())
+		} else {
+			recorder.Emit(observability.Normal, observability.PostDrainReason, observability.PostDrainMsg)
 		}
 		metrics.NodeActionsInc("post-drain", nodeName, err)
 	}

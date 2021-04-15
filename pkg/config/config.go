@@ -82,17 +82,21 @@ const (
 	prometheusPortDefault   = 9092
 	prometheusPortConfigKey = "PROMETHEUS_SERVER_PORT"
 	// probes
-	enableProbesDefault     = false
-	enableProbesConfigKey   = "ENABLE_PROBES_SERVER"
-	probesPortDefault       = 8080
-	probesPortConfigKey     = "PROBES_SERVER_PORT"
-	probesEndpointDefault   = "/healthz"
-	probesEndpointConfigKey = "PROBES_SERVER_ENDPOINT"
-	region                  = ""
-	awsRegionConfigKey      = "AWS_REGION"
-	awsEndpointConfigKey    = "AWS_ENDPOINT"
-	queueURL                = ""
-	queueURLConfigKey       = "QUEUE_URL"
+	enableProbesDefault                  = false
+	enableProbesConfigKey                = "ENABLE_PROBES_SERVER"
+	probesPortDefault                    = 8080
+	probesPortConfigKey                  = "PROBES_SERVER_PORT"
+	probesEndpointDefault                = "/healthz"
+	probesEndpointConfigKey              = "PROBES_SERVER_ENDPOINT"
+	emitKubernetesEventsConfigKey        = "EMIT_KUBERNETES_EVENTS"
+	emitKubernetesEventsDefault          = false
+	kubernetesEventsAnnotationsConfigKey = "KUBERNETES_EVENTS_ANNOTATIONS"
+	kubernetesEventsAnnotationsDefault   = ""
+	region                               = ""
+	awsRegionConfigKey                   = "AWS_REGION"
+	awsEndpointConfigKey                 = "AWS_ENDPOINT"
+	queueURL                             = ""
+	queueURLConfigKey                    = "QUEUE_URL"
 )
 
 //Config arguments set via CLI, environment variables, or defaults
@@ -129,6 +133,8 @@ type Config struct {
 	EnableProbes                   bool
 	ProbesPort                     int
 	ProbesEndpoint                 string
+	EmitKubernetesEvents           bool
+	KubernetesEventsAnnotations    string
 	AWSRegion                      string
 	AWSEndpoint                    string
 	QueueURL                       string
@@ -180,6 +186,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableProbes, "enable-probes-server", getBoolEnv(enableProbesConfigKey, enableProbesDefault), "If true, a http server is used for exposing probes in /healthz endpoint.")
 	flag.IntVar(&config.ProbesPort, "probes-server-port", getIntEnv(probesPortConfigKey, probesPortDefault), "The port for running the probes http server.")
 	flag.StringVar(&config.ProbesEndpoint, "probes-server-endpoint", getEnv(probesEndpointConfigKey, probesEndpointDefault), "If specified, use this endpoint to make liveness probe")
+	flag.BoolVar(&config.EmitKubernetesEvents, "emit-kubernetes-events", getBoolEnv(emitKubernetesEventsConfigKey, emitKubernetesEventsDefault), "If true, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes")
+	flag.StringVar(&config.KubernetesEventsAnnotations, "kubernetes-events-annotations", getEnv(kubernetesEventsAnnotationsConfigKey, ""), "A comma-separated list of key=value annotations to attach to all emitted Kubernetes events. Example: --kubernetes-events-annotations first=annotation,sample.annotation/number=two")
 	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls")
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
@@ -269,6 +277,8 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("uptime_from_file", c.UptimeFromFile).
 		Bool("enable_prometheus_server", c.EnablePrometheus).
 		Int("prometheus_server_port", c.PrometheusPort).
+		Bool("emit_kubernetes_events", c.EmitKubernetesEvents).
+		Str("kubernetes_events_annotations", c.KubernetesEventsAnnotations).
 		Str("aws_region", c.AWSRegion).
 		Str("aws_endpoint", c.AWSEndpoint).
 		Str("queue_url", c.QueueURL).
@@ -312,6 +322,8 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tuptime-from-file: %s,\n"+
 			"\tenable-prometheus-server: %t,\n"+
 			"\tprometheus-server-port: %d,\n"+
+			"\temit-kubernetes-events: %t,\n"+
+			"\tkubernetes-events-annotations: %s,\n"+
 			"\taws-region: %s,\n"+
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
@@ -343,6 +355,8 @@ func (c Config) PrintHumanConfigArgs() {
 		c.UptimeFromFile,
 		c.EnablePrometheus,
 		c.PrometheusPort,
+		c.EmitKubernetesEvents,
+		c.KubernetesEventsAnnotations,
 		c.AWSRegion,
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
