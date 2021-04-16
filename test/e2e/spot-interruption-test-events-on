@@ -146,19 +146,34 @@ elif [[ $evicted -eq 0 ]]; then
 fi
 
 echo "🥑 Getting Kubernetes events..."
-events=$(kubectl get events --field-selector source=aws-node-termination-handler -o json)
-for reason in SpotInterruption PreDrain CordonAndDrain; do
-    set +e
-    event=$(echo $events | jq -e --arg REASON "$reason" '.items[] | select(.reason==$REASON)' | jq -es '.[0]')
-    if [[ $? -ne 0 ]]; then
-        echo "❌ Events with reason $reason were not emitted"
-        fail_and_exit 1
+for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+    eventnotfound=""
+    annotationnotfound=""
+    events=$(kubectl get events --field-selector source=aws-node-termination-handler -o json)
+    for reason in SpotInterruption PreDrain CordonAndDrain; do
+        set +e
+        event=$(echo $events | jq -e --arg REASON "$reason" '[.items[] | select(.reason==$REASON)][0]')
+        if [[ $? -ne 0 ]]; then
+            eventnotfound=$reason
+            break
+        fi
+        set -e
+        if [[ "$(echo $event | jq -r '.metadata.annotations["spot.itn.events/test"]')" != "annotation" ]]; then
+            annotationnotfound=$reason
+            break
+        fi
+    done
+    if [ -z $eventnotfound ] && [ -z $annotationnotfound ]; then
+        echo "✅ Spot Interruption With Events Test Passed $CLUSTER_NAME! ✅"
+        exit 0
     fi
-    set -e
-    if [[ "$(echo $event | jq -r '.metadata.annotations["spot.itn.events/test"]')" != "annotation" ]]; then
-        echo "❌ Annotation was not found on event with reason $reason"
-        fail_and_exit 1
-    fi
+    echo "Events Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
 done
-echo "✅ Spot Interruption With Events Test Passed $CLUSTER_NAME! ✅"
-exit 0
+
+if [ ! -z $eventnotfound ]; then
+    echo "❌ Event with reason $eventnotfound was not emitted"
+    fail_and_exit 1
+fi
+echo "❌ Annotation was not found on event with reason $annotationnotfound"
+fail_and_exit_1

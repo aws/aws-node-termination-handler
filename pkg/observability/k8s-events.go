@@ -35,7 +35,7 @@ const (
 	Normal                  = corev1.EventTypeNormal
 	Warning                 = corev1.EventTypeWarning
 	MonitorErrReason        = "MonitorError"
-	MonitorErrMsgFmt        = "There was a problem monitoring for events in monitor %q"
+	MonitorErrMsgFmt        = "There was a problem monitoring for events in monitor '%s'"
 	UncordonErrReason       = "UncordonError"
 	UncordonErrMsgFmt       = "There was a problem while trying to uncordon the node: %s"
 	UncordonReason          = "Uncordon"
@@ -128,7 +128,7 @@ func InitK8sEventRecorder(enabled bool, annotationsStr, nodeName string) (K8sEve
 	}, nil
 }
 
-// Emit a Kubernetes event for the current node and with the given type, reason and message
+// Emit a Kubernetes event for the current node and with the given event type, reason and message
 func (r K8sEventRecorder) Emit(eventType, eventReason, eventMsgFmt string, eventMsgArgs ...interface{}) {
 	if r.enabled {
 		r.AnnotatedEventf(r.node, r.annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...)
