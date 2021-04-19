@@ -38,14 +38,14 @@ If you run the example above you might notice that the logs are heavily populate
 ```
 2020/09/15 21:13:41 Sending interruption event to the interruption channel
 2020/09/15 21:13:41 Got interruption event from channel {InstanceID:i-1234567890abcdef0 InstanceType:m4.xlarge PublicHostname:ec2-192-0-2-54.compute-1.amazonaws.com PublicIP:192.0.2.54 LocalHostname:ip-172-16-34-43.ec2.internal LocalIP:172.16.34.43 AvailabilityZone:us-east-1a} {EventID:spot-itn-47ddfb5e39791606bec3e91fea4cdfa86f86a60ddaf014c8b4af8e008f134b19 Kind:SPOT_ITN Description:Spot ITN received. Instance will be interrupted at 2020-09-15T21:15:41Z
- State: NodeName:ip-192-168-123-456.us-east-1.compute.internal StartTime:2020-09-15 21:15:41 +0000 UTC EndTime:0001-01-01 00:00:00 +0000 UTC Drained:false PreDrainTask:0x113c8a0 PostDrainTask:<nil>}
+ State: NodeName:ip-192-168-123-456.us-east-1.compute.internal StartTime:2020-09-15 21:15:41 +0000 UTC EndTime:0001-01-01 00:00:00 +0000 UTC NodeProcessed:false PreDrainTask:0x113c8a0 PostDrainTask:<nil>}
 WARNING: ignoring DaemonSet-managed Pods: default/amazon-ec2-metadata-mock-pszj2, kube-system/aws-node-bl2bj, kube-system/aws-node-termination-handler-2pvjr, kube-system/kube-proxy-fct9f
 evicting pod "coredns-67bfd975c5-rgkh7"
 evicting pod "coredns-67bfd975c5-6g88n"
 2020/09/15 21:13:42 Node "ip-192-168-123-456.us-east-1.compute.internal" successfully cordoned and drained.
 2020/09/15 21:13:43 Sending interruption event to the interruption channel
 2020/09/15 21:13:43 Got interruption event from channel {InstanceID:i-1234567890abcdef0 InstanceType:m4.xlarge PublicHostname:ec2-192-0-2-54.compute-1.amazonaws.com PublicIP:192.0.2.54 LocalHostname:ip-172-16-34-43.ec2.internal LocalIP:172.16.34.43 AvailabilityZone:us-east-1a} {EventID:spot-itn-97be476b6246aba6401ba36e54437719bfdf987773e9c83fe30336eb7fea9704 Kind:SPOT_ITN Description:Spot ITN received. Instance will be interrupted at 2020-09-15T21:15:43Z
- State: NodeName:ip-192-168-123-456.us-east-1.compute.internal StartTime:2020-09-15 21:15:43 +0000 UTC EndTime:0001-01-01 00:00:00 +0000 UTC Drained:false PreDrainTask:0x113c8a0 PostDrainTask:<nil>}
+ State: NodeName:ip-192-168-123-456.us-east-1.compute.internal StartTime:2020-09-15 21:15:43 +0000 UTC EndTime:0001-01-01 00:00:00 +0000 UTC NodeProcessed:false PreDrainTask:0x113c8a0 PostDrainTask:<nil>}
 WARNING: ignoring DaemonSet-managed Pods: default/amazon-ec2-metadata-mock-pszj2, kube-system/aws-node-bl2bj, kube-system/aws-node-termination-handler-2pvjr, kube-system/kube-proxy-fct9f
 2020/09/15 21:13:44 Node "ip-192-168-123-456.us-east-1.compute.internal" successfully cordoned and drained.
 2020/09/15 21:13:45 Sending interruption event to the interruption channel
@@ -54,17 +54,17 @@ WARNING: ignoring DaemonSet-managed Pods: default/amazon-ec2-metadata-mock-pszj2
 
 This isn't a mistake, by default AEMM will respond to any request for metadata with a spot interruption occurring 2 minutes
 later than the request time.\* AWS Node Termination Handler polls for events every 2 seconds by default, so the effect is
-that new interruption events are found and processed every 2 seconds. 
+that new interruption events are found and processed every 2 seconds.
 
 In reality there will only be a single interruption event, and you can mock this by setting the `spot.time` parameter of
-AEMM when installing it. 
+AEMM when installing it.
 ```
 helm install amazon-ec2-metadata-mock amazon-ec2-metadata-mock-1.6.0.tgz \
   --set aemm.spot.time="2020-09-09T22:40:47Z" \
   --namespace default
 ```
 
-Now when you check the logs you should only see a single event get processed. 
+Now when you check the logs you should only see a single event get processed.
 
 For more ways of configuring AEMM check out the [Helm configuration page](https://github.com/aws/amazon-ec2-metadata-mock/tree/main/helm/amazon-ec2-metadata-mock).
 
@@ -82,7 +82,7 @@ for the local tests that use a kind cluster, and [here](https://github.com/aws/a
 for the eks-cluster e2e tests.
 
 Check out the [ReadMe](https://github.com/aws/aws-node-termination-handler/tree/main/test) in our test folder for more
-info on the e2e tests. 
+info on the e2e tests.
 
 ---
 

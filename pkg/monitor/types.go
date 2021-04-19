@@ -35,7 +35,7 @@ type InterruptionEvent struct {
 	InstanceID           string
 	StartTime            time.Time
 	EndTime              time.Time
-	Drained              bool
+	NodeProcessed        bool
 	InProgress           bool
 	PreDrainTask         DrainTask `json:"-"`
 	PostDrainTask        DrainTask `json:"-"`

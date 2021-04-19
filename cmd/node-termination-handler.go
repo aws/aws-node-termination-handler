@@ -328,7 +328,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		}
 	}
 
-	interruptionEventStore.MarkAllAsDrained(nodeName)
+	interruptionEventStore.MarkAllAsProcessed(nodeName)
 	if nthConfig.WebhookURL != "" {
 		webhook.Post(nodeMetadata, drainEvent, nthConfig)
 	}
