@@ -64,7 +64,7 @@ const (
 	spotITNReason                 = "SpotInterruption"
 	sqsTerminateReason            = "SQSTermination"
 	rebalanceRecommendationReason = "RebalanceRecommendation"
-	unknownReason                 = "UnknownInterruptionEvent"
+	unknownReason                 = "UnknownInterruption"
 )
 
 // K8sEventRecorder wraps a Kubernetes event recorder with some extra information
