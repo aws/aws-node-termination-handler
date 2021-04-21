@@ -99,12 +99,6 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate probes service,")
 	}
 
-	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.KubernetesEventsAnnotations, nthConfig.NodeName)
-	if err != nil {
-		nthConfig.Print()
-		log.Fatal().Err(err).Msg("Unable to create Kubernetes event recorder,")
-	}
-
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
@@ -119,6 +113,13 @@ func main() {
 		nthConfig.Print()
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
+
+	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations)
+	if err != nil {
+		nthConfig.Print()
+		log.Fatal().Err(err).Msg("Unable to create Kubernetes event recorder,")
+	}
+
 	nthConfig.Print()
 
 	if nthConfig.EnableScheduledEventDraining {

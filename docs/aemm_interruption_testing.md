@@ -54,17 +54,17 @@ WARNING: ignoring DaemonSet-managed Pods: default/amazon-ec2-metadata-mock-pszj2
 
 This isn't a mistake, by default AEMM will respond to any request for metadata with a spot interruption occurring 2 minutes
 later than the request time.\* AWS Node Termination Handler polls for events every 2 seconds by default, so the effect is
-that new interruption events are found and processed every 2 seconds. 
+that new interruption events are found and processed every 2 seconds.
 
 In reality there will only be a single interruption event, and you can mock this by setting the `spot.time` parameter of
-AEMM when installing it. 
+AEMM when installing it.
 ```
 helm install amazon-ec2-metadata-mock amazon-ec2-metadata-mock-1.6.0.tgz \
   --set aemm.spot.time="2020-09-09T22:40:47Z" \
   --namespace default
 ```
 
-Now when you check the logs you should only see a single event get processed. 
+Now when you check the logs you should only see a single event get processed.
 
 For more ways of configuring AEMM check out the [Helm configuration page](https://github.com/aws/amazon-ec2-metadata-mock/tree/main/helm/amazon-ec2-metadata-mock).
 
@@ -82,7 +82,7 @@ for the local tests that use a kind cluster, and [here](https://github.com/aws/a
 for the eks-cluster e2e tests.
 
 Check out the [ReadMe](https://github.com/aws/aws-node-termination-handler/tree/main/test) in our test folder for more
-info on the e2e tests. 
+info on the e2e tests.
 
 ---
 

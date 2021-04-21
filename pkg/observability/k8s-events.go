@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
@@ -76,16 +77,28 @@ type K8sEventRecorder struct {
 }
 
 // InitK8sEventRecorder creates a Kubernetes event recorder
-func InitK8sEventRecorder(enabled bool, annotationsStr, nodeName string) (K8sEventRecorder, error) {
+func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadata.NodeMetadata, extraAnnotationsStr string) (K8sEventRecorder, error) {
 	if !enabled {
 		return K8sEventRecorder{}, nil
 	}
 
-	// Parse annotations
-	var annotations map[string]string
+	// Create default annotations
+	// Worth iterating over nodeMetadata fields using reflect? (trutx)
+	annotations := make(map[string]string)
+	annotations["account-id"] = nodeMetadata.AccountId
+	annotations["availability-zone"] = nodeMetadata.AvailabilityZone
+	annotations["instance-id"] = nodeMetadata.InstanceID
+	annotations["instance-type"] = nodeMetadata.InstanceType
+	annotations["local-hostname"] = nodeMetadata.LocalHostname
+	annotations["local-ipv4"] = nodeMetadata.LocalIP
+	annotations["public-hostname"] = nodeMetadata.PublicHostname
+	annotations["public-ipv4"] = nodeMetadata.PublicIP
+	annotations["region"] = nodeMetadata.Region
+
+	// Parse extra annotations
 	var err error
-	if annotationsStr != "" {
-		annotations, err = parseAnnotations(annotationsStr)
+	if extraAnnotationsStr != "" {
+		annotations, err = parseExtraAnnotations(annotations, extraAnnotationsStr)
 		if err != nil {
 			return K8sEventRecorder{}, err
 		}
@@ -151,10 +164,9 @@ func GetReasonForKind(kind string) string {
 	}
 }
 
-// Convert the given annotations string into a map
-func parseAnnotations(annotationsStr string) (map[string]string, error) {
-	annotations := make(map[string]string)
-	parts := strings.Split(annotationsStr, ",")
+// Parse the given extra annotations string into a map
+func parseExtraAnnotations(annotations map[string]string, extraAnnotationsStr string) (map[string]string, error) {
+	parts := strings.Split(extraAnnotationsStr, ",")
 	for _, part := range parts {
 		keyValue := strings.Split(part, "=")
 		if len(keyValue) != 2 {

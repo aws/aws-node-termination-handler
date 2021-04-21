@@ -41,7 +41,7 @@ anth_helm_args=(
   --set taintNode="true"
   --set tolerations=""
   --set emitKubernetesEvents="true"
-  --set kubernetesEventsAnnotations="spot.itn.events/test=annotation"
+  --set kubernetesEventsExtraAnnotations="spot.itn.events/test=extra-annotation"
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -149,6 +149,7 @@ echo "🥑 Getting Kubernetes events..."
 for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     eventnotfound=""
     annotationnotfound=""
+    extraannotationnotfound=""
     events=$(kubectl get events --field-selector source=aws-node-termination-handler -o json)
     for reason in SpotInterruption PreDrain CordonAndDrain; do
         set +e
@@ -158,12 +159,19 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
             break
         fi
         set -e
-        if [[ "$(echo $event | jq -r '.metadata.annotations["spot.itn.events/test"]')" != "annotation" ]]; then
-            annotationnotfound=$reason
+        for ant in account-id availability-zone instance-id instance-type local-hostname local-ipv4 public-hostname public-ipv4 region; do
+            if [[ "$(echo $event | jq -r --arg ANT "$ant" '.metadata.annotations[$ANT]')" == "null" ]]; then
+                eventnotfound=$reason
+                annotationnotfound=$ant
+                break 2
+            fi
+        done
+        if [[ "$(echo $event | jq -r '.metadata.annotations["spot.itn.events/test"]')" != "extra-annotation" ]]; then
+            extraannotationnotfound=$reason
             break
         fi
     done
-    if [ -z $eventnotfound ] && [ -z $annotationnotfound ]; then
+    if [ -z $eventnotfound ] && [ -z $annotationnotfound ] && [ -z $extraannotationnotfound ]; then
         echo "✅ Spot Interruption With Events Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
@@ -172,8 +180,12 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
 done
 
 if [ ! -z $eventnotfound ]; then
+    if [ ! -z $annotationnotfound ]; then
+        echo "❌ Annotation $annotationnotfound was not found on event with reason $eventnotfound"
+        fail_and_exit 1
+    fi
     echo "❌ Event with reason $eventnotfound was not emitted"
     fail_and_exit 1
 fi
-echo "❌ Annotation was not found on event with reason $annotationnotfound"
+echo "❌ Extra annotation was not found on event with reason $extraannotationnotfound"
 fail_and_exit_1

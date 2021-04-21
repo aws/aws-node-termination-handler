@@ -82,64 +82,64 @@ const (
 	prometheusPortDefault   = 9092
 	prometheusPortConfigKey = "PROMETHEUS_SERVER_PORT"
 	// probes
-	enableProbesDefault                  = false
-	enableProbesConfigKey                = "ENABLE_PROBES_SERVER"
-	probesPortDefault                    = 8080
-	probesPortConfigKey                  = "PROBES_SERVER_PORT"
-	probesEndpointDefault                = "/healthz"
-	probesEndpointConfigKey              = "PROBES_SERVER_ENDPOINT"
-	emitKubernetesEventsConfigKey        = "EMIT_KUBERNETES_EVENTS"
-	emitKubernetesEventsDefault          = false
-	kubernetesEventsAnnotationsConfigKey = "KUBERNETES_EVENTS_ANNOTATIONS"
-	kubernetesEventsAnnotationsDefault   = ""
-	region                               = ""
-	awsRegionConfigKey                   = "AWS_REGION"
-	awsEndpointConfigKey                 = "AWS_ENDPOINT"
-	queueURL                             = ""
-	queueURLConfigKey                    = "QUEUE_URL"
+	enableProbesDefault                       = false
+	enableProbesConfigKey                     = "ENABLE_PROBES_SERVER"
+	probesPortDefault                         = 8080
+	probesPortConfigKey                       = "PROBES_SERVER_PORT"
+	probesEndpointDefault                     = "/healthz"
+	probesEndpointConfigKey                   = "PROBES_SERVER_ENDPOINT"
+	emitKubernetesEventsConfigKey             = "EMIT_KUBERNETES_EVENTS"
+	emitKubernetesEventsDefault               = false
+	kubernetesEventsExtraAnnotationsConfigKey = "KUBERNETES_EVENTS_EXTRA_ANNOTATIONS"
+	kubernetesEventsExtraAnnotationsDefault   = ""
+	region                                    = ""
+	awsRegionConfigKey                        = "AWS_REGION"
+	awsEndpointConfigKey                      = "AWS_ENDPOINT"
+	queueURL                                  = ""
+	queueURLConfigKey                         = "QUEUE_URL"
 )
 
 //Config arguments set via CLI, environment variables, or defaults
 type Config struct {
-	DryRun                         bool
-	NodeName                       string
-	MetadataURL                    string
-	IgnoreDaemonSets               bool
-	DeleteLocalData                bool
-	KubernetesServiceHost          string
-	KubernetesServicePort          string
-	PodTerminationGracePeriod      int
-	NodeTerminationGracePeriod     int
-	WebhookURL                     string
-	WebhookHeaders                 string
-	WebhookTemplate                string
-	WebhookTemplateFile            string
-	WebhookProxy                   string
-	EnableScheduledEventDraining   bool
-	EnableSpotInterruptionDraining bool
-	EnableSQSTerminationDraining   bool
-	EnableRebalanceMonitoring      bool
-	EnableRebalanceDraining        bool
-	CheckASGTagBeforeDraining      bool
-	ManagedAsgTag                  string
-	MetadataTries                  int
-	CordonOnly                     bool
-	TaintNode                      bool
-	JsonLogging                    bool
-	LogLevel                       string
-	UptimeFromFile                 string
-	EnablePrometheus               bool
-	PrometheusPort                 int
-	EnableProbes                   bool
-	ProbesPort                     int
-	ProbesEndpoint                 string
-	EmitKubernetesEvents           bool
-	KubernetesEventsAnnotations    string
-	AWSRegion                      string
-	AWSEndpoint                    string
-	QueueURL                       string
-	Workers                        int
-	AWSSession                     *session.Session
+	DryRun                           bool
+	NodeName                         string
+	MetadataURL                      string
+	IgnoreDaemonSets                 bool
+	DeleteLocalData                  bool
+	KubernetesServiceHost            string
+	KubernetesServicePort            string
+	PodTerminationGracePeriod        int
+	NodeTerminationGracePeriod       int
+	WebhookURL                       string
+	WebhookHeaders                   string
+	WebhookTemplate                  string
+	WebhookTemplateFile              string
+	WebhookProxy                     string
+	EnableScheduledEventDraining     bool
+	EnableSpotInterruptionDraining   bool
+	EnableSQSTerminationDraining     bool
+	EnableRebalanceMonitoring        bool
+	EnableRebalanceDraining          bool
+	CheckASGTagBeforeDraining        bool
+	ManagedAsgTag                    string
+	MetadataTries                    int
+	CordonOnly                       bool
+	TaintNode                        bool
+	JsonLogging                      bool
+	LogLevel                         string
+	UptimeFromFile                   string
+	EnablePrometheus                 bool
+	PrometheusPort                   int
+	EnableProbes                     bool
+	ProbesPort                       int
+	ProbesEndpoint                   string
+	EmitKubernetesEvents             bool
+	KubernetesEventsExtraAnnotations string
+	AWSRegion                        string
+	AWSEndpoint                      string
+	QueueURL                         string
+	Workers                          int
+	AWSSession                       *session.Session
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -187,7 +187,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.ProbesPort, "probes-server-port", getIntEnv(probesPortConfigKey, probesPortDefault), "The port for running the probes http server.")
 	flag.StringVar(&config.ProbesEndpoint, "probes-server-endpoint", getEnv(probesEndpointConfigKey, probesEndpointDefault), "If specified, use this endpoint to make liveness probe")
 	flag.BoolVar(&config.EmitKubernetesEvents, "emit-kubernetes-events", getBoolEnv(emitKubernetesEventsConfigKey, emitKubernetesEventsDefault), "If true, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes")
-	flag.StringVar(&config.KubernetesEventsAnnotations, "kubernetes-events-annotations", getEnv(kubernetesEventsAnnotationsConfigKey, ""), "A comma-separated list of key=value annotations to attach to all emitted Kubernetes events. Example: --kubernetes-events-annotations first=annotation,sample.annotation/number=two")
+	flag.StringVar(&config.KubernetesEventsExtraAnnotations, "kubernetes-events-extra-annotations", getEnv(kubernetesEventsExtraAnnotationsConfigKey, ""), "A comma-separated list of key=value extra annotations to attach to all emitted Kubernetes events. Example: --kubernetes-events-extra-annotations first=annotation,sample.annotation/number=two")
 	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls")
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
@@ -278,7 +278,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("enable_prometheus_server", c.EnablePrometheus).
 		Int("prometheus_server_port", c.PrometheusPort).
 		Bool("emit_kubernetes_events", c.EmitKubernetesEvents).
-		Str("kubernetes_events_annotations", c.KubernetesEventsAnnotations).
+		Str("kubernetes_events_extra_annotations", c.KubernetesEventsExtraAnnotations).
 		Str("aws_region", c.AWSRegion).
 		Str("aws_endpoint", c.AWSEndpoint).
 		Str("queue_url", c.QueueURL).
@@ -323,7 +323,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tenable-prometheus-server: %t,\n"+
 			"\tprometheus-server-port: %d,\n"+
 			"\temit-kubernetes-events: %t,\n"+
-			"\tkubernetes-events-annotations: %s,\n"+
+			"\tkubernetes-events-extra-annotations: %s,\n"+
 			"\taws-region: %s,\n"+
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
@@ -356,7 +356,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.EnablePrometheus,
 		c.PrometheusPort,
 		c.EmitKubernetesEvents,
-		c.KubernetesEventsAnnotations,
+		c.KubernetesEventsExtraAnnotations,
 		c.AWSRegion,
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
