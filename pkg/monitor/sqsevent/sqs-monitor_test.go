@@ -485,6 +485,42 @@ func TestMonitor_EC2NoInstances(t *testing.T) {
 	}
 }
 
+func TestMonitor_DescribeInstancesError(t *testing.T) {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+		msg, err := getSQSMessageFromEvent(event)
+		h.Ok(t, err)
+		messages := []*sqs.Message{
+			&msg,
+		}
+		sqsMock := h.MockedSQS{
+			ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+			ReceiveMessageErr:  nil,
+		}
+		ec2Mock := h.MockedEC2{
+			DescribeInstancesResp: ec2.DescribeInstancesOutput{},
+			DescribeInstancesErr:  awserr.New("InvalidInstanceID.NotFound",  "The instance ID 'i-0d6bd3ce2bf8a6751' does not exist\n\tstatus code: 400, request id: 6a5c30e2-922d-464c-946c-a1ec76e5920b", fmt.Errorf("original error")),
+		}
+		drainChan := make(chan monitor.InterruptionEvent, 1)
+
+		sqsMonitor := sqsevent.SQSMonitor{
+			SQS:              sqsMock,
+			EC2:              ec2Mock,
+			QueueURL:         "https://test-queue",
+			InterruptionChan: drainChan,
+		}
+
+		err = sqsMonitor.Monitor()
+		h.Ok(t, err)
+
+		select {
+		case <-drainChan:
+			h.Ok(t, fmt.Errorf("Expected no events"))
+		default:
+			h.Ok(t, nil)
+		}
+	}
+}
+
 func TestMonitor_EC2NoDNSName(t *testing.T) {
 	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
 	h.Ok(t, err)

@@ -17,9 +17,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -88,7 +88,7 @@ func (m SQSMonitor) Monitor() error {
 	}
 
 	if len(messages) > 0 && failedEvents == len(messages) {
-		return fmt.Errorf("All of the waiting queue events could not be processed")
+		return fmt.Errorf("none of the waiting queue events could be processed")
 	}
 
 	return nil
@@ -189,10 +189,14 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 		},
 	})
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotFound" {
+			log.Warn().Msgf("No instance found with instance-id %s", instanceID)
+			return "", ErrNodeStateNotRunning
+		}
 		return "", err
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		log.Info().Msgf("No instance found with instance-id %s", instanceID)
+		log.Warn().Msgf("No instance found with instance-id %s", instanceID)
 		return "", ErrNodeStateNotRunning
 	}
 
