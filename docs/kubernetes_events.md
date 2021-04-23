@@ -54,6 +54,7 @@ Name | Example value
 `account-id` | `123456789012` 
 `availability-zone` | `us-west-2a`
 `instance-id` | `i-abcdef12345678901`
+`instance-life-cycle` | `spot`
 `instance-type` | `m5.8xlarge`
 `local-hostname` | `ip-10-1-2-3.us-west-2.compute.internal`
 `local-ipv4` | `10.1.2.3`

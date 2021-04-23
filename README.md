@@ -102,6 +102,7 @@ The termination handler DaemonSet installs into your cluster a [ServiceAccount](
 #### Kubectl Apply
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
+
 ```
 kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.13.0/all-resources.yaml
 ```
@@ -121,6 +122,7 @@ helm repo add eks https://aws.github.io/eks-charts
 Once that is complete you can install the termination handler. We've provided some sample setup options below.
 
 Zero Config:
+
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -128,6 +130,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Enabling Features:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -140,6 +143,7 @@ helm upgrade --install aws-node-termination-handler \
 The `enable*` configuration flags above enable or disable IMDS monitoring paths.
 
 Running Only On Specific Nodes:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -148,6 +152,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Webhook Configuration:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -156,6 +161,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Alternatively, pass Webhook URL as a Secret:
+
 ```
 WEBHOOKURL_LITERAL="webhookurl=https://hooks.slack.com/services/YOUR/SLACK/URL"
 
@@ -217,11 +223,9 @@ However, if your account is dedicated to ASGs for your kubernetes cluster, then 
 
 You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
 
-Take a look at the docs on how to create rules that only manage certain ASGs here: https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html
+Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
 
-See all the different events docs here: https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types
-
-
+See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
 
 #### 3. Create an SQS Queue:
 
@@ -298,6 +302,7 @@ There are many different ways to allow the aws-node-termination-handler pods to 
 4. [kube2iam](https://github.com/jtblin/kube2iam)
 
 IAM Policy for aws-node-termination-handler Deployment:
+
 ```
 {
     "Version": "2012-10-17",
@@ -333,6 +338,7 @@ helm repo add eks https://aws.github.io/eks-charts
 Once that is complete you can install the termination handler. We've provided some sample setup options below.
 
 Minimal Config:
+
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -342,6 +348,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Webhook Configuration:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -352,6 +359,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Alternatively, pass Webhook URL as a Secret:
+
 ```
 WEBHOOKURL_LITERAL="webhookurl=https://hooks.slack.com/services/YOUR/SLACK/URL"
 
@@ -397,22 +405,26 @@ To use the termination handler alongside [Kiam](https://github.com/uswitch/kiam)
 By default Kiam will block all access to the metadata address, so you need to make sure it passes through the requests the termination handler relies on.
 
 To add a whitelist configuration, use the following fields in the Kiam Helm chart values:
+
 ```
 agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)|\/latest\/dynamic\/instance-identity\/document$'
 ```
 Or just pass it as an argument to the kiam agents:
+
 ```
 kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)|\/latest\/dynamic\/instance-identity\/document$'
 ```
 
 ## Metadata endpoints
 The termination handler relies on the following metadata endpoints to function properly:
+
 ```
 /latest/dynamic/instance-identity/document
 /latest/meta-data/spot/instance-action
 /latest/meta-data/events/recommendations/rebalance
 /latest/meta-data/events/maintenance/scheduled
 /latest/meta-data/instance-id
+/latest/meta-data/instance-life-cycle
 /latest/meta-data/instance-type
 /latest/meta-data/public-hostname
 /latest/meta-data/public-ipv4
@@ -420,6 +432,7 @@ The termination handler relies on the following metadata endpoints to function p
 /latest/meta-data/local-ipv4
 /latest/meta-data/placement/availability-zone
 ```
+
 </details>
 
 ## Building

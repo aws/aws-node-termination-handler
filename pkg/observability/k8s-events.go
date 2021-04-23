@@ -84,6 +84,7 @@ func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadat
 	annotations["account-id"] = nodeMetadata.AccountId
 	annotations["availability-zone"] = nodeMetadata.AvailabilityZone
 	annotations["instance-id"] = nodeMetadata.InstanceID
+	annotations["instance-life-cycle"] = nodeMetadata.InstanceLifeCycle
 	annotations["instance-type"] = nodeMetadata.InstanceType
 	annotations["local-hostname"] = nodeMetadata.LocalHostname
 	annotations["local-ipv4"] = nodeMetadata.LocalIP

@@ -157,7 +157,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
             eventnotfound=$reason
             break
         fi
-        for ant in account-id availability-zone instance-id instance-type local-hostname local-ipv4 public-hostname public-ipv4 region; do
+        for ant in account-id availability-zone instance-id instance-life-cycle instance-type local-hostname local-ipv4 public-hostname public-ipv4 region; do
             if [[ "$(echo $event | jq -r --arg ANT "$ant" '.metadata.annotations[$ANT]')" == "null" ]]; then
                 eventnotfound=$reason
                 annotationnotfound=$ant
