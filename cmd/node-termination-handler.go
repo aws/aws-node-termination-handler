@@ -186,7 +186,7 @@ func main() {
 				if err != nil {
 					log.Warn().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
-					recorder.Emit(observability.Warning, observability.MonitorErrReason, observability.MonitorErrMsgFmt, monitor.Kind())
+					recorder.Emit(nthConfig.NodeName, observability.Warning, observability.MonitorErrReason, observability.MonitorErrMsgFmt, monitor.Kind())
 					if previousErr != nil && err.Error() == previousErr.Error() {
 						duplicateErrCount++
 					} else {
@@ -222,7 +222,7 @@ func main() {
 				case interruptionEventStore.Workers <- 1:
 					event.InProgress = true
 					wg.Add(1)
-					recorder.Emit(observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
+					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
 					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
@@ -273,10 +273,11 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			err := node.Uncordon(nodeName)
 			if err != nil {
 				log.Err(err).Msg("Uncordoning the node failed")
-				recorder.Emit(observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, err.Error())
+				recorder.Emit(nodeName, observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, err.Error())
+			} else {
+				recorder.Emit(nodeName, observability.Normal, observability.UncordonReason, observability.UncordonMsg)
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
-			recorder.Emit(observability.Normal, observability.UncordonReason, observability.UncordonMsg)
 
 			node.RemoveNTHLabels(nodeName)
 			node.RemoveNTHTaints(nodeName)
@@ -298,9 +299,9 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err := drainEvent.PreDrainTask(*drainEvent, node)
 		if err != nil {
 			log.Err(err).Msg("There was a problem executing the pre-drain task")
-			recorder.Emit(observability.Warning, observability.PreDrainErrReason, observability.PreDrainErrMsgFmt, err.Error())
+			recorder.Emit(nodeName, observability.Warning, observability.PreDrainErrReason, observability.PreDrainErrMsgFmt, err.Error())
 		} else {
-			recorder.Emit(observability.Normal, observability.PreDrainReason, observability.PreDrainMsg)
+			recorder.Emit(nodeName, observability.Normal, observability.PreDrainReason, observability.PreDrainMsg)
 		}
 		metrics.NodeActionsInc("pre-drain", nodeName, err)
 	}
@@ -312,7 +313,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 			} else {
 				log.Err(err).Msg("There was a problem while trying to cordon the node")
-				recorder.Emit(observability.Warning, observability.CordonErrReason, observability.CordonErrMsgFmt, err.Error())
+				recorder.Emit(nodeName, observability.Warning, observability.CordonErrReason, observability.CordonErrMsgFmt, err.Error())
 				os.Exit(1)
 			}
 		} else {
@@ -327,7 +328,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 				log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
 			}
 			metrics.NodeActionsInc("cordon", nodeName, err)
-			recorder.Emit(observability.Normal, observability.CordonReason, observability.CordonMsg)
+			recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 		}
 	} else {
 		err := node.CordonAndDrain(nodeName)
@@ -337,13 +338,13 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 			} else {
 				log.Err(err).Msg("There was a problem while trying to cordon and drain the node")
 				metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
-				recorder.Emit(observability.Warning, observability.CordonAndDrainErrReason, observability.CordonAndDrainErrMsgFmt, err.Error())
+				recorder.Emit(nodeName, observability.Warning, observability.CordonAndDrainErrReason, observability.CordonAndDrainErrMsgFmt, err.Error())
 				os.Exit(1)
 			}
 		} else {
 			log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
-			recorder.Emit(observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
+			recorder.Emit(nodeName, observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 		}
 	}
 
@@ -355,9 +356,9 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err := drainEvent.PostDrainTask(*drainEvent, node)
 		if err != nil {
 			log.Err(err).Msg("There was a problem executing the post-drain task")
-			recorder.Emit(observability.Warning, observability.PostDrainErrReason, observability.PostDrainErrMsgFmt, err.Error())
+			recorder.Emit(nodeName, observability.Warning, observability.PostDrainErrReason, observability.PostDrainErrMsgFmt, err.Error())
 		} else {
-			recorder.Emit(observability.Normal, observability.PostDrainReason, observability.PostDrainMsg)
+			recorder.Emit(nodeName, observability.Normal, observability.PostDrainReason, observability.PostDrainMsg)
 		}
 		metrics.NodeActionsInc("post-drain", nodeName, err)
 	}

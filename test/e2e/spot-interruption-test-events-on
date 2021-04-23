@@ -152,13 +152,11 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
     extraannotationnotfound=""
     events=$(kubectl get events --field-selector source=aws-node-termination-handler -o json)
     for reason in SpotInterruption PreDrain CordonAndDrain; do
-        set +e
-        event=$(echo $events | jq -e --arg REASON "$reason" '[.items[] | select(.reason==$REASON)][0]')
-        if [[ $? -ne 0 ]]; then
+        event=$(echo $events | jq --arg REASON "$reason" '[.items[] | select(.reason==$REASON)][0]')
+        if [[ $event == "null" ]]; then
             eventnotfound=$reason
             break
         fi
-        set -e
         for ant in account-id availability-zone instance-id instance-type local-hostname local-ipv4 public-hostname public-ipv4 region; do
             if [[ "$(echo $event | jq -r --arg ANT "$ant" '.metadata.annotations[$ANT]')" == "null" ]]; then
                 eventnotfound=$reason

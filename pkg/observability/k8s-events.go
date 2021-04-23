@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -72,7 +71,6 @@ const (
 type K8sEventRecorder struct {
 	annotations map[string]string
 	enabled     bool
-	node        *corev1.Node
 	record.EventRecorder
 }
 
@@ -82,8 +80,6 @@ func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadat
 		return K8sEventRecorder{}, nil
 	}
 
-	// Create default annotations
-	// Worth iterating over nodeMetadata fields using reflect? (trutx)
 	annotations := make(map[string]string)
 	annotations["account-id"] = nodeMetadata.AccountId
 	annotations["availability-zone"] = nodeMetadata.AvailabilityZone
@@ -95,7 +91,6 @@ func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadat
 	annotations["public-ipv4"] = nodeMetadata.PublicIP
 	annotations["region"] = nodeMetadata.Region
 
-	// Parse extra annotations
 	var err error
 	if extraAnnotationsStr != "" {
 		annotations, err = parseExtraAnnotations(annotations, extraAnnotationsStr)
@@ -104,33 +99,22 @@ func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadat
 		}
 	}
 
-	// Get in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return K8sEventRecorder{}, err
 	}
 
-	// Create clientSet
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return K8sEventRecorder{}, err
 	}
 
-	// Get node
-	node, err := clientSet.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	if err != nil {
-		return K8sEventRecorder{}, err
-	}
-
-	// Create broadcaster
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("default")})
 
-	// Create event recorder
 	return K8sEventRecorder{
 		annotations: annotations,
 		enabled:     true,
-		node:        node,
 		EventRecorder: broadcaster.NewRecorder(
 			scheme.Scheme,
 			corev1.EventSource{
@@ -141,10 +125,15 @@ func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadat
 	}, nil
 }
 
-// Emit a Kubernetes event for the current node and with the given event type, reason and message
-func (r K8sEventRecorder) Emit(eventType, eventReason, eventMsgFmt string, eventMsgArgs ...interface{}) {
+// Emit a Kubernetes event for the given node and with the given event type, reason and message
+func (r K8sEventRecorder) Emit(nodeName string, eventType, eventReason, eventMsgFmt string, eventMsgArgs ...interface{}) {
 	if r.enabled {
-		r.AnnotatedEventf(r.node, r.annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...)
+		node := &corev1.ObjectReference{
+			Kind:      "Node",
+			Name:      nodeName,
+			Namespace: "default",
+		}
+		r.AnnotatedEventf(node, r.annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...)
 	}
 }
 
