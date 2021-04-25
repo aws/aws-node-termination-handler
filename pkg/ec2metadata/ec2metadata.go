@@ -331,7 +331,6 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	if err != nil {
 		log.Warn().Msg("Unable to fetch instance identity document from ec2 metadata")
 		metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
-		metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle)
 		metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
 		metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
 		metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
@@ -339,9 +338,10 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 			metadata.Region = metadata.AvailabilityZone[0 : len(metadata.AvailabilityZone)-1]
 		}
 	}
+	metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle)
+	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 	metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
 	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
-	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 
 	log.Info().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 
