@@ -60,6 +60,10 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 		return monitor.InterruptionEvent{}, err
 	}
 	asgName, err := m.retrieveAutoScalingGroupName(spotInterruptionDetail.InstanceID)
+	if err != nil {
+		return monitor.InterruptionEvent{}, err
+	}
+
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("spot-itn-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,

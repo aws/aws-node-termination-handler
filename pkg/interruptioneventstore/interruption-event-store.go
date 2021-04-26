@@ -66,7 +66,6 @@ func (s *Store) AddInterruptionEvent(interruptionEvent *monitor.InterruptionEven
 	if _, ignored := s.ignoredEvents[interruptionEvent.EventID]; !ignored {
 		s.atLeastOneEvent = true
 	}
-	return
 }
 
 // GetActiveEvent returns true if there are interruption events in the internal store
@@ -105,7 +104,7 @@ func (s *Store) shouldEventDrain(interruptionEvent *monitor.InterruptionEvent) b
 func (s *Store) TimeUntilDrain(interruptionEvent *monitor.InterruptionEvent) time.Duration {
 	nodeTerminationGracePeriod := time.Duration(s.NthConfig.NodeTerminationGracePeriod) * time.Second
 	drainTime := interruptionEvent.StartTime.Add(-1 * nodeTerminationGracePeriod)
-	return drainTime.Sub(time.Now())
+	return time.Until(drainTime)
 }
 
 // MarkAllAsDrained should be called after the node has been drained to prevent further unnecessary drain calls to the k8s api
