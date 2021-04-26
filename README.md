@@ -261,9 +261,9 @@ EOF
 $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json 
 ```
 
-#### 4. Create an Amazon EventBridge Rule
+#### 4. Create Amazon EventBridge Rules
 
-Here is the AWS CLI command to create an Amazon EventBridge rule so that ASG termination events are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, and Rebalance Recommendations are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
 ```
 $ aws events put-rule \
