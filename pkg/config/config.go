@@ -221,12 +221,8 @@ func ParseCliArgs() (config Config, err error) {
 		config.PodTerminationGracePeriod = gracePeriod
 	}
 
-	switch strings.ToLower(config.LogLevel) {
-	case "info":
-	case "debug":
-	case "error":
-	default:
-		return config, fmt.Errorf("Invalid log-level passed: %s  Should be one of: info, debug, error", config.LogLevel)
+	if err := validateLogLevel(strings.ToLower(config.LogLevel)); err != nil {
+		return config, err
 	}
 
 	if config.NodeName == "" {
@@ -423,4 +419,15 @@ func getRegionFromQueueURL(queueURL string) string {
 		}
 	}
 	return ""
+}
+
+func validateLogLevel(logLevel string) error {
+	switch logLevel {
+	case "info":
+	case "debug":
+	case "error":
+	default:
+		return fmt.Errorf("Invalid log-level passed: %s  Should be one of: info, debug, error", logLevel)
+	}
+	return nil
 }
