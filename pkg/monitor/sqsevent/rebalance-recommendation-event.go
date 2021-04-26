@@ -57,11 +57,7 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
-	asgName, err := m.retrieveAutoScalingGroupName(rebalanceRecDetail.InstanceID)
-	if err != nil {
-		return monitor.InterruptionEvent{}, err
-	}
-
+	asgName, _ := m.retrieveAutoScalingGroupName(rebalanceRecDetail.InstanceID)
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("rebalance-recommendation-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,

@@ -65,7 +65,7 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
-	asgName, err := m.retrieveAutoScalingGroupName(ec2StateChangeDetail.InstanceID)
+	asgName, _ := m.retrieveAutoScalingGroupName(ec2StateChangeDetail.InstanceID)
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("ec2-state-change-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,
@@ -74,9 +74,6 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 		AutoScalingGroupName: asgName,
 		InstanceID:           ec2StateChangeDetail.InstanceID,
 		Description:          fmt.Sprintf("EC2 State Change event received. Instance went into %s at %s \n", ec2StateChangeDetail.State, event.getTime()),
-	}
-	if err != nil {
-		return monitor.InterruptionEvent{}, err
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
