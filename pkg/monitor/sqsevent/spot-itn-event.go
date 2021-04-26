@@ -67,7 +67,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 		StartTime:            event.getTime(),
 		NodeName:             nodeName,
 		InstanceID:           spotInterruptionDetail.InstanceID,
-		Description:          fmt.Sprintf("Spot Interruption event received. Instance will be interrupted at %s \n", event.getTime()),
+		Description:          fmt.Sprintf("Spot Interruption event received. Instance %s will be interrupted at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		errs := m.deleteMessages([]*sqs.Message{message})

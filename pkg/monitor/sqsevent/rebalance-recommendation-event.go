@@ -65,7 +65,7 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 		StartTime:            event.getTime(),
 		NodeName:             nodeName,
 		InstanceID:           rebalanceRecDetail.InstanceID,
-		Description:          fmt.Sprintf("Rebalance recommendation event received. Instance will be cordoned at %s \n", event.getTime()),
+		Description:          fmt.Sprintf("Rebalance recommendation event received. Instance %s will be cordoned at %s \n", rebalanceRecDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		errs := m.deleteMessages([]*sqs.Message{message})
