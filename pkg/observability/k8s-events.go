@@ -75,22 +75,24 @@ type K8sEventRecorder struct {
 }
 
 // InitK8sEventRecorder creates a Kubernetes event recorder
-func InitK8sEventRecorder(enabled bool, nodeName string, nodeMetadata ec2metadata.NodeMetadata, extraAnnotationsStr string) (K8sEventRecorder, error) {
+func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetadata ec2metadata.NodeMetadata, extraAnnotationsStr string) (K8sEventRecorder, error) {
 	if !enabled {
 		return K8sEventRecorder{}, nil
 	}
 
 	annotations := make(map[string]string)
-	annotations["account-id"] = nodeMetadata.AccountId
-	annotations["availability-zone"] = nodeMetadata.AvailabilityZone
-	annotations["instance-id"] = nodeMetadata.InstanceID
-	annotations["instance-life-cycle"] = nodeMetadata.InstanceLifeCycle
-	annotations["instance-type"] = nodeMetadata.InstanceType
-	annotations["local-hostname"] = nodeMetadata.LocalHostname
-	annotations["local-ipv4"] = nodeMetadata.LocalIP
-	annotations["public-hostname"] = nodeMetadata.PublicHostname
-	annotations["public-ipv4"] = nodeMetadata.PublicIP
-	annotations["region"] = nodeMetadata.Region
+	if !sqsMode {
+		annotations["account-id"] = nodeMetadata.AccountId
+		annotations["availability-zone"] = nodeMetadata.AvailabilityZone
+		annotations["instance-id"] = nodeMetadata.InstanceID
+		annotations["instance-life-cycle"] = nodeMetadata.InstanceLifeCycle
+		annotations["instance-type"] = nodeMetadata.InstanceType
+		annotations["local-hostname"] = nodeMetadata.LocalHostname
+		annotations["local-ipv4"] = nodeMetadata.LocalIP
+		annotations["public-hostname"] = nodeMetadata.PublicHostname
+		annotations["public-ipv4"] = nodeMetadata.PublicIP
+		annotations["region"] = nodeMetadata.Region
+	}
 
 	var err error
 	if extraAnnotationsStr != "" {

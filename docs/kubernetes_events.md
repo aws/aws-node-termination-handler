@@ -6,11 +6,11 @@ AWS Node Termination Handler has the ability to emit a Kubernetes event every ti
 
 There are two relevant parameters:
 
-* `emit-kubernetes-events`
+* `emit-kubernetes-events`:
 
-	If true, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. Defaults to `false`
+	If true, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. Defaults to `false`.
 
-*  `kubernetes-events-extra-annotations`
+*  `kubernetes-events-extra-annotations`:
 
 	A comma-separated list of `key=value` extra annotations to attach to all emitted Kubernetes events. Example:
 	
@@ -41,13 +41,13 @@ Node action reasons:
 * `UncordonError`
 * `MonitorError`
 
-## Default annotations
+## Default IMDS mode annotations
 
-If `emit-kubernetes-events` is enabled, AWS Node Termination Handler will automatically inject a set of annotations to each event it emits. Such annotations are gathered from the underlying host's IMDS endpoint and enrich each event with information about the host that emitted it.
+If `emit-kubernetes-events` is enabled and `enable-sqs-termination-draining` is disabled (meaning we're operating in IMDS mode), AWS Node Termination Handler will automatically inject a set of annotations to each event it emits. Such annotations are gathered from the underlying host's IMDS endpoint and enrich each event with information about the host that emitted it.
 
-_**NOTE**: In Queue Processor mode, these annotations will reflect the node running NTH not the node receiving the events. See [Caveats](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md#caveats) for more information._
+_**NOTE**: In Queue Processor mode, the default IMDS mode annotations will be disabled but you can still define a set of extra annotations._
 
-The default annotations are:
+The default IMDS mode annotations are:
 
 Name | Example value
 --- | ---
@@ -79,11 +79,3 @@ kubectl get events --field-selector "reason=SpotInterruption,involvedObject.name
 ```
 
 Results can also be printed out in JSON or YAML format and piped to processors like `jq` or `yq`. Then, the above annotations can also be used for discovery and filtering.
-
-## Caveats
-
-### Default annotations in Queue Processor Mode
-
-Default annotations values are gathered from the IMDS endpoint local to the Node on which AWS Node Termination Handler runs. This is fine when running on IMDS Processor Mode since an AWS Node Termination Handler Pod will be deployed to all Nodes via a `DaemonSet` and each Node will emit all events related to itself with its own default annotations.
-
-However, when running in Queue Processor Mode AWS Node Termination Handler is deployed to a number of Nodes (1 replica by default) via a `Deployment`. In that case the default annotations values will be gathered from the Node(s) running AWS Node Termination Handler, and so the values in the default annotations stamped to all events will match those of the Node from which the event was emitted, not those of the Node of which the event is about.

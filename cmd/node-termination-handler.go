@@ -114,7 +114,7 @@ func main() {
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
 
-	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations)
+	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nthConfig.EnableSQSTerminationDraining, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to create Kubernetes event recorder,")
