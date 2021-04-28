@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/rs/zerolog/log"
 )
 
@@ -139,7 +137,6 @@ type Config struct {
 	AWSEndpoint                      string
 	QueueURL                         string
 	Workers                          int
-	AWSSession                       *session.Session
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -194,25 +191,6 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
 
 	flag.Parse()
-
-	if config.EnableSQSTerminationDraining {
-		sess := session.Must(session.NewSessionWithOptions(session.Options{
-			SharedConfigState: session.SharedConfigEnable,
-		}))
-		if config.AWSRegion != "" {
-			sess.Config.Region = &config.AWSRegion
-		} else if *sess.Config.Region == "" && config.QueueURL != "" {
-			config.AWSRegion = getRegionFromQueueURL(config.QueueURL)
-			log.Debug().Str("Retrieved AWS region from queue-url: \"%s\"", config.AWSRegion)
-			sess.Config.Region = &config.AWSRegion
-		} else {
-			config.AWSRegion = *sess.Config.Region
-		}
-		config.AWSSession = sess
-		if config.AWSEndpoint != "" {
-			config.AWSSession.Config.Endpoint = &config.AWSEndpoint
-		}
-	}
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
 		log.Warn().Msg("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
@@ -412,15 +390,4 @@ func isConfigProvided(cliArgName string, envVarName string) bool {
 		}
 	})
 	return cliArgProvided
-}
-
-func getRegionFromQueueURL(queueURL string) string {
-	for _, partition := range endpoints.DefaultPartitions() {
-		for regionID := range partition.Regions() {
-			if strings.Contains(queueURL, regionID) {
-				return regionID
-			}
-		}
-	}
-	return ""
 }
