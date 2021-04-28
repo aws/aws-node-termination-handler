@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/aws/aws-sdk-go v1.33.1
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/rs/zerolog v1.18.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.6.1
 	go.opentelemetry.io/otel v0.6.0

@@ -23,7 +23,7 @@ import (
 
 func TestTimeUntilEvent(t *testing.T) {
 	startTime := time.Now().Add(time.Second * 10)
-	expected := startTime.Sub(time.Now()).Round(time.Second)
+	expected := time.Until(startTime).Round(time.Second)
 
 	event := &monitor.InterruptionEvent{
 		StartTime: startTime,

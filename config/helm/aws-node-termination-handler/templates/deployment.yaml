@@ -150,6 +150,10 @@ spec:
             value: {{ .Values.managedAsgTag | quote }}
           - name: WORKERS
             value: {{ .Values.workers | quote }}
+          - name: EMIT_KUBERNETES_EVENTS
+            value: {{ .Values.emitKubernetesEvents | quote }}
+          - name: KUBERNETES_EVENTS_EXTRA_ANNOTATIONS
+            value: {{ .Values.kubernetesEventsExtraAnnotations | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.enablePrometheusServer }}

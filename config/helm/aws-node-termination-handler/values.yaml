@@ -159,6 +159,13 @@ enableProbesServer: false
 probesServerPort: 8080
 probesServerEndpoint: "/healthz"
 
+# emitKubernetesEvents If true, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. In IMDS Processor mode a default set of annotations with all the node metadata gathered from IMDS will be attached to each event
+emitKubernetesEvents: false
+
+# kubernetesEventsExtraAnnotations A comma-separated list of key=value extra annotations to attach to all emitted Kubernetes events
+# Example: "first=annotation,sample.annotation/number=two"
+kubernetesEventsExtraAnnotations: ""
+
 tolerations:
   - operator: "Exists"
 

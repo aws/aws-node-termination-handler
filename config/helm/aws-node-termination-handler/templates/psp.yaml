@@ -10,7 +10,7 @@ metadata:
 spec:
   privileged: false
   hostIPC: false
-  hostNetwork: {{ .Values.useHostNetwork }} 
+  hostNetwork: {{ .Values.useHostNetwork }}
   hostPID: false
 {{- if and .Values.rbac.pspEnabled .Values.enablePrometheusServer }}
   hostPorts:

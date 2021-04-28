@@ -36,6 +36,8 @@ const (
 	RebalanceRecommendationPath = "/latest/meta-data/events/recommendations/rebalance"
 	// InstanceIDPath path to instance id
 	InstanceIDPath = "/latest/meta-data/instance-id"
+	// InstanceLifeCycle path to instance life cycle
+	InstanceLifeCycle = "/latest/meta-data/instance-life-cycle"
 	// InstanceTypePath path to instance type
 	InstanceTypePath = "/latest/meta-data/instance-type"
 	// PublicHostnamePath path to public hostname
@@ -104,15 +106,16 @@ type RebalanceRecommendation struct {
 
 // NodeMetadata contains information that applies to every drain event
 type NodeMetadata struct {
-	AccountId        string `json:"accountId"`
-	InstanceID       string `json:"instanceId"`
-	InstanceType     string `json:"instanceType"`
-	PublicHostname   string `json:"publicHostname"`
-	PublicIP         string `json:"publicIp"`
-	LocalHostname    string `json:"localHostname"`
-	LocalIP          string `json:"privateIp"`
-	AvailabilityZone string `json:"availabilityZone"`
-	Region           string `json:"region"`
+	AccountId         string `json:"accountId"`
+	InstanceID        string `json:"instanceId"`
+	InstanceLifeCycle string `json:"instanceLifeCycle"`
+	InstanceType      string `json:"instanceType"`
+	PublicHostname    string `json:"publicHostname"`
+	PublicIP          string `json:"publicIp"`
+	LocalHostname     string `json:"localHostname"`
+	LocalIP           string `json:"privateIp"`
+	AvailabilityZone  string `json:"availabilityZone"`
+	Region            string `json:"region"`
 }
 
 // New constructs an instance of the Service client
@@ -335,9 +338,10 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 			metadata.Region = metadata.AvailabilityZone[0 : len(metadata.AvailabilityZone)-1]
 		}
 	}
+	metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle)
+	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 	metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
 	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
-	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
 
 	log.Info().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 

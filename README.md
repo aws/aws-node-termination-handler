@@ -31,11 +31,11 @@
 
 ## Project Summary
 
-This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down. 
+This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down.
 
-The aws-node-termination-handler (NTH) can operate in two different modes: Instance Metadata Service (IMDS) or the Queue Processor. 
+The aws-node-termination-handler (NTH) can operate in two different modes: Instance Metadata Service (IMDS) or the Queue Processor.
 
-The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events` and react accordingly to drain and/or cordon the corresponding node. 
+The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events` and react accordingly to drain and/or cordon the corresponding node.
 
 The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, and Spot Interruption Termination Notice events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termination handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API. The queue processor mode is currently in a beta preview, but we'd love your feedback on it!
 
@@ -52,7 +52,7 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Unit & Integration Tests
 
 ### Queue Processor
-- Monitors an SQS Queue for: 
+- Monitors an SQS Queue for:
    - EC2 Spot Interruption Notifications
    - EC2 Instance Rebalance Recommendation
    - EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
@@ -82,10 +82,10 @@ IMDS Processor Mode allows for a fine-grained configuration of IMDS paths that a
  - `enableSpotInterruptionDraining`
  - `enableRebalanceMonitoring`
  - `enableScheduledEventDraining`
- 
+
 The `enableSqsTerminationDraining` must be set to false for these configuration values to be considered.
 
-The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events. 
+The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events.
 
 
 The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queue Processor Mode is enabled, IMDS mode cannot be active. NTH cannot respond to queue events AND monitor IMDS paths. Queue Processor Mode still queries for node information on startup, but this information is not required for normal operation, so it is safe to disable IMDS for the NTH pod.
@@ -102,6 +102,7 @@ The termination handler DaemonSet installs into your cluster a [ServiceAccount](
 #### Kubectl Apply
 
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
+
 ```
 kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.13.0/all-resources.yaml
 ```
@@ -121,6 +122,7 @@ helm repo add eks https://aws.github.io/eks-charts
 Once that is complete you can install the termination handler. We've provided some sample setup options below.
 
 Zero Config:
+
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -128,6 +130,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Enabling Features:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -140,6 +143,7 @@ helm upgrade --install aws-node-termination-handler \
 The `enable*` configuration flags above enable or disable IMDS monitoring paths.
 
 Running Only On Specific Nodes:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -148,6 +152,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Webhook Configuration:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -156,6 +161,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Alternatively, pass Webhook URL as a Secret:
+
 ```
 WEBHOOKURL_LITERAL="webhookurl=https://hooks.slack.com/services/YOUR/SLACK/URL"
 
@@ -212,16 +218,14 @@ $ aws autoscaling create-or-update-tags \
 
 The value of the key does not matter.
 
-This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle. 
+This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
 However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
 
-You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules. 
+You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
 
-Take a look at the docs on how to create rules that only manage certain ASGs here: https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html 
+Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
 
-See all the different events docs here: https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types
-
-
+See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
 
 #### 3. Create an SQS Queue:
 
@@ -233,7 +237,7 @@ $ QUEUE_POLICY=$(cat <<EOF
 {
     "Version": "2012-10-17",
     "Id": "MyQueuePolicy",
-    "Statement": [{                     
+    "Statement": [{
         "Effect": "Allow",
         "Principal": {
             "Service": ["events.amazonaws.com", "sqs.amazonaws.com"]
@@ -248,9 +252,9 @@ EOF
 )
 
 ## make sure the queue policy is valid JSON
-$ echo "$QUEUE_POLICY" | jq . 
+$ echo "$QUEUE_POLICY" | jq .
 
-## Save queue attributes to a temp file 
+## Save queue attributes to a temp file
 $ cat << EOF > /tmp/queue-attributes.json
 {
   "MessageRetentionPeriod": "300",
@@ -258,7 +262,7 @@ $ cat << EOF > /tmp/queue-attributes.json
 }
 EOF
 
-$ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json 
+$ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
 ```
 
 #### 4. Create Amazon EventBridge Rules
@@ -298,6 +302,7 @@ There are many different ways to allow the aws-node-termination-handler pods to 
 4. [kube2iam](https://github.com/jtblin/kube2iam)
 
 IAM Policy for aws-node-termination-handler Deployment:
+
 ```
 {
     "Version": "2012-10-17",
@@ -333,6 +338,7 @@ helm repo add eks https://aws.github.io/eks-charts
 Once that is complete you can install the termination handler. We've provided some sample setup options below.
 
 Minimal Config:
+
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -342,6 +348,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Webhook Configuration:
+
 ```
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
@@ -352,6 +359,7 @@ helm upgrade --install aws-node-termination-handler \
 ```
 
 Alternatively, pass Webhook URL as a Secret:
+
 ```
 WEBHOOKURL_LITERAL="webhookurl=https://hooks.slack.com/services/YOUR/SLACK/URL"
 
@@ -389,7 +397,7 @@ For a full list of releases and associated artifacts see our [releases page](htt
 <summary>Use with Kiam</summary>
 <br>
 
-## Use with Kiam 
+## Use with Kiam
 
 If you are using IMDS mode which defaults to `hostNetworking: true`, or if you are using queue-processor mode, then this section does not apply. The configuration below only needs to be used if you are explicitly changing NTH IMDS mode to `hostNetworking: false` .
 
@@ -397,22 +405,26 @@ To use the termination handler alongside [Kiam](https://github.com/uswitch/kiam)
 By default Kiam will block all access to the metadata address, so you need to make sure it passes through the requests the termination handler relies on.
 
 To add a whitelist configuration, use the following fields in the Kiam Helm chart values:
+
 ```
 agent.whiteListRouteRegexp: '^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)|\/latest\/dynamic\/instance-identity\/document$'
 ```
 Or just pass it as an argument to the kiam agents:
+
 ```
 kiam agent --whitelist-route-regexp='^\/latest\/meta-data\/(spot\/instance-action|events\/maintenance\/scheduled|instance-(id|type)|public-(hostname|ipv4)|local-(hostname|ipv4)|placement\/availability-zone)|\/latest\/dynamic\/instance-identity\/document$'
 ```
 
 ## Metadata endpoints
 The termination handler relies on the following metadata endpoints to function properly:
+
 ```
 /latest/dynamic/instance-identity/document
 /latest/meta-data/spot/instance-action
 /latest/meta-data/events/recommendations/rebalance
 /latest/meta-data/events/maintenance/scheduled
 /latest/meta-data/instance-id
+/latest/meta-data/instance-life-cycle
 /latest/meta-data/instance-type
 /latest/meta-data/public-hostname
 /latest/meta-data/public-ipv4
@@ -420,6 +432,7 @@ The termination handler relies on the following metadata endpoints to function p
 /latest/meta-data/local-ipv4
 /latest/meta-data/placement/availability-zone
 ```
+
 </details>
 
 ## Building
@@ -428,7 +441,7 @@ For build instructions please consult [BUILD.md](./BUILD.md).
 ## Communication
 * If you've run into a bug or have a new feature request, please open an [issue](https://github.com/aws/aws-node-termination-handler/issues/new).
 * You can also chat with us in the [Kubernetes Slack](https://kubernetes.slack.com) in the `#provider-aws` channel
-* Check out the open source [Amazon EC2 Spot Instances Integrations Roadmap](https://github.com/aws/ec2-spot-instances-integrations-roadmap) to see what we're working on and give us feedback! 
+* Check out the open source [Amazon EC2 Spot Instances Integrations Roadmap](https://github.com/aws/ec2-spot-instances-integrations-roadmap) to see what we're working on and give us feedback!
 
 ##  Contributing
 Contributions are welcome! Please read our [guidelines](https://github.com/aws/aws-node-termination-handler/blob/main/CONTRIBUTING.md) and our [Code of Conduct](https://github.com/aws/aws-node-termination-handler/blob/main/CODE_OF_CONDUCT.md)

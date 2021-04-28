@@ -37,3 +37,11 @@ rules:
     - daemonsets
   verbs:
     - get
+{{- if .Values.emitKubernetesEvents }}
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+{{- end }}

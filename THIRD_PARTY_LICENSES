@@ -41,6 +41,8 @@ https://github.com/kubernetes/utils
 ** github.com/jmespath/go-jmespath; version v0.3.0 -- https://github.com/jmespath/go-jmespath
 ** github.com/aws/aws-sdk-go; version v1.33.1 -- https://github.com/aws/aws-sdk-go
 ** go.opentelemetry.io/otel/exporters/metric/prometheus; version v0.6.0 -- https://github.com/open-telemetry/opentelemetry-go
+** github.com/golang/groupcache; version v0.0.0-20210331224755-41bb18bfe9da --
+https://github.com/golang/groupcache
 
 Apache License
 

@@ -41,6 +41,7 @@ func TestRetry(t *testing.T) {
 	}
 
 	resp, err := retry(numRetries, time.Microsecond, request)
+	h.Assert(t, err != nil, "Should have gotten a \"Request failed\" error")
 	defer resp.Body.Close()
 
 	h.Equals(t, errorMsg, err.Error())

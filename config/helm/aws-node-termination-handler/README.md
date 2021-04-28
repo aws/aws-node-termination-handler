@@ -9,10 +9,13 @@ AWS Node Termination Handler Helm chart for Kubernetes. For more information on 
 ## Installing the Chart
 
 Add the EKS repository to Helm:
+
 ```sh
 helm repo add eks https://aws.github.io/eks-charts
 ```
+
 Install AWS Node Termination Handler:
+
 To install the chart with the release name aws-node-termination-handler and default configuration:
 
 ```sh
@@ -74,14 +77,16 @@ Parameter | Description | Default
 `logLevel` | Sets the log level (INFO, DEBUG, or ERROR) | `INFO`
 `enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
 `prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
-`enableProbesServer` |If true, start an http server exposing `/healthz` endpoint for probes. | `false`
+`enableProbesServer` | If true, start an http server exposing `/healthz` endpoint for probes. | `false`
 `probesServerPort` | Replaces the default HTTP port for exposing probes endpoint. | `8080`
 `probesServerEndpoint` | Replaces the default endpoint for exposing probes endpoint. | `/healthz`
-`podMonitor.create` | if `true`, create a PodMonitor | `false`
+`podMonitor.create` | If `true`, create a PodMonitor | `false`
 `podMonitor.interval` | Prometheus scrape interval | `30s`
 `podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
 `podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
-`podMonitor.namespace` | override podMonitor Helm release namespace | `{{.Release.Namespace}}`
+`podMonitor.namespace` | Override podMonitor Helm release namespace | `{{ .Release.Namespace }}`
+`emitKubernetesEvents` | If `true`, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. In IMDS Processor mode a default set of annotations with all the node metadata gathered from IMDS will be attached to each event. More information [here](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md) | `false`
+`kubernetesExtraEventsAnnotations` | A comma-separated list of `key=value` extra annotations to attach to all emitted Kubernetes events. Example: `first=annotation,sample.annotation/number=two"` | None
 
 ### AWS Node Termination Handler - Queue-Processor Mode Configuration
 
@@ -153,6 +158,7 @@ Parameter | Description | Default
 `dryRun` | If true, only log if a node would be drained | `false`
 
 ## Metrics endpoint consideration
+
 NTH in IMDS mode runs as a DaemonSet w/ `host_networking=true` by default. If the prometheus server is enabled, nothing else will be able to bind to the configured port (by default `:9092`) in the root network namespace. Therefore, it will need to have a firewall/security group configured on the nodes to block access to the `/metrics` endpoint.
 
 You can switch NTH in IMDS mode to run w/ `host_networking=false`, but you will need to make sure that IMDSv1 is enabled or IMDSv2 IP hop count will need to be incremented to 2. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
