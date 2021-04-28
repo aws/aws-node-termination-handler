@@ -80,13 +80,13 @@ Parameter | Description | Default
 `enableProbesServer` | If true, start an http server exposing `/healthz` endpoint for probes. | `false`
 `probesServerPort` | Replaces the default HTTP port for exposing probes endpoint. | `8080`
 `probesServerEndpoint` | Replaces the default endpoint for exposing probes endpoint. | `/healthz`
-`podMonitor.create` | if `true`, create a PodMonitor | `false`
+`podMonitor.create` | If `true`, create a PodMonitor | `false`
 `podMonitor.interval` | Prometheus scrape interval | `30s`
 `podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
 `podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
-`podMonitor.namespace` | override podMonitor Helm release namespace | `{{ .Release.Namespace }}`
-`emitKubernetesEvents` | If true, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. A default set of annotations with all the node metadata gathered from IMDS will be attached to each event. More information [here](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md) | `false`
-`kubernetesExtraEventsAnnotations` | A comma-separated list of key=value extra annotations to attach to all emitted Kubernetes events. Example: `first=annotation,sample.annotation/number=two"` | None
+`podMonitor.namespace` | Override podMonitor Helm release namespace | `{{ .Release.Namespace }}`
+`emitKubernetesEvents` | If `true`, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. In IMDS Processor mode a default set of annotations with all the node metadata gathered from IMDS will be attached to each event. More information [here](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md) | `false`
+`kubernetesExtraEventsAnnotations` | A comma-separated list of `key=value` extra annotations to attach to all emitted Kubernetes events. Example: `first=annotation,sample.annotation/number=two"` | None
 
 ### AWS Node Termination Handler - Queue-Processor Mode Configuration
 
