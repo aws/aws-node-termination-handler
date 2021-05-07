@@ -33,6 +33,9 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -106,10 +109,11 @@ func main() {
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region
-		if nthConfig.AWSSession != nil {
-			nthConfig.AWSSession.Config.Region = &nodeMetadata.Region
-		}
-	} else if nthConfig.AWSRegion == "" && nodeMetadata.Region == "" && nthConfig.EnableSQSTerminationDraining {
+	} else if nthConfig.AWSRegion == "" && nthConfig.QueueURL != "" {
+		nthConfig.AWSRegion = getRegionFromQueueURL(nthConfig.QueueURL)
+		log.Debug().Str("Retrieved AWS region from queue-url: \"%s\"", nthConfig.AWSRegion)
+	}
+	if nthConfig.AWSRegion == "" && nthConfig.EnableSQSTerminationDraining {
 		nthConfig.Print()
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
@@ -157,9 +161,14 @@ func main() {
 		monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
 	}
 	if nthConfig.EnableSQSTerminationDraining {
-		creds, err := nthConfig.AWSSession.Config.Credentials.Get()
+		cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
+		sess := session.Must(session.NewSessionWithOptions(session.Options{
+			Config:            *cfg,
+			SharedConfigState: session.SharedConfigEnable,
+		}))
+		creds, err := sess.Config.Credentials.Get()
 		if err != nil {
-			log.Err(err).Msg("Unable to get AWS credentials")
+			log.Fatal().Err(err).Msg("Unable to get AWS credentials")
 		}
 		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
 
@@ -169,9 +178,9 @@ func main() {
 			QueueURL:         nthConfig.QueueURL,
 			InterruptionChan: interruptionChan,
 			CancelChan:       cancelChan,
-			SQS:              sqs.New(nthConfig.AWSSession),
-			ASG:              autoscaling.New(nthConfig.AWSSession),
-			EC2:              ec2.New(nthConfig.AWSSession),
+			SQS:              sqs.New(sess),
+			ASG:              autoscaling.New(sess),
+			EC2:              ec2.New(sess),
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}
@@ -379,4 +388,15 @@ func runPostDrainTask(node node.Node, nodeName string, drainEvent *monitor.Inter
 		recorder.Emit(nodeName, observability.Normal, observability.PostDrainReason, observability.PostDrainMsg)
 	}
 	metrics.NodeActionsInc("post-drain", nodeName, err)
+}
+
+func getRegionFromQueueURL(queueURL string) string {
+	for _, partition := range endpoints.DefaultPartitions() {
+		for regionID := range partition.Regions() {
+			if strings.Contains(queueURL, regionID) {
+				return regionID
+			}
+		}
+	}
+	return ""
 }
