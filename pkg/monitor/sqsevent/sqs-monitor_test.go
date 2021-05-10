@@ -498,7 +498,7 @@ func TestMonitor_DescribeInstancesError(t *testing.T) {
 		}
 		ec2Mock := h.MockedEC2{
 			DescribeInstancesResp: ec2.DescribeInstancesOutput{},
-			DescribeInstancesErr:  awserr.New("InvalidInstanceID.NotFound",  "The instance ID 'i-0d6bd3ce2bf8a6751' does not exist\n\tstatus code: 400, request id: 6a5c30e2-922d-464c-946c-a1ec76e5920b", fmt.Errorf("original error")),
+			DescribeInstancesErr:  awserr.New("InvalidInstanceID.NotFound", "The instance ID 'i-0d6bd3ce2bf8a6751' does not exist\n\tstatus code: 400, request id: 6a5c30e2-922d-464c-946c-a1ec76e5920b", fmt.Errorf("original error")),
 		}
 		drainChan := make(chan monitor.InterruptionEvent, 1)
 

@@ -1,4 +1,4 @@
-FROM golang:1
+FROM public.ecr.aws/bitnami/golang:latest
 
 WORKDIR /app
 
