@@ -1,6 +1,6 @@
 module github.com/aws/aws-node-termination-handler
 
-go 1.15
+go 1.16
 
 require (
 	github.com/aws/aws-sdk-go v1.33.1
