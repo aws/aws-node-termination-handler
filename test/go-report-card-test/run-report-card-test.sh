@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-THRESHOLD=98
+THRESHOLD=93
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 EXIT_CODE=0
 
