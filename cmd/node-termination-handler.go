@@ -349,6 +349,7 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 	} else {
 		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned")
 		podNameList, err := node.FetchPodNameList(nodeName)
+		drainEvent.Pods = podNameList
 		if err != nil {
 			log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
 		}
