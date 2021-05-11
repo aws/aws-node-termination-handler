@@ -2,7 +2,9 @@ FROM public.ecr.aws/bitnami/golang:latest
 
 WORKDIR /app
 
-ARG GO111MODULE=auto
+ENV GO111MODULE=auto
+ENV GOPROXY=direct
+
 RUN go get github.com/gojp/goreportcard
 RUN cd $GOPATH/src/github.com/gojp/goreportcard && (make install || cd / && curl -L https://git.io/vp6lP | sh)
 

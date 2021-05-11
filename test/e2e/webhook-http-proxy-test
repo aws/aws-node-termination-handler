@@ -181,7 +181,7 @@ for i in `seq 1 $TAINT_CHECK_CYCLES`; do
   fi
 
   webhook_hostname=$(echo "${WEBHOOK_URL}" | sed -e 's@^[^/]*//@@' -e 's@/.*$@@')
-  if [[ $sent -eq 1 ]] && kubectl exec -it "$(echo $squid_worker_pods | cut -d' ' -f1)" -- cat /var/log/squid/access.log | grep "${webhook_hostname}" >/dev/null; then
+  if [[ $sent -eq 1 ]] && kubectl exec -i "$(echo $squid_worker_pods | cut -d' ' -f1)" -- cat /var/log/squid/access.log | grep "${webhook_hostname}" >/dev/null; then
      echo "✅ Verified the webhook POST used the http proxy"
         exit 0
   fi
@@ -200,7 +200,7 @@ else
 fi
 
 echo "=====================================   SQUID LOGS   ===================================================="
-kubectl exec -it "$(echo $squid_worker_pods | cut -d' ' -f1)" -- cat /var/log/squid/access.log
+kubectl exec -i "$(echo $squid_worker_pods | cut -d' ' -f1)" -- cat /var/log/squid/access.log
 echo "===================================== END SQUID LOGS ===================================================="
 
 fail_and_exit 1

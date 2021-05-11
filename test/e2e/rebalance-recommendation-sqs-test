@@ -47,13 +47,13 @@ localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="st
                                   -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
                                   | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
 echo "🥑 Using localstack pod ${localstack_pod}"
-run_instances_resp=$(kubectl exec -it "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
+run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
 private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
 echo "🥑 Started mock EC2 instance (${instance_id}) w/ private DNS name: ${private_dns_name}"
 
 CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
-queue_url=$(kubectl exec -it "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
 
 echo "🥑 Created SQS Queue ${queue_url}"
 
@@ -146,7 +146,7 @@ EOF
 
 REBALANCE_EVENT_ONE_LINE=$(echo "${REBALANCE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${REBALANCE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
-kubectl exec -it "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
+kubectl exec -i "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
 echo "✅ Sent Rebalance Recommendation to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
@@ -172,8 +172,8 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         not_evicted=1
     fi
 
-    if [[ ${tainted} -eq 1 && $(kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
-        kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
+    if [[ ${tainted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
         message_deleted=1
         break
@@ -220,7 +220,7 @@ EOF
 
 SPOT_EVENT_ONE_LINE=$(echo "${SPOT_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${SPOT_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
-kubectl exec -it "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
+kubectl exec -i "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
 echo "✅ Sent Spot Interruption Event to SQS queue: ${queue_url}"
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
@@ -232,8 +232,8 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         evicted=1
     fi
 
-    if [[ ${evicted} -eq 1 && $(kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
-        kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
+    if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
         echo "✅ Rebalance Recommendation SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0

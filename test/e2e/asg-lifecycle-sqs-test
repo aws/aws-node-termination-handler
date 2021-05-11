@@ -47,13 +47,13 @@ localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="st
                                   -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
                                   | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
 echo "🥑 Using localstack pod ${localstack_pod}"
-run_instances_resp=$(kubectl exec -it "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
+run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
 private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
 echo "🥑 Started mock EC2 instance ($instance_id) w/ private DNS name: ${private_dns_name}"
 set -x
 CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
-queue_url=$(kubectl exec -it "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
 
 echo "🥑 Created SQS Queue ${queue_url}"
 
@@ -148,7 +148,7 @@ EOF
 
 ASG_TERMINATE_EVENT_ONE_LINE=$(echo "${ASG_TERMINATE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${ASG_TERMINATE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
-kubectl exec -it "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
+kubectl exec -i "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
 echo "✅ Sent Spot Interruption Event to SQS queue: ${queue_url}"
 
 cordoned=0
