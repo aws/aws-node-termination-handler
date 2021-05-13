@@ -31,6 +31,9 @@ jobs:
     - name: Lints
       run: make spellcheck shellcheck helm-lint
 
+    - name: License Check
+      run: make license-test
+
     - name: Go Report Card Tests
       run: make go-report-card-test
 
@@ -127,9 +130,6 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
-
-    - name: License Check
-      run: make license-test
 
     - name: Release Linux Assets
       run: make release
