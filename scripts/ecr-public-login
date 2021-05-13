@@ -16,6 +16,4 @@ function exit_and_fail() {
 
 trap exit_and_fail INT TERM ERR
 
-"${SCRIPTPATH}/install-awscli"
-
 docker login --username AWS --password="$(aws ecr-public get-login-password --region us-east-1)" "${ECR_REGISTRY}"
