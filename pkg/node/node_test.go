@@ -17,6 +17,7 @@ import (
 	"flag"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/drain"
 )
 
@@ -73,7 +75,9 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	err = tNode.CordonAndDrain(nodeName)
+	fakeRecorder := record.NewFakeRecorder(100)
+
+	err = tNode.CordonAndDrain(nodeName, fakeRecorder)
 	h.Ok(t, err)
 
 	err = tNode.Cordon(nodeName)
@@ -111,20 +115,48 @@ func TestNewFailure(t *testing.T) {
 
 func TestDrainSuccess(t *testing.T) {
 	resetFlagsForTest()
-
+	controllerBool := true
 	client := fake.NewSimpleClientset()
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+	client.CoreV1().Pods("default").Create(&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "cool-app-pod-",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1",
+					Name:       "cool-app",
+					Kind:       "ReplicaSet",
+					Controller: &controllerBool,
+				},
+			},
+		},
+		Spec: v1.PodSpec{
+			NodeName: nodeName,
+		},
+	})
+
+	fakeRecorder := record.NewFakeRecorder(100)
 
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.CordonAndDrain(nodeName)
+	err := tNode.CordonAndDrain(nodeName, fakeRecorder)
 	h.Ok(t, err)
+	close(fakeRecorder.Events)
+	expectedEventArrived := false
+	for event := range fakeRecorder.Events {
+		if strings.Contains(event, "Normal PodEviction Pod evicted due to node drain") {
+			expectedEventArrived = true
+		}
+	}
+	h.Assert(t, expectedEventArrived, "PodEvicted event was not emitted")
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
 	resetFlagsForTest()
 
+	fakeRecorder := record.NewFakeRecorder(100)
+
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.CordonAndDrain(nodeName)
+	err := tNode.CordonAndDrain(nodeName, fakeRecorder)
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
