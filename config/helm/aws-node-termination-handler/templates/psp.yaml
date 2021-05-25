@@ -55,7 +55,7 @@ metadata:
 {{ include "aws-node-termination-handler.labels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: {{ template "aws-node-termination-handler.fullname" . }}-psp
 subjects:
   - kind: ServiceAccount
