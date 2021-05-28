@@ -216,3 +216,6 @@ useHostNetwork: true
 
 # The maximal amount of parallel event processors to handle concurrent events
 workers: 10
+
+# The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing this may cause duplicate webhooks since NTH pods are stateless)
+replicas: 1
