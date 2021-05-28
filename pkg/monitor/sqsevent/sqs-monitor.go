@@ -69,7 +69,7 @@ func (m SQSMonitor) Monitor() error {
 		switch {
 		case errors.Is(err, ErrNodeStateNotRunning):
 			// If the node is no longer running, just log and delete the message.  If message deletion fails, count it as an error.
-			log.Err(err).Msg("dropping event for an already terminated node")
+			log.Warn().Err(err).Msg("dropping event for an already terminated node")
 			errs := m.deleteMessages([]*sqs.Message{message})
 			if len(errs) > 0 {
 				log.Err(errs[0]).Msg("error deleting event for already terminated node")
