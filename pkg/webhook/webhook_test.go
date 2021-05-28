@@ -24,6 +24,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -35,7 +36,7 @@ import (
 const (
 	testDateFormat      = "02 Jan 2006 15:04:05 GMT"
 	testWebhookHeaders  = `{"Content-type":"application/json"}`
-	testWebhookTemplate = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Node: {{ .NodeName }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
+	testWebhookTemplate = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID | trimPrefix "event" }} - Kind: {{ .Kind | lower }} - Node: {{ .NodeName }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 )
 
 func parseScheduledEventTime(inputTime string) time.Time {
@@ -44,7 +45,7 @@ func parseScheduledEventTime(inputTime string) time.Time {
 }
 
 func getExpectedMessage(event *monitor.InterruptionEvent) string {
-	webhookTemplate, err := template.New("").Parse(testWebhookTemplate)
+	webhookTemplate, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(testWebhookTemplate)
 	if err != nil {
 		log.Err(err).Msg("Webhook Error: Template parsing failed")
 		return ""

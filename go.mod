@@ -3,8 +3,11 @@ module github.com/aws/aws-node-termination-handler
 go 1.16
 
 require (
+	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.33.1
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/rs/zerolog v1.18.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.6.1
 	go.opentelemetry.io/otel v0.6.0

@@ -23,6 +23,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -53,7 +54,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 		webhookTemplateContent = nthConfig.WebhookTemplate
 	}
 
-	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
+	webhookTemplate, err := template.New("message").Funcs(sprig.TxtFuncMap()).Parse(webhookTemplateContent)
 	if err != nil {
 		log.Err(err).Msg("Webhook Error: Template parsing failed")
 		return
@@ -139,7 +140,7 @@ func ValidateWebhookConfig(nthConfig config.Config) error {
 		webhookTemplateContent = nthConfig.WebhookTemplate
 	}
 
-	webhookTemplate, err := template.New("message").Parse(webhookTemplateContent)
+	webhookTemplate, err := template.New("message").Funcs(sprig.TxtFuncMap()).Parse(webhookTemplateContent)
 	if err != nil {
 		return fmt.Errorf("Unable to parse webhook template: %w", err)
 	}
