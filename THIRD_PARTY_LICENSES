@@ -388,6 +388,12 @@ MIT License
 
 Copyright (c) 2017 Olivier Poitrey
 
+** github.com/huandu/xstrings; version v1.3.2 -- https://github.com/huandu/xstrings
+Copyright (c) 2015 Huan Du
+
+** github.com/mitchellh/copystructure; version v1.2.0 -- https://github.com/mitchellh/copystructure
+Copyright (c) 2014 Mitchell Hashimoto
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -468,6 +474,10 @@ SOFTWARE.
 ** sigs.k8s.io/yaml; version v1.1.0 --
 https://github.com/kubernetes/kubernetes/tree/master/vendor/sigs.k8s.io/yaml
 Copyright (c) 2014 Sam Ghods
+
+** github.com/Masterminds/sprig; version v3.2.2 --
+https://github.com/Masterminds/sprig
+Copyright (C) 2013-2020 Masterminds
 
 The MIT License (MIT)
 
