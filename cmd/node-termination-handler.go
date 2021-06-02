@@ -313,6 +313,15 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	} else {
 		cordonAndDrainNode(node, nodeName, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
 	}
+	podNameList, err := node.FetchPodNameList(nodeName)
+	drainEvent.Pods = podNameList
+	if err != nil {
+		log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
+	}
+	err = node.LogPods(podNameList, nodeName)
+	if err != nil {
+		log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
+	}
 
 	interruptionEventStore.MarkAllAsProcessed(nodeName)
 	if nthConfig.WebhookURL != "" {
@@ -348,15 +357,6 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 		}
 	} else {
 		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned")
-		podNameList, err := node.FetchPodNameList(nodeName)
-		drainEvent.Pods = podNameList
-		if err != nil {
-			log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
-		}
-		err = node.LogPods(podNameList, nodeName)
-		if err != nil {
-			log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
-		}
 		metrics.NodeActionsInc("cordon", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 	}
