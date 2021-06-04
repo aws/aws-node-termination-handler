@@ -309,18 +309,21 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	}
 
 	if nthConfig.CordonOnly || (drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
-		cordonNode(node, nodeName, drainEvent, metrics, recorder)
+		err = cordonNode(node, nodeName, drainEvent, metrics, recorder)
 	} else {
-		cordonAndDrainNode(node, nodeName, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
+		err = cordonAndDrainNode(node, nodeName, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
 	}
-	podNameList, err := node.FetchPodNameList(nodeName)
-	drainEvent.Pods = podNameList
+
 	if err != nil {
-		log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
-	}
-	err = node.LogPods(podNameList, nodeName)
-	if err != nil {
-		log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
+		podNameList, err := node.FetchPodNameList(nodeName)
+		drainEvent.Pods = podNameList
+		if err != nil {
+			log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
+		}
+		err = node.LogPods(podNameList, nodeName)
+		if err != nil {
+			log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
+		}
 	}
 
 	interruptionEventStore.MarkAllAsProcessed(nodeName)
@@ -345,7 +348,7 @@ func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.Interr
 	metrics.NodeActionsInc("pre-drain", nodeName, err)
 }
 
-func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
+func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) error {
 	err := node.Cordon(nodeName)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -355,14 +358,16 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 			recorder.Emit(nodeName, observability.Warning, observability.CordonErrReason, observability.CordonErrMsgFmt, err.Error())
 			os.Exit(1)
 		}
+		return err
 	} else {
 		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned")
 		metrics.NodeActionsInc("cordon", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 	}
+	return nil
 }
 
-func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.Metrics, recorder observability.K8sEventRecorder, sqsTerminationDraining bool) {
+func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.Metrics, recorder observability.K8sEventRecorder, sqsTerminationDraining bool) error {
 	err := node.CordonAndDrain(nodeName)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -375,11 +380,13 @@ func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.M
 				os.Exit(1)
 			}
 		}
+		return err
 	} else {
 		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
 		metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 	}
+	return nil
 }
 
 func runPostDrainTask(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
