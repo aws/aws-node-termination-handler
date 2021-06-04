@@ -21,18 +21,17 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/metric/prometheus"
-	"go.opentelemetry.io/otel/sdk/metric/controller/pull"
+	"go.opentelemetry.io/otel/metric"
 )
 
 var (
-	labelEventErrorWhereKey = kv.Key("event/error/where")
+	labelEventErrorWhereKey = attribute.Key("event/error/where")
 
-	labelNodeActionKey = kv.Key("node/action")
-	labelNodeStatusKey = kv.Key("node/status")
-	labelNodeNameKey   = kv.Key("node/name")
+	labelNodeActionKey = attribute.Key("node/action")
+	labelNodeStatusKey = attribute.Key("node/status")
+	labelNodeNameKey   = attribute.Key("node/name")
 )
 
 // Metrics represents the stats for observability
@@ -49,7 +48,7 @@ func InitMetrics(enabled bool, port int) (Metrics, error) {
 		return Metrics{}, nil
 	}
 
-	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{}, pull.WithStateful(false))
+	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{})
 	if err != nil {
 		return Metrics{}, err
 	}
