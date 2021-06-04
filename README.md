@@ -4,7 +4,7 @@
 
 <p>
   <a href="https://github.com/kubernetes/kubernetes/releases">
-    <img src="https://img.shields.io/badge/Kubernetes-%3E%3D%201.11-brightgreen" alt="kubernetes">
+    <img src="https://img.shields.io/badge/Kubernetes-%3E%3D%201.16-brightgreen" alt="kubernetes">
   </a>
   <a href="https://golang.org/doc/go1.16">
     <img src="https://img.shields.io/github/go-mod/go-version/aws/aws-node-termination-handler?color=blueviolet" alt="go-version">

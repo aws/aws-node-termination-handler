@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        k8sVersion: [1.14, 1.15, 1.16, 1.17, 1.18, 1.19]
+        k8sVersion: [1.16, 1.17, 1.18, 1.19, 1.20, 1.21]
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
