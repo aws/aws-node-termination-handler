@@ -12,9 +12,6 @@
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-ff69b4.svg" alt="license">
   </a>
-  <a href="https://goreportcard.com/report/github.com/aws/aws-node-termination-handler">
-    <img src="https://goreportcard.com/badge/github.com/aws/aws-node-termination-handler" alt="go-report-card">
-  </a>
   <a href="https://codecov.io/gh/aws/aws-node-termination-handler">
     <img src="https://img.shields.io/codecov/c/github/aws/aws-node-termination-handler" alt="build-status">
   </a>
