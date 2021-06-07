@@ -113,6 +113,7 @@ func TestDrainSuccess(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
@@ -132,6 +133,7 @@ func TestUncordonSuccess(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
@@ -151,6 +153,7 @@ func TestIsUnschedulableSuccess(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
@@ -172,6 +175,7 @@ func TestMarkWithEventIDSuccess(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
@@ -200,6 +204,7 @@ func TestGetEventIDSuccess(t *testing.T) {
 	var labelValue = "bla"
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   nodeName,
@@ -225,6 +230,7 @@ func TestGetEventIDNoLabelFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
 
 	tNode := getNode(t, getDrainHelper(client))
@@ -301,6 +307,7 @@ func TestUncordonIfRebootedDefaultSuccess(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -327,6 +334,7 @@ func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,

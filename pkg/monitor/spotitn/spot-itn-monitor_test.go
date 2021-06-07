@@ -28,7 +28,6 @@ import (
 const (
 	startTime        = "2017-09-18T08:22:00Z"
 	expFormattedTime = "2017-09-18 08:22:00 +0000 UTC"
-	instanceAction   = "INSTANCE_ACTION"
 	imdsV2TokenPath  = "/latest/api/token"
 	nodeName         = "test-node"
 )
@@ -47,6 +46,7 @@ func TestMonitor_Success(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write(instanceActionResponse)
 	}))
 	defer server.Close()
@@ -142,6 +142,7 @@ func TestMonitor_InstanceActionDecodeFailure(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte{0x7f})
 	}))
 	defer server.Close()
@@ -165,6 +166,7 @@ func TestMonitor_TimeParseFailure(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`{"time": ""}`))
 	}))
 	defer server.Close()

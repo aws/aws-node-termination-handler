@@ -53,6 +53,7 @@ func TestGetV2Token(t *testing.T) {
 		h.Equals(t, req.Header.Get(tokenTTLHeader), strconv.Itoa(tokenTTL))
 		h.Equals(t, req.URL.String(), tokenRefreshPath)
 		rw.Header().Set(tokenTTLHeader, "100")
+		//nolint:errcheck
 		rw.Write([]byte(`token`))
 	}))
 	defer server.Close()
@@ -75,6 +76,7 @@ func TestGetV2TokenBadTTLHeader(t *testing.T) {
 		h.Equals(t, req.Header.Get(tokenTTLHeader), strconv.Itoa(tokenTTL))
 		h.Equals(t, req.URL.String(), tokenRefreshPath)
 		rw.Header().Set(tokenTTLHeader, "badttl")
+		//nolint:errcheck
 		rw.Write([]byte(`token`))
 	}))
 	defer server.Close()

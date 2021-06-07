@@ -94,6 +94,7 @@ func TestIsConfigProvided(t *testing.T) {
 	result := isConfigProvided(cliArgName, envVarName)
 	h.Equals(t, false, result)
 
+	//nolint:errcheck
 	flag.Set(cliArgName, value)
 	result = isConfigProvided(cliArgName, envVarName)
 	h.Equals(t, true, result)

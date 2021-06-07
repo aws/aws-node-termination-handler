@@ -33,6 +33,7 @@ func TestRequestV1(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`OK`))
 	}))
 	defer server.Close()
@@ -60,11 +61,13 @@ func TestRequestV2(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`OK`))
 	}))
 	defer server.Close()
@@ -122,6 +125,7 @@ func TestRequest401(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -163,11 +167,13 @@ func TestGetSpotITNEventSuccess(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(fmt.Sprintf(`{
 			"action": "%s",
 			"time": "%s"
@@ -195,6 +201,7 @@ func TestGetSpotITNEvent404Success(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -219,11 +226,13 @@ func TestGetSpotITNEventBadJSON(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`{"action": false}`))
 	}))
 	defer server.Close()
@@ -242,6 +251,7 @@ func TestGetSpotITNEvent500Failure(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -281,11 +291,13 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(fmt.Sprintf(`[
 			{
 			  "NotBefore" : "%s",
@@ -325,6 +337,7 @@ func TestGetScheduledMaintenanceEvents500Failure(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -348,11 +361,13 @@ func TestGetScheduledMaintenanceEventsBadJSON(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`{"notBefore": false}`))
 	}))
 	defer server.Close()
@@ -382,11 +397,13 @@ func TestGetRebalanceRecommendationEventSuccess(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(fmt.Sprintf(`{
 			"noticeTime": "%s"
 		}`, noticeTime)))
@@ -412,6 +429,7 @@ func TestGetRebalanceRecommendationEvent404Success(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -436,11 +454,13 @@ func TestGetRebalanceRecommendationEventBadJSON(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`{"action": false, "noticeTime": 2020-10-26T15:55:55Z}`))
 	}))
 	defer server.Close()
@@ -459,6 +479,7 @@ func TestGetRebalanceRecommendationEvent500Failure(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -490,6 +511,7 @@ func TestGetMetadataServiceRequest404(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
@@ -522,11 +544,13 @@ func TestGetMetadataServiceSuccess(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
+		//nolint:errcheck
 		rw.Write([]byte(`x1.32xlarge`))
 	}))
 	defer server.Close()
@@ -545,9 +569,11 @@ func TestGetNodeMetadata(t *testing.T) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
 		if req.URL.String() == "/latest/api/token" {
 			rw.WriteHeader(200)
+			//nolint:errcheck
 			rw.Write([]byte(`token`))
 			return
 		}
+		//nolint:errcheck
 		rw.Write([]byte(`metadata`))
 	}))
 	defer server.Close()
