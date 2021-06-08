@@ -14,6 +14,7 @@
 package node
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -53,7 +54,7 @@ func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
 		Force:               true,
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
-		DeleteLocalData:     true,
+		DeleteEmptyDirData:  true,
 		Timeout:             time.Duration(120) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
@@ -81,15 +82,17 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile("does-not-exist"))
 	err := tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfRebooted failure to read file")
@@ -103,15 +106,17 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	client.CoreV1().Nodes().Create(context.TODO(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
@@ -126,15 +131,17 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
@@ -149,16 +156,18 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
-				"aws-node-termination-handler/event-id":    "HELLO",
+	client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+					"aws-node-termination-handler/event-id":    "HELLO",
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err := tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)

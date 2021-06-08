@@ -14,6 +14,7 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -241,7 +242,7 @@ func (n Node) addLabel(nodeName string, key string, value string) error {
 		log.Info().Msgf("Would have added label (%s=%s) to node %s, but dry-run flag was set", key, value, nodeName)
 		return nil
 	}
-	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, payloadBytes)
+	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.StrategicMergePatchType, payloadBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("%v node Patch failed when adding a label to the node: %w", node.Name, err)
 	}
@@ -272,7 +273,7 @@ func (n Node) removeLabel(nodeName string, key string) error {
 		log.Info().Msgf("Would have removed label with key %s from node %s, but dry-run flag was set", key, nodeName)
 		return nil
 	}
-	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, payload)
+	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("%v node Patch failed when removing a label from the node: %w", node.Name, err)
 	}
@@ -483,16 +484,16 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/hostname=": nodeName}}
 	listOptions := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
-	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(listOptions)
+	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
 	if err != nil || len(matchingNodes.Items) == 0 {
 		log.Err(err).Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node")
-		return n.drainHelper.Client.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+		return n.drainHelper.Client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	}
 	return &matchingNodes.Items[0], nil
 }
 
 func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
-	return n.drainHelper.Client.CoreV1().Pods("").List(metav1.ListOptions{
+	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + nodeName,
 	})
 }
@@ -503,7 +504,7 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		Force:               true,
 		GracePeriodSeconds:  nthConfig.PodTerminationGracePeriod,
 		IgnoreAllDaemonSets: nthConfig.IgnoreDaemonSets,
-		DeleteLocalData:     nthConfig.DeleteLocalData,
+		DeleteEmptyDirData:  nthConfig.DeleteLocalData,
 		Timeout:             time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
@@ -545,7 +546,7 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 	for {
 		if refresh {
 			// Get the newest version of the node.
-			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+			freshNode, err = client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
 			if err != nil || freshNode == nil {
 				nodeErr := fmt.Errorf("failed to get node %v: %w", node.Name, err)
 				log.Err(nodeErr).
@@ -564,7 +565,7 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 			}
 			return nil
 		}
-		_, err = client.CoreV1().Nodes().Update(freshNode)
+		_, err = client.CoreV1().Nodes().Update(context.TODO(), freshNode, metav1.UpdateOptions{})
 		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
 			refresh = true
 			time.Sleep(conflictRetryInterval)
@@ -613,7 +614,7 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 	for {
 		if refresh {
 			// Get the newest version of the node.
-			freshNode, err = client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+			freshNode, err = client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
 			if err != nil || freshNode == nil {
 				return false, fmt.Errorf("failed to get node %v: %v", node.Name, err)
 			}
@@ -639,7 +640,7 @@ func removeTaint(node *corev1.Node, client kubernetes.Interface, taintKey string
 		}
 
 		freshNode.Spec.Taints = newTaints
-		_, err = client.CoreV1().Nodes().Update(freshNode)
+		_, err = client.CoreV1().Nodes().Update(context.TODO(), freshNode, metav1.UpdateOptions{})
 
 		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
 			refresh = true

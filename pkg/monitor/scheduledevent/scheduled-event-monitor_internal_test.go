@@ -14,6 +14,7 @@
 package scheduledevent
 
 import (
+	"context"
 	"flag"
 	"os"
 	"testing"
@@ -46,7 +47,7 @@ func getDrainHelper(client *fake.Clientset) *drain.Helper {
 		Force:               true,
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
-		DeleteLocalData:     true,
+		DeleteEmptyDirData:  true,
 		Timeout:             time.Duration(120) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
@@ -79,7 +80,7 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 	}
 
 	client := fake.NewSimpleClientset()
-	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+	_, err := client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
 	h.Ok(t, err)
 
 	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client), uptime.Uptime)
@@ -101,18 +102,28 @@ func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
 func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
 	resetFlagsForTest()
 
+	nthConfig := config.Config{
+		DryRun:   true,
+		NodeName: nodeName,
+	}
+
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+			},
+			Spec: v1.NodeSpec{
+				Unschedulable: true,
+			},
 		},
-		Spec: v1.NodeSpec{
-			Unschedulable: true,
-		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 
-	tNode := getNode(t, getDrainHelper(client))
-	err := uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
+	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client), uptime.Uptime)
+	h.Ok(t, err)
+
+	err = uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
 	h.Ok(t, err)
 }
