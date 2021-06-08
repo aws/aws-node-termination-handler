@@ -500,6 +500,7 @@ func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 
 func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 	drainHelper := &drain.Helper{
+		Ctx:                 context.TODO(),
 		Client:              &kubernetes.Clientset{},
 		Force:               true,
 		GracePeriodSeconds:  nthConfig.PodTerminationGracePeriod,
