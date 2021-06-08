@@ -15,8 +15,6 @@ package scheduledevent
 
 import (
 	"context"
-	"flag"
-	"os"
 	"testing"
 	"time"
 
@@ -35,12 +33,6 @@ import (
 
 var nodeName = "NAME"
 
-func resetFlagsForTest() {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	os.Args = []string{"cmd"}
-	os.Setenv("NODE_NAME", nodeName)
-}
-
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
 		Client:              client,
@@ -54,16 +46,11 @@ func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	}
 }
 
-func getNthConfig(t *testing.T) config.Config {
-	nthConfig, err := config.ParseCliArgs()
-	if err != nil {
-		t.Error("failed to create nthConfig")
-	}
-	return nthConfig
-}
-
 func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
-	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper, uptime.Uptime)
+	nthConfig := config.Config{
+		NodeName: nodeName,
+	}
+	tNode, err := node.NewWithValues(nthConfig, drainHelper, uptime.Uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -92,16 +79,12 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 }
 
 func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
 func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	nthConfig := config.Config{
 		DryRun:   true,
 		NodeName: nodeName,

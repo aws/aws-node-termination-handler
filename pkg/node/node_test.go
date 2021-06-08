@@ -15,8 +15,6 @@ package node_test
 
 import (
 	"context"
-	"flag"
-	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -35,12 +33,6 @@ import (
 
 var nodeName = "NAME"
 
-func resetFlagsForTest() {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	os.Args = []string{"cmd"}
-	os.Setenv("NODE_NAME", nodeName)
-}
-
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
 		Client:              client,
@@ -54,16 +46,11 @@ func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	}
 }
 
-func getNthConfig(t *testing.T) config.Config {
-	nthConfig, err := config.ParseCliArgs()
-	if err != nil {
-		t.Error("failed to create nthConfig")
-	}
-	return nthConfig
-}
-
 func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
-	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper, uptime.Uptime)
+	nthConfig := config.Config{
+		NodeName: nodeName,
+	}
+	tNode, err := node.NewWithValues(nthConfig, drainHelper, uptime.Uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -111,8 +98,6 @@ func TestNewFailure(t *testing.T) {
 }
 
 func TestDrainSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
@@ -123,16 +108,12 @@ func TestDrainSuccess(t *testing.T) {
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.CordonAndDrain(nodeName)
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
 func TestUncordonSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
@@ -143,16 +124,12 @@ func TestUncordonSuccess(t *testing.T) {
 }
 
 func TestUncordonFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.Uncordon(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on Uncordon failing to fetch node")
 }
 
 func TestIsUnschedulableSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
@@ -164,8 +141,6 @@ func TestIsUnschedulableSuccess(t *testing.T) {
 }
 
 func TestIsUnschedulableFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	value, err := tNode.IsUnschedulable(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on IsUnschedulable failing to fetch node")
@@ -173,8 +148,6 @@ func TestIsUnschedulableFailure(t *testing.T) {
 }
 
 func TestMarkWithEventIDSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
@@ -185,23 +158,18 @@ func TestMarkWithEventIDSuccess(t *testing.T) {
 }
 
 func TestMarkWithEventIDFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.MarkWithEventID(nodeName, "EventID")
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
 func TestRemoveNTHLablesFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.RemoveNTHLabels(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on failing RemoveNTHLabels")
 }
 
 func TestGetEventIDSuccess(t *testing.T) {
-	resetFlagsForTest()
 	var labelValue = "bla"
 
 	client := fake.NewSimpleClientset()
@@ -222,16 +190,12 @@ func TestGetEventIDSuccess(t *testing.T) {
 }
 
 func TestGetEventIDNoNodeFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	_, err := tNode.GetEventID(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find node")
 }
 
 func TestGetEventIDNoLabelFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
@@ -242,16 +206,12 @@ func TestGetEventIDNoLabelFailure(t *testing.T) {
 }
 
 func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.MarkForUncordonAfterReboot(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label")
 }
 
 func TestFetchPodsNameList(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -275,8 +235,6 @@ func TestFetchPodsNameList(t *testing.T) {
 }
 
 func TestLogPods(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -299,16 +257,12 @@ func TestLogPods(t *testing.T) {
 }
 
 func TestIsLableledWithActionFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	_, err := tNode.IsLabeledWithAction(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on IsLabeledWithAction failure")
 }
 
 func TestUncordonIfRebootedDefaultSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(),
@@ -328,16 +282,12 @@ func TestUncordonIfRebootedDefaultSuccess(t *testing.T) {
 }
 
 func TestUncordonIfRebootedNodeFetchFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to find node")
 }
 
 func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(),

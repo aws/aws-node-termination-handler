@@ -15,7 +15,6 @@ package node
 
 import (
 	"context"
-	"flag"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -36,12 +35,6 @@ import (
 var nodeName = "NAME"
 var testFile = "test.out"
 
-func resetFlagsForTest() {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	os.Args = []string{"cmd"}
-	os.Setenv("NODE_NAME", nodeName)
-}
-
 func getUptimeFromFile(filepath string) uptime.UptimeFuncType {
 	return func() (int64, error) {
 		return uptime.UptimeFromFile(filepath)
@@ -61,16 +54,11 @@ func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
 	}
 }
 
-func getNthConfig(t *testing.T) config.Config {
-	nthConfig, err := config.ParseCliArgs()
-	if err != nil {
-		t.Error("failed to create nthConfig")
-	}
-	return nthConfig
-}
-
 func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncType) *Node {
-	tNode, err := NewWithValues(getNthConfig(t), drainHelper, uptime)
+	nthConfig := config.Config{
+		NodeName: nodeName,
+	}
+	tNode, err := NewWithValues(nthConfig, drainHelper, uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -78,8 +66,6 @@ func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncTy
 }
 
 func TestUncordonIfRebootedFileReadError(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
 	//nolint:errcheck
 	client.CoreV1().Nodes().Create(context.Background(),
@@ -99,7 +85,6 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 }
 
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
-	resetFlagsForTest()
 	d1 := []byte("350735.47 234388.90")
 	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
@@ -124,7 +109,6 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 }
 
 func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
-	resetFlagsForTest()
 	d1 := []byte("0 234388.90")
 	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
@@ -149,7 +133,6 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 }
 
 func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
-	resetFlagsForTest()
 	d1 := []byte("0 234388.90")
 	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
