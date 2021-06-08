@@ -41,7 +41,6 @@ func handleRequest(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	res.WriteHeader(http.StatusBadRequest)
-	return
 }
 
 func main() {

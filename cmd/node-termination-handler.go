@@ -133,6 +133,7 @@ func main() {
 			stopCh <- struct{}{}
 		}()
 		//will retry 4 times with an interval of 2 seconds.
+		//nolint:errcheck
 		wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
 			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 			if err != nil {
@@ -288,8 +289,15 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
 
-			node.RemoveNTHLabels(nodeName)
-			node.RemoveNTHTaints(nodeName)
+			err = node.RemoveNTHLabels(nodeName)
+			if err != nil {
+				log.Warn().Err(err).Msg("There was an issue removing NTH labels from node")
+			}
+
+			err = node.RemoveNTHTaints(nodeName)
+			if err != nil {
+				log.Warn().Err(err).Msg("There was an issue removing NTH taints from node")
+			}
 		} else {
 			log.Info().Msg("Another interruption event is active, not uncordoning the node")
 		}

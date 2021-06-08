@@ -79,6 +79,7 @@ func (m RebalanceRecommendationMonitor) checkForRebalanceRecommendation() (*moni
 
 	// There's no EventID returned so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
+	//nolint:errcheck
 	hash.Write([]byte(fmt.Sprintf("%v", rebalanceRecommendation)))
 
 	return &monitor.InterruptionEvent{

@@ -25,6 +25,7 @@ const testFile = "test.out"
 
 func TestUptimeFromFileSuccess(t *testing.T) {
 	d1 := []byte("350735.47 234388.90")
+	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
 
 	value, err := UptimeFromFile(testFile)
@@ -40,6 +41,7 @@ func TestUptimeFromFileReadFail(t *testing.T) {
 
 func TestUptimeFromFileBadData(t *testing.T) {
 	d1 := []byte("Something not time")
+	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
 
 	_, err := UptimeFromFile(testFile)

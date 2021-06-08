@@ -52,6 +52,7 @@ func getExpectedMessage(event *monitor.InterruptionEvent) string {
 	}
 
 	var byteBuffer bytes.Buffer
+	//nolint:errcheck
 	webhookTemplate.Execute(&byteBuffer, event)
 
 	m := map[string]interface{}{}
@@ -97,6 +98,7 @@ func TestPostSuccess(t *testing.T) {
 		}
 		h.Equals(t, getExpectedMessage(event), requestMap["text"])
 
+		//nolint:errcheck
 		rw.Write([]byte(`OK`))
 	}))
 	defer server.Close()

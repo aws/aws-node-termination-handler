@@ -80,6 +80,7 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 	resetFlagsForTest()
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -97,9 +98,11 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 	resetFlagsForTest()
 	d1 := []byte("350735.47 234388.90")
+	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -118,9 +121,11 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 	resetFlagsForTest()
 	d1 := []byte("0 234388.90")
+	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -139,9 +144,11 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 	resetFlagsForTest()
 	d1 := []byte("0 234388.90")
+	//nolint:errcheck
 	ioutil.WriteFile(testFile, d1, 0644)
 
 	client := fake.NewSimpleClientset()
+	//nolint:errcheck
 	client.CoreV1().Nodes().Create(&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,

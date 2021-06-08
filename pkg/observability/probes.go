@@ -37,5 +37,6 @@ func InitProbes(enabled bool, port int, endpoint string) error {
 func livenessHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	//nolint:errcheck
 	w.Write([]byte(`{"health":"OK"}`))
 }

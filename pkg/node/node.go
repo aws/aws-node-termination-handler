@@ -207,6 +207,7 @@ func (n Node) MarkForUncordonAfterReboot(nodeName string) error {
 	err = n.addLabel(nodeName, ActionLabelTimeKey, strconv.FormatInt(time.Now().Unix(), 10))
 	if err != nil {
 		// if time can't be recorded, rollback the action label
+		//nolint:errcheck
 		n.removeLabel(nodeName, ActionLabelKey)
 		return fmt.Errorf("Unable to label node with action time for uncordon after system-reboot: %w", err)
 	}

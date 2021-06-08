@@ -89,11 +89,8 @@ const (
 	emitKubernetesEventsConfigKey             = "EMIT_KUBERNETES_EVENTS"
 	emitKubernetesEventsDefault               = false
 	kubernetesEventsExtraAnnotationsConfigKey = "KUBERNETES_EVENTS_EXTRA_ANNOTATIONS"
-	kubernetesEventsExtraAnnotationsDefault   = ""
-	region                                    = ""
 	awsRegionConfigKey                        = "AWS_REGION"
 	awsEndpointConfigKey                      = "AWS_ENDPOINT"
-	queueURL                                  = ""
 	queueURLConfigKey                         = "QUEUE_URL"
 )
 
