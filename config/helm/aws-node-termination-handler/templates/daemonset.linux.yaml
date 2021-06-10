@@ -183,14 +183,18 @@ spec:
           {{- if .Values.enablePrometheusServer }}
           ports:
           - containerPort: {{ .Values.prometheusServerPort }}
+            {{- if .Values.useHostNetwork }}
             hostPort: {{ .Values.prometheusServerPort }}
+            {{- end }}
             name: http-metrics
             protocol: TCP
           {{- end }}
           {{- if .Values.enableProbesServer }}
           ports:
           - containerPort: {{ .Values.probesServerPort }}
+            {{- if .Values.useHostNetwork }}
             hostPort: {{ .Values.probesServerPort }}
+            {{- end }}
             name: liveness-probe
             protocol: TCP
           {{- end }}
