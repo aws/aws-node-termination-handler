@@ -13,4 +13,5 @@ translate = {
 override = {
   "sigs.k8s.io/yaml" = "MIT",
   "github.com/gogo/protobuf" = "BSD-3-Clause"
+  "github.com/russross/blackfriday" = "BSD-2-Clause"
 }

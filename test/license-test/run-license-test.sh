@@ -9,4 +9,4 @@ LICENSE_TEST_TAG="nth-license-test"
 
 SUPPORTED_PLATFORMS_LINUX="linux/amd64" make -s -f $SCRIPTPATH/../../Makefile build-binaries
 docker build --build-arg=GOPROXY=direct -t $LICENSE_TEST_TAG $SCRIPTPATH/
-docker run -i -e GITHUB_TOKEN --rm -v $SCRIPTPATH/:/test -v $BUILD_BIN/:/nth-bin $LICENSE_TEST_TAG golicense /test/license-config.hcl /nth-bin/$BINARY_NAME
+docker run -i -e GITHUB_TOKEN --rm -v $SCRIPTPATH/:/test -v $BUILD_BIN/:/nth-bin $LICENSE_TEST_TAG golicense /test/license-config.hcl /nth-bin/$BINARY_NAME | tee /dev/tty | $SCRIPTPATH/check-licenses.sh
