@@ -25,8 +25,8 @@ const testFile = "test.out"
 
 func TestUptimeFromFileSuccess(t *testing.T) {
 	d1 := []byte("350735.47 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	value, err := UptimeFromFile(testFile)
 	os.Remove(testFile)
@@ -41,10 +41,10 @@ func TestUptimeFromFileReadFail(t *testing.T) {
 
 func TestUptimeFromFileBadData(t *testing.T) {
 	d1 := []byte("Something not time")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
-	_, err := UptimeFromFile(testFile)
+	_, err = UptimeFromFile(testFile)
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error for int64 parse")
 }

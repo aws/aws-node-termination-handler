@@ -14,7 +14,7 @@
 package node
 
 import (
-	"flag"
+	"context"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -35,12 +35,6 @@ import (
 var nodeName = "NAME"
 var testFile = "test.out"
 
-func resetFlagsForTest() {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	os.Args = []string{"cmd"}
-	os.Setenv("NODE_NAME", nodeName)
-}
-
 func getUptimeFromFile(filepath string) uptime.UptimeFuncType {
 	return func() (int64, error) {
 		return uptime.UptimeFromFile(filepath)
@@ -53,23 +47,18 @@ func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
 		Force:               true,
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
-		DeleteLocalData:     true,
+		DeleteEmptyDirData:  true,
 		Timeout:             time.Duration(120) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
 	}
 }
 
-func getNthConfig(t *testing.T) config.Config {
-	nthConfig, err := config.ParseCliArgs()
-	if err != nil {
-		t.Error("failed to create nthConfig")
-	}
-	return nthConfig
-}
-
 func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncType) *Node {
-	tNode, err := NewWithValues(getNthConfig(t), drainHelper, uptime)
+	nthConfig := config.Config{
+		NodeName: nodeName,
+	}
+	tNode, err := NewWithValues(nthConfig, drainHelper, uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -77,90 +66,93 @@ func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncTy
 }
 
 func TestUncordonIfRebootedFileReadError(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile("does-not-exist"))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfRebooted failure to read file")
 }
 
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
-	resetFlagsForTest()
 	d1 := []byte("350735.47 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	_, err = client.CoreV1().Nodes().Create(context.TODO(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Ok(t, err)
 }
 
 func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
-	resetFlagsForTest()
 	d1 := []byte("0 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	_, err = client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure remove NTH Label")
 }
 
 func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
-	resetFlagsForTest()
 	d1 := []byte("0 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
-				"aws-node-termination-handler/event-id":    "HELLO",
+	_, err = client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+					"aws-node-termination-handler/event-id":    "HELLO",
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Ok(t, err)
 }

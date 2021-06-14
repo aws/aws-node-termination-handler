@@ -14,8 +14,7 @@
 package node_test
 
 import (
-	"flag"
-	"os"
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -34,35 +33,24 @@ import (
 
 var nodeName = "NAME"
 
-func resetFlagsForTest() {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	os.Args = []string{"cmd"}
-	os.Setenv("NODE_NAME", nodeName)
-}
-
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
 		Client:              client,
 		Force:               true,
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
-		DeleteLocalData:     true,
+		DeleteEmptyDirData:  true,
 		Timeout:             time.Duration(120) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
 	}
 }
 
-func getNthConfig(t *testing.T) config.Config {
-	nthConfig, err := config.ParseCliArgs()
-	if err != nil {
-		t.Error("failed to create nthConfig")
-	}
-	return nthConfig
-}
-
 func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
-	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper, uptime.Uptime)
+	nthConfig := config.Config{
+		NodeName: nodeName,
+	}
+	tNode, err := node.NewWithValues(nthConfig, drainHelper, uptime.Uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -110,52 +98,54 @@ func TestNewFailure(t *testing.T) {
 }
 
 func TestDrainSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
-
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.CordonAndDrain(nodeName)
+	err = tNode.CordonAndDrain(nodeName)
 	h.Ok(t, err)
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.CordonAndDrain(nodeName)
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
 func TestUncordonSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
-
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.Uncordon(nodeName)
+	err = tNode.Uncordon(nodeName)
 	h.Ok(t, err)
 }
 
 func TestUncordonFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.Uncordon(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on Uncordon failing to fetch node")
 }
 
 func TestIsUnschedulableSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
-
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
 	value, err := tNode.IsUnschedulable(nodeName)
 	h.Ok(t, err)
@@ -163,8 +153,6 @@ func TestIsUnschedulableSuccess(t *testing.T) {
 }
 
 func TestIsUnschedulableFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	value, err := tNode.IsUnschedulable(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on IsUnschedulable failing to fetch node")
@@ -172,46 +160,44 @@ func TestIsUnschedulableFailure(t *testing.T) {
 }
 
 func TestMarkWithEventIDSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
-
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.MarkWithEventID(nodeName, "EventID")
+	err = tNode.MarkWithEventID(nodeName, "EventID")
 	h.Ok(t, err)
 }
 
 func TestMarkWithEventIDFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.MarkWithEventID(nodeName, "EventID")
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
 func TestRemoveNTHLablesFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.RemoveNTHLabels(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on failing RemoveNTHLabels")
 }
 
 func TestGetEventIDSuccess(t *testing.T) {
-	resetFlagsForTest()
 	var labelValue = "bla"
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   nodeName,
-			Labels: map[string]string{"aws-node-termination-handler/event-id": labelValue},
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   nodeName,
+				Labels: map[string]string{"aws-node-termination-handler/event-id": labelValue},
+			},
 		},
-	})
-
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
 	value, err := tNode.GetEventID(nodeName)
 	h.Ok(t, err)
@@ -219,36 +205,32 @@ func TestGetEventIDSuccess(t *testing.T) {
 }
 
 func TestGetEventIDNoNodeFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	_, err := tNode.GetEventID(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find node")
 }
 
 func TestGetEventIDNoLabelFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
-
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	_, err := tNode.GetEventID(nodeName)
+	_, err = tNode.GetEventID(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on GetEventID failed to find label")
 }
 
 func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.MarkForUncordonAfterReboot(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label")
 }
 
 func TestFetchPodsNameList(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -272,8 +254,6 @@ func TestFetchPodsNameList(t *testing.T) {
 }
 
 func TestLogPods(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -296,55 +276,51 @@ func TestLogPods(t *testing.T) {
 }
 
 func TestIsLableledWithActionFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	_, err := tNode.IsLabeledWithAction(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on IsLabeledWithAction failure")
 }
 
 func TestUncordonIfRebootedDefaultSuccess(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "Test",
-				"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "Test",
+					"aws-node-termination-handler/action-time": strconv.FormatInt(time.Now().Unix(), 10),
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	h.Ok(t, err)
 }
 
 func TestUncordonIfRebootedNodeFetchFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to find node")
 }
 
 func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"aws-node-termination-handler/action":      "UncordonAfterReboot",
-				"aws-node-termination-handler/action-time": "Something not time",
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+				Labels: map[string]string{
+					"aws-node-termination-handler/action":      "UncordonAfterReboot",
+					"aws-node-termination-handler/action-time": "Something not time",
+				},
 			},
 		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to parse time")
 }

@@ -14,6 +14,7 @@
 package spotitn
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ func getSpotDrainHelper(client *fake.Clientset) *drain.Helper {
 		Force:               true,
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
-		DeleteLocalData:     true,
+		DeleteEmptyDirData:  true,
 		Timeout:             time.Duration(120) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
@@ -55,7 +56,7 @@ func TestSetInterruptionTaint(t *testing.T) {
 	}
 
 	client := fake.NewSimpleClientset()
-	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: spotNodeName}})
+	_, err := client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: spotNodeName}}, metav1.CreateOptions{})
 	h.Ok(t, err)
 
 	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client), uptime.Uptime)
@@ -86,7 +87,7 @@ func TestInterruptionTaintAlreadyPresent(t *testing.T) {
 		}},
 	}
 
-	_, err := client.CoreV1().Nodes().Create(newNode)
+	_, err := client.CoreV1().Nodes().Create(context.Background(), newNode, metav1.CreateOptions{})
 	h.Ok(t, err)
 
 	tNode, err := node.NewWithValues(nthConfig, getSpotDrainHelper(client), uptime.Uptime)

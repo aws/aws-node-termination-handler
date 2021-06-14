@@ -46,8 +46,8 @@ func TestMonitor_Success(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write(instanceActionResponse)
+		_, err := rw.Write(instanceActionResponse)
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
@@ -142,8 +142,8 @@ func TestMonitor_InstanceActionDecodeFailure(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write([]byte{0x7f})
+		_, err := rw.Write([]byte{0x7f})
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
@@ -166,8 +166,8 @@ func TestMonitor_TimeParseFailure(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write([]byte(`{"time": ""}`))
+		_, err := rw.Write([]byte(`{"time": ""}`))
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 

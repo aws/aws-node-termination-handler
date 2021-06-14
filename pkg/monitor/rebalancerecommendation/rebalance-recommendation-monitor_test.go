@@ -45,8 +45,8 @@ func TestMonitor_Success(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write(rebalanceRecommendationResponse)
+		_, err := rw.Write(rebalanceRecommendationResponse)
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
@@ -137,8 +137,8 @@ func TestMonitor_NoticeTimeParseFailure(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write([]byte(`{"noticeTime": }`))
+		_, err := rw.Write([]byte(`{"noticeTime": }`))
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
