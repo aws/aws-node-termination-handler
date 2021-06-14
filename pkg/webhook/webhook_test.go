@@ -44,7 +44,7 @@ func parseScheduledEventTime(inputTime string) time.Time {
 	return scheduledTime
 }
 
-func getExpectedMessage(event *monitor.InterruptionEvent) string {
+func getExpectedMessage(t *testing.T, event *monitor.InterruptionEvent) string {
 	webhookTemplate, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(testWebhookTemplate)
 	if err != nil {
 		log.Err(err).Msg("Webhook Error: Template parsing failed")
@@ -52,8 +52,8 @@ func getExpectedMessage(event *monitor.InterruptionEvent) string {
 	}
 
 	var byteBuffer bytes.Buffer
-	//nolint:errcheck
-	webhookTemplate.Execute(&byteBuffer, event)
+	err = webhookTemplate.Execute(&byteBuffer, event)
+	h.Ok(t, err)
 
 	m := map[string]interface{}{}
 	if err := json.Unmarshal(byteBuffer.Bytes(), &m); err != nil {
@@ -96,10 +96,10 @@ func TestPostSuccess(t *testing.T) {
 		if err := json.Unmarshal([]byte(requestBody), &requestMap); err != nil {
 			t.Error("Unable to parse request body to json.")
 		}
-		h.Equals(t, getExpectedMessage(event), requestMap["text"])
+		h.Equals(t, getExpectedMessage(t, event), requestMap["text"])
 
-		//nolint:errcheck
-		rw.Write([]byte(`OK`))
+		_, err = rw.Write([]byte(`OK`))
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 

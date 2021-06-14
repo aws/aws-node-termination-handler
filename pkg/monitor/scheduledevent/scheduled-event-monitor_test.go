@@ -56,8 +56,8 @@ func TestMonitor_Success(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write(scheduledEventResponse)
+		_, err := rw.Write(scheduledEventResponse)
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
@@ -104,8 +104,7 @@ func TestMonitor_CanceledEvent(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write([]byte(`[{
+		_, err := rw.Write([]byte(`[{
 			"NotBefore": "` + scheduledEventStartTime + `",
 			"Code": "` + scheduledEventCode + `",
 			"Description": "` + scheduledEventDescription + `",
@@ -113,6 +112,7 @@ func TestMonitor_CanceledEvent(t *testing.T) {
 			"NotAfter": "` + scheduledEventEndTime + `",
 			"State": "` + state + `"
 		}]`))
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
@@ -202,8 +202,7 @@ func TestMonitor_StartTimeParseFail(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write([]byte(`[{
+		_, err := rw.Write([]byte(`[{
 			"NotBefore": "",
 			"Code": "` + scheduledEventCode + `",
 			"Description": "` + scheduledEventDescription + `",
@@ -211,6 +210,7 @@ func TestMonitor_StartTimeParseFail(t *testing.T) {
 			"NotAfter": "` + scheduledEventEndTime + `",
 			"State": "active"
 		}]`))
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 
@@ -231,8 +231,7 @@ func TestMonitor_EndTimeParseFail(t *testing.T) {
 			return
 		}
 		h.Equals(t, req.URL.String(), requestPath)
-		//nolint:errcheck
-		rw.Write([]byte(`[{
+		_, err := rw.Write([]byte(`[{
 			"NotBefore": "` + scheduledEventStartTime + `",
 			"Code": "` + scheduledEventCode + `",
 			"Description": "` + scheduledEventDescription + `",
@@ -240,6 +239,7 @@ func TestMonitor_EndTimeParseFail(t *testing.T) {
 			"NotAfter": "",
 			"State": "active"
 		}]`))
+		h.Ok(t, err)
 	}))
 	defer server.Close()
 

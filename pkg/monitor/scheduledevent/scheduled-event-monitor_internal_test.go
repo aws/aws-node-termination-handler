@@ -91,7 +91,6 @@ func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
 	}
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
 	_, err := client.CoreV1().Nodes().Create(context.Background(),
 		&v1.Node{
 			ObjectMeta: metav1.ObjectMeta{

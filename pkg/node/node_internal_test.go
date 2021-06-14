@@ -67,8 +67,7 @@ func getNode(t *testing.T, drainHelper *drain.Helper, uptime uptime.UptimeFuncTy
 
 func TestUncordonIfRebootedFileReadError(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(context.Background(),
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
 		&v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: nodeName,
@@ -79,19 +78,19 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 			},
 		},
 		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile("does-not-exist"))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfRebooted failure to read file")
 }
 
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 	d1 := []byte("350735.47 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(context.TODO(),
+	_, err = client.CoreV1().Nodes().Create(context.TODO(),
 		&v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: nodeName,
@@ -102,20 +101,20 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 			},
 		},
 		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Ok(t, err)
 }
 
 func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 	d1 := []byte("0 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(context.Background(),
+	_, err = client.CoreV1().Nodes().Create(context.Background(),
 		&v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: nodeName,
@@ -126,20 +125,20 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 			},
 		},
 		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure remove NTH Label")
 }
 
 func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 	d1 := []byte("0 234388.90")
-	//nolint:errcheck
-	ioutil.WriteFile(testFile, d1, 0644)
+	err := ioutil.WriteFile(testFile, d1, 0644)
+	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
-	//nolint:errcheck
-	client.CoreV1().Nodes().Create(context.Background(),
+	_, err = client.CoreV1().Nodes().Create(context.Background(),
 		&v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: nodeName,
@@ -151,8 +150,9 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 			},
 		},
 		metav1.CreateOptions{})
+	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
-	err := tNode.UncordonIfRebooted(nodeName)
+	err = tNode.UncordonIfRebooted(nodeName)
 	os.Remove(testFile)
 	h.Ok(t, err)
 }

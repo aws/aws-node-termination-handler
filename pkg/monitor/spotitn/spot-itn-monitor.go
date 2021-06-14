@@ -81,8 +81,10 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.Inte
 
 	// There's no EventID returned so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
-	//nolint:errcheck
-	hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
+	_, err = hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
+	if err != nil {
+		return nil, fmt.Errorf("There was a problem creating an event ID from the event: %w", err)
+	}
 
 	return &monitor.InterruptionEvent{
 		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
