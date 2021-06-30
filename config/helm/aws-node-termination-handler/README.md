@@ -98,8 +98,7 @@ Parameter | Description | Default
 `checkASGTagBeforeDraining` | If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node | `true`
 `managedAsgTag` | The tag to ensure is on a node if checkASGTagBeforeDraining is true | `aws-node-termination-handler/managed`
 `workers` | The maximum amount of parallel event processors | `10`
-`replicas` | The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing replicas may cause duplicate webhooks since NTH pods are stateless)
- | `1`
+`replicas` | The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing replicas may cause duplicate webhooks since NTH pods are stateless) | `1`
 
 ### AWS Node Termination Handler - IMDS Mode Configuration
 
