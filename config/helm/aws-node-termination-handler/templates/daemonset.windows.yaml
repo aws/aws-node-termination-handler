@@ -154,15 +154,16 @@ spec:
             value: {{ .Values.kubernetesEventsExtraAnnotations | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.enablePrometheusServer }}
+          {{- if or .Values.enablePrometheusServer .Values.enableProbesServer }}
           ports:
+          {{- end }}
+          {{- if .Values.enablePrometheusServer }}
           - containerPort: {{ .Values.prometheusServerPort  }}
             hostPort: {{ .Values.prometheusServerPort }}
             name: http-metrics
             protocol: TCP
           {{- end }}
           {{- if .Values.enableProbesServer }}
-          ports:
           - containerPort: {{ .Values.probesServerPort }}
             hostPort: {{ .Values.probesServerPort }}
             name: liveness-probe
