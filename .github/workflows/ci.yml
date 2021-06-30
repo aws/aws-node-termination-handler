@@ -4,6 +4,9 @@ on: [push, pull_request, workflow_dispatch]
 
 env:
   DEFAULT_GO_VERSION: ^1.16
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
