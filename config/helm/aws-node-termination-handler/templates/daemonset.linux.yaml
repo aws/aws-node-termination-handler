@@ -180,8 +180,10 @@ spec:
             value: {{ .Values.kubernetesEventsExtraAnnotations | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.enablePrometheusServer }}
+          {{- if or .Values.enablePrometheusServer .Values.enableProbesServer }}
           ports:
+          {{- end }}
+          {{- if .Values.enablePrometheusServer }}
           - containerPort: {{ .Values.prometheusServerPort }}
             {{- if .Values.useHostNetwork }}
             hostPort: {{ .Values.prometheusServerPort }}
@@ -190,7 +192,6 @@ spec:
             protocol: TCP
           {{- end }}
           {{- if .Values.enableProbesServer }}
-          ports:
           - containerPort: {{ .Values.probesServerPort }}
             {{- if .Values.useHostNetwork }}
             hostPort: {{ .Values.probesServerPort }}
