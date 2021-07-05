@@ -36,14 +36,20 @@ Name will not exceed 63 characters.
 Common labels
 */}}
 {{- define "aws-node-termination-handler.labels" -}}
-app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
 helm.sh/chart: {{ include "aws-node-termination-handler.chart" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-k8s-app: aws-node-termination-handler
+{{ include "aws-node-termination-handler.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/*
+Selector labels
+*/}}
+{{- define "aws-node-termination-handler.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*

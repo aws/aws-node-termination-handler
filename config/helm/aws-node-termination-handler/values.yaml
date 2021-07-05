@@ -219,3 +219,8 @@ workers: 10
 
 # The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing this may cause duplicate webhooks since NTH pods are stateless)
 replicas: 1
+
+# podDisruptionBudget specifies the disruption budget for the controller pods.
+# Disruption budget will be configured only when the replicaCount is greater than 1
+podDisruptionBudget: {}
+#  maxUnavailable: 1

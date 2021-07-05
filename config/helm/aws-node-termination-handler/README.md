@@ -99,6 +99,7 @@ Parameter | Description | Default
 `managedAsgTag` | The tag to ensure is on a node if checkASGTagBeforeDraining is true | `aws-node-termination-handler/managed`
 `workers` | The maximum amount of parallel event processors | `10`
 `replicas` | The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing replicas may cause duplicate webhooks since NTH pods are stateless) | `1`
+`podDisruptionBudget` | Limit the disruption for controller pods, requires at least 2 controller replicas | `{}`
 
 ### AWS Node Termination Handler - IMDS Mode Configuration
 
