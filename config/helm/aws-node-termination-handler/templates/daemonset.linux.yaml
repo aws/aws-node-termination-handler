@@ -5,7 +5,7 @@ metadata:
   name: {{ include "aws-node-termination-handler.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-{{ include "aws-node-termination-handler.labels" . | indent 4 }}
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
 spec:
   {{- if (or .Values.updateStrategy .Values.linuxUpdateStrategy) }}
   updateStrategy:
@@ -18,8 +18,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "aws-node-termination-handler.selectorLabels" . | nindent 6 }}
       {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
   template:
     metadata:
@@ -30,8 +29,7 @@ spec:
       {{- end }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: {{ include "aws-node-termination-handler.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "aws-node-termination-handler.selectorLabels" . | nindent 8 }}
         k8s-app: aws-node-termination-handler
         {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
       {{- range $key, $value := (mergeOverwrite (dict) .Values.podLabels .Values.linuxPodLabels) }}
