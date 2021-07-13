@@ -322,6 +322,11 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
         if err != nil {
                 log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
         }
+        drainEvent.Pods = podNameList
+        err = node.LogPods(podNameList, nodeName)
+        if err != nil {
+                log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
+        }
 
 	if nthConfig.CordonOnly || (drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
 		err = cordonNode(node, nodeName, drainEvent, metrics, recorder)
@@ -329,20 +334,19 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err = cordonAndDrainNode(node, nodeName, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
 	}
         
-        drainEvent.Pods = podNameList
-        err = node.LogPods(podNameList, nodeName)
-        if err != nil {
-                log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
-        }
-
-	interruptionEventStore.MarkAllAsProcessed(nodeName)
 	if nthConfig.WebhookURL != "" {
 		webhook.Post(nodeMetadata, drainEvent, nthConfig)
 	}
-	if drainEvent.PostDrainTask != nil {
-		runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
-	}
-	<-interruptionEventStore.Workers
+
+        if err != nil {
+                <-interruptionEventStore.Workers
+        } else {
+	        interruptionEventStore.MarkAllAsProcessed(nodeName)
+	        if drainEvent.PostDrainTask != nil {
+		        runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
+	        }
+	        <-interruptionEventStore.Workers
+        }
 
 }
 
