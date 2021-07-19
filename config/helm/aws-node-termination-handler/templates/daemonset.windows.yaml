@@ -167,6 +167,10 @@ spec:
             name: liveness-probe
             protocol: TCP
           {{- end }}
+          {{- if .Values.enableProbesServer }}
+          livenessProbe:
+            {{- toYaml .Values.probes | nindent 12 }}
+          {{- end }}
       nodeSelector:
         {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: windows
         {{- with .Values.nodeSelector }}
