@@ -513,9 +513,6 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
 	}
-	if nthConfig.DryRun {
-		return drainHelper, nil
-	}
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
