@@ -496,6 +496,10 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 }
 
 func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
+	if n.nthConfig.DryRun {
+		log.Info().Msgf("Would have retrieved running pod list on node %s, but dry-run flag was set", nodeName)
+		return &corev1.PodList{}, nil
+	}
 	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + nodeName,
 	})
@@ -513,6 +517,7 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
 	}
+
 	if nthConfig.DryRun {
 		return drainHelper, nil
 	}
