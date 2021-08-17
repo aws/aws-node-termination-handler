@@ -263,7 +263,7 @@ $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp
 
 #### 4. Create Amazon EventBridge Rules
 
-Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, and Rebalance Recommendations are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes and Rebalance Recommendations are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
 ```
 $ aws events put-rule \
@@ -285,6 +285,13 @@ $ aws events put-rule \
   --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance Rebalance Recommendation\"]}"
 
 $ aws events put-targets --rule MyK8sRebalanceRule \
+  --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
+
+$ aws events put-rule \
+  --name MyK8sInstanceStateChangeRule \
+  --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance State-change Notification\"]}"
+
+$ aws events put-targets --rule MyK8sInstanceStateChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 
