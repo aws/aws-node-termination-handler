@@ -91,6 +91,7 @@ function reset_cluster {
         kubectl taint node "$node" aws-node-termination-handler/rebalance-recommendation- || true
     done
     remove_labels || :
+    kubectl delete events --all
     sleep 2
 }
 
