@@ -148,6 +148,7 @@ Parameter | Description | Default
 `updateStrategy` | Update strategy for the all DaemonSets (Linux and Windows) | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
 `linuxUpdateStrategy` | Update strategy for the Linux DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
 `windowsUpdateStrategy` | Update strategy for the Windows DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
+`extraEnv` | Additional environment variables to inject into pod configuration | `[]`
 
 ### Testing Configuration (NOT RECOMMENDED FOR PROD DEPLOYMENTS)
 

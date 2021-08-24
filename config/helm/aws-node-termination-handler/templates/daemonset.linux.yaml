@@ -176,6 +176,10 @@ spec:
             value: {{ .Values.emitKubernetesEvents | quote }}
           - name: KUBERNETES_EVENTS_EXTRA_ANNOTATIONS
             value: {{ .Values.kubernetesEventsExtraAnnotations | quote }}
+{{- range $key, $value := .Values.extraEnv }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+{{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if or .Values.enablePrometheusServer .Values.enableProbesServer }}
