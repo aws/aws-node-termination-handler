@@ -16,7 +16,7 @@ jobs:
   fastTests:
     name: Fast Tests and Lints
     runs-on: ubuntu-20.04
-    if: !contains(github.ref, 'refs/tags/')
+    if: ${{ !contains(github.ref, 'refs/tags/') }}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -44,7 +44,7 @@ jobs:
   buildLinux:
     name: Build Linux Binaries
     runs-on: ubuntu-20.04
-    if: !contains(github.ref, 'refs/tags/')
+    if: ${{ !contains(github.ref, 'refs/tags/') }}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -59,7 +59,7 @@ jobs:
   buildLinuxDocker:
     name: Build Linux Docker Images
     runs-on: ubuntu-20.04
-    if: !contains(github.ref, 'refs/tags/')
+    if: ${{ !contains(github.ref, 'refs/tags/') }}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -75,7 +75,7 @@ jobs:
   buildWindows:
     name: Build Windows Binaries
     runs-on: windows-2019
-    if: !contains(github.ref, 'refs/tags/')
+    if: ${{ !contains(github.ref, 'refs/tags/') }}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -91,7 +91,7 @@ jobs:
   buildWindowsDocker:
     name: Build Windows Docker Images
     runs-on: windows-2019
-    if: !contains(github.ref, 'refs/tags/')
+    if: ${{ !contains(github.ref, 'refs/tags/') }}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -107,7 +107,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-20.04
-    if: !contains(github.ref, 'refs/tags/')
+    if: ${{ !contains(github.ref, 'refs/tags/') }}
     strategy:
       matrix:
         k8sVersion: ["1.16", "1.17", "1.18", "1.19", "1.20", "1.21"]
