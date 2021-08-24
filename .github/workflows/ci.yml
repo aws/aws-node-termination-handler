@@ -126,7 +126,6 @@ jobs:
   releaseLinux:
     name: Release Linux
     runs-on: ubuntu-20.04
-    needs: [buildWindows, buildWindowsDocker, buildLinux, buildLinuxDocker, fastTests]
     if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     steps:
     - name: Set up Go 1.x
@@ -147,7 +146,6 @@ jobs:
   releaseWindows:
     name: Release Windows
     runs-on: windows-2019
-    needs: [buildWindows, buildWindowsDocker, buildLinux, buildLinuxDocker, fastTests]
     if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     steps:
     - name: Set up Go 1.x
