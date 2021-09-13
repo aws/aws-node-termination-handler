@@ -362,7 +362,7 @@ func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.Interr
 }
 
 func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) error {
-	err := node.Cordon(nodeName, drainEvent.Kind)
+	err := node.Cordon(nodeName, drainEvent.Description)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
@@ -373,7 +373,7 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 		}
 		return err
 	} else {
-		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Kind).Msg("Node successfully cordoned")
+		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned")
 		metrics.NodeActionsInc("cordon", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 	}
@@ -381,7 +381,7 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 }
 
 func cordonAndDrainNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder, sqsTerminationDraining bool) error {
-	err := node.CordonAndDrain(nodeName, drainEvent.Kind)
+	err := node.CordonAndDrain(nodeName, drainEvent.Description)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
@@ -395,7 +395,7 @@ func cordonAndDrainNode(node node.Node, nodeName string, drainEvent *monitor.Int
 		}
 		return err
 	} else {
-		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Kind).Msg("Node successfully cordoned and drained")
+		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned and drained")
 		metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 	}
