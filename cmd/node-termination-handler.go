@@ -331,7 +331,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	if nthConfig.CordonOnly || (!nthConfig.EnableSQSTerminationDraining && drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
 		err = cordonNode(node, nodeName, drainEvent, metrics, recorder)
 	} else {
-		err = cordonAndDrainNode(node, nodeName, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
+		err = cordonAndDrainNode(node, nodeName, drainEvent, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
 	}
 
 	if nthConfig.WebhookURL != "" {
@@ -362,7 +362,7 @@ func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.Interr
 }
 
 func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) error {
-	err := node.Cordon(nodeName)
+	err := node.Cordon(nodeName, drainEvent.Description)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
@@ -373,15 +373,15 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 		}
 		return err
 	} else {
-		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned")
+		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned")
 		metrics.NodeActionsInc("cordon", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 	}
 	return nil
 }
 
-func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.Metrics, recorder observability.K8sEventRecorder, sqsTerminationDraining bool) error {
-	err := node.CordonAndDrain(nodeName)
+func cordonAndDrainNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder, sqsTerminationDraining bool) error {
+	err := node.CordonAndDrain(nodeName, drainEvent.Description)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
@@ -395,7 +395,7 @@ func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.M
 		}
 		return err
 	} else {
-		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
+		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned and drained")
 		metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 	}

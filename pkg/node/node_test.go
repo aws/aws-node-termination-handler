@@ -61,10 +61,10 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	err = tNode.CordonAndDrain(nodeName)
+	err = tNode.CordonAndDrain(nodeName, "cordonReason")
 	h.Ok(t, err)
 
-	err = tNode.Cordon(nodeName)
+	err = tNode.Cordon(nodeName, "cordonReason")
 	h.Ok(t, err)
 
 	err = tNode.Uncordon(nodeName)
@@ -107,13 +107,13 @@ func TestDrainSuccess(t *testing.T) {
 		metav1.CreateOptions{})
 	h.Ok(t, err)
 	tNode := getNode(t, getDrainHelper(client))
-	err = tNode.CordonAndDrain(nodeName)
+	err = tNode.CordonAndDrain(nodeName, "cordonReason")
 	h.Ok(t, err)
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.CordonAndDrain(nodeName)
+	err := tNode.CordonAndDrain(nodeName, "cordonReason")
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
