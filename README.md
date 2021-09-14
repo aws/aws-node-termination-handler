@@ -59,16 +59,16 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 - Unit & Integration Tests
 
 ## Which one should I use?
-Feature |IMDS Processor | Queue Processor
-:---:|:---:|:---:
-K8s DaemonSet | ✅ | ❌
-K8s Deployment | ❌ | ✅
-Spot Instance Interruptions (ITN) | ✅ | ✅
-Scheduled Events | ✅ | ✅
-EC2 Instance Rebalance Recommendation | ✅ | ✅
-ASG Lifecycle Hooks | ❌ | ✅
-EC2 Status Changes | ❌ | ✅
-Setup Required | ❌ | ✅
+|                Feature                | IMDS Processor | Queue Processor |
+| :-----------------------------------: | :------------: | :-------------: |
+|             K8s DaemonSet             |       ✅        |        ❌        |
+|            K8s Deployment             |       ❌        |        ✅        |
+|   Spot Instance Interruptions (ITN)   |       ✅        |        ✅        |
+|           Scheduled Events            |       ✅        |        ✅        |
+| EC2 Instance Rebalance Recommendation |       ✅        |        ✅        |
+|          ASG Lifecycle Hooks          |       ❌        |        ✅        |
+|          EC2 Status Changes           |       ❌        |        ✅        |
+|            Setup Required             |       ❌        |        ✅        |
 
 
 ## Installation and Configuration
@@ -442,6 +442,15 @@ The termination handler relies on the following metadata endpoints to function p
 
 ## Building
 For build instructions please consult [BUILD.md](./BUILD.md).
+
+## Metrics
+Available Prometheus metrics:
+
+| Metric name    | Description                           |
+| -------------- | ------------------------------------- |
+| `actions_node` | Number of actions per node            |
+| `events_error` | Number of errors in events processing |
+
 
 ## Communication
 * If you've run into a bug or have a new feature request, please open an [issue](https://github.com/aws/aws-node-termination-handler/issues/new).
