@@ -35,8 +35,12 @@ const (
 	SQSTerminateKind = "SQS_TERMINATE"
 )
 
-// ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
-var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
+var (
+	// ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
+	ErrNodeStateNotRunning = errors.New("node metadata unavailable")
+	// instanceNodeNameCache will store instance id and its corresponding node names for subsequent calls
+	instanceNodeNameCache = make(map[string]string)
+)
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
@@ -49,8 +53,6 @@ type SQSMonitor struct {
 	CheckIfManaged   bool
 	ManagedAsgTag    string
 }
-
-var instanceNodeNameCache map[string]string
 
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
