@@ -50,6 +50,8 @@ type SQSMonitor struct {
 	ManagedAsgTag    string
 }
 
+var instanceNodeNameCache map[string]string
+
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
@@ -184,6 +186,11 @@ func (m SQSMonitor) deleteMessages(messages []*sqs.Message) []error {
 
 // retrieveNodeName queries the EC2 API to determine the private DNS name for the instanceID specified
 func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
+	// Check if instance Id already in cache if yes return result from it.
+	if nodeName, ok := instanceNodeNameCache[instanceID]; ok {
+		return nodeName, nil
+	}
+
 	result, err := m.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
 			aws.String(instanceID),
@@ -219,6 +226,10 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 		}
 		return "", fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
 	}
+
+	// Add instance id and node name to instanceNodeNameCache.
+	instanceNodeNameCache[instanceID] = nodeName
+
 	return nodeName, nil
 }
 
