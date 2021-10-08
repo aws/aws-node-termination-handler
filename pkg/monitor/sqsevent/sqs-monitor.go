@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/patrickmn/go-cache"
 	"github.com/rs/zerolog/log"
 )
 
@@ -39,7 +41,7 @@ var (
 	// ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
 	ErrNodeStateNotRunning = errors.New("node metadata unavailable")
 	// instanceNodeNameCache will store instance id and its corresponding node names for subsequent calls
-	instanceNodeNameCache = make(map[string]string)
+	instanceNodeNameCache = cache.New(time.Minute*10, time.Minute*15)
 )
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
@@ -80,9 +82,7 @@ func (m SQSMonitor) Monitor() error {
 				failedEvents++
 			}
 
-			if _, ok := instanceNodeNameCache[interruptionEvent.InstanceID]; ok {
-				delete(instanceNodeNameCache, interruptionEvent.InstanceID)
-			}
+			instanceNodeNameCache.Delete(interruptionEvent.InstanceID)
 
 		case err != nil:
 			// Log errors and record as failed events
@@ -193,8 +193,9 @@ func (m SQSMonitor) deleteMessages(messages []*sqs.Message) []error {
 // retrieveNodeName queries the EC2 API to determine the private DNS name for the instanceID specified
 func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 	// Check if instance Id already in cache if yes return result from it.
-	if nodeName, ok := instanceNodeNameCache[instanceID]; ok {
-		return nodeName, nil
+
+	if nodeName, found := instanceNodeNameCache.Get(instanceID); found {
+		return nodeName.(string), nil
 	}
 
 	result, err := m.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
@@ -234,7 +235,7 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 	}
 
 	// Add instance id and node name to instanceNodeNameCache.
-	instanceNodeNameCache[instanceID] = nodeName
+	instanceNodeNameCache.Set(instanceID, nodeName, cache.DefaultExpiration)
 
 	return nodeName, nil
 }

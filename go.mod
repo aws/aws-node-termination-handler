@@ -8,6 +8,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/rs/zerolog v1.22.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.20.0
 	go.opentelemetry.io/otel v0.20.0
