@@ -80,6 +80,10 @@ func (m SQSMonitor) Monitor() error {
 				failedEvents++
 			}
 
+			if _, ok := instanceNodeNameCache[interruptionEvent.InstanceID]; ok {
+				delete(instanceNodeNameCache, interruptionEvent.InstanceID)
+			}
+
 		case err != nil:
 			// Log errors and record as failed events
 			log.Err(err).Msg("ignoring event due to error")
