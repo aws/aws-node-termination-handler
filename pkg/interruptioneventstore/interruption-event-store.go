@@ -68,6 +68,13 @@ func (s *Store) AddInterruptionEvent(interruptionEvent *monitor.InterruptionEven
 	}
 }
 
+// Size returns the total number of events in the internal store
+func (s *Store) Size() int {
+	s.RLock()
+	defer s.RUnlock()
+	return len(s.interruptionEventStore)
+}
+
 // GetActiveEvent returns true if there are interruption events in the internal store
 func (s *Store) GetActiveEvent() (*monitor.InterruptionEvent, bool) {
 	s.RLock()
@@ -78,6 +85,19 @@ func (s *Store) GetActiveEvent() (*monitor.InterruptionEvent, bool) {
 		}
 	}
 	return &monitor.InterruptionEvent{}, false
+}
+
+// CountDrainableEvents returns the number of drainable events in the internal store
+func (s *Store) CountDrainableEvents() int {
+	s.RLock()
+	defer s.RUnlock()
+	n := 0
+	for _, interruptionEvent := range s.interruptionEventStore {
+		if s.shouldEventDrain(interruptionEvent) {
+			n += 1
+		}
+	}
+	return n
 }
 
 // ShouldDrainNode returns true if there are drainable events in the internal store
@@ -94,7 +114,7 @@ func (s *Store) ShouldDrainNode() bool {
 
 func (s *Store) shouldEventDrain(interruptionEvent *monitor.InterruptionEvent) bool {
 	_, ignored := s.ignoredEvents[interruptionEvent.EventID]
-	if !ignored && !interruptionEvent.NodeProcessed && s.TimeUntilDrain(interruptionEvent) <= 0 {
+	if !ignored && !interruptionEvent.InProgress && !interruptionEvent.NodeProcessed && s.TimeUntilDrain(interruptionEvent) <= 0 {
 		return true
 	}
 	return false
@@ -147,4 +167,19 @@ func (s *Store) ShouldUncordonNode(nodeName string) bool {
 	}
 
 	return true
+}
+
+// GC garbage-collects the store by removing events with NodeProcessed=true
+func (s *Store) GC() {
+	s.Lock()
+	defer s.Unlock()
+	toDelete := []string{}
+	for _, e := range s.interruptionEventStore {
+		if e.NodeProcessed {
+			toDelete = append(toDelete, e.EventID)
+		}
+	}
+	for _, id := range toDelete {
+		delete(s.interruptionEventStore, id)
+	}
 }

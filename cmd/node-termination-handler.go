@@ -222,16 +222,28 @@ func main() {
 	log.Info().Msg("Started watching for event cancellations")
 
 	var wg sync.WaitGroup
-
+	eventStoreGCInterval := 0
+	eventStoreGCPeriod := 7200
+	eventStoreLogInterval := 0
+	eventStoreLogPeriod := 1800
+	if nthConfig.LogLevel == "debug" {
+		eventStoreLogPeriod = 60
+	}
 	for range time.NewTicker(1 * time.Second).C {
 		select {
 		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			for event, ok := interruptionEventStore.GetActiveEvent(); ok && !event.InProgress; event, ok = interruptionEventStore.GetActiveEvent() {
+			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
 				select {
 				case interruptionEventStore.Workers <- 1:
+					log.Info().
+						Str("event-id", event.EventID).
+						Str("kind", event.Kind).
+						Str("node-name", event.NodeName).
+						Str("instance-id", event.InstanceID).
+						Msg("Requesting instance drain")
 					event.InProgress = true
 					wg.Add(1)
 					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
@@ -242,6 +254,20 @@ func main() {
 				}
 			}
 		}
+		if eventStoreGCInterval >= eventStoreGCPeriod {
+			log.Info().Msg("Garbage-collecting the interruption event store")
+			interruptionEventStore.GC()
+			eventStoreGCInterval = 0
+		}
+		if eventStoreLogInterval >= eventStoreLogPeriod {
+			log.Info().
+				Int("size", interruptionEventStore.Size()).
+				Int("drainable-events", interruptionEventStore.CountDrainableEvents()).
+				Msg("event store statistics")
+			eventStoreLogInterval = 0
+		}
+		eventStoreGCInterval++
+		eventStoreLogInterval++
 	}
 	log.Info().Msg("AWS Node Termination Handler is shutting down")
 	wg.Wait()
