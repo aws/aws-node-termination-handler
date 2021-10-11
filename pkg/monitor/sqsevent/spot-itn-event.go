@@ -55,7 +55,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 		return monitor.InterruptionEvent{}, err
 	}
 
-	nodeName, err := m.retrieveNodeName(spotInterruptionDetail.InstanceID)
+	nodeInfo, err := m.getNodeInfo(spotInterruptionDetail.InstanceID)
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
@@ -65,7 +65,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 		Kind:                 SQSTerminateKind,
 		AutoScalingGroupName: asgName,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
+		NodeName:             nodeInfo.Name,
 		InstanceID:           spotInterruptionDetail.InstanceID,
 		Description:          fmt.Sprintf("Spot Interruption event received. Instance %s will be interrupted at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
 	}

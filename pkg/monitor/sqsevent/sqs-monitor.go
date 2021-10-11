@@ -38,6 +38,13 @@ const (
 // ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
 var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
 
+// NodeInfo is relevant information about a single node
+type NodeInfo struct {
+	InstanceID string
+	Name       string
+	Tags       map[string]string
+}
+
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
 	InterruptionChan chan<- monitor.InterruptionEvent
@@ -182,8 +189,10 @@ func (m SQSMonitor) deleteMessages(messages []*sqs.Message) []error {
 	return errs
 }
 
-// retrieveNodeName queries the EC2 API to determine the private DNS name for the instanceID specified
-func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
+// getNodeInfo returns the NodeInfo record for the given instanceID.
+//
+// The data is retrieved from the EC2 API.
+func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	result, err := m.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
 			aws.String(instanceID),
@@ -192,22 +201,30 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotFound" {
 			log.Warn().Msgf("No instance found with instance-id %s", instanceID)
-			return "", ErrNodeStateNotRunning
+			return nil, ErrNodeStateNotRunning
 		}
-		return "", err
+		return nil, err
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
 		log.Warn().Msgf("No instance found with instance-id %s", instanceID)
-		return "", ErrNodeStateNotRunning
+		return nil, ErrNodeStateNotRunning
 	}
 
 	instance := result.Reservations[0].Instances[0]
-	nodeName := *instance.PrivateDnsName
-	log.Debug().Msgf("Got nodename from private ip %s", nodeName)
+	nodeInfo := &NodeInfo{
+		Name:       *instance.PrivateDnsName,
+		InstanceID: instanceID,
+		Tags:       make(map[string]string),
+	}
+	for _, t := range (*instance).Tags {
+		nodeInfo.Tags[*t.Key] = *t.Value
+	}
+	infoJSON, _ := json.MarshalIndent(nodeInfo, " ", "    ")
+	log.Debug().Msgf("Got info from private ip %s", infoJSON)
 	instanceJSON, _ := json.MarshalIndent(*instance, " ", "    ")
 	log.Debug().Msgf("Got instance data from ec2 describe call: %s", instanceJSON)
 
-	if nodeName == "" {
+	if nodeInfo.Name == "" {
 		state := "unknown"
 		// safe access instance.State potentially being nil
 		if instance.State != nil {
@@ -215,11 +232,11 @@ func (m SQSMonitor) retrieveNodeName(instanceID string) (string, error) {
 		}
 		// anything except running might not contain PrivateDnsName
 		if state != ec2.InstanceStateNameRunning {
-			return "", fmt.Errorf("node: '%s' in state '%s': %w", instanceID, state, ErrNodeStateNotRunning)
+			return nil, fmt.Errorf("node: '%s' in state '%s': %w", instanceID, state, ErrNodeStateNotRunning)
 		}
-		return "", fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
+		return nil, fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
 	}
-	return nodeName, nil
+	return nodeInfo, nil
 }
 
 // isInstanceManaged returns whether the instance specified should be managed by node termination handler

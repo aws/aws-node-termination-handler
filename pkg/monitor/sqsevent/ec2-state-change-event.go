@@ -61,7 +61,7 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 		return monitor.InterruptionEvent{}, nil
 	}
 
-	nodeName, err := m.retrieveNodeName(ec2StateChangeDetail.InstanceID)
+	nodeInfo, err := m.getNodeInfo(ec2StateChangeDetail.InstanceID)
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
@@ -70,7 +70,7 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 		EventID:              fmt.Sprintf("ec2-state-change-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
+		NodeName:             nodeInfo.Name,
 		AutoScalingGroupName: asgName,
 		InstanceID:           ec2StateChangeDetail.InstanceID,
 		Description:          fmt.Sprintf("EC2 State Change event received. Instance %s went into %s at %s \n", ec2StateChangeDetail.InstanceID, ec2StateChangeDetail.State, event.getTime()),

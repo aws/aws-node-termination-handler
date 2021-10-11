@@ -64,7 +64,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 		return monitor.InterruptionEvent{}, err
 	}
 
-	nodeName, err := m.retrieveNodeName(lifecycleDetail.EC2InstanceID)
+	nodeInfo, err := m.getNodeInfo(lifecycleDetail.EC2InstanceID)
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
@@ -74,7 +74,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 		Kind:                 SQSTerminateKind,
 		AutoScalingGroupName: lifecycleDetail.AutoScalingGroupName,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
+		NodeName:             nodeInfo.Name,
 		InstanceID:           lifecycleDetail.EC2InstanceID,
 		Description:          fmt.Sprintf("ASG Lifecycle Termination event received. Instance will be interrupted at %s \n", event.getTime()),
 	}

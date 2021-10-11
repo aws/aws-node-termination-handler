@@ -53,7 +53,7 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 		return monitor.InterruptionEvent{}, err
 	}
 
-	nodeName, err := m.retrieveNodeName(rebalanceRecDetail.InstanceID)
+	nodeInfo, err := m.getNodeInfo(rebalanceRecDetail.InstanceID)
 	if err != nil {
 		return monitor.InterruptionEvent{}, err
 	}
@@ -63,8 +63,8 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 		Kind:                 SQSTerminateKind,
 		AutoScalingGroupName: asgName,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
-		InstanceID:           rebalanceRecDetail.InstanceID,
+		NodeName:             nodeInfo.Name,
+		InstanceID:           nodeInfo.InstanceID,
 		Description:          fmt.Sprintf("Rebalance recommendation event received. Instance %s will be cordoned at %s \n", rebalanceRecDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
