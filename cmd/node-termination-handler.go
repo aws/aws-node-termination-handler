@@ -222,13 +222,6 @@ func main() {
 	log.Info().Msg("Started watching for event cancellations")
 
 	var wg sync.WaitGroup
-	eventStoreGCInterval := 0
-	eventStoreGCPeriod := 7200
-	eventStoreLogInterval := 0
-	eventStoreLogPeriod := 1800
-	if nthConfig.LogLevel == "debug" {
-		eventStoreLogPeriod = 60
-	}
 	for range time.NewTicker(1 * time.Second).C {
 		select {
 		case <-signalChan:
@@ -254,20 +247,6 @@ func main() {
 				}
 			}
 		}
-		if eventStoreGCInterval >= eventStoreGCPeriod {
-			log.Info().Msg("Garbage-collecting the interruption event store")
-			interruptionEventStore.GC()
-			eventStoreGCInterval = 0
-		}
-		if eventStoreLogInterval >= eventStoreLogPeriod {
-			log.Info().
-				Int("size", interruptionEventStore.Size()).
-				Int("drainable-events", interruptionEventStore.CountDrainableEvents()).
-				Msg("event store statistics")
-			eventStoreLogInterval = 0
-		}
-		eventStoreGCInterval++
-		eventStoreLogInterval++
 	}
 	log.Info().Msg("AWS Node Termination Handler is shutting down")
 	wg.Wait()
