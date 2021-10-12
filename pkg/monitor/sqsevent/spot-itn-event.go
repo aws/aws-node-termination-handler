@@ -48,16 +48,16 @@ type SpotInterruptionDetail struct {
 	InstanceAction string `json:"instance-action"`
 }
 
-func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	spotInterruptionDetail := &SpotInterruptionDetail{}
 	err := json.Unmarshal(event.Detail, spotInterruptionDetail)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
 	nodeInfo, err := m.getNodeInfo(spotInterruptionDetail.InstanceID)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("spot-itn-event-%x", event.ID),
@@ -83,5 +83,5 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 		}
 		return nil
 	}
-	return interruptionEvent, nil
+	return &interruptionEvent, nil
 }

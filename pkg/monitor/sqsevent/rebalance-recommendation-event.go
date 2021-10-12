@@ -46,16 +46,16 @@ type RebalanceRecommendationDetail struct {
 	InstanceID string `json:"instance-id"`
 }
 
-func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	rebalanceRecDetail := &RebalanceRecommendationDetail{}
 	err := json.Unmarshal(event.Detail, rebalanceRecDetail)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
 	nodeInfo, err := m.getNodeInfo(rebalanceRecDetail.InstanceID)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("rebalance-recommendation-event-%x", event.ID),
@@ -81,5 +81,5 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 		}
 		return nil
 	}
-	return interruptionEvent, nil
+	return &interruptionEvent, nil
 }
