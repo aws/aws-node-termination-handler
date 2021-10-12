@@ -61,7 +61,7 @@ const (
 	checkASGTagBeforeDrainingDefault        = true
 	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
 	managedAsgTagDefault                    = "aws-node-termination-handler/managed"
-	assumeAsgTagPropagationKey              = "ASG_TAG_PROPAGATION"
+	assumeAsgTagPropagationKey              = "ASSUME_ASG_TAG_PROPAGATION"
 	assumeAsgTagPropagationDefault          = false
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
