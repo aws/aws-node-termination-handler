@@ -365,6 +365,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	}
 
 	if err != nil {
+		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 		<-interruptionEventStore.Workers
 	} else {
 		interruptionEventStore.MarkAllAsProcessed(nodeName)
