@@ -42,14 +42,15 @@ var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
-	InterruptionChan chan<- monitor.InterruptionEvent
-	CancelChan       chan<- monitor.InterruptionEvent
-	QueueURL         string
-	SQS              sqsiface.SQSAPI
-	ASG              autoscalingiface.AutoScalingAPI
-	EC2              ec2iface.EC2API
-	CheckIfManaged   bool
-	ManagedAsgTag    string
+	InterruptionChan        chan<- monitor.InterruptionEvent
+	CancelChan              chan<- monitor.InterruptionEvent
+	QueueURL                string
+	SQS                     sqsiface.SQSAPI
+	ASG                     autoscalingiface.AutoScalingAPI
+	EC2                     ec2iface.EC2API
+	CheckIfManaged          bool
+	AssumeAsgTagPropagation bool
+	ManagedAsgTag           string
 }
 
 // Kind denotes the kind of event that is processed
@@ -238,8 +239,9 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		}
 	}
 
-	if nodeInfo.AsgName == "" {
-		// The instance was not tagged with its ASG; use the API to retrieve it
+	if nodeInfo.AsgName == "" && !m.AssumeAsgTagPropagation {
+		// If ASG tags are not propagated we might need to use the API
+		// to retrieve the ASG name
 		nodeInfo.AsgName, err = m.retrieveAutoScalingGroupName(nodeInfo.InstanceID)
 		if err != nil {
 			return nil, fmt.Errorf("unable to retrieve AutoScaling group: %w", err)
@@ -247,10 +249,14 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	}
 
 	if m.CheckIfManaged && nodeInfo.Tags[m.ManagedAsgTag] == "" {
-		// The instance was not tagged with the m.ManagedAsgTag, check if its ASG is
-		nodeInfo.IsManaged, err = m.isASGManaged(nodeInfo.AsgName, nodeInfo.InstanceID)
-		if err != nil {
-			return nil, err
+		if m.AssumeAsgTagPropagation {
+			nodeInfo.IsManaged = false
+		} else {
+			// if ASG tags are not propagated we might have to check the ASG directly
+			nodeInfo.IsManaged, err = m.isASGManaged(nodeInfo.AsgName, nodeInfo.InstanceID)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	infoJSON, _ := json.MarshalIndent(nodeInfo, " ", "    ")
@@ -308,5 +314,5 @@ func (m SQSMonitor) retrieveAutoScalingGroupName(instanceID string) (string, err
 		Str("instance_id", instanceID).
 		Str("asg_name", *asgName).
 		Msg("performed API lookup of instance ASG")
-	return *asgName, err
+	return *asgName, nil
 }

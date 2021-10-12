@@ -61,6 +61,8 @@ const (
 	checkASGTagBeforeDrainingDefault        = true
 	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
 	managedAsgTagDefault                    = "aws-node-termination-handler/managed"
+	assumeAsgTagPropagationKey              = "ASG_TAG_PROPAGATION"
+	assumeAsgTagPropagationDefault          = false
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
@@ -117,6 +119,7 @@ type Config struct {
 	EnableRebalanceDraining          bool
 	CheckASGTagBeforeDraining        bool
 	ManagedAsgTag                    string
+	AssumeAsgTagPropagation          bool
 	MetadataTries                    int
 	CordonOnly                       bool
 	TaintNode                        bool
@@ -186,7 +189,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
-
+	flag.BoolVar(&config.AssumeAsgTagPropagation, "assume-asg-tag-propagation", getBoolEnv(assumeAsgTagPropagationKey, assumeAsgTagPropagationDefault), "If true, assume that ASG tags will be appear on the ASG's instances.")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
