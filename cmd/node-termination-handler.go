@@ -222,12 +222,14 @@ func main() {
 	log.Info().Msg("Started watching for event cancellations")
 
 	var wg sync.WaitGroup
+
 	for range time.NewTicker(1 * time.Second).C {
 		select {
 		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
 			break
 		default:
+		EventLoop:
 			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
 				select {
 				case interruptionEventStore.Workers <- 1:
@@ -243,7 +245,7 @@ func main() {
 					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
-					break
+					break EventLoop
 				}
 			}
 		}
