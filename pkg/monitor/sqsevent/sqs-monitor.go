@@ -254,7 +254,7 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		}
 	}
 	infoJSON, _ := json.MarshalIndent(nodeInfo, " ", "    ")
-	log.Debug().Msgf("Got info from private ip %s", infoJSON)
+	log.Debug().Msgf("Got node info from AWS: %s", infoJSON)
 
 	return nodeInfo, nil
 }
