@@ -38,14 +38,14 @@ func TestGetTime_Empty(t *testing.T) {
 	h.Assert(t, asgLifecycleTime.After(testTime), "an empty time should return the current time")
 }
 
-func TestIsInstanceManaged(t *testing.T) {
+func TestIsASGManaged(t *testing.T) {
 	asgName := "test-asg"
 	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: &asgName},
-			},
-		},
+		// DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
+		// 	AutoScalingInstances: []*autoscaling.InstanceDetails{
+		// 		{AutoScalingGroupName: &asgName},
+		// 	},
+		// },
 		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
 			Tags: []*autoscaling.TagDescription{
 				{Key: aws.String("aws-node-termination-handler/managed")},
@@ -57,67 +57,67 @@ func TestIsInstanceManaged(t *testing.T) {
 		CheckIfManaged: true,
 		ManagedAsgTag:  "aws-node-termination-handler/managed",
 	}
-	isManaged, err := monitor.isInstanceManaged("i-0123456789")
+	isManaged, err := monitor.isASGManaged(asgName, "i-0123456789")
 	h.Ok(t, err)
 	h.Equals(t, true, isManaged)
 }
 
-func TestIsInstanceManaged_NotInASG(t *testing.T) {
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{},
-		},
-	}
-	monitor := SQSMonitor{ASG: asgMock}
-	isManaged, err := monitor.isInstanceManaged("i-0123456789")
-	h.Ok(t, err)
-	h.Equals(t, false, isManaged)
-}
+// func TestIsInstanceManaged_NotInASG(t *testing.T) {
+// 	asgMock := h.MockedASG{
+// 		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
+// 			AutoScalingInstances: []*autoscaling.InstanceDetails{},
+// 		},
+// 	}
+// 	monitor := SQSMonitor{ASG: asgMock}
+// 	isManaged, err := monitor.isInstanceManaged("i-0123456789")
+// 	h.Ok(t, err)
+// 	h.Equals(t, false, isManaged)
+// }
 
-func TestIsInstanceManaged_ASGNotManaged(t *testing.T) {
+func TestIsASGManaged_ASGNotManaged(t *testing.T) {
 	asgName := "test-asg"
 	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: &asgName},
-			},
-		},
+		// DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
+		// 	AutoScalingInstances: []*autoscaling.InstanceDetails{
+		// 		{AutoScalingGroupName: &asgName},
+		// 	},
+		// },
 		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
 			Tags: []*autoscaling.TagDescription{},
 		},
 	}
 	monitor := SQSMonitor{ASG: asgMock}
-	isManaged, err := monitor.isInstanceManaged("i-0123456789")
+	isManaged, err := monitor.isASGManaged(asgName, "i-0123456789")
 	h.Ok(t, err)
 	h.Equals(t, false, isManaged)
 }
 
-func TestIsInstanceManaged_Err(t *testing.T) {
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesErr: fmt.Errorf("error"),
-	}
-	monitor := SQSMonitor{ASG: asgMock}
-	_, err := monitor.isInstanceManaged("i-0123456789")
-	h.Nok(t, err)
-}
+// func TestIsInstanceManaged_Err(t *testing.T) {
+// 	asgMock := h.MockedASG{
+// 		DescribeAutoScalingInstancesErr: fmt.Errorf("error"),
+// 	}
+// 	monitor := SQSMonitor{ASG: asgMock}
+// 	_, err := monitor.isInstanceManaged("i-0123456789")
+// 	h.Nok(t, err)
+// }
 
-func TestIsInstanceManaged_TagErr(t *testing.T) {
+func TestIsASGManaged_TagErr(t *testing.T) {
 	asgName := "test-asg"
 	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: &asgName},
-			},
-		},
+		// DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
+		// 	AutoScalingInstances: []*autoscaling.InstanceDetails{
+		// 		{AutoScalingGroupName: &asgName},
+		// 	},
+		// },
 		DescribeTagsPagesErr: fmt.Errorf("error"),
 	}
 	monitor := SQSMonitor{ASG: asgMock}
-	_, err := monitor.isInstanceManaged("i-0123456789")
+	_, err := monitor.isASGManaged(asgName, "i-0123456789")
 	h.Nok(t, err)
 }
 
-func TestIsInstanceManaged_EmptyInstanceIDErr(t *testing.T) {
+func TestIsASGManaged_EmptyASGNameErr(t *testing.T) {
 	monitor := SQSMonitor{}
-	_, err := monitor.isInstanceManaged("")
+	_, err := monitor.isASGManaged("", "i-0123456789")
 	h.Nok(t, err)
 }

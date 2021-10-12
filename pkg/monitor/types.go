@@ -34,6 +34,7 @@ type InterruptionEvent struct {
 	NodeLabels           map[string]string
 	Pods                 []string
 	InstanceID           string
+	IsManaged            bool
 	StartTime            time.Time
 	EndTime              time.Time
 	NodeProcessed        bool
