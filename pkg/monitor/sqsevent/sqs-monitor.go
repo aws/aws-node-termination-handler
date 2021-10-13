@@ -82,7 +82,7 @@ func (m SQSMonitor) Monitor() error {
 			failedEvents++
 
 		case interruptionEvent == nil:
-			log.Debug().Msg("ignoring and deleting non-actionable event")
+			log.Debug().Msg("dropping non-actionable event")
 			dropMessage = true
 
 		case m.CheckIfManaged && !interruptionEvent.IsManaged:
@@ -97,7 +97,7 @@ func (m SQSMonitor) Monitor() error {
 
 		default:
 			eventJSON, _ := json.MarshalIndent(interruptionEvent, " ", "    ")
-			log.Warn().Msgf("Dropping event of an unrecognized kind: %s", eventJSON)
+			log.Warn().Msgf("dropping event of an unrecognized kind: %s", eventJSON)
 			dropMessage = true
 		}
 
@@ -268,7 +268,7 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 // isASGManaged returns whether the autoscaling group should be managed by node termination handler
 func (m SQSMonitor) isASGManaged(asgName string, instanceID string) (bool, error) {
 	if asgName == "" {
-		return false, fmt.Errorf("instance ASG not found: %s", instanceID)
+		return false, nil
 	}
 	asgFilter := autoscaling.Filter{Name: aws.String("auto-scaling-group"), Values: []*string{aws.String(asgName)}}
 	asgDescribeTagsInput := autoscaling.DescribeTagsInput{

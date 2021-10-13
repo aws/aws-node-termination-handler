@@ -426,7 +426,7 @@ func TestMonitor_EC2Failure(t *testing.T) {
 			ReceiveMessageErr:  nil,
 		}
 		ec2Mock := h.MockedEC2{
-			DescribeInstancesResp: getDescribeInstancesResp("", false, false),
+			DescribeInstancesResp: getDescribeInstancesResp("", true, true),
 			DescribeInstancesErr:  fmt.Errorf("error"),
 		}
 		drainChan := make(chan monitor.InterruptionEvent, 1)
