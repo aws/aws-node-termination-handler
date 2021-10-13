@@ -1,0 +1,47 @@
+name: Stale Issues / PRs
+
+on:
+  schedule:
+    - cron: "0 17 * * *"  # Runs every day at noon
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      # 7+3 day stale policy for PRs
+      # * Except PRs marked as "no-stale"
+      - name: Stale PRs policy
+        uses: actions/stale@v4.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          exempt-pr-labels: "no-stale"
+          days-before-stale: 7
+          days-before-close: 3
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          remove-stale-when-updated: true
+          stale-pr-label: "stale"
+          stale-pr-message: >
+            This PR has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
+            If you want this PR to never become stale, please ask a collaborators to apply the "no-stale" label.
+          close-pr-message: >
+            This PR was closed because it has been staled with no activity.
+
+      # 7+3 day stale policy for open issues
+      # * Except Issues marked as "no-stale"
+      - name: Stale Issues policy
+        uses: actions/stale@v4.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          exempt-issue-labels: "no-stale"
+          days-before-stale: 7
+          days-before-close: 3
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          remove-stale-when-updated: true
+          stale-issue-label: "stale"
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
+            If you want this issue to never become stale, please ask a collaborators to apply the "no-stale" label.
+          close-issue-message: >
+            This issue was closed because it has been staled with no activity.
