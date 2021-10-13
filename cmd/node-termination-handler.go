@@ -229,16 +229,23 @@ func main() {
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			for event, ok := interruptionEventStore.GetActiveEvent(); ok && !event.InProgress; event, ok = interruptionEventStore.GetActiveEvent() {
+		EventLoop:
+			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
 				select {
 				case interruptionEventStore.Workers <- 1:
+					log.Info().
+						Str("event-id", event.EventID).
+						Str("kind", event.Kind).
+						Str("node-name", event.NodeName).
+						Str("instance-id", event.InstanceID).
+						Msg("Requesting instance drain")
 					event.InProgress = true
 					wg.Add(1)
 					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
 					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
-					break
+					break EventLoop
 				}
 			}
 		}
@@ -339,6 +346,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	}
 
 	if err != nil {
+		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 		<-interruptionEventStore.Workers
 	} else {
 		interruptionEventStore.MarkAllAsProcessed(nodeName)
