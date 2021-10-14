@@ -25,7 +25,7 @@ jobs:
             This PR has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
             If you want this PR to never become stale, please ask a maintainer to apply the "stalebot-ignore" label.
           close-pr-message: >
-            This PR was closed because is has become stale with no activity.
+            This PR was closed because it has become stale with no activity.
 
       # 30+5 day stale policy for open issues
       # * Except Issues marked as "stalebot-ignore"
@@ -42,6 +42,6 @@ jobs:
           stale-issue-label: "stale"
           stale-issue-message: >
             This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
-            If you want this issue to never become stale, please ask a collaborators to apply the "stalebot-ignore" label.
+            If you want this issue to never become stale, please ask a maintainer to apply the "stalebot-ignore" label.
           close-issue-message: >
-            This issue was closed because is has become stale with no activity.
+            This issue was closed because it has become stale with no activity.
