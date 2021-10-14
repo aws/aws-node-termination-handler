@@ -57,7 +57,7 @@ type LifecycleDetail struct {
 	LifecycleTransition  string `json:"LifecycleTransition"`
 }
 
-func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {

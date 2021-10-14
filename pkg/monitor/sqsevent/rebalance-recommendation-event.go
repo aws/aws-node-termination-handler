@@ -46,7 +46,7 @@ type RebalanceRecommendationDetail struct {
 	InstanceID string `json:"instance-id"`
 }
 
-func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	rebalanceRecDetail := &RebalanceRecommendationDetail{}
 	err := json.Unmarshal(event.Detail, rebalanceRecDetail)
 	if err != nil {

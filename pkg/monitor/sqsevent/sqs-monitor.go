@@ -53,6 +53,12 @@ type SQSMonitor struct {
 	ManagedAsgTag           string
 }
 
+// Convenience wrapper for handling a pair of an interruption event and a related error
+type InterruptionEventWrapper struct {
+	InterruptionEvent *monitor.InterruptionEvent
+	Err               error
+}
+
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
@@ -66,51 +72,24 @@ func (m SQSMonitor) Monitor() error {
 		return err
 	}
 
-	failedEvents := 0
+	failedEventBridgeEvents := 0
 	for _, message := range messages {
-		interruptionEvent, err := m.processSQSMessage(message)
-		dropMessage := false
-		switch {
-		case errors.Is(err, ErrNodeStateNotRunning):
-			// If the node is no longer running, just log and delete the message.  If message deletion fails, count it as an error.
-			log.Warn().Err(err).Msg("dropping event for an already terminated node")
-			dropMessage = true
-
-		case err != nil:
-			// Log errors and record as failed events
-			log.Err(err).Msg("ignoring event due to error")
-			failedEvents++
-
-		case interruptionEvent == nil:
-			log.Debug().Msg("dropping non-actionable event")
-			dropMessage = true
-
-		case m.CheckIfManaged && !interruptionEvent.IsManaged:
-			// This event isn't for an instance that is managed by this process
-			log.Debug().Str("instance-id", interruptionEvent.InstanceID).Msg("dropping event for unmanaged node")
-			dropMessage = true
-
-		case interruptionEvent.Kind == SQSTerminateKind:
-			// Successfully processed SQS message into a SQSTerminateKind interruption event
-			log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
-			m.InterruptionChan <- *interruptionEvent
-
-		default:
-			eventJSON, _ := json.MarshalIndent(interruptionEvent, " ", "    ")
-			log.Warn().Msgf("dropping event of an unrecognized kind: %s", eventJSON)
-			dropMessage = true
+		eventBridgeEvent, err := m.processSQSMessage(message)
+		if err != nil {
+			log.Err(err).Msg("error processing SQS message")
+			failedEventBridgeEvents++
 		}
 
-		if dropMessage {
-			errs := m.deleteMessages([]*sqs.Message{message})
-			if len(errs) > 0 {
-				log.Err(errs[0]).Msg("Error deleting message from SQS")
-				failedEvents++
-			}
+		interruptionEventWrappers := m.processEventBridgeEvent(eventBridgeEvent, message)
+
+		err = m.processInterruptionEvents(interruptionEventWrappers, message)
+		if err != nil {
+			log.Err(err).Msg("error processing interruption events")
+			failedEventBridgeEvents++
 		}
 	}
 
-	if len(messages) > 0 && failedEvents == len(messages) {
+	if len(messages) > 0 && failedEventBridgeEvents == len(messages) {
 		return fmt.Errorf("none of the waiting queue events could be processed")
 	}
 
@@ -118,27 +97,97 @@ func (m SQSMonitor) Monitor() error {
 }
 
 // processSQSMessage checks sqs for new messages and returns interruption events
-func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*monitor.InterruptionEvent, error) {
+// func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, error) {
 	event := EventBridgeEvent{}
 	err := json.Unmarshal([]byte(*message.Body), &event)
-	if err != nil {
-		return nil, err
-	}
 
-	switch event.Source {
+	return &event, err
+}
+
+//
+func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
+	interruptionEventWrappers := []InterruptionEventWrapper{}
+	interruptionEvent := &monitor.InterruptionEvent{}
+	var err error
+
+	switch eventBridgeEvent.Source {
 	case "aws.autoscaling":
-		return m.asgTerminationToInterruptionEvent(event, message)
+		interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 
 	case "aws.ec2":
-		if event.DetailType == "EC2 Instance State-change Notification" {
-			return m.ec2StateChangeToInterruptionEvent(event, message)
-		} else if event.DetailType == "EC2 Spot Instance Interruption Warning" {
-			return m.spotITNTerminationToInterruptionEvent(event, message)
-		} else if event.DetailType == "EC2 Instance Rebalance Recommendation" {
-			return m.rebalanceRecommendationToInterruptionEvent(event, message)
+		if eventBridgeEvent.DetailType == "EC2 Instance State-change Notification" {
+			interruptionEvent, err = m.ec2StateChangeToInterruptionEvent(eventBridgeEvent, message)
+		} else if eventBridgeEvent.DetailType == "EC2 Spot Instance Interruption Warning" {
+			interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(eventBridgeEvent, message)
+		} else if eventBridgeEvent.DetailType == "EC2 Instance Rebalance Recommendation" {
+			interruptionEvent, err = m.rebalanceRecommendationToInterruptionEvent(eventBridgeEvent, message)
+		}
+
+	case "aws.health":
+		if eventBridgeEvent.DetailType == "AWS Health Event" {
+			interruptionEventWrappers = m.scheduledEventToInterruptionEvents(eventBridgeEvent, message)
+		}
+
+	default:
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("Event source (%s) is not supported", eventBridgeEvent.Source)})
+	}
+
+	return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
+}
+
+//
+func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []InterruptionEventWrapper, message *sqs.Message) error {
+	dropMessageSuggestionCount := 0
+	failedInterruptionEventsCount := 0
+
+	for _, eventWrapper := range interruptionEventWrappers {
+		switch {
+		case errors.Is(eventWrapper.Err, ErrNodeStateNotRunning):
+			// If the node is no longer running, just log and delete the message
+			log.Warn().Err(eventWrapper.Err).Msg("dropping interruption event for an already terminated node")
+			dropMessageSuggestionCount++
+
+		case eventWrapper.Err != nil:
+			// Log errors and record as failed events. Don't delete the message in order to allow retries
+			log.Err(eventWrapper.Err).Msg("ignoring interruption event due to error")
+			failedInterruptionEventsCount++ // seems useless
+
+		case eventWrapper.InterruptionEvent == nil:
+			log.Debug().Msg("dropping non-actionable interruption event")
+			dropMessageSuggestionCount++
+
+		case m.CheckIfManaged && !eventWrapper.InterruptionEvent.IsManaged:
+			// This event isn't for an instance that is managed by this process
+			log.Debug().Str("instance-id", eventWrapper.InterruptionEvent.InstanceID).Msg("dropping interruption event for unmanaged node")
+			dropMessageSuggestionCount++
+
+		case eventWrapper.InterruptionEvent.Kind == SQSTerminateKind:
+			// Successfully processed SQS message into a SQSTerminateKind interruption event
+			log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
+			m.InterruptionChan <- *eventWrapper.InterruptionEvent
+
+		default:
+			eventJSON, _ := json.MarshalIndent(eventWrapper.InterruptionEvent, " ", "    ")
+			log.Warn().Msgf("dropping interruption event of an unrecognized kind: %s", eventJSON)
+			dropMessageSuggestionCount++
 		}
 	}
-	return nil, fmt.Errorf("Event source (%s) is not supported", event.Source)
+
+	if dropMessageSuggestionCount == len(interruptionEventWrappers) {
+		// All interruption events weren't actionable, just delete the message. If message deletion fails, count it as an error
+		errs := m.deleteMessages([]*sqs.Message{message})
+		if len(errs) > 0 {
+			log.Err(errs[0]).Msg("Error deleting message from SQS")
+			// failedInterruptionEventsCount++ // wront count?
+		}
+	}
+
+	if failedInterruptionEventsCount == 0 {
+		return nil
+	} else {
+		return fmt.Errorf("%b of %b interruption events for message Id %b could not be processed", failedInterruptionEventsCount, len(interruptionEventWrappers), message.MessageId)
+	}
 }
 
 // receiveQueueMessages checks the configured SQS queue for new messages
