@@ -62,7 +62,6 @@ func TestGetNodeInfo_WithTags(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:both checkIfmanaged:true assumePropagation:false ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_BothTags_Managed(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp(
@@ -84,7 +83,6 @@ func TestGetNodeInfo_BothTags_Managed(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:both checkIfmanaged:true assumePropagation:true ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_BothTags_AssumePropagation_Managed(t *testing.T) {
 	asgName := "test-asg"
 	ec2Mock := h.MockedEC2{
@@ -109,7 +107,6 @@ func TestGetNodeInfo_BothTags_AssumePropagation_Managed(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:asg checkIfmanaged:true assumePropagation:false ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_ASGTag_ASGNotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp(
@@ -136,7 +133,6 @@ func TestGetNodeInfo_ASGTag_ASGNotManaged(t *testing.T) {
 	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
-// tags:asg checkIfmanaged:true assumePropagation:false ASGfromAPI:false ASGTagsFromAPI:true
 func TestGetNodeInfo_ASGTag_ASGManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp(
@@ -165,7 +161,6 @@ func TestGetNodeInfo_ASGTag_ASGManaged(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:asg checkIfmanaged:true assumePropagation:true ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_ASGTag_AssumePropagation_NotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp(
@@ -200,7 +195,6 @@ func TestGetNodeInfo_ASGTag_AssumePropagation_NotManaged(t *testing.T) {
 	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:false assumePropagation:false ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_NoASG(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
@@ -220,7 +214,6 @@ func TestGetNodeInfo_NoASG(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:true assumePropagation:false ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_NoASG_NotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
@@ -242,7 +235,6 @@ func TestGetNodeInfo_NoASG_NotManaged(t *testing.T) {
 	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:true assumePropagation:false ASGfromAPI:false ASGTagsFromAPI:false
 func TestGetNodeInfo_NoASG_AssumePropagation_NotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
@@ -260,7 +252,6 @@ func TestGetNodeInfo_NoASG_AssumePropagation_NotManaged(t *testing.T) {
 	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:false assumePropagation:false ASGfromAPI:true ASGTagsFromAPI:false
 func TestGetNodeInfo_ASG(t *testing.T) {
 	asgName := "my-asg"
 	ec2Mock := h.MockedEC2{
@@ -283,7 +274,6 @@ func TestGetNodeInfo_ASG(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:true assumePropagation:true ASGfromAPI:sure
 func TestGetNodeInfo_ASG_AssumePropagation_NotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
@@ -301,7 +291,6 @@ func TestGetNodeInfo_ASG_AssumePropagation_NotManaged(t *testing.T) {
 	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:true assumePropagation:false ASGfromAPI:sure
 func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) {
 	asgName := "test-asg"
 	ec2Mock := h.MockedEC2{
@@ -331,7 +320,6 @@ func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-// tags:none checkIfmanaged:true assumePropagation:false ASGfromAPI:sure
 func TestGetNodeInfo_ASG_ASGNotManaged(t *testing.T) {
 	asgName := "test-asg"
 	ec2Mock := h.MockedEC2{
@@ -385,7 +373,6 @@ func TestGetNodeInfo_ASGError(t *testing.T) {
 	h.Nok(t, err)
 }
 
-// tags:none checkIfmanaged:true assumePropagation:false ASGfromAPI:sure
 func TestGetNodeInfo_ASGTagErr(t *testing.T) {
 	asgName := "test-asg"
 	ec2Mock := h.MockedEC2{
