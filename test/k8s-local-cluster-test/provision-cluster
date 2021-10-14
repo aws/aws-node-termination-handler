@@ -9,6 +9,8 @@ OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 
 # shellcheck disable=SC2034
+K8_1_22="kindest/node:v1.22.1@sha256:7f539328bebb0483e4a91ae48fcd067619cd9fa28f4bf3b3d624858e30571a8e"
+# shellcheck disable=SC2034
 K8_1_21="kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6"
 # shellcheck disable=SC2034
 K8_1_20="kindest/node:v1.20.70@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9"
@@ -18,8 +20,6 @@ K8_1_19="kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764
 K8_1_18="kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c"
 # shellcheck disable=SC2034
 K8_1_17="kindest/node:v1.17.17@sha256:66f1d0d91a88b8a001811e2f1054af60eef3b669a9a74f9b6db871f2f1eeed00"
-# shellcheck disable=SC2034
-K8_1_16="kindest/node:v1.16.15@sha256:83067ed51bf2a3395b24687094e283a7c7c865ccc12a8b1d7aa673ba0c5e8861"
 
 K8_VERSION="$K8_1_20"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
