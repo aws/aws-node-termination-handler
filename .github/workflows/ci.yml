@@ -34,6 +34,8 @@ jobs:
 
     - name: License Check
       run: make license-test
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v2.5.2
