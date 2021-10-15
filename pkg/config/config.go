@@ -262,6 +262,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("queue_url", c.QueueURL).
 		Bool("check_asg_tag_before_draining", c.CheckASGTagBeforeDraining).
 		Str("ManagedAsgTag", c.ManagedAsgTag).
+		Bool("assume_asg_tag_propagation", c.AssumeAsgTagPropagation).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -306,6 +307,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
 			"\tmanaged-asg-tag: %s,\n"+
+			"\assume-asg-tag-propagation: %t,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
@@ -339,6 +341,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
 		c.ManagedAsgTag,
+		c.AssumeAsgTagPropagation,
 		c.AWSEndpoint,
 	)
 }
