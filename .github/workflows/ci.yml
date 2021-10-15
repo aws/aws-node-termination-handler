@@ -7,9 +7,6 @@ env:
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
@@ -182,9 +179,6 @@ jobs:
     - name: Create eks-charts PR
       run: make ekscharts-sync-release
     
-    - name: Sync Readme to Dockerhub
-      run: make sync-readme-to-dockerhub
-
     - name: Sync Readme to ECR Public
       run: make sync-readme-to-ecr-public
       env:

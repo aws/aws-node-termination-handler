@@ -7,8 +7,6 @@ ECR_REPO ?= ${ECR_REGISTRY}/aws-node-termination-handler
 IMG ?= amazon/aws-node-termination-handler
 IMG_TAG ?= ${VERSION}
 IMG_W_TAG = ${IMG}:${IMG_TAG}
-DOCKER_USERNAME ?= ""
-DOCKERHUB_TOKEN ?= ""
 GOOS ?= linux
 GOARCH ?= amd64
 GOPROXY ?= "https://proxy.golang.org,direct"
@@ -36,10 +34,6 @@ docker-build:
 docker-run:
 	docker run ${IMG_W_TAG}
 
-docker-push:
-	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
-	docker push ${IMG_W_TAG}
-
 build-docker-images:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION}
 
@@ -47,15 +41,11 @@ build-docker-images-windows:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION}
 
 push-docker-images:
-	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION} -m
 	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${ECR_REPO} -v ${VERSION} -m
 
 push-docker-images-windows:
-	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION} -m
 	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
@@ -116,9 +106,6 @@ upload-resources-to-github-windows:
 
 generate-k8s-yaml:
 	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
-
-sync-readme-to-dockerhub:
-	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
 sync-readme-to-ecr-public:
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
