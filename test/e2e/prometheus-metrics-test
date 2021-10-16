@@ -20,7 +20,7 @@ common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
-retry 5 helm install prometheus-operator "$SCRIPTPATH/../../config/helm/kube-prometheus-stack/" --set prometheusOperator.admissionWebhooks.enabled="false" --set grafana.enabled=false --set nodeExporter.enabled=false --set kubeStateMetrics.enabled=false
+retry 5 helm install prometheus-operator "$SCRIPTPATH/../../config/helm/kube-prometheus-stack/" --set prometheusOperator.admissionWebhooks.enabled="false" --set grafana.enabled="false" --set nodeExporter.enabled="false" --set kubeStateMetrics.enabled="false"
 
 anth_helm_args=(
   upgrade
