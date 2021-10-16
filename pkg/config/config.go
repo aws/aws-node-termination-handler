@@ -307,7 +307,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
 			"\tmanaged-asg-tag: %s,\n"+
-			"\assume-asg-tag-propagation: %t,\n"+
+			"\tassume-asg-tag-propagation: %t,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
