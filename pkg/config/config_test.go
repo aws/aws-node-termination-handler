@@ -42,6 +42,7 @@ func setEnvForTest(key string, val string) {
 
 func TestParseCliArgsEnvSuccess(t *testing.T) {
 	resetFlagsForTest()
+	setEnvForTest("ASSUME_ASG_TAG_PROPAGATION", "true")
 	setEnvForTest("DELETE_LOCAL_DATA", "false")
 	setEnvForTest("DRY_RUN", "true")
 	setEnvForTest("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
@@ -66,6 +67,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Ok(t, err)
 
 	// Assert all the values were set
+	h.Equals(t, true, nthConfig.AssumeAsgTagPropagation)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
@@ -100,6 +102,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	resetFlagsForTest()
 	os.Args = []string{
 		"cmd",
+		"--assume-asg-tag-propagation=true",
 		"--delete-local-data=false",
 		"--dry-run=true",
 		"--enable-scheduled-event-draining=true",
@@ -124,6 +127,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Ok(t, err)
 
 	// Assert all the values were set
+	h.Equals(t, true, nthConfig.AssumeAsgTagPropagation)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
@@ -153,6 +157,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 
 func TestParseCliArgsOverrides(t *testing.T) {
 	resetFlagsForTest()
+	setEnvForTest("ASSUME_ASG_TAG_PROPAGATION", "true")
 	setEnvForTest("DELETE_LOCAL_DATA", "true")
 	setEnvForTest("DRY_RUN", "false")
 	setEnvForTest("ENABLE_SCHEDULED_EVENT_DRAINING", "false")
@@ -175,6 +180,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	setEnvForTest("CORDON_ONLY", "true")
 	os.Args = []string{
 		"cmd",
+		"--assume-asg-tag-propagation=false",
 		"--delete-local-data=false",
 		"--dry-run=true",
 		"--enable-scheduled-event-draining=true",
@@ -201,6 +207,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Ok(t, err)
 
 	// Assert all the values were set
+	h.Equals(t, false, nthConfig.AssumeAsgTagPropagation)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)

@@ -46,25 +46,25 @@ type RebalanceRecommendationDetail struct {
 	InstanceID string `json:"instance-id"`
 }
 
-func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	rebalanceRecDetail := &RebalanceRecommendationDetail{}
 	err := json.Unmarshal(event.Detail, rebalanceRecDetail)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
-	nodeName, err := m.retrieveNodeName(rebalanceRecDetail.InstanceID)
+	nodeInfo, err := m.getNodeInfo(rebalanceRecDetail.InstanceID)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
-	asgName, _ := m.retrieveAutoScalingGroupName(rebalanceRecDetail.InstanceID)
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("rebalance-recommendation-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,
-		AutoScalingGroupName: asgName,
+		AutoScalingGroupName: nodeInfo.AsgName,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
-		InstanceID:           rebalanceRecDetail.InstanceID,
+		NodeName:             nodeInfo.Name,
+		IsManaged:            nodeInfo.IsManaged,
+		InstanceID:           nodeInfo.InstanceID,
 		Description:          fmt.Sprintf("Rebalance recommendation event received. Instance %s will be cordoned at %s \n", rebalanceRecDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
@@ -81,5 +81,5 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event EventBridge
 		}
 		return nil
 	}
-	return interruptionEvent, nil
+	return &interruptionEvent, nil
 }

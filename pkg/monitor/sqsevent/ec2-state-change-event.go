@@ -50,28 +50,28 @@ type EC2StateChangeDetail struct {
 
 const instanceStatesToDrain = "stopping,stopped,shutting-down,terminated"
 
-func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	ec2StateChangeDetail := &EC2StateChangeDetail{}
 	err := json.Unmarshal(event.Detail, ec2StateChangeDetail)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
 	if !strings.Contains(instanceStatesToDrain, strings.ToLower(ec2StateChangeDetail.State)) {
-		return monitor.InterruptionEvent{}, nil
+		return nil, nil
 	}
 
-	nodeName, err := m.retrieveNodeName(ec2StateChangeDetail.InstanceID)
+	nodeInfo, err := m.getNodeInfo(ec2StateChangeDetail.InstanceID)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
-	asgName, _ := m.retrieveAutoScalingGroupName(ec2StateChangeDetail.InstanceID)
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("ec2-state-change-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
-		AutoScalingGroupName: asgName,
+		NodeName:             nodeInfo.Name,
+		IsManaged:            nodeInfo.IsManaged,
+		AutoScalingGroupName: nodeInfo.AsgName,
 		InstanceID:           ec2StateChangeDetail.InstanceID,
 		Description:          fmt.Sprintf("EC2 State Change event received. Instance %s went into %s at %s \n", ec2StateChangeDetail.InstanceID, ec2StateChangeDetail.State, event.getTime()),
 	}
@@ -83,5 +83,5 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, me
 		}
 		return nil
 	}
-	return interruptionEvent, nil
+	return &interruptionEvent, nil
 }

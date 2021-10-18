@@ -102,7 +102,7 @@ func TestMonitor_Success(t *testing.T) {
 		}
 		dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 		ec2Mock := h.MockedEC2{
-			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
 		}
 		drainChan := make(chan monitor.InterruptionEvent, 1)
 
@@ -150,7 +150,7 @@ func TestMonitor_DrainTasks(t *testing.T) {
 	}
 	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
 	}
 	asgMock := h.MockedASG{
 		CompleteLifecycleActionResp: autoscaling.CompleteLifecycleActionOutput{},
@@ -199,7 +199,7 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 	}
 	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
 	}
 	asgMock := h.MockedASG{
 		CompleteLifecycleActionResp: autoscaling.CompleteLifecycleActionOutput{},
@@ -251,7 +251,7 @@ func TestMonitor_DrainTasksASGFailure(t *testing.T) {
 	}
 	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
 	}
 	asgMock := h.MockedASG{
 		CompleteLifecycleActionResp: autoscaling.CompleteLifecycleActionOutput{},
@@ -426,7 +426,7 @@ func TestMonitor_EC2Failure(t *testing.T) {
 			ReceiveMessageErr:  nil,
 		}
 		ec2Mock := h.MockedEC2{
-			DescribeInstancesResp: getDescribeInstancesResp(""),
+			DescribeInstancesResp: getDescribeInstancesResp("", true, true),
 			DescribeInstancesErr:  fmt.Errorf("error"),
 		}
 		drainChan := make(chan monitor.InterruptionEvent, 1)
@@ -533,7 +533,7 @@ func TestMonitor_EC2NoDNSName(t *testing.T) {
 		DeleteMessageResp:  sqs.DeleteMessageOutput{},
 	}
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(""),
+		DescribeInstancesResp: getDescribeInstancesResp("", true, true),
 	}
 	drainChan := make(chan monitor.InterruptionEvent, 1)
 
@@ -570,7 +570,7 @@ func TestMonitor_EC2NoDNSNameOnTerminatedInstance(t *testing.T) {
 		DeleteMessageResp:  sqs.DeleteMessageOutput{},
 	}
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(""),
+		DescribeInstancesResp: getDescribeInstancesResp("", true, true),
 	}
 	ec2Mock.DescribeInstancesResp.Reservations[0].Instances[0].State = &ec2.InstanceState{
 		Name: aws.String("running"),
@@ -611,7 +611,7 @@ func TestMonitor_SQSDeleteFailure(t *testing.T) {
 		DeleteMessageErr:   fmt.Errorf("error"),
 	}
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(""),
+		DescribeInstancesResp: getDescribeInstancesResp("", true, true),
 	}
 	drainChan := make(chan monitor.InterruptionEvent, 1)
 
@@ -649,7 +649,7 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 		}
 		dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 		ec2Mock := h.MockedEC2{
-			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, false),
 		}
 
 		drainChan := make(chan monitor.InterruptionEvent, 1)
@@ -688,7 +688,7 @@ func TestMonitor_InstanceManagedErr(t *testing.T) {
 		}
 		dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 		ec2Mock := h.MockedEC2{
-			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName),
+			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, false, false),
 		}
 
 		drainChan := make(chan monitor.InterruptionEvent, 1)
@@ -716,7 +716,14 @@ func TestMonitor_InstanceManagedErr(t *testing.T) {
 
 // AWS Mock Helpers specific to sqs-monitor tests
 
-func getDescribeInstancesResp(privateDNSName string) ec2.DescribeInstancesOutput {
+func getDescribeInstancesResp(privateDNSName string, withASGTag bool, withManagedTag bool) ec2.DescribeInstancesOutput {
+	tags := []*ec2.Tag{}
+	if withASGTag {
+		tags = append(tags, &ec2.Tag{Key: aws.String(sqsevent.ASGTagName), Value: aws.String("test-asg")})
+	}
+	if withManagedTag {
+		tags = append(tags, &ec2.Tag{Key: aws.String("aws-node-termination-handler/managed"), Value: aws.String("")})
+	}
 	return ec2.DescribeInstancesOutput{
 		Reservations: []*ec2.Reservation{
 			{
@@ -724,6 +731,7 @@ func getDescribeInstancesResp(privateDNSName string) ec2.DescribeInstancesOutput
 					{
 						InstanceId:     aws.String("i-0123456789"),
 						PrivateDnsName: &privateDNSName,
+						Tags:           tags,
 					},
 				},
 			},

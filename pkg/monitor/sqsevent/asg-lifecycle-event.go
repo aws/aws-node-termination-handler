@@ -57,16 +57,16 @@ type LifecycleDetail struct {
 	LifecycleTransition  string `json:"LifecycleTransition"`
 }
 
-func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
-	nodeName, err := m.retrieveNodeName(lifecycleDetail.EC2InstanceID)
+	nodeInfo, err := m.getNodeInfo(lifecycleDetail.EC2InstanceID)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
 	interruptionEvent := monitor.InterruptionEvent{
@@ -74,7 +74,8 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 		Kind:                 SQSTerminateKind,
 		AutoScalingGroupName: lifecycleDetail.AutoScalingGroupName,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
+		NodeName:             nodeInfo.Name,
+		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           lifecycleDetail.EC2InstanceID,
 		Description:          fmt.Sprintf("ASG Lifecycle Termination event received. Instance will be interrupted at %s \n", event.getTime()),
 	}
@@ -110,5 +111,5 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, me
 		return nil
 	}
 
-	return interruptionEvent, nil
+	return &interruptionEvent, nil
 }
