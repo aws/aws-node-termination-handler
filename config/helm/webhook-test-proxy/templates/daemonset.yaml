@@ -1,7 +1,6 @@
 {{- if .Values.webhookTestProxy.create -}}
 {{- $isWindows := (contains "windows" .Values.targetNodeOs) -}}
-{{- $k8sVersion := printf "%s.%s" .Capabilities.KubeVersion.Major .Capabilities.KubeVersion.Minor | replace "+" "" -}}
-{{- $osSelector := (semverCompare "<1.14" $k8sVersion | ternary "beta.kubernetes.io/os" "kubernetes.io/os") -}}
+{{- $osSelector := printf "kubernetes.io/os" -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

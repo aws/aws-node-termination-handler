@@ -4,7 +4,7 @@ AWS Node Termination Handler Helm chart for Kubernetes. For more information on 
 
 ## Prerequisites
 
-* Kubernetes >= 1.11
+* Kubernetes >= 1.14
 
 ## Installing the Chart
 
@@ -142,8 +142,8 @@ Parameter | Description | Default
 `serviceAccount.annotations` | Specifies the annotations for ServiceAccount       | `{}`
 `securityContext.runAsUserID` | User ID to run the container | `1000`
 `securityContext.runAsGroupID` | Group ID to run the container | `1000`
-`nodeSelectorTermsOs` | Operating System Node Selector Key | >=1.14: `kubernetes.io/os`, <1.14: `beta.kubernetes.io/os`
-`nodeSelectorTermsArch` | CPU Architecture Node Selector Key | >=1.14: `kubernetes.io/arch`, <1.14: `beta.kubernetes.io/arch`
+`nodeSelectorTermsOs` | Operating System Node Selector Key | `kubernetes.io/os`
+`nodeSelectorTermsArch` | CPU Architecture Node Selector Key | `kubernetes.io/arch`
 `targetNodeOs` | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`
 `updateStrategy` | Update strategy for the all DaemonSets (Linux and Windows) | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
 `linuxUpdateStrategy` | Update strategy for the Linux DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
