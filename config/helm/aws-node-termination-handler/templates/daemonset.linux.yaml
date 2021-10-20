@@ -51,10 +51,6 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . | quote }}
-                  operator: In
-                  values:
-                    - linux
                 - key: "eks.amazonaws.com/compute-type"
                   operator: NotIn
                   values:
