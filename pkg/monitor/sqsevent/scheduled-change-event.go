@@ -16,7 +16,6 @@ package sqsevent
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -61,50 +60,47 @@ type AffectedEntity struct {
 	EntityValue string `json:"entityValue"`
 }
 
-// ScheduledEventDetail holds the event details for AWS Health scheduled EC2 change events from Amazon EventBridge
-type ScheduledEventDetail struct {
+// ScheduledChangeEventDetail holds the event details for AWS Health scheduled EC2 change events from Amazon EventBridge
+type ScheduledChangeEventDetail struct {
 	EventTypeCategory string           `json:"eventTypeCategory"`
 	Service           string           `json:"service"`
 	AffectedEntities  []AffectedEntity `json:"affectedEntities"`
 }
 
-const supportedEventCategoryTypes = "scheduledChange"
-
 // func (m SQSMonitor) scheduledEventToInterruptionEvents(event EventBridgeEvent, message *sqs.Message) ([]InterruptionEventWrapper, error) {
 func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
-	scheduledEventDetail := &ScheduledEventDetail{}
-
-	if err := json.Unmarshal(event.Detail, scheduledEventDetail); err != nil {
-		return []InterruptionEventWrapper{InterruptionEventWrapper{nil, err}}
-	}
-
-	if scheduledEventDetail.Service != "EC2" {
-		return []InterruptionEventWrapper{InterruptionEventWrapper{nil, fmt.Errorf("events from Amazon EventBridge for service (%s) are not supported", scheduledEventDetail.Service)}}
-	}
-
-	if !strings.Contains(supportedEventCategoryTypes, scheduledEventDetail.EventTypeCategory) {
-		return nil, fmt.Errorf("events from Amazon EventBridge with EventTypeCategory (%s) are not supported", scheduledEventDetail.EventTypeCategory)
-	}
-
-	// interruptionEventWrappers := make([]InterruptionEventWrapper, len(event.Resources))
+	scheduledChangeEventDetail := &ScheduledChangeEventDetail{}
 	interruptionEventWrappers := []InterruptionEventWrapper{}
+	var err error
 
-	for _, affectedEntity := range scheduledEventDetail.AffectedEntities {
-		nodeName, err := m.retrieveNodeName(affectedEntity.EntityValue)
+	if err = json.Unmarshal(event.Detail, scheduledChangeEventDetail); err != nil {
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
+	}
+
+	if scheduledChangeEventDetail.Service != "EC2" {
+		err = fmt.Errorf("events from Amazon EventBridge for service (%s) are not supported", scheduledChangeEventDetail.Service)
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
+	}
+
+	if scheduledChangeEventDetail.EventTypeCategory != "scheduledChange" {
+		err = fmt.Errorf("events from Amazon EventBridge with EventTypeCategory (%s) are not supported", scheduledChangeEventDetail.EventTypeCategory)
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
+	}
+
+	for _, affectedEntity := range scheduledChangeEventDetail.AffectedEntities {
+		nodeInfo, err := m.getNodeInfo(affectedEntity.EntityValue)
 		if err != nil {
-			// interruptionEventWrappers[i] = InterruptionEventWrapper{nil, err}
 			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 			continue
 		}
-		asgName, _ := m.retrieveAutoScalingGroupName(affectedEntity.EntityValue)
 		interruptionEvent := monitor.InterruptionEvent{
-			EventID:              fmt.Sprintf("aws-health-maintenance-event-%x", event.ID),
+			EventID:              fmt.Sprintf("aws-health-scheduled-change-event-%x", event.ID),
 			Kind:                 SQSTerminateKind,
-			AutoScalingGroupName: asgName,
-			StartTime:            time.Now(),
-			NodeName:             nodeName,
-			InstanceID:           affectedEntity.EntityValue,
-			Description:          fmt.Sprintf("AWS Health maintenance event received. Instance %s will be interrupted at %s \n", affectedEntity.EntityValue, event.getTime()),
+			AutoScalingGroupName: nodeInfo.AsgName,
+			StartTime:            time.Now(), // interrupt immediately rather than waiting
+			NodeName:             nodeInfo.Name,
+			InstanceID:           nodeInfo.InstanceID,
+			Description:          fmt.Sprintf("AWS Health scheduled change event received. Instance %s will be interrupted at %s \n", nodeInfo.InstanceID, event.getTime()),
 		}
 		interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 			errs := m.deleteMessages([]*sqs.Message{message})
@@ -121,10 +117,8 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 			return nil
 		}
 
-		// interruptionEventWrappers[i] = InterruptionEventWrapper{&interruptionEvent, nil}
 		interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{&interruptionEvent, nil})
-
 	}
 
-	return interruptionEventWrappers, nil
+	return interruptionEventWrappers
 }

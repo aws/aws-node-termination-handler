@@ -64,7 +64,7 @@ func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
 }
 
-// Monitor continuously monitors SQS for events and sends interruption events to the passed in channel
+// Monitor continuously monitors SQS for events and coordinates processing of the events
 func (m SQSMonitor) Monitor() error {
 	log.Debug().Msg("Checking for queue messages")
 	messages, err := m.receiveQueueMessages(m.QueueURL)
@@ -96,8 +96,7 @@ func (m SQSMonitor) Monitor() error {
 	return nil
 }
 
-// processSQSMessage checks sqs for new messages and returns interruption events
-// func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*monitor.InterruptionEvent, error) {
+// processSQSMessage interprets an SQS message and returns an EventBridge event
 func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, error) {
 	event := EventBridgeEvent{}
 	err := json.Unmarshal([]byte(*message.Body), &event)
@@ -105,7 +104,7 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	return &event, err
 }
 
-//
+// processEventBridgeEvent processes an EventBridge event and returns interruption event wrappers
 func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
 	interruptionEventWrappers := []InterruptionEventWrapper{}
 	interruptionEvent := &monitor.InterruptionEvent{}
@@ -136,7 +135,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 }
 
-//
+// processInterruptionEvents takes interruption event wrappers and sends interruption events to the passed-in channel
 func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []InterruptionEventWrapper, message *sqs.Message) error {
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0
@@ -179,12 +178,11 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 		errs := m.deleteMessages([]*sqs.Message{message})
 		if len(errs) > 0 {
 			log.Err(errs[0]).Msg("Error deleting message from SQS")
-			// failedInterruptionEventsCount++ // wront count?
 		}
 	}
 
 	if failedInterruptionEventsCount == 0 {
-		return nil
+		return nil // revisit, don't like that this can happen if err goes when dropping message
 	} else {
 		return fmt.Errorf("%b of %b interruption events for message Id %b could not be processed", failedInterruptionEventsCount, len(interruptionEventWrappers), message.MessageId)
 	}
