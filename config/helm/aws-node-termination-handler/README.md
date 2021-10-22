@@ -80,11 +80,6 @@ Parameter | Description | Default
 `enableProbesServer` | If true, start an http server exposing `/healthz` endpoint for probes. | `false`
 `probesServerPort` | Replaces the default HTTP port for exposing probes endpoint. | `8080`
 `probesServerEndpoint` | Replaces the default endpoint for exposing probes endpoint. | `/healthz`
-`podMonitor.create` | If `true`, create a PodMonitor | `false`
-`podMonitor.interval` | Prometheus scrape interval | `30s`
-`podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
-`podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
-`podMonitor.namespace` | Override podMonitor Helm release namespace | `{{ .Release.Namespace }}`
 `emitKubernetesEvents` | If `true`, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. In IMDS Processor mode a default set of annotations with all the node metadata gathered from IMDS will be attached to each event. More information [here](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md) | `false`
 `kubernetesExtraEventsAnnotations` | A comma-separated list of `key=value` extra annotations to attach to all emitted Kubernetes events. Example: `first=annotation,sample.annotation/number=two"` | None
 
@@ -100,6 +95,11 @@ Parameter | Description | Default
 `workers` | The maximum amount of parallel event processors | `10`
 `replicas` | The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing replicas may cause duplicate webhooks since NTH pods are stateless) | `1`
 `podDisruptionBudget` | Limit the disruption for controller pods, requires at least 2 controller replicas | `{}`
+`serviceMonitor.create` | If `true`, create a ServiceMonitor (this requires enableSqsTerminationDraining and enablePrometheusServer to be set) | `false`
+`serviceMonitor.interval` | Prometheus scrape interval | `30s`
+`serviceMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
+`serviceMonitor.labels` | Additional ServiceMonitor metadata labels | `{}`
+`serviceMonitor.namespace` | Override ServiceMonitor Helm release namespace | `{{ .Release.Namespace }}`
 
 ### AWS Node Termination Handler - IMDS Mode Configuration
 
@@ -110,6 +110,11 @@ Parameter | Description | Default
 `enableRebalanceDraining` | If true, drain nodes when the rebalance recommendation notice is received | `false`
 `enableRebalanceMonitoring` | If true, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set `enableRebalanceDraining`. | `false`
 `useHostNetwork` | If `true`, enables `hostNetwork` for the Linux DaemonSet. NOTE: setting this to `false` may cause issues accessing IMDSv2 if your account is not configured with an IP hop count of 2 | `true`
+`podMonitor.create` | If `true`, create a PodMonitor (this requires enableSqsTerminationDraining to not be set and enablePrometheusServer to be set) | `false`
+`podMonitor.interval` | Prometheus scrape interval | `30s`
+`podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
+`podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
+`podMonitor.namespace` | Override PodMonitor Helm release namespace | `{{ .Release.Namespace }}`
 
 ### Kubernetes Configuration
 
