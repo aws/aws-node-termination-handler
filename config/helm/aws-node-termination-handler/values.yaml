@@ -192,16 +192,33 @@ dnsPolicy: ""
 
 podMonitor:
   # Specifies whether PodMonitor should be created
+  # this needs enableSqsTerminationDraining: false
+  # and enablePrometheusServer: true
   create: false
-   # The Prometheus scrape interval
+  # Specifies whether the PodMonitor should be created in a different namespace than
+  # the Helm release
+  namespace:
+  # Additional labels to add to the metadata
+  labels: {}
+  # The Prometheus scrape interval
   interval: 30s
   # The number of scraped samples that will be accepted
   sampleLimit: 5000
-   # Additional labels to add to the metadata
-  labels: {}
-  # Specifies whether a pod monitor should be created in a different namespace than
+
+serviceMonitor:
+  # Specifies whether ServiceMonitor should be created
+  # this needs enableSqsTerminationDraining: rue
+  # and enablePrometheusServer: true
+  create: false
+  # Specifies whether the ServiceMonitor should be created in a different namespace than
   # the Helm release
-  # namespace: monitoring
+  namespace:
+  # Additional labels to add to the metadata
+  labels: {}
+  # The Prometheus scrape interval
+  interval: 30s
+  # The number of scraped samples that will be accepted
+  sampleLimit: 5000
 
 # K8s DaemonSet update strategy.
 updateStrategy:

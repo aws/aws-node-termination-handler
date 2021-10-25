@@ -1,16 +1,16 @@
-{{- if and (not .Values.enableSqsTerminationDraining) (and .Values.enablePrometheusServer .Values.podMonitor.create) -}}
+{{- if and .Values.enableSqsTerminationDraining (and .Values.enablePrometheusServer .Values.serviceMonitor.create) -}}
 apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
+kind: ServiceMonitor
 metadata:
-  name: {{ template "aws-node-termination-handler.fullname" . }}
-  {{- if .Values.podMonitor.namespace }}
-  namespace: {{ .Values.podMonitor.namespace }}
+  name: {{ include "aws-node-termination-handler.fullname" . }}
+  {{- if .Values.serviceMonitor.namespace }}
+  namespace: {{ .Values.serviceMonitor.namespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
   labels:
     {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
-  {{- with .Values.podMonitor.labels }}
+  {{- with .Values.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
@@ -18,13 +18,13 @@ spec:
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}
-  podMetricsEndpoints:
+  endpoints:
     - port: http-metrics
       path: /metrics
-      {{- with .Values.podMonitor.interval }}
+      {{- with .Values.serviceMonitor.interval }}
       interval: {{ . }}
       {{- end }}
-  {{- with .Values.podMonitor.sampleLimit }}
+  {{- with .Values.serviceMonitor.sampleLimit }}
   sampleLimit: {{ . }}
   {{- end }}
   selector:
