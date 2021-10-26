@@ -53,7 +53,7 @@ type SQSMonitor struct {
 	ManagedAsgTag           string
 }
 
-// Convenience wrapper for handling a pair of an interruption event and a related error
+// InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
 type InterruptionEventWrapper struct {
 	InterruptionEvent *monitor.InterruptionEvent
 	Err               error
@@ -137,7 +137,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 }
 
-// processInterruptionEvents takes interruption event wrappers and sends interruption events to the passed-in channel
+// processInterruptionEvents takes interruption event wrappers and sends events to the interruption channel
 func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []InterruptionEventWrapper, message *sqs.Message) error {
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0

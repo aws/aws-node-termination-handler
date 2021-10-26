@@ -67,7 +67,6 @@ type ScheduledChangeEventDetail struct {
 	AffectedEntities  []AffectedEntity `json:"affectedEntities"`
 }
 
-// func (m SQSMonitor) scheduledEventToInterruptionEvents(event EventBridgeEvent, message *sqs.Message) ([]InterruptionEventWrapper, error) {
 func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
 	scheduledChangeEventDetail := &ScheduledChangeEventDetail{}
 	interruptionEventWrappers := []InterruptionEventWrapper{}
@@ -93,11 +92,13 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 			continue
 		}
+
+		// Begin drain immediately for scheduled change events to avoid disruptions in cases such as degraded hardware
 		interruptionEvent := monitor.InterruptionEvent{
 			EventID:              fmt.Sprintf("aws-health-scheduled-change-event-%x", event.ID),
 			Kind:                 SQSTerminateKind,
 			AutoScalingGroupName: nodeInfo.AsgName,
-			StartTime:            time.Now(), // begin draining immediately after the notification is processed
+			StartTime:            time.Now(),
 			NodeName:             nodeInfo.Name,
 			InstanceID:           nodeInfo.InstanceID,
 			Description:          fmt.Sprintf("AWS Health scheduled change event received. Instance %s will be interrupted at %s \n", nodeInfo.InstanceID, event.getTime()),
