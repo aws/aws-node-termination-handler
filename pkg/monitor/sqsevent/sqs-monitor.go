@@ -59,12 +59,6 @@ type InterruptionEventWrapper struct {
 	Err               error
 }
 
-// Convenience wrapper for handling a pair of an interruption event and a related error
-type InterruptionEventWrapper struct {
-	InterruptionEvent *monitor.InterruptionEvent
-	Err               error
-}
-
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
