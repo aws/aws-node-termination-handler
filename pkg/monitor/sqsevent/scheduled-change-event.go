@@ -97,7 +97,7 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 			EventID:              fmt.Sprintf("aws-health-scheduled-change-event-%x", event.ID),
 			Kind:                 SQSTerminateKind,
 			AutoScalingGroupName: nodeInfo.AsgName,
-			StartTime:            time.Now(), // interrupt immediately rather than waiting
+			StartTime:            time.Now(), // begin draining immediately after the notification is processed
 			NodeName:             nodeInfo.Name,
 			InstanceID:           nodeInfo.InstanceID,
 			Description:          fmt.Sprintf("AWS Health scheduled change event received. Instance %s will be interrupted at %s \n", nodeInfo.InstanceID, event.getTime()),

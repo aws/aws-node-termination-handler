@@ -14,11 +14,11 @@ set -euo pipefail
 
 
 function fail_and_exit {
-    echo "❌ AWS Health Maintenance SQS Test failed $CLUSTER_NAME ❌"
+    echo "❌ AWS Scheduled Change SQS Test failed $CLUSTER_NAME ❌"
     exit "${1:-1}"
 }
 
-echo "Starting AWS Health Maintenance SQS Test for Node Termination Handler"
+echo "Starting AWS Scheduled Change SQS Test for Node Termination Handler"
 START_TIME=$(date -u +"%Y-%m-%dT%TZ")
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -42,7 +42,7 @@ set +x
 
 sleep 10
 
-RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION}"
+RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test}]'"
 localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
                                   -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
                                   | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
@@ -125,7 +125,7 @@ if [[ $DEPLOYED -eq 0 ]]; then
     fail_and_exit 2
 fi
 
-AWS_HEALTH_MAINTENANCE_EVENT=$(cat <<EOF
+AWS_SCHEDULED_CHANGE_EVENT=$(cat <<EOF
 {
   "version": "0",
   "id": "7fb65329-1628-4cf3-a740-95fg457h1402",
@@ -157,10 +157,10 @@ AWS_HEALTH_MAINTENANCE_EVENT=$(cat <<EOF
 EOF
 )
 
-AWS_HEALTH_MAINTENANCE_EVENT_ONE_LINE=$(echo "${AWS_HEALTH_MAINTENANCE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
-SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${AWS_HEALTH_MAINTENANCE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+AWS_SCHEDULED_CHANGE_EVENT_ONE_LINE=$(echo "${AWS_SCHEDULED_CHANGE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${AWS_SCHEDULED_CHANGE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
 kubectl exec -i "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
-echo "✅ Sent AWS Health Maintenance Event to SQS queue: ${queue_url}"
+echo "✅ Sent AWS Scheduled Change Event to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
@@ -189,7 +189,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
         message_deleted=1
-        echo "✅ AWS Health Maintenance SQS Test Passed $CLUSTER_NAME! ✅"
+        echo "✅ AWS Scheduled Change SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
 
@@ -211,5 +211,5 @@ elif [[ $message_deleted -eq 0 ]]; then
     fail_and_exit 3
 fi
 
-echo "❌ AWS Health Maintenance SQS Test Failed $CLUSTER_NAME ❌"
+echo "❌ AWS Scheduled Change SQS Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

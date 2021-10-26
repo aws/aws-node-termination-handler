@@ -59,12 +59,6 @@ type InterruptionEventWrapper struct {
 	Err               error
 }
 
-// Convenience wrapper for handling a pair of an interruption event and a related error
-type InterruptionEventWrapper struct {
-	InterruptionEvent *monitor.InterruptionEvent
-	Err               error
-}
-
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
@@ -84,6 +78,7 @@ func (m SQSMonitor) Monitor() error {
 		if err != nil {
 			log.Err(err).Msg("error processing SQS message")
 			failedEventBridgeEvents++
+			continue
 		}
 
 		interruptionEventWrappers := m.processEventBridgeEvent(eventBridgeEvent, message)
@@ -119,6 +114,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	switch eventBridgeEvent.Source {
 	case "aws.autoscaling":
 		interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
+		return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 
 	case "aws.ec2":
 		if eventBridgeEvent.DetailType == "EC2 Instance State-change Notification" {
@@ -128,17 +124,17 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 		} else if eventBridgeEvent.DetailType == "EC2 Instance Rebalance Recommendation" {
 			interruptionEvent, err = m.rebalanceRecommendationToInterruptionEvent(eventBridgeEvent, message)
 		}
+		return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 
 	case "aws.health":
 		if eventBridgeEvent.DetailType == "AWS Health Event" {
 			interruptionEventWrappers = m.scheduledEventToInterruptionEvents(eventBridgeEvent, message)
+			return interruptionEventWrappers
 		}
-
-	default:
-		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("Event source (%s) is not supported", eventBridgeEvent.Source)})
 	}
 
-	return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
+	err = fmt.Errorf("event source (%s) is not supported", eventBridgeEvent.Source)
+	return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 }
 
 // processInterruptionEvents takes interruption event wrappers and sends interruption events to the passed-in channel
@@ -184,13 +180,14 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 		errs := m.deleteMessages([]*sqs.Message{message})
 		if len(errs) > 0 {
 			log.Err(errs[0]).Msg("Error deleting message from SQS")
+			failedInterruptionEventsCount++
 		}
 	}
 
-	if failedInterruptionEventsCount == 0 {
-		return nil // revisit, don't like that this can happen if err goes when dropping message
+	if failedInterruptionEventsCount != 0 {
+		return fmt.Errorf("some interruption events for message Id %b could not be processed", message.MessageId)
 	} else {
-		return fmt.Errorf("%b of %b interruption events for message Id %b could not be processed", failedInterruptionEventsCount, len(interruptionEventWrappers), message.MessageId)
+		return nil
 	}
 }
 
