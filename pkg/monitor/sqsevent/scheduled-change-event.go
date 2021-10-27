@@ -70,19 +70,18 @@ type ScheduledChangeEventDetail struct {
 func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
 	scheduledChangeEventDetail := &ScheduledChangeEventDetail{}
 	interruptionEventWrappers := []InterruptionEventWrapper{}
-	var err error
 
-	if err = json.Unmarshal(event.Detail, scheduledChangeEventDetail); err != nil {
+	if err := json.Unmarshal(event.Detail, scheduledChangeEventDetail); err != nil {
 		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 	}
 
 	if scheduledChangeEventDetail.Service != "EC2" {
-		err = fmt.Errorf("events from Amazon EventBridge for service (%s) are not supported", scheduledChangeEventDetail.Service)
+		err := fmt.Errorf("events from Amazon EventBridge for service (%s) are not supported", scheduledChangeEventDetail.Service)
 		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 	}
 
 	if scheduledChangeEventDetail.EventTypeCategory != "scheduledChange" {
-		err = fmt.Errorf("events from Amazon EventBridge with EventTypeCategory (%s) are not supported", scheduledChangeEventDetail.EventTypeCategory)
+		err := fmt.Errorf("events from Amazon EventBridge with EventTypeCategory (%s) are not supported", scheduledChangeEventDetail.EventTypeCategory)
 		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
 	}
 
@@ -104,15 +103,13 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 			Description:          fmt.Sprintf("AWS Health scheduled change event received. Instance %s will be interrupted at %s \n", nodeInfo.InstanceID, event.getTime()),
 		}
 		interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-			errs := m.deleteMessages([]*sqs.Message{message})
-			if errs != nil {
+			if errs := m.deleteMessages([]*sqs.Message{message}); errs != nil {
 				return errs[0]
 			}
 			return nil
 		}
 		interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-			err := n.TaintScheduledMaintenance(interruptionEvent.NodeName, interruptionEvent.EventID)
-			if err != nil {
+			if err := n.TaintScheduledMaintenance(interruptionEvent.NodeName, interruptionEvent.EventID); err != nil {
 				log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.ScheduledMaintenanceTaint, interruptionEvent.EventID)
 			}
 			return nil

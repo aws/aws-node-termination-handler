@@ -83,8 +83,7 @@ func (m SQSMonitor) Monitor() error {
 
 		interruptionEventWrappers := m.processEventBridgeEvent(eventBridgeEvent, message)
 
-		err = m.processInterruptionEvents(interruptionEventWrappers, message)
-		if err != nil {
+		if err = m.processInterruptionEvents(interruptionEventWrappers, message); err != nil {
 			log.Err(err).Msg("error processing interruption events")
 			failedEventBridgeEvents++
 		}
@@ -128,8 +127,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 
 	case "aws.health":
 		if eventBridgeEvent.DetailType == "AWS Health Event" {
-			interruptionEventWrappers = m.scheduledEventToInterruptionEvents(eventBridgeEvent, message)
-			return interruptionEventWrappers
+			return m.scheduledEventToInterruptionEvents(eventBridgeEvent, message)
 		}
 	}
 
@@ -186,9 +184,9 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 
 	if failedInterruptionEventsCount != 0 {
 		return fmt.Errorf("some interruption events for message Id %b could not be processed", message.MessageId)
-	} else {
-		return nil
 	}
+
+	return nil
 }
 
 // receiveQueueMessages checks the configured SQS queue for new messages
