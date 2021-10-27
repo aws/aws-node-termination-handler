@@ -48,7 +48,7 @@ type SpotInterruptionDetail struct {
 	InstanceAction string `json:"instance-action"`
 }
 
-func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	spotInterruptionDetail := &SpotInterruptionDetail{}
 	err := json.Unmarshal(event.Detail, spotInterruptionDetail)
 	if err != nil {

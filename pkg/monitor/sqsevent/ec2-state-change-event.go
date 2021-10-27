@@ -50,7 +50,7 @@ type EC2StateChangeDetail struct {
 
 const instanceStatesToDrain = "stopping,stopped,shutting-down,terminated"
 
-func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	ec2StateChangeDetail := &EC2StateChangeDetail{}
 	err := json.Unmarshal(event.Detail, ec2StateChangeDetail)
 	if err != nil {
