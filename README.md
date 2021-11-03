@@ -26,7 +26,7 @@
 <hr>
 </div>
 
-❗ If you would be interested in a regular community meeting about NTH, let use know [here](https://github.com/aws/aws-node-termination-handler/discussions/523)!
+❗ If you would be interested in a regular community meeting about NTH, let us know [here](https://github.com/aws/aws-node-termination-handler/discussions/523)!
 
 ## Project Summary
 
