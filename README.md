@@ -26,6 +26,9 @@
 <hr>
 </div>
 
+| :memo:        | If you would be interested in a regular community meeting about the node-termination-handler and spot on k8s, let use know [here](https://github.com/aws/aws-node-termination-handler/discussions/523)!   |
+|---------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+
 ## Project Summary
 
 This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down.
