@@ -171,8 +171,7 @@ kubernetesEventsExtraAnnotations: ""
 tolerations:
   - operator: "Exists"
 
-affinity: {}
-linuxAffinity:
+affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
@@ -181,6 +180,7 @@ linuxAffinity:
               operator: NotIn
               values:
                 - fargate
+linuxAffinity: {}
 windowsAffinity: {}
 
 serviceAccount:
