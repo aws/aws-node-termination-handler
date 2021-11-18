@@ -172,7 +172,15 @@ tolerations:
   - operator: "Exists"
 
 affinity: {}
-linuxAffinity: {}
+linuxAffinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: "eks.amazonaws.com/compute-type"
+              operator: NotIn
+              values:
+                - fargate
 windowsAffinity: {}
 
 serviceAccount:

@@ -47,14 +47,6 @@ spec:
         {{- end }}
       priorityClassName: {{ .Values.priorityClassName | quote }}
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: "eks.amazonaws.com/compute-type"
-                  operator: NotIn
-                  values:
-                    - fargate
         {{- with .Values.affinity }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
