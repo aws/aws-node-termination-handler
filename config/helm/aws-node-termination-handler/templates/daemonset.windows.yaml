@@ -44,18 +44,6 @@ spec:
       {{- end }}
       priorityClassName: {{ .Values.priorityClassName | quote }}
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . | quote }}
-                  operator: In
-                  values:
-                    - windows
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsArch" . | quote }}
-                  operator: In
-                  values:
-                    - amd64
         {{- with .Values.affinity }}
           {{- toYaml . | nindent 8 }}
         {{- end }}

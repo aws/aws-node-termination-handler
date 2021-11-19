@@ -47,24 +47,6 @@ spec:
         {{- end }}
       priorityClassName: {{ .Values.priorityClassName | quote }}
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . | quote }}
-                  operator: In
-                  values:
-                    - linux
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsArch" . | quote }}
-                  operator: In
-                  values:
-                    - amd64
-                    - arm64
-                    - arm
-                - key: "eks.amazonaws.com/compute-type"
-                  operator: NotIn
-                  values:
-                    - fargate
         {{- with .Values.affinity }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
