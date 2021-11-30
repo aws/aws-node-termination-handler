@@ -1,172 +1,170 @@
 # AWS Node Termination Handler
 
-AWS Node Termination Handler Helm chart for Kubernetes. For more information on this project see the project repo at https://github.com/aws/aws-node-termination-handler.
+AWS Node Termination Handler Helm chart for Kubernetes. For more information on this project see the project repo at [github.com/aws/aws-node-termination-handler](https://github.com/aws/aws-node-termination-handler).
 
 ## Prerequisites
 
-* Kubernetes >= 1.14
+- _Kubernetes_ >= v1.16
 
 ## Installing the Chart
 
-Add the EKS repository to Helm:
+Before you can install the chart you will need to add the `aws` repo to [Helm](https://helm.sh/).
 
-```sh
-helm repo add eks https://aws.github.io/eks-charts
+```shell
+helm repo add eks https://aws.github.io/eks-charts/
 ```
 
-Install AWS Node Termination Handler:
+After you've installed the repo you can install the chart, the following command will install the chart with the release name `aws-node-termination-handler` and the default configuration to the `kube-system` namespace.
 
-To install the chart with the release name aws-node-termination-handler and default configuration:
-
-```sh
-helm upgrade --install aws-node-termination-handler \
-  --namespace kube-system \
-  eks/aws-node-termination-handler
+```shell
+helm upgrade --install --namespace kube-system aws-node-termination-handler eks/aws-node-termination-handler
 ```
 
-To install into an EKS cluster where the Node Termination Handler is already installed, you can run:
+To install the chart on an EKS cluster where the AWS Node Termination Handler is already installed, you can run the following command.
 
-```sh
-helm upgrade --install --recreate-pods --force \
-  aws-node-termination-handler --namespace kube-system eks/aws-node-termination-handler
+```shell
+helm upgrade --install --namespace kube-system aws-node-termination-handler eks/aws-node-termination-handler --recreate-pods --force
 ```
 
-If you receive an error similar to `Error: release aws-node-termination-handler
-failed: <resource> "aws-node-termination-handler" already exists`, simply rerun
-the above command.
+If you receive an error similar to the one below simply rerun the above command.
 
-The [configuration](#configuration) section lists the parameters that can be configured during installation.
+> Error: release aws-node-termination-handler failed: <resource> "aws-node-termination-handler" already exists
 
-## Uninstalling the Chart
+To uninstall the `aws-node-termination-handler` chart installation from the `kube-system` namespace run the following command.
 
-To uninstall/delete the `aws-node-termination-handler` deployment:
-
-```sh
-helm delete --purge aws-node-termination-handler
+```shell
+helm delete --namespace kube-system aws-node-termination-handler
 ```
-
-The command removes all the Kubernetes components associated with the chart and deletes the release.
 
 ## Configuration
 
-The following tables lists the configurable parameters of the chart and their default values.
+The following tables lists the configurable parameters of the chart and their default values. These values are split up into the [common configuration](#common-configuration) shared by all AWS Node Termination Handler modes, [queue configuration](#queue-processor-mode-configuration) used when AWS Node Termination Handler is in in queue-processor mode, and [IMDS configuration](#imds-mode-configuration) used when AWS Node Termination Handler is in IMDS mode; for more information about the different modes see the project [README](https://github.com/aws/aws-node-termination-handler/blob/main/README.md).
 
-### AWS Node Termination Handler Common Configuration
+### Common Configuration
 
-The configuration in this table applies to both queue-processor mode and IMDS mode.
+The configuration in this table applies to all AWS Node Termination Handler modes.
 
-Parameter | Description | Default
---- | --- | ---
-`deleteLocalData` | Tells kubectl to continue even if there are pods using emptyDir (local data that will be deleted when the node is drained). | `true`
-`gracePeriod` | (DEPRECATED: Renamed to podTerminationGracePeriod) The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used, which defaults to 30 seconds if not specified. | `-1`
-`podTerminationGracePeriod` | The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used, which defaults to 30 seconds if not specified. | `-1`
-`nodeTerminationGracePeriod` | Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event. | `120`
-`ignoreDaemonSets` | Causes kubectl to skip daemon set managed pods | `true`
-`instanceMetadataURL` | The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing. | `http://169.254.169.254:80`
-`webhookURL` | Posts event data to URL upon instance interruption action | ``
-`webhookURLSecretName` | Pass Webhook URL as a secret. Secret Key: `webhookurl`, Value: `<WEBHOOK_URL>` | None
-`webhookProxy` | Uses the specified HTTP(S) proxy for sending webhooks | ``
-`webhookHeaders` | Replaces the default webhook headers. | `{"Content-type":"application/json"}`
-`webhookTemplate` | Replaces the default webhook message template. | `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
-`webhookTemplateConfigMapName` | Pass Webhook template file as configmap | None
-`webhookTemplateConfigMapKey` | Name of the template file stored in the configmap| None
-`metadataTries` | The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3. | `3`
-`cordonOnly` | If true, nodes will be cordoned but not drained when an interruption event occurs. | `false`
-`taintNode` | If true, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, `aws-node-termination-handler/asg-lifecycle-termination` and `aws-node-termination-handler/rebalance-recommendation`| `false`
-`jsonLogging` | If true, use JSON-formatted logs instead of human readable logs. | `false`
-`logLevel` | Sets the log level (INFO, DEBUG, or ERROR) | `INFO`
-`enablePrometheusServer` | If true, start an http server exposing `/metrics` endpoint for prometheus. | `false`
-`prometheusServerPort` | Replaces the default HTTP port for exposing prometheus metrics. | `9092`
-`enableProbesServer` | If true, start an http server exposing `/healthz` endpoint for probes. | `false`
-`probesServerPort` | Replaces the default HTTP port for exposing probes endpoint. | `8080`
-`probesServerEndpoint` | Replaces the default endpoint for exposing probes endpoint. | `/healthz`
-`emitKubernetesEvents` | If `true`, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. In IMDS Processor mode a default set of annotations with all the node metadata gathered from IMDS will be attached to each event. More information [here](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md) | `false`
-`kubernetesExtraEventsAnnotations` | A comma-separated list of `key=value` extra annotations to attach to all emitted Kubernetes events. Example: `first=annotation,sample.annotation/number=two"` | None
+| Parameter                          | Description                                                                                                                                                                                                                                                                                                                                                                            | Default                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `image.repository`                 | Image repository.                                                                                                                                                                                                                                                                                                                                                                      | `public.ecr.aws/aws-ec2/aws-node-termination-handler` |
+| `image.tag`                        | Image tag.                                                                                                                                                                                                                                                                                                                                                                             | `v{{ .Chart.AppVersion}}`                             |
+| `image.pullPolicy`                 | Image pull policy.                                                                                                                                                                                                                                                                                                                                                                     | `IfNotPresent`                                        |
+| `image.pullSecrets`                | Image pull secrets.                                                                                                                                                                                                                                                                                                                                                                    | `[]`                                                  |
+| `nameOverride`                     | Override the `name` of the chart.                                                                                                                                                                                                                                                                                                                                                      | `""`                                                  |
+| `fullnameOverride`                 | Override the `fullname` of the chart.                                                                                                                                                                                                                                                                                                                                                  | `""`                                                  |
+| `serviceAccount.create`            | If `true`, create a new service account.                                                                                                                                                                                                                                                                                                                                               | `true`                                                |
+| `serviceAccount.name`              | Service account to be used. If not set and `serviceAccount.create` is `true`, a name is generated using the full name template.                                                                                                                                                                                                                                                        | `nil`                                                 |
+| `serviceAccount.annotations`       | Annotations to add to the service account.                                                                                                                                                                                                                                                                                                                                             | `{}`                                                  |
+| `rbac.create`                      | If `true`, create the RBAC resources.                                                                                                                                                                                                                                                                                                                                                  | `true`                                                |
+| `rbac.pspEnabled`                  | If `true`, create a pod security policy resource.                                                                                                                                                                                                                                                                                                                                      | `true`                                                |
+| `customLabels`                     | Labels to add to all resource metadata.                                                                                                                                                                                                                                                                                                                                                | `{}`                                                  |
+| `podLabels`                        | Labels to add to the pod.                                                                                                                                                                                                                                                                                                                                                              | `{}`                                                  |
+| `podAnnotations`                   | Annotations to add to the pod.                                                                                                                                                                                                                                                                                                                                                         | `{}`                                                  |
+| `podSecurityContext`               | Security context for the pod.                                                                                                                                                                                                                                                                                                                                                          | _See values.yaml_                                     |
+| `securityContext`                  | Security context for the _aws-node-termination-handler_ container.                                                                                                                                                                                                                                                                                                                     | _See values.yaml_                                     |
+| `terminationGracePeriodSeconds`    | The termination grace period for the pod.                                                                                                                                                                                                                                                                                                                                              | `nil`                                                 |
+| `resources`                        | Resource requests and limits for the _aws-node-termination-handler_ container.                                                                                                                                                                                                                                                                                                         | `{}`                                                  |
+| `nodeSelector`                     | Expressions to select a node by it's labels for pod assignment. In IMDS mode this has a higher priority than `daemonsetNodeSelector` (for backwards compatibility) but shouldn't be used.                                                                                                                                                                                              | `{}`                                                  |
+| `affinity`                         | Affinity settings for pod assignment. In IMDS mode this has a higher priority than `daemonsetAffinity` (for backwards compatibility) but shouldn't be used.                                                                                                                                                                                                                            | `{}`                                                  |
+| `tolerations`                      | Tolerations for pod assignment. In IMDS mode this has a higher priority than `daemonsetTolerations` (for backwards compatibility) but shouldn't be used.                                                                                                                                                                                                                               | `[]`                                                  |
+| `extraEnv`                         | Additional environment variables for the _aws-node-termination-handler_ container.                                                                                                                                                                                                                                                                                                     | `[]`                                                  |
+| `probes`                           | The Kubernetes liveness probe configuration.                                                                                                                                                                                                                                                                                                                                           | _See values.yaml_                                     |
+| `logLevel`                         | Sets the log level (`info`,`debug`, or `error`)                                                                                                                                                                                                                                                                                                                                        | `info`                                                |
+| `jsonLogging`                      | If `true`, use JSON-formatted logs instead of human readable logs.                                                                                                                                                                                                                                                                                                                     | `false`                                               |
+| `enablePrometheusServer`           | If `true`, start an http server exposing `/metrics` endpoint for _Prometheus_.                                                                                                                                                                                                                                                                                                         | `false`                                               |
+| `prometheusServerPort`             | Replaces the default HTTP port for exposing _Prometheus_ metrics.                                                                                                                                                                                                                                                                                                                      | `9092`                                                |
+| `dryRun`                           | If `true`, only log if a node would be drained.                                                                                                                                                                                                                                                                                                                                        | `false`                                               |
+| `cordonOnly`                       | If `true`, nodes will be cordoned but not drained when an interruption event occurs.                                                                                                                                                                                                                                                                                                   | `false`                                               |
+| `taintNode`                        | If `true`, nodes will be tainted when an interruption event occurs. Currently used taint keys are `aws-node-termination-handler/scheduled-maintenance`, `aws-node-termination-handler/spot-itn`, `aws-node-termination-handler/asg-lifecycle-termination` and `aws-node-termination-handler/rebalance-recommendation`.                                                                 | `false`                                               |
+| `deleteLocalData`                  | If `true`, continue even if there are pods using local data that will be deleted when the node is drained.                                                                                                                                                                                                                                                                             | `true`                                                |
+| `ignoreDaemonSets`                 | If `true`, skip terminating daemon set managed pods.                                                                                                                                                                                                                                                                                                                                   | `true`                                                |
+| `podTerminationGracePeriod`        | The time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used, which defaults to 30 seconds if not specified for the pod.                                                                                                                                                                                            | `-1`                                                  |
+| `nodeTerminationGracePeriod`       | Period of time in seconds given to each node to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.                                                                                                                                                                     | `120`                                                 |
+| `emitKubernetesEvents`             | If `true`, Kubernetes events will be emitted when interruption events are received and when actions are taken on Kubernetes nodes. In IMDS Processor mode a default set of annotations with all the node metadata gathered from IMDS will be attached to each event. More information [here](https://github.com/aws/aws-node-termination-handler/blob/main/docs/kubernetes_events.md). | `false`                                               |
+| `kubernetesExtraEventsAnnotations` | A comma-separated list of `key=value` extra annotations to attach to all emitted Kubernetes events (e.g. `first=annotation,sample.annotation/number=two"`).                                                                                                                                                                                                                            | `""`                                                  |
+| `webhookURL`                       | Posts event data to URL upon instance interruption action.                                                                                                                                                                                                                                                                                                                             | `""`                                                  |
+| `webhookURLSecretName`             | Pass the webhook URL as a Secret using the key `webhookurl`.                                                                                                                                                                                                                                                                                                                           | `""`                                                  |
+| `webhookHeaders`                   | Replace the default webhook headers (e.g. `{"Content-type":"application/json"}`).                                                                                                                                                                                                                                                                                                      | `""`                                                  |
+| `webhookProxy`                     | Uses the specified HTTP(S) proxy for sending webhook data.                                                                                                                                                                                                                                                                                                                             | `""`                                                  |
+| `webhookTemplate`                  | Replaces the default webhook message template (e.g. `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`).                                                                                                                     | `""`                                                  |
+| `webhookTemplateConfigMapName`     | Pass the webhook template file as a configmap.                                                                                                                                                                                                                                                                                                                                         | "``"                                                  |
+| `webhookTemplateConfigMapKey`      | Name of the Configmap key storing the template file.                                                                                                                                                                                                                                                                                                                                   | `""`                                                  |
+| `enableSqsTerminationDraining`     | If `true`, this turns on queue-processor mode which drains nodes when an SQS termination event is received.                                                                                                                                                                                                                                                                            | `false`                                               |
 
-### AWS Node Termination Handler - Queue-Processor Mode Configuration
+### Queue-Processor Mode Configuration
 
-Parameter | Description | Default
---- | --- | ---
-`enableSqsTerminationDraining` | If true, this turns on queue-processor mode which drains nodes when an SQS termination event is received. | `false`
-`queueURL` | Listens for messages on the specified SQS queue URL | None
-`awsRegion` | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through AWS_REGION env var, IMDS, or the specified queue URL | ``
-`checkASGTagBeforeDraining` | If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node | `true`
-`managedAsgTag` | The tag to ensure is on a node if checkASGTagBeforeDraining is true | `aws-node-termination-handler/managed`
-`workers` | The maximum amount of parallel event processors | `10`
-`replicas` | The number of replicas in the NTH deployment when using queue-processor mode (NOTE: increasing replicas may cause duplicate webhooks since NTH pods are stateless) | `1`
-`podDisruptionBudget` | Limit the disruption for controller pods, requires at least 2 controller replicas | `{}`
-`serviceMonitor.create` | If `true`, create a ServiceMonitor (this requires enableSqsTerminationDraining and enablePrometheusServer to be set) | `false`
-`serviceMonitor.interval` | Prometheus scrape interval | `30s`
-`serviceMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
-`serviceMonitor.labels` | Additional ServiceMonitor metadata labels | `{}`
-`serviceMonitor.namespace` | Override ServiceMonitor Helm release namespace | `{{ .Release.Namespace }}`
+The configuration in this table applies to AWS Node Termination Handler in queue-processor mode.
 
-### AWS Node Termination Handler - IMDS Mode Configuration
+| Parameter                    | Description                                                                                                                                                               | Default                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `replicas`                   | The number of replicas in the deployment when using queue-processor mode (NOTE: increasing replicas may cause duplicate webhooks since pods are stateless).               | `1`                                    |
+| `strategy`                   | Specify the update strategy for the deployment.                                                                                                                           | `{}`                                   |
+| `podDisruptionBudget`        | Limit the disruption for controller pods, requires at least 2 controller replicas.                                                                                        | `{}`                                   |
+| `serviceMonitor.create`      | If `true`, create a ServiceMonitor. This requires `enablePrometheusServer: true`.                                                                                         | `false`                                |
+| `serviceMonitor.namespace`   | Override ServiceMonitor _Helm_ release namespace.                                                                                                                         | `nil`                                  |
+| `serviceMonitor.labels`      | Additional ServiceMonitor metadata labels.                                                                                                                                | `{}`                                   |
+| `serviceMonitor.interval`    | _Prometheus_ scrape interval.                                                                                                                                             | `30s`                                  |
+| `serviceMonitor.sampleLimit` | Number of scraped samples accepted.                                                                                                                                       | `5000`                                 |
+| `priorityClassName`          | Name of the PriorityClass to use for the Deployment.                                                                                                                      | `system-cluster-critical`              |
+| `awsRegion`                  | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through the `AWS_REGION` environment variable, IMDS, or the specified queue URL. | `""`                                   |
+| `queueURL`                   | Listens for messages on the specified SQS queue URL.                                                                                                                      | `""`                                   |
+| `workers`                    | The maximum amount of parallel event processors to handle concurrent events.                                                                                              | `10`                                   |
+| `checkASGTagBeforeDraining`  | If `true`, check that the instance is tagged with the `managedAsgTag` before draining the node.                                                                           | `true`                                 |
+| `managedAsgTag`              | The node tag to check if `checkASGTagBeforeDraining` is `true`.                                                                                                           | `aws-node-termination-handler/managed` |
+| `assumeAsgTagPropagation`    | If `true`, assume that ASG tags will be appear on the ASG's instances.                                                                                                    | `false`                                |
 
-Parameter | Description | Default
---- | --- | ---
-`enableScheduledEventDraining` | [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event | `false`
-`enableSpotInterruptionDraining` | If true, drain nodes when the spot interruption termination notice is received | `true`
-`enableRebalanceDraining` | If true, drain nodes when the rebalance recommendation notice is received | `false`
-`enableRebalanceMonitoring` | If true, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set `enableRebalanceDraining`. | `false`
-`useHostNetwork` | If `true`, enables `hostNetwork` for the Linux DaemonSet. NOTE: setting this to `false` may cause issues accessing IMDSv2 if your account is not configured with an IP hop count of 2 | `true`
-`podMonitor.create` | If `true`, create a PodMonitor (this requires enableSqsTerminationDraining to not be set and enablePrometheusServer to be set) | `false`
-`podMonitor.interval` | Prometheus scrape interval | `30s`
-`podMonitor.sampleLimit` | Number of scraped samples accepted | `5000`
-`podMonitor.labels` | Additional PodMonitor metadata labels | `{}`
-`podMonitor.namespace` | Override PodMonitor Helm release namespace | `{{ .Release.Namespace }}`
+### IMDS Mode Configuration
 
-### Kubernetes Configuration
+The configuration in this table applies to AWS Node Termination Handler in IMDS mode.
 
-Parameter | Description | Default
---- | --- | ---
-`image.repository` | image repository | `public.ecr.aws/aws-ec2/aws-node-termination-handler`
-`image.tag` | image tag | `<VERSION>`
-`image.pullPolicy` | image pull policy | `IfNotPresent`
-`image.pullSecrets` | image pull secrets (for private docker registries) | `[]`
-`affinity` | node/pod affinities | None
-`linuxAffinity` | Linux node/pod affinities | None
-`windowsAffinity` | Windows node/pod affinities | None
-`podAnnotations` | annotations to add to each pod | `{}`
-`linuxPodAnnotations` | Linux annotations to add to each pod | `{}`
-`windowsPodAnnotations` | Windows annotations to add to each pod | `{}`
-`podLabels` | labels to add to each pod | `{}`
-`linuxPodLabels` | labels to add to each Linux pod | `{}`
-`windowsPodLabels` | labels to add to each Windows pod | `{}`
-`priorityClassName` | Name of the priorityClass | `system-node-critical`
-`resources` | Resources for the pods | `requests.cpu: 50m, requests.memory: 64Mi, limits.cpu: 100m, limits.memory: 128Mi`
-`dnsPolicy` | DaemonSet DNS policy | Linux: `ClusterFirstWithHostNet`, Windows: `ClusterFirst`
-`nodeSelector` | Tells the all daemon sets where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
-`linuxNodeSelector` | Tells the Linux daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
-`windowsNodeSelector` | Tells the Windows daemon set where to place the node-termination-handler pods. For example: `lifecycle: "Ec2Spot"`, `on-demand: "false"`, `aws.amazon.com/purchaseType: "spot"`, etc. Value must be a valid yaml expression. | `{}`
-`tolerations` | list of node taints to tolerate | `[ {"operator": "Exists"} ]`
-`rbac.create` | if `true`, create and use RBAC resources | `true`
-`rbac.pspEnabled` | If `true`, create and use a restricted pod security policy | `true`
-`serviceAccount.create` | If `true`, create a new service account | `true`
-`serviceAccount.name` | Service account to be used | None
-`serviceAccount.annotations` | Specifies the annotations for ServiceAccount       | `{}`
-`securityContext.runAsUserID` | User ID to run the container | `1000`
-`securityContext.runAsGroupID` | Group ID to run the container | `1000`
-`nodeSelectorTermsOs` | Operating System Node Selector Key | `kubernetes.io/os`
-`nodeSelectorTermsArch` | CPU Architecture Node Selector Key | `kubernetes.io/arch`
-`targetNodeOs` | Space separated list of node OS's to target, e.g. "linux", "windows", "linux windows".  Note: Windows support is experimental. | `"linux"`
-`updateStrategy` | Update strategy for the all DaemonSets (Linux and Windows) | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
-`linuxUpdateStrategy` | Update strategy for the Linux DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
-`windowsUpdateStrategy` | Update strategy for the Windows DaemonSet | `type=RollingUpdate,rollingUpdate.maxUnavailable=1`
-`extraEnv` | Additional environment variables to inject into pod configuration | `[]`
+| Parameter                        | Description                                                                                                                                                                                                                                                   | Default                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `targetNodeOs`                   | Space separated list of node OS's to target (e.g. `"linux"`, `"windows"`, `"linux windows"`). Windows support is **EXPERIMENTAL**.                                                                                                                            | `"linux"`              |
+| `linuxPodLabels`                 | Labels to add to each Linux pod.                                                                                                                                                                                                                              | `{}`                   |
+| `windowsPodLabels`               | Labels to add to each Windows pod.                                                                                                                                                                                                                            | `{}`                   |
+| `linuxPodAnnotations`            | Annotations to add to each Linux pod.                                                                                                                                                                                                                         | `{}`                   |
+| `windowsPodAnnotations`          | Annotations to add to each Windows pod.                                                                                                                                                                                                                       | `{}`                   |
+| `updateStrategy`                 | Update strategy for the all DaemonSets.                                                                                                                                                                                                                       | _See values.yaml_      |
+| `daemonsetPriorityClassName`     | Name of the PriorityClass to use for all DaemonSets.                                                                                                                                                                                                          | `system-node-critical` |
+| `podMonitor.create`              | If `true`, create a PodMonitor. This requires `enablePrometheusServer: true`.                                                                                                                                                                                 | `false`                |
+| `podMonitor.namespace`           | Override PodMonitor _Helm_ release namespace.                                                                                                                                                                                                                 | `nil`                  |
+| `podMonitor.labels`              | Additional PodMonitor metadata labels                                                                                                                                                                                                                         | `{}`                   |
+| `podMonitor.interval`            | _Prometheus_ scrape interval.                                                                                                                                                                                                                                 | `30s`                  |
+| `podMonitor.sampleLimit`         | Number of scraped samples accepted.                                                                                                                                                                                                                           | `5000`                 |
+| `useHostNetwork`                 | If `true`, enables `hostNetwork` for the Linux DaemonSet. NOTE: setting this to `false` may cause issues accessing IMDSv2 if your account is not configured with an IP hop count of 2 see [Metrics Endpoint Considerations](#metrics-endpoint-considerations) | `true`                 |
+| `dnsPolicy`                      | If specified, this overrides `linuxDnsPolicy` and `windowsDnsPolicy` with a single policy.                                                                                                                                                                    | `""`                   |
+| `linuxDnsPolicy`                 | DNS policy for the Linux DaemonSet.                                                                                                                                                                                                                           | `""`                   |
+| `windowsDnsPolicy`               | DNS policy for the Windows DaemonSet.                                                                                                                                                                                                                         | `""`                   |
+| `daemonsetNodeSelector`          | Expressions to select a node by it's labels for DaemonSet pod assignment. For backwards compatibility the `nodeSelector` value has priority over this but shouldn't be used.                                                                                  | `{}`                   |
+| `linuxNodeSelector`              | Override `daemonsetNodeSelector` for the Linux DaemonSet.                                                                                                                                                                                                     | `{}`                   |
+| `windowsNodeSelector`            | Override `daemonsetNodeSelector` for the Windows DaemonSet.                                                                                                                                                                                                   | `{}`                   |
+| `daemonsetAffinity`              | Affinity settings for DaemonSet pod assignment. For backwards compatibility the `affinity` has priority over this but shouldn't be used.                                                                                                                      | `{}`                   |
+| `linuxAffinity`                  | Override `daemonsetAffinity` for the Linux DaemonSet.                                                                                                                                                                                                         | `{}`                   |
+| `windowsAffinity`                | Override `daemonsetAffinity` for the Windows DaemonSet.                                                                                                                                                                                                       | `{}`                   |
+| `daemonsetTolerations`           | Tolerations for DaemonSet pod assignment. For backwards compatibility the `tolerations` has priority over this but shouldn't be used.                                                                                                                         | `[]`                   |
+| `linuxTolerations`               | Override `daemonsetTolerations` for the Linux DaemonSet.                                                                                                                                                                                                      | `[]`                   |
+| `windowsTolerations`             | Override `daemonsetTolerations` for the Linux DaemonSet.                                                                                                                                                                                                      | `[]`                   |
+| `enableProbesServer`             | If `true`, start an http server exposing `/healthz` endpoint for probes.                                                                                                                                                                                      | `false`                |
+| `metadataTries`                  | The number of times to try requesting metadata.                                                                                                                                                                                                               | `3`                    |
+| `enableSpotInterruptionDraining` | If `true`, drain nodes when the spot interruption termination notice is received.                                                                                                                                                                             | `true`                 |
+| `enableScheduledEventDraining`   | If `true`, drain nodes before the maintenance window starts for an EC2 instance scheduled event. This is **EXPERIMENTAL**.                                                                                                                                    | `false`                |
+| `enableRebalanceMonitoring`      | If `true`, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set `enableRebalanceDraining`.                                                                              | `false`                |
+| `enableRebalanceDraining`        | If `true`, drain nodes when the rebalance recommendation notice is received.                                                                                                                                                                                  | `false`                |
 
-### Testing Configuration (NOT RECOMMENDED FOR PROD DEPLOYMENTS)
+### Testing Configuration
 
-Parameter | Description | Default
---- | --- | ---
-`procUptimeFile` | (Used for Testing) Specify the uptime file | `/proc/uptime`
-`awsEndpoint` | (Used for testing) If specified, use the AWS endpoint to make API calls | None
-`awsSecretAccessKey` | (Used for testing) Pass-thru env var | None
-`awsAccessKeyID` | (Used for testing) Pass-thru env var | None
-`dryRun` | If true, only log if a node would be drained | `false`
+The configuration in this table applies to AWS Node Termination Handler testing and is **NOT RECOMMENDED** FOR PRODUCTION DEPLOYMENTS.
 
-## Metrics endpoint consideration
+| Parameter             | Description                                                                       | Default        |
+| --------------------- | --------------------------------------------------------------------------------- | -------------- |
+| `awsEndpoint`         | (Used for testing) If specified, use the provided AWS endpoint to make API calls. | `""`           |
+| `awsSecretAccessKey`  | (Used for testing) Pass-thru environment variable.                                | `nil`          |
+| `awsAccessKeyID`      | (Used for testing) Pass-thru environment variable.                                | `nil`          |
+| `instanceMetadataURL` | (Used for testing) If specified, use the provided metadata URL.                   | `""`           |
+| `procUptimeFile`      | (Used for Testing) Specify the uptime file.                                       | `/proc/uptime` |
 
-NTH in IMDS mode runs as a DaemonSet w/ `host_networking=true` by default. If the prometheus server is enabled, nothing else will be able to bind to the configured port (by default `:9092`) in the root network namespace. Therefore, it will need to have a firewall/security group configured on the nodes to block access to the `/metrics` endpoint.
+## Metrics Endpoint Considerations
 
-You can switch NTH in IMDS mode to run w/ `host_networking=false`, but you will need to make sure that IMDSv1 is enabled or IMDSv2 IP hop count will need to be incremented to 2. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+AWS Node Termination HAndler in IMDS mode runs as a DaemonSet with `useHostNetwork: true` by default. If the Prometheus server is enabled with `enablePrometheusServer: true` nothing else will be able to bind to the configured port (by default `prometheusServerPort: 9092`) in the root network namespace. Therefore, it will need to have a firewall/security group configured on the nodes to block access to the `/metrics` endpoint.
+
+You can switch NTH in IMDS mode to run w/ `useHostNetwork: false`, but you will need to make sure that IMDSv1 is enabled or IMDSv2 IP hop count will need to be incremented to 2 (see the [IMDSv2 documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html).

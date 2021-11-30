@@ -28,11 +28,9 @@ common_helm_args=()
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --wait
-  --force
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
@@ -40,7 +38,9 @@ anth_helm_args=(
   --set enableSpotInterruptionDraining="false"
   --set enableRebalanceDraining="true"
   --set taintNode="true"
-  --set tolerations=""
+  --set daemonsetTolerations=""
+  --wait
+  --force
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -54,13 +54,13 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --wait
-  --force
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
+  --force
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -74,15 +74,15 @@ set +x
 aemm_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-aemm"
   "$AEMM_DL_URL"
-  --wait
-  --namespace default
   --set servicePort="$IMDS_PORT"
   --set aemm.mockDelaySec=60
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
   --set arguments='{spot}'
+  --wait
 )
 
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
@@ -159,4 +159,5 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
 done
 
 echo "❌ regular-pod-test was NOT evicted"
+
 fail_and_exit 1
