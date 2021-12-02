@@ -571,7 +571,6 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 				refresh = true
 				continue
 			}
-			return nil
 		}
 		_, err = client.CoreV1().Nodes().Update(context.TODO(), freshNode, metav1.UpdateOptions{})
 		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
