@@ -67,6 +67,8 @@ const (
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
 	taintNode                               = "TAINT_NODE"
+	taintEffectDefault                      = "NoSchedule"
+	taintEffect                             = "TAINT_EFFECT"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
 	logLevelConfigKey                       = "LOG_LEVEL"
@@ -123,6 +125,7 @@ type Config struct {
 	MetadataTries                    int
 	CordonOnly                       bool
 	TaintNode                        bool
+	TaintEffect                      string
 	JsonLogging                      bool
 	LogLevel                         string
 	UptimeFromFile                   string
@@ -175,6 +178,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
+	flag.StringVar(&config.TaintEffect, "taint-effect", getEnv(taintEffect, taintEffectDefault), "Sets the effect when a node is tainted.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
@@ -249,6 +253,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Int("metadata_tries", c.MetadataTries).
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).
+		Str("taint_effect", c.TaintEffect).
 		Bool("json_logging", c.JsonLogging).
 		Str("log_level", c.LogLevel).
 		Str("webhook_proxy", c.WebhookProxy).
@@ -292,6 +297,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
+			"\ttaint-effect: %s,\n"+
 			"\tjson-logging: %t,\n"+
 			"\tlog-level: %s,\n"+
 			"\twebhook-proxy: %s,\n"+
@@ -326,6 +332,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.MetadataTries,
 		c.CordonOnly,
 		c.TaintNode,
+		c.TaintEffect,
 		c.JsonLogging,
 		c.LogLevel,
 		c.WebhookProxy,

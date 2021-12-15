@@ -310,7 +310,7 @@ func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID)
 }
 
 // TaintASGLifecycleTermination adds the spot termination notice taint onto a node
@@ -328,7 +328,7 @@ func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) erro
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID)
 }
 
 // TaintRebalanceRecommendation adds the rebalance recommendation notice taint onto a node
@@ -346,7 +346,7 @@ func (n Node) TaintRebalanceRecommendation(nodeName string, eventID string) erro
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, RebalanceRecommendationTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, RebalanceRecommendationTaint, eventID)
 }
 
 // LogPods logs all the pod names on a node
@@ -388,7 +388,7 @@ func (n Node) TaintScheduledMaintenance(nodeName string, eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID, corev1.TaintEffectNoSchedule)
+	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID)
 }
 
 // RemoveNTHTaints removes NTH-specific taints from a node
@@ -540,7 +540,22 @@ func jsonPatchEscape(value string) string {
 	return strings.Replace(value, "/", "~1", -1)
 }
 
-func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, effect corev1.TaintEffect) error {
+func getTaintEffect(effect string) corev1.TaintEffect {
+	switch effect {
+	case "PreferNoSchedule":
+		return corev1.TaintEffectPreferNoSchedule
+	case "NoExecute":
+		return corev1.TaintEffectNoExecute
+	default:
+		log.Warn().Msgf("Unknown taint effect: %s", effect)
+		fallthrough
+	case "NoSchedule":
+		return corev1.TaintEffectNoSchedule
+	}
+}
+
+func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string) error {
+	effect := getTaintEffect(nth.nthConfig.TaintEffect)
 	if nth.nthConfig.DryRun {
 		log.Info().Msgf("Would have added taint (%s=%s:%s) to node %s, but dry-run flag was set", taintKey, taintValue, effect, nth.nthConfig.NodeName)
 		return nil
