@@ -8,6 +8,10 @@ image:
   pullPolicy: IfNotPresent
   pullSecrets: []
 
+# -- Custom labels to add into metadata
+customLabels: {}
+  # app: aws-node-termination-handler
+
 securityContext:
   runAsUserID: 1000
   runAsGroupID: 1000
