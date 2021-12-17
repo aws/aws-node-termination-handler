@@ -26,7 +26,11 @@
 <hr>
 </div>
 
-❗ If you would be interested in a regular community meeting about NTH, let us know [here](https://github.com/aws/aws-node-termination-handler/discussions/523)!
+### Community Meeting
+NTH community meeting is hosted on a monthly cadence. Everyone is welcome to participate!
+* **When:** first Tuesday of every month from 9:00-9:30AM PST
+* **Where:** [Chime meeting bridge](https://chime.aws/6502066216)
+
 
 ## Project Summary
 
