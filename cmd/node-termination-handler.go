@@ -378,7 +378,6 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 		} else {
 			log.Err(err).Msg("There was a problem while trying to cordon the node")
 			recorder.Emit(nodeName, observability.Warning, observability.CordonErrReason, observability.CordonErrMsgFmt, err.Error())
-			os.Exit(1)
 		}
 		return err
 	} else {
@@ -398,9 +397,6 @@ func cordonAndDrainNode(node node.Node, nodeName string, drainEvent *monitor.Int
 			log.Err(err).Msg("There was a problem while trying to cordon and drain the node")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 			recorder.Emit(nodeName, observability.Warning, observability.CordonAndDrainErrReason, observability.CordonAndDrainErrMsgFmt, err.Error())
-			if !sqsTerminationDraining {
-				os.Exit(1)
-			}
 		}
 		return err
 	} else {
