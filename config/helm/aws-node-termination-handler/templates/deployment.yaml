@@ -26,12 +26,12 @@ spec:
         {{ $key }}: {{ $value | quote }}
       {{- end }}
     spec:
+      {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
       volumes:
-        {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
         - name: "webhook-template"
           configMap:
             name: {{ .Values.webhookTemplateConfigMapName }}
-        {{- end }}
+      {{- end }}
       priorityClassName: {{ .Values.priorityClassName | quote }}
       affinity:
         {{- with .Values.affinity }}
