@@ -32,7 +32,7 @@ localstack_helm_args=(
     "$SCRIPTPATH/../../config/helm/localstack/"
     --wait
     --namespace default
-    --set nodeSelector."$NTH_CONTROL_LABEL"
+    --set nodeSelector."${NTH_CONTROL_LABEL}"
     --set defaultRegion="${AWS_REGION}"
 )
 
@@ -60,21 +60,21 @@ echo "🥑 Created SQS Queue ${queue_url}"
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-acth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --namespace kube-system
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set nodeSelector."${NTH_CONTROL_LABEL}"
+  --set tolerations[0].operator=Exists
   --set awsAccessKeyID=foo
   --set awsSecretAccessKey=bar
   --set awsRegion="${AWS_REGION}"
   --set awsEndpoint="http://localstack.default"
   --set checkASGTagBeforeDraining=false
   --set enableSqsTerminationDraining=true
-  --set enableScheduledEventDraining=false
-  --set enableSpotInterruptionDraining=false
-  --set nodeSelector."$NTH_CONTROL_LABEL"
   --set "queueURL=${queue_url}"
+  --wait
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -88,11 +88,12 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -181,5 +182,4 @@ else
     echo "❌ regular-pod-test was not evicted"
 fi
 
-echo "❌ Spot Interruption SQS Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

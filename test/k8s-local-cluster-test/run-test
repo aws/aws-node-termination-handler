@@ -99,8 +99,8 @@ function remove_labels {
     echo "Removing labels from NTH cluster nodes"
 
     labels_to_remove=()
-    while IFS='' read -r line; do 
-      labels_to_remove+=("$line"); 
+    while IFS='' read -r line; do
+      labels_to_remove+=("$line");
     done < <(kubectl get nodes -o json | jq '.items[].metadata.labels' | grep 'aws-node-termination-handler' | tr -d '[:blank:]' | tr -d '\"' | cut -d':' -f1)
 
     if [[ "${#labels_to_remove[@]}" -ne 0 ]]; then
@@ -259,7 +259,7 @@ export NTH_WORKER_LABEL="kubernetes\.io/hostname=ip-${WORKER_IP//\./-}.ec2.inter
 ###
 
 ## Need to override hostname label for CTH localstack tests
-kubectl label node "${CLUSTER_NAME}-worker" "$(echo $NTH_WORKER_LABEL | tr -d '\')" --overwrite
+kubectl label node "${CLUSTER_NAME}-worker" "$(echo $NTH_WORKER_LABEL | tr -d '\\')" --overwrite
 ## Mark worker2 only for Critical Add-Ons like dns
 kubectl taint node "${CLUSTER_NAME}-worker2" CriticalAddonsOnly=true:NoSchedule --overwrite
 

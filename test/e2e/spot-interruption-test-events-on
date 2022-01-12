@@ -14,7 +14,7 @@ set -euo pipefail
 
 function fail_and_exit {
     echo "❌ Spot Interruption With Events test failed $CLUSTER_NAME ❌"
-    exit ${1:-1}
+    exit "${1:-1}"
 }
 
 echo "Starting Spot Interruption With Events Test for Node Termination Handler"
@@ -28,20 +28,20 @@ common_helm_args=()
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --wait
-  --force
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableScheduledEventDraining="false"
   --set enableSpotInterruptionDraining="true"
   --set taintNode="true"
-  --set tolerations=""
+  --set daemonsetTolerations=""
   --set emitKubernetesEvents="true"
   --set kubernetesEventsExtraAnnotations="spot.itn.events/test=extra-annotation"
+  --wait
+  --force
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -55,13 +55,13 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --wait
-  --force
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
+  --force
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -75,14 +75,14 @@ set +x
 aemm_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-aemm"
   "$AEMM_DL_URL"
-  --wait
-  --namespace default
   --set servicePort="$IMDS_PORT"
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
   --set arguments='{spot}'
+  --wait
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     aemm_helm_args+=("${common_helm_args[@]}")
@@ -95,7 +95,7 @@ TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 deployed=0
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         deployed=1
@@ -114,13 +114,13 @@ cordoned=0
 tainted=0
 evicted=0
 test_node=${TEST_NODE:-$CLUSTER_NAME-worker}
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if [[ $cordoned -eq 0 ]] && kubectl get nodes $test_node | grep SchedulingDisabled >/dev/null; then
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled >/dev/null; then
         echo "✅ Verified the worker node was cordoned!"
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 && $tainted -eq 0 ]] && kubectl get nodes $test_node -o json | grep -q "aws-node-termination-handler/spot-itn" >/dev/null; then
+    if [[ $cordoned -eq 1 && $tainted -eq 0 ]] && kubectl get nodes "${test_node}" -o json | grep -q "aws-node-termination-handler/spot-itn" >/dev/null; then
         echo "✅ Verified the worked node was tainted!"
         tainted=1
     fi
@@ -146,25 +146,25 @@ elif [[ $evicted -eq 0 ]]; then
 fi
 
 echo "🥑 Getting Kubernetes events..."
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     eventnotfound=""
     annotationnotfound=""
     extraannotationnotfound=""
     events=$(kubectl get events --field-selector source=aws-node-termination-handler -o json)
     for reason in SpotInterruption PreDrain CordonAndDrain; do
-        event=$(echo $events | jq --arg REASON "$reason" '[.items[] | select(.reason==$REASON)][0]')
+        event=$(echo "${events}" | jq --arg REASON "$reason" '[.items[] | select(.reason==$REASON)][0]')
         if [[ $event == "null" ]]; then
             eventnotfound=$reason
             break
         fi
         for ant in account-id availability-zone instance-id instance-life-cycle instance-type local-hostname local-ipv4 public-hostname public-ipv4 region; do
-            if [[ "$(echo $event | jq -r --arg ANT "$ant" '.metadata.annotations[$ANT]')" == "null" ]]; then
+            if [[ "$(echo "${event}" | jq -r --arg ANT "$ant" '.metadata.annotations[$ANT]')" == "null" ]]; then
                 eventnotfound=$reason
                 annotationnotfound=$ant
                 break 2
             fi
         done
-        if [[ "$(echo $event | jq -r '.metadata.annotations["spot.itn.events/test"]')" != "extra-annotation" ]]; then
+        if [[ "$(echo "${event}" | jq -r '.metadata.annotations["spot.itn.events/test"]')" != "extra-annotation" ]]; then
             extraannotationnotfound=$reason
             break
         fi
@@ -186,4 +186,5 @@ if [ ! -z $eventnotfound ]; then
     fail_and_exit 1
 fi
 echo "❌ Extra annotation was not found on event with reason $extraannotationnotfound"
+
 fail_and_exit_1

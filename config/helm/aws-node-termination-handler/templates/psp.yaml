@@ -38,8 +38,8 @@ spec:
   volumes:
     - '*'
 ---
-kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
   name: {{ template "aws-node-termination-handler.fullname" . }}-psp
   namespace: {{ .Release.Namespace }}

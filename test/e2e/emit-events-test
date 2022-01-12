@@ -14,7 +14,7 @@ set -euo pipefail
 
 function fail_and_exit {
     echo "❌ K8s Emit Events Test failed $CLUSTER_NAME ❌"
-    exit ${1:-1}
+    exit "${1:-1}"
 }
 
 echo "Starting K8s Emit Events Test for Node Termination Handler"
@@ -28,16 +28,17 @@ common_helm_args=()
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --force
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableSpotInterruptionDraining="true"
   --set enableScheduledEventDraining="true"
   --set emitKubernetesEvents="true"
+  --wait
+  --force
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -51,12 +52,12 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --wait
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -70,12 +71,12 @@ set +x
 aemm_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-aemm"
   "$AEMM_DL_URL"
-  --wait
-  --namespace default
   --set aemm.IMDSv2="true"
   --set servicePort="$IMDS_PORT"
+  --wait
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     aemm_helm_args+=("${common_helm_args[@]}")
@@ -89,7 +90,7 @@ TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
@@ -105,7 +106,7 @@ if [[ $DEPLOYED -eq 0 ]]; then
 fi
 
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if kubectl get events | tr -s " " | grep "CordonAndDrain node/${test_node} Node successfully cordoned and drained" >/dev/null; then
         echo "✅ Verified CordonAndDrain was emitted as a k8s event!"
         echo "✅ K8s Emit Events Test Passed $CLUSTER_NAME! ✅"s
@@ -119,5 +120,4 @@ done
 
 echo "❌ k8s CordonAndDrain event was not emitted to k8s"
 
-echo "❌ K8s Emit Events Test failed $CLUSTER_NAME ❌"
 fail_and_exit 1

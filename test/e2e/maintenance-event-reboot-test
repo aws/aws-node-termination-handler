@@ -10,7 +10,7 @@ set -euo pipefail
 
 function fail_and_exit {
     echo "❌ Scheduled Maintenance Event System Reboot Test failed $CLUSTER_NAME ❌"
-    exit ${1:-1}
+    exit "${1:-1}"
 }
 
 echo "Starting Maintenance Event Cancellation Test for Node Termination Handler"
@@ -24,17 +24,17 @@ common_helm_args=()
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --wait
-  --force
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableSpotInterruptionDraining="true"
   --set enableScheduledEventDraining="true"
   --set taintNode="true"
+  --wait
+  --force
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -48,12 +48,12 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --wait
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -67,12 +67,12 @@ set +x
 aemm_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-aemm"
   "$AEMM_DL_URL"
-  --wait
-  --namespace default
   --set servicePort="$IMDS_PORT"
   --set arguments='{events}'
+  --wait
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     aemm_helm_args+=("${common_helm_args[@]}")
@@ -85,7 +85,7 @@ TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 deployed=0
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         deployed=1
@@ -103,13 +103,13 @@ fi
 cordoned=0
 tainted=0
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    if [[ $cordoned -eq 0 ]] && kubectl get nodes $test_node | grep SchedulingDisabled >/dev/null; then
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled >/dev/null; then
         echo "✅ Verified the worker node was cordoned for maintenance event reboot!"
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 ]] && kubectl get nodes $test_node -o json | grep "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
+    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
       echo "✅ Verified the worker node was tainted!"
       tainted=1
     fi
@@ -153,11 +153,9 @@ kubectl delete deployments "$deployment"
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --wait
-  --force
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
@@ -165,6 +163,8 @@ anth_helm_args=(
   --set enableSpotInterruptionDraining="true"
   --set enableScheduledEventDraining="true"
   --set taintNode="true"
+  --wait
+  --force
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     anth_helm_args+=("${common_helm_args[@]}")
@@ -175,14 +175,14 @@ set +x
 
 uncordoned=0
 untainted=0
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-    NODE_LINE=$(kubectl get nodes $test_node | grep -v 'STATUS')
-    if [[ $uncordoned -eq 0 && -z $(echo $NODE_LINE | grep SchedulingDisabled) ]] && [[ ! -z $(echo $NODE_LINE | grep Ready) ]]; then
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    NODE_LINE=$(kubectl get nodes "${test_node}" | grep -v 'STATUS')
+    if [[ $uncordoned -eq 0 && -z $(echo "${NODE_LINE}" | grep SchedulingDisabled) ]] && [[ ! -z $(echo "${NODE_LINE}" | grep Ready) ]]; then
         echo "✅ Verified the worker node was uncordoned!"
         uncordoned=1
     fi
 
-    if [[ $uncordoned -eq 1 && $untainted -eq 0 ]] && ! kubectl get nodes $test_node -o json | grep -q "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
+    if [[ $uncordoned -eq 1 && $untainted -eq 0 ]] && ! kubectl get nodes "${test_node}" -o json | grep -q "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
       echo "✅ Verified the worked node was untainted!"
       untainted=1
     fi
@@ -203,4 +203,5 @@ elif [[ $untainted -eq 0 ]]; then
 else
     echo "❌ regular-pod-test pod was not rescheduled"
 fi
+
 fail_and_exit 1

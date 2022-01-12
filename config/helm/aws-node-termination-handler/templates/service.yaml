@@ -8,7 +8,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    {{- include "aws-node-termination-handler.selectorLabels" . | nindent 4 }}
+    {{- include "aws-node-termination-handler.selectorLabelsDeployment" . | nindent 4 }}
   ports:
     - name: http-metrics
       port: {{ .Values.prometheusServerPort }}
