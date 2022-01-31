@@ -14,7 +14,7 @@ DOCKER_CLI_CONFIG="$HOME/.docker/config.json"
 
 USAGE=$(cat << 'EOM'
   Usage: push-docker-images  [-p <platform pairs>]
-  Pushes docker images for the platform pairs passed in w/ a dockerhub manifest
+  Pushes docker images for the platform pairs passed in w/ a manifest list
   Example: push-docker-images -p "linux/amd64,linux/arm"
           Optional:
             -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
