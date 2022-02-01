@@ -212,6 +212,17 @@ $ aws autoscaling put-lifecycle-hook \
   --heartbeat-timeout=300
 ```
 
+If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, you will need to first create the SQS queue and role to grant access permissions. Please follow the next steps until you've completed Step 3, then come back to this step and use the following AWS CLI command, using the ARNs from Step 3:
+
+```
+$ aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+  --notification-target-arn <your test queue ARN here> \
+  --role-arn <your SQS access role ARN here>
+```
+
 #### 2. Tag the ASGs:
 
 By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
@@ -269,6 +280,9 @@ EOF
 
 $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
 ```
+
+If you are sending Lifecycle termination events from ASG directly to SQS, instead of through EventBridge, then you will also need to create an IAM service role to give Amazon EC2 Auto Scaling access to your SQS queue. Please follow [these linked instructions to create the IAM service role: link.](https://docs.aws.amazon.com/autoscaling/ec2/userguide/configuring-lifecycle-hook-notifications.html#sqs-notifications)
+Note the ARNs for the SQS queue and the associated IAM role, and return to Step 1 at this time to set up the direct-from-ASG-to-SQS Lifecycle hook.
 
 #### 4. Create Amazon EventBridge Rules
 
