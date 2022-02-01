@@ -47,7 +47,7 @@ var spotItnEvent = sqsevent.EventBridgeEvent{
 	}`),
 }
 
-var asgLifecycleEvent = sqsevent.EventBridgeEvent{
+var asgLifecycleEventFromEventBridge = sqsevent.EventBridgeEvent{
 	Version:    "0",
 	ID:         "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
 	DetailType: "EC2 Instance-terminate Lifecycle Action",
@@ -65,6 +65,16 @@ var asgLifecycleEvent = sqsevent.EventBridgeEvent{
 		"EC2InstanceId": "i-0633ac2b0d9769723",
 		"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 	  }`),
+}
+
+var asgLifecycleEventFromSqs = sqsevent.LifecycleDetail{
+	LifecycleHookName:    "test-nth-asg-to-sqs",
+	RequestId:            "3775fac9-93c3-7ead-8713-159816566000",
+	LifecycleTransition:  "autoscaling:EC2_INSTANCE_TERMINATING",
+	AutoScalingGroupName: "my-asg",
+	Time:                 "2022-01-31T23:07:47.872Z",
+	EC2InstanceID:        "i-040107f6ba000e5ee",
+	LifecycleActionToken: "b4dd0f5b-0ef2-4479-9dad-6c55f027000e",
 }
 
 var rebalanceRecommendationEvent = sqsevent.EventBridgeEvent{
@@ -87,10 +97,10 @@ func TestKind(t *testing.T) {
 	h.Assert(t, sqsevent.SQSMonitor{}.Kind() == sqsevent.SQSTerminateKind, "SQSMonitor kind should return the kind constant for the event")
 }
 
-func TestMonitor_Success(t *testing.T) {
+func TestMonitor_EventBridgeSuccess(t *testing.T) {
 	spotItnEventNoTime := spotItnEvent
 	spotItnEventNoTime.Time = ""
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceRecommendationEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge, spotItnEventNoTime, rebalanceRecommendationEvent} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -134,8 +144,55 @@ func TestMonitor_Success(t *testing.T) {
 	}
 }
 
+func TestMonitor_AsgDirectToSqsSuccess(t *testing.T) {
+	event := asgLifecycleEventFromSqs
+	eventBytes, err := json.Marshal(&event)
+	h.Ok(t, err)
+	eventStr := string(eventBytes)
+	msg := sqs.Message{Body: &eventStr}
+	h.Ok(t, err)
+	messages := []*sqs.Message{
+		&msg,
+	}
+	sqsMock := h.MockedSQS{
+		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+		ReceiveMessageErr:  nil,
+	}
+	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
+	}
+	drainChan := make(chan monitor.InterruptionEvent, 1)
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		SQS:              sqsMock,
+		EC2:              ec2Mock,
+		ManagedAsgTag:    "aws-node-termination-handler/managed",
+		ASG:              mockIsManagedTrue(nil),
+		CheckIfManaged:   true,
+		QueueURL:         "https://test-queue",
+		InterruptionChan: drainChan,
+	}
+
+	err = sqsMonitor.Monitor()
+	h.Ok(t, err)
+
+	select {
+	case result := <-drainChan:
+		h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+		h.Equals(t, result.NodeName, dnsNodeName)
+		h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
+		h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+		err = result.PostDrainTask(result, node.Node{})
+		h.Ok(t, err)
+	default:
+		h.Ok(t, fmt.Errorf("Expected an event to be generated"))
+	}
+
+}
+
 func TestMonitor_DrainTasks(t *testing.T) {
-	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, rebalanceRecommendationEvent}
+	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge, rebalanceRecommendationEvent}
 	messages := make([]*sqs.Message, 0, len(testEvents))
 	for _, event := range testEvents {
 		msg, err := getSQSMessageFromEvent(event)
@@ -184,7 +241,7 @@ func TestMonitor_DrainTasks(t *testing.T) {
 }
 
 func TestMonitor_DrainTasks_Errors(t *testing.T) {
-	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, {}, rebalanceRecommendationEvent}
+	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge, {}, rebalanceRecommendationEvent}
 	messages := make([]*sqs.Message, 0, len(testEvents))
 	for _, event := range testEvents {
 		msg, err := getSQSMessageFromEvent(event)
@@ -239,7 +296,7 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 }
 
 func TestMonitor_DrainTasksASGFailure(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	msg, err := getSQSMessageFromEvent(asgLifecycleEventFromEventBridge)
 	h.Ok(t, err)
 	messages := []*sqs.Message{
 		&msg,
@@ -319,7 +376,7 @@ func TestMonitor_Failure(t *testing.T) {
 }
 
 func TestMonitor_SQSFailure(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -384,7 +441,7 @@ func TestMonitor_SQSJsonErr(t *testing.T) {
 	spotEventBadDetail.Detail = []byte(replaceStr)
 	badDetailsMessageSpot, err := getSQSMessageFromEvent(spotEventBadDetail)
 	h.Ok(t, err)
-	asgEventBadDetail := asgLifecycleEvent
+	asgEventBadDetail := asgLifecycleEventFromEventBridge
 	asgEventBadDetail.Detail = []byte(replaceStr)
 	badDetailsMessageASG, err := getSQSMessageFromEvent(asgEventBadDetail)
 	h.Ok(t, err)
@@ -415,7 +472,7 @@ func TestMonitor_SQSJsonErr(t *testing.T) {
 }
 
 func TestMonitor_EC2Failure(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -451,7 +508,7 @@ func TestMonitor_EC2Failure(t *testing.T) {
 }
 
 func TestMonitor_EC2NoInstances(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -486,7 +543,7 @@ func TestMonitor_EC2NoInstances(t *testing.T) {
 }
 
 func TestMonitor_DescribeInstancesError(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -522,7 +579,7 @@ func TestMonitor_DescribeInstancesError(t *testing.T) {
 }
 
 func TestMonitor_EC2NoDNSName(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	msg, err := getSQSMessageFromEvent(asgLifecycleEventFromEventBridge)
 	h.Ok(t, err)
 	messages := []*sqs.Message{
 		&msg,
@@ -559,7 +616,7 @@ func TestMonitor_EC2NoDNSName(t *testing.T) {
 }
 
 func TestMonitor_EC2NoDNSNameOnTerminatedInstance(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	msg, err := getSQSMessageFromEvent(asgLifecycleEventFromEventBridge)
 	h.Ok(t, err)
 	messages := []*sqs.Message{
 		&msg,
@@ -599,7 +656,7 @@ func TestMonitor_EC2NoDNSNameOnTerminatedInstance(t *testing.T) {
 }
 
 func TestMonitor_SQSDeleteFailure(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	msg, err := getSQSMessageFromEvent(asgLifecycleEventFromEventBridge)
 	h.Ok(t, err)
 	messages := []*sqs.Message{
 		&msg,
@@ -637,7 +694,7 @@ func TestMonitor_SQSDeleteFailure(t *testing.T) {
 }
 
 func TestMonitor_InstanceNotManaged(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{
@@ -676,7 +733,7 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 }
 
 func TestMonitor_InstanceManagedErr(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
+	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEventFromEventBridge} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
 		messages := []*sqs.Message{

@@ -101,6 +101,19 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	event := EventBridgeEvent{}
 	err := json.Unmarshal([]byte(*message.Body), &event)
 
+	if err == nil && len(event.DetailType) == 0 && len(event.Time) > 0 {
+		log.Info().Msg("no EventBridge detail-type found, assuming a Lifecycle termination event")
+		lifecycleEvent := LifecycleDetail{}
+		err = json.Unmarshal([]byte(*message.Body), &lifecycleEvent)
+
+		if err == nil {
+			event.Source = "aws.autoscaling"
+			event.Time = lifecycleEvent.Time
+			event.ID = lifecycleEvent.RequestId
+			event.Detail, err = json.Marshal(lifecycleEvent)
+		}
+	}
+
 	return &event, err
 }
 
