@@ -101,20 +101,35 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	event := EventBridgeEvent{}
 	err := json.Unmarshal([]byte(*message.Body), &event)
 
-	if err == nil && len(event.DetailType) == 0 && len(event.Time) > 0 {
-		log.Info().Msg("no EventBridge detail-type found, assuming a Lifecycle termination event")
-		lifecycleEvent := LifecycleDetail{}
-		err = json.Unmarshal([]byte(*message.Body), &lifecycleEvent)
+	if err != nil {
+		return &event, err
+	}
 
-		if err == nil {
-			event.Source = "aws.autoscaling"
-			event.Time = lifecycleEvent.Time
-			event.ID = lifecycleEvent.RequestId
-			event.Detail, err = json.Marshal(lifecycleEvent)
-		}
+	if len(event.DetailType) == 0 {
+		log.Debug().Msg("processing message from source other than EventBridge")
+		event, err = m.processLifecycleEventFromASG(message)
 	}
 
 	return &event, err
+}
+
+// processLifecycleEventFromASG checks for a Lifecycle event from ASG to SQS, and wraps it in an EventBridgeEvent
+func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
+	eventBridgeEvent := EventBridgeEvent{}
+	lifecycleEvent := LifecycleDetail{}
+	err := json.Unmarshal([]byte(*message.Body), &lifecycleEvent)
+
+	if err != nil || lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" {
+		log.Err(err).Msg("only lifecycle termination events from ASG to SQS are supported outside EventBridge")
+		return eventBridgeEvent, err
+	}
+
+	eventBridgeEvent.Source = "aws.autoscaling"
+	eventBridgeEvent.Time = lifecycleEvent.Time
+	eventBridgeEvent.ID = lifecycleEvent.RequestID
+	eventBridgeEvent.Detail, err = json.Marshal(lifecycleEvent)
+
+	return eventBridgeEvent, err
 }
 
 // processEventBridgeEvent processes an EventBridge event and returns interruption event wrappers
@@ -163,7 +178,7 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 		case eventWrapper.Err != nil:
 			// Log errors and record as failed events. Don't delete the message in order to allow retries
 			log.Err(eventWrapper.Err).Msg("ignoring interruption event due to error")
-			failedInterruptionEventsCount++ // seems useless
+			failedInterruptionEventsCount++
 
 		case eventWrapper.InterruptionEvent == nil:
 			log.Debug().Msg("dropping non-actionable interruption event")

@@ -55,7 +55,7 @@ type LifecycleDetail struct {
 	LifecycleHookName    string `json:"LifecycleHookName"`
 	EC2InstanceID        string `json:"EC2InstanceId"`
 	LifecycleTransition  string `json:"LifecycleTransition"`
-	RequestId            string `json:"RequestId"`
+	RequestID            string `json:"RequestId"`
 	Time                 string `json:"Time"`
 }
 
