@@ -45,6 +45,12 @@ spec:
       {{- end }}
       hostNetwork: false
       dnsPolicy: {{ default .Values.windowsDnsPolicy .Values.dnsPolicy }}
+      {{- if .Values.dnsConfig }}
+      dnsConfig:
+      {{- with .Values.dnsConfig }}
+          {{- toYaml . | nindent 10 }}
+      {{- end }}
+      {{- end }}
       containers:
         - name: aws-node-termination-handler
           {{- with .Values.securityContext }}
