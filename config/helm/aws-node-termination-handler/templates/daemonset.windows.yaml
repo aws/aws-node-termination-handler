@@ -142,6 +142,12 @@ spec:
               value: {{ .Values.enableRebalanceDraining | quote }}
             - name: ENABLE_SQS_TERMINATION_DRAINING
               value: "false"
+          {{- if .Values.envFrom }}
+          envFrom:
+          {{- with .Values.envFrom }}
+              {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- end }}
           {{- if or .Values.enablePrometheusServer .Values.enableProbesServer }}
           ports:
           {{- if .Values.enableProbesServer }}

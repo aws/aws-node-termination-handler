@@ -54,6 +54,7 @@ tolerations: []
 
 # Extra environment variables
 extraEnv: []
+envFrom: []
 
 # Liveness probe settings
 probes:

@@ -160,6 +160,12 @@ spec:
             {{- with .Values.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- if .Values.envFrom }}
+          envFrom:
+          {{- with .Values.envFrom }}
+              {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- end }}
           ports:
            - name: liveness-probe
              protocol: TCP
