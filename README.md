@@ -288,6 +288,8 @@ See all the different events docs [here](https://docs.aws.amazon.com/eventbridge
 
 #### 4. Create Amazon EventBridge Rules
 
+You may skip this step if sending events from ASG to SQS directly.
+
 Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
 ```
@@ -326,8 +328,6 @@ $ aws events put-rule \
 $ aws events put-targets --rule MyK8sScheduledChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
-
-You may skip this step if sending events from ASG to SQS directly.
 
 #### 5. Create an IAM Role for the Pods
 

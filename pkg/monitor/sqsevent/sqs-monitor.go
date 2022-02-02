@@ -106,7 +106,6 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	}
 
 	if len(event.DetailType) == 0 {
-		log.Debug().Msg("processing message from source other than EventBridge")
 		event, err = m.processLifecycleEventFromASG(message)
 	}
 
@@ -121,6 +120,7 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 
 	if err != nil || lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" {
 		log.Err(err).Msg("only lifecycle termination events from ASG to SQS are supported outside EventBridge")
+		err = fmt.Errorf("unsupported message type (%s)", message.String())
 		return eventBridgeEvent, err
 	}
 
@@ -129,6 +129,7 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	eventBridgeEvent.ID = lifecycleEvent.RequestID
 	eventBridgeEvent.Detail, err = json.Marshal(lifecycleEvent)
 
+	log.Debug().Msg("processing lifecycle termination event from ASG")
 	return eventBridgeEvent, err
 }
 
