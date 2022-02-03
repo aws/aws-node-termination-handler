@@ -152,9 +152,9 @@ spec:
              containerPort: {{ .Values.probes.httpGet.port }}
           {{- end }}
           {{- if .Values.enablePrometheusServer }}
-            - name: http-metrics
-              protocol: TCP
-              containerPort: {{ .Values.prometheusServerPort }}
+           - name: http-metrics
+             protocol: TCP
+             containerPort: {{ .Values.prometheusServerPort }}
           {{- end }}
           {{- end }}
           {{- if .Values.enableProbesServer }}
