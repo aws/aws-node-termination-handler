@@ -165,9 +165,9 @@ spec:
              protocol: TCP
              containerPort: {{ .Values.probes.httpGet.port }}
           {{- if .Values.enablePrometheusServer }}
-            - name: http-metrics
-              protocol: TCP
-              containerPort: {{ .Values.prometheusServerPort }}
+           - name: http-metrics
+             protocol: TCP
+             containerPort: {{ .Values.prometheusServerPort }}
           {{- end }}
           livenessProbe:
             {{- toYaml .Values.probes | nindent 12 }}
