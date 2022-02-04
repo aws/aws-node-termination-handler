@@ -44,9 +44,7 @@ spec:
       {{- end }}
       {{- if .Values.dnsConfig }}
       dnsConfig:
-      {{- with .Values.dnsConfig }}
-          {{- toYaml . | nindent 10 }}
-      {{- end }}
+        {{- toYaml . | nindent 10 }}
       {{- end }}
       containers:
         - name: aws-node-termination-handler

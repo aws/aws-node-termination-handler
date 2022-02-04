@@ -47,9 +47,7 @@ spec:
       dnsPolicy: {{ default .Values.linuxDnsPolicy .Values.dnsPolicy }}
       {{- if .Values.dnsConfig }}
       dnsConfig:
-      {{- with .Values.dnsConfig }}
-          {{- toYaml . | nindent 10 }}
-      {{- end }}
+        {{- toYaml . | nindent 10 }}
       {{- end }}
       containers:
         - name: aws-node-termination-handler
