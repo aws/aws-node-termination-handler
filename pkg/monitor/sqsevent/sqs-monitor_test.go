@@ -67,6 +67,16 @@ var asgLifecycleEvent = sqsevent.EventBridgeEvent{
 	  }`),
 }
 
+var asgLifecycleEventFromSQS = sqsevent.LifecycleDetail{
+	LifecycleHookName:    "test-nth-asg-to-sqs",
+	RequestID:            "3775fac9-93c3-7ead-8713-159816566000",
+	LifecycleTransition:  "autoscaling:EC2_INSTANCE_TERMINATING",
+	AutoScalingGroupName: "my-asg",
+	Time:                 "2022-01-31T23:07:47.872Z",
+	EC2InstanceID:        "i-040107f6ba000e5ee",
+	LifecycleActionToken: "b4dd0f5b-0ef2-4479-9dad-6c55f027000e",
+}
+
 var rebalanceRecommendationEvent = sqsevent.EventBridgeEvent{
 	Version:    "0",
 	ID:         "5d5555d5-dd55-5555-5555-5555dd55d55d",
@@ -87,7 +97,7 @@ func TestKind(t *testing.T) {
 	h.Assert(t, sqsevent.SQSMonitor{}.Kind() == sqsevent.SQSTerminateKind, "SQSMonitor kind should return the kind constant for the event")
 }
 
-func TestMonitor_Success(t *testing.T) {
+func TestMonitor_EventBridgeSuccess(t *testing.T) {
 	spotItnEventNoTime := spotItnEvent
 	spotItnEventNoTime.Time = ""
 	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceRecommendationEvent} {
@@ -132,6 +142,53 @@ func TestMonitor_Success(t *testing.T) {
 		}
 
 	}
+}
+
+func TestMonitor_AsgDirectToSqsSuccess(t *testing.T) {
+	event := asgLifecycleEventFromSQS
+	eventBytes, err := json.Marshal(&event)
+	h.Ok(t, err)
+	eventStr := string(eventBytes)
+	msg := sqs.Message{Body: &eventStr}
+	h.Ok(t, err)
+	messages := []*sqs.Message{
+		&msg,
+	}
+	sqsMock := h.MockedSQS{
+		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+		ReceiveMessageErr:  nil,
+	}
+	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
+	}
+	drainChan := make(chan monitor.InterruptionEvent, 1)
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		SQS:              sqsMock,
+		EC2:              ec2Mock,
+		ManagedAsgTag:    "aws-node-termination-handler/managed",
+		ASG:              mockIsManagedTrue(nil),
+		CheckIfManaged:   true,
+		QueueURL:         "https://test-queue",
+		InterruptionChan: drainChan,
+	}
+
+	err = sqsMonitor.Monitor()
+	h.Ok(t, err)
+
+	select {
+	case result := <-drainChan:
+		h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+		h.Equals(t, result.NodeName, dnsNodeName)
+		h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
+		h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+		err = result.PostDrainTask(result, node.Node{})
+		h.Ok(t, err)
+	default:
+		h.Ok(t, fmt.Errorf("Expected an event to be generated"))
+	}
+
 }
 
 func TestMonitor_DrainTasks(t *testing.T) {

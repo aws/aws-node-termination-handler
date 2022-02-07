@@ -194,45 +194,12 @@ For a full list of configuration options see our [Helm readme](https://github.co
 
 The termination handler deployment requires some infrastructure to be setup before deploying the application. You'll need the following AWS infrastructure components:
 
-1. AutoScaling Group Termination Lifecycle Hook
-2. Amazon Simple Queue Service (SQS) Queue
+1. Amazon Simple Queue Service (SQS) Queue
+2. AutoScaling Group Termination Lifecycle Hook
 3. Amazon EventBridge Rule
 4. IAM Role for the aws-node-termination-handler Queue Processing Pods
 
-#### 1. Setup a Termination Lifecycle Hook on an ASG:
-
-Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
-
-```
-$ aws autoscaling put-lifecycle-hook \
-  --lifecycle-hook-name=my-k8s-term-hook \
-  --auto-scaling-group-name=my-k8s-asg \
-  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
-  --default-result=CONTINUE \
-  --heartbeat-timeout=300
-```
-
-#### 2. Tag the ASGs:
-
-By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
-
-```
-$ aws autoscaling create-or-update-tags \
-  --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
-```
-
-The value of the key does not matter.
-
-This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
-However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
-
-You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
-
-Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
-
-See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
-
-#### 3. Create an SQS Queue:
+#### 1. Create an SQS Queue:
 
 Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
@@ -270,7 +237,58 @@ EOF
 $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
 ```
 
+If you are sending Lifecycle termination events from ASG directly to SQS, instead of through EventBridge, then you will also need to create an IAM service role to give Amazon EC2 Auto Scaling access to your SQS queue. Please follow [these linked instructions to create the IAM service role: link.](https://docs.aws.amazon.com/autoscaling/ec2/userguide/configuring-lifecycle-hook-notifications.html#sqs-notifications)
+Note the ARNs for the SQS queue and the associated IAM role for Step 2.
+
+#### 2. Setup a Termination Lifecycle Hook on an ASG:
+
+Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+
+```
+$ aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+  --default-result=CONTINUE \
+  --heartbeat-timeout=300
+```
+
+If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
+
+```
+$ aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+  --default-result=CONTINUE \
+  --heartbeat-timeout=300 \
+  --notification-target-arn <your test queue ARN here> \
+  --role-arn <your SQS access role ARN here>
+```
+
+#### 3. Tag the ASGs:
+
+By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
+
+```
+$ aws autoscaling create-or-update-tags \
+  --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
+```
+
+The value of the key does not matter.
+
+This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
+However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
+
+You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
+
+Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
+
+See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
+
 #### 4. Create Amazon EventBridge Rules
+
+You may skip this step if sending events from ASG to SQS directly.
 
 Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
