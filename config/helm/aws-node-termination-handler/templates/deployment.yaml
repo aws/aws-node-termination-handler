@@ -42,6 +42,10 @@ spec:
       {{- with .Values.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ . }}
       {{- end }}
+      {{- if .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 10 }}
+      {{- end }}
       containers:
         - name: aws-node-termination-handler
           {{- with .Values.securityContext }}

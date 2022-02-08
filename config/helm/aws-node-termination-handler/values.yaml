@@ -219,6 +219,7 @@ useHostNetwork: true
 
 # Daemonset DNS policy
 dnsPolicy: ""
+dnsConfig: {}
 linuxDnsPolicy: ClusterFirstWithHostNet
 windowsDnsPolicy: ClusterFirst
 
