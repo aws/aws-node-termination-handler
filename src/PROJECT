@@ -1,0 +1,6 @@
+domain: k8s.aws
+layout:
+- go.kubebuilder.io/v3
+projectName: aws-node-termination-handler
+repo: github.com/aws/aws-node-termination-handler
+version: "3"
