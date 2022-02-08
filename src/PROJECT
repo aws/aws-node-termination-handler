@@ -3,4 +3,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: aws-node-termination-handler
 repo: github.com/aws/aws-node-termination-handler
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: k8s.aws
+  group: node
+  kind: Terminator
+  path: github.com/aws/aws-node-termination-handler/api/v1alpha1
+  version: v1alpha1
 version: "3"

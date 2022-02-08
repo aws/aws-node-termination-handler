@@ -1,0 +1,24 @@
+# permissions for end users to edit terminators.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: terminator-editor-role
+rules:
+- apiGroups:
+  - node.k8s.aws
+  resources:
+  - terminators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - node.k8s.aws
+  resources:
+  - terminators/status
+  verbs:
+  - get
