@@ -1,6 +1,13 @@
 name: NTH Continuous Integration and Release
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  pull_request:
+    branches:
+    - main
+  push:
+    branches:
+    - main
+  workflow_dispatch:
 
 env:
   DEFAULT_GO_VERSION: ^1.16
