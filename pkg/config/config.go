@@ -69,6 +69,7 @@ const (
 	taintNode                               = "TAINT_NODE"
 	taintEffectDefault                      = "NoSchedule"
 	taintEffect                             = "TAINT_EFFECT"
+	excludeFromLoadBalancers                = "EXCLUDE_FROM_LOAD_BALANCERS"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
 	logLevelConfigKey                       = "LOG_LEVEL"
@@ -126,6 +127,7 @@ type Config struct {
 	CordonOnly                       bool
 	TaintNode                        bool
 	TaintEffect                      string
+	ExcludeFromLoadBalancers         bool
 	JsonLogging                      bool
 	LogLevel                         string
 	UptimeFromFile                   string
@@ -179,6 +181,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.StringVar(&config.TaintEffect, "taint-effect", getEnv(taintEffect, taintEffectDefault), "Sets the effect when a node is tainted.")
+	flag.BoolVar(&config.ExcludeFromLoadBalancers, "exclude-from-load-balancers", getBoolEnv(excludeFromLoadBalancers, false), "If true, nodes will be marked for exclusion from load balancers when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
@@ -254,6 +257,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).
 		Str("taint_effect", c.TaintEffect).
+		Bool("exclude_from_load_balancers", c.ExcludeFromLoadBalancers).
 		Bool("json_logging", c.JsonLogging).
 		Str("log_level", c.LogLevel).
 		Str("webhook_proxy", c.WebhookProxy).
@@ -298,6 +302,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
 			"\ttaint-effect: %s,\n"+
+			"\texclude-from-load-balancers: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\tlog-level: %s,\n"+
 			"\twebhook-proxy: %s,\n"+
@@ -333,6 +338,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.CordonOnly,
 		c.TaintNode,
 		c.TaintEffect,
+		c.ExcludeFromLoadBalancers,
 		c.JsonLogging,
 		c.LogLevel,
 		c.WebhookProxy,
