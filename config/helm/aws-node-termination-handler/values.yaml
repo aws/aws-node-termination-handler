@@ -81,6 +81,9 @@ cordonOnly: false
 # Taint node upon spot interruption termination notice.
 taintNode: false
 
+# Exclude node from load balancer before cordoning via the ServiceNodeExclusion feature gate.
+excludeFromLoadBalancers: false
+
 # deleteLocalData tells kubectl to continue even if there are pods using
 # emptyDir (local data that will be deleted when the node is drained).
 deleteLocalData: true
