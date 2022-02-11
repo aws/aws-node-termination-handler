@@ -335,12 +335,12 @@ func (n Node) removeLabelIfValueMatches(nodeName string, key string, matchValue 
 	if err != nil {
 		return err
 	}
-	if n.nthConfig.DryRun {
-		log.Info().Msgf("Would have removed label with key %s from node %s, but dry-run flag was set", key, nodeName)
-		return nil
-	}
 	val, ok := node.ObjectMeta.Labels[key]
 	if !ok || val == matchValue {
+		return nil
+	}
+	if n.nthConfig.DryRun {
+		log.Info().Msgf("Would have removed label with key %s from node %s, but dry-run flag was set", key, nodeName)
 		return nil
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
