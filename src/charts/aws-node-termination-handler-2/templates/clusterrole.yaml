@@ -1,0 +1,46 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+    name: {{ include "aws-node-termination-handler.fullname" . }}
+    labels:
+        {{- include "aws-node-termination-handler.labels" . | nindent 8 }}
+    {{- with .Values.annotations }}
+    annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+rules:
+    - apiGroups: ["node.k8s.aws"]
+      resources: ["terminators"]
+      verbs: ["get", "list", "watch"]
+
+    - apiGroups: ["node.k8s.aws"]
+      resources: ["terminators/status"]
+      verbs: ["create", "delete", "patch", "get", "list", "watch"]
+
+    - apiGroups: [""]
+      resources: ["nodes"]
+      verbs: ["get", "list", "patch", "update"]
+
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "list"]
+
+    - apiGroups: [""]
+      resources: ["pods/eviction"]
+      verbs: ["create"]
+
+    - apiGroups: ["apps", "extensions"]
+      resources: ["daemonsets"]
+      verbs: ["get"]
+
+    - apiGroups: ["admissionregistration.k8s.io"]
+      resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+      verbs: ["get", "list", "watch", "update"]
+
+    {{- if .Values.emitKubernetesEvents }}
+    - apiGroups: [""]
+      resources: ["events"]
+      verbs: ["create", "patch"]
+    {{- end }}
+{{- end -}}

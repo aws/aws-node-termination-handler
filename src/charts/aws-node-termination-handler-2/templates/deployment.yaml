@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: {{ include "aws-node-termination-handler.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+    labels:
+        {{- include "aws-node-termination-handler.labels" . | nindent 8 }}
+    {{- with .Values.annotations }}
+    annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+spec:
+    replicas: {{ .Values.pod.replicas }}
+    {{- with .Values.pod.updateStrategy }}
+    strategy:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    selector:
+        matchLabels:
+            {{- include "aws-node-termination-handler.selectorLabels" . | nindent 12 }}
+    template:
+        metadata:
+            labels:
+                {{- include "aws-node-termination-handler.selectorLabels" . | nindent 16 }}
+            {{- with .Values.pod.labels }}
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            {{- with .Values.pod.annotations }}
+            annotations:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+        spec:
+            {{- with .Values.imagePullSecrets }}
+            imagePullSecrets:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            serviceAccountName: {{ include "aws-node-termination-handler.serviceAccountName" . }}
+            {{- with .Values.pod.securityContext }}
+            securityContext:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            {{- with .Values.pod.priorityClassName }}
+            priorityClassName: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+            {{- if .Values.pod.hostNetwork }}
+            hostNetwork: true
+            {{- end }}
+            {{- with .Values.pod.nodeSelector }}
+            nodeSelector:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            {{- with .Values.affinity }}
+            affinity:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            {{- with .Values.tolerations }}
+            tolerations:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            containers:
+                - name: controller
+                  image: {{ .Values.controller.image }}
+                  imagePullPolicy: {{ .Values.imagePullPolicy }}
+                  {{- with .Values.controller.securityContext }}
+                  securityContext:
+                      {{- toYaml . | nindent 20 }}
+                  {{- end }}
+                  {{- with .Values.controller.env }}
+                  env:
+                      {{- toYaml . | nindent 20 }}
+                  {{- end }}
+                  ports:
+                      - name: http-metrics
+                        containerPort: 8080
+                        protocol: TCP
+                      - name: http-probes
+                        containerPort: 8081
+                        protocol: TCP
+                  livenessProbe:
+                      httpGet:
+                          path: /healthz
+                          port: http
+                  readinessProbe:
+                      httpGet:
+                          path: /readyz
+                          port: http
+                  {{- with .Values.controller.resources }}
+                  resources:
+                      {{- toYaml . | nindent 20 }}
+                  {{- end }}
