@@ -74,7 +74,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 apply:  ## Deploy the controller into the current kubernetes cluster.
 	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
 		$(HELM_OPTS) \
-		--set controller.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler) \
+		--set controller.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler/cmd/controller) \
 		--set fullnameOverride=nthv2
 
 .PHONY: delete
