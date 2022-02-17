@@ -18,9 +18,10 @@
   <a href="https://gallery.ecr.aws/aws-ec2/aws-node-termination-handler">
     <img src="https://img.shields.io/docker/pulls/amazon/aws-node-termination-handler" alt="docker-pulls">
   </a>
+    <a href="https://github.com/aws/aws-node-termination-handler/workflows">
+    <img src="https://img.shields.io/github/workflow/status/aws/aws-node-termination-handler/Build%20and%20Test?label=Builds%20%26%20Tests">
+  </a>
 </p>
-
-![NTH Continuous Integration and Release](https://github.com/aws/aws-node-termination-handler/workflows/NTH%20Continuous%20Integration%20and%20Release/badge.svg)
 
 <div>
 <hr>
