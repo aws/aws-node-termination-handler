@@ -9,7 +9,7 @@ git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git
 Install build tools
 
 ```sh
-make controller-gen ko envtest
+make toolchain
 ```
 
 Configure image repository location
