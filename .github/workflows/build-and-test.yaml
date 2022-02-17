@@ -20,7 +20,7 @@ env:
 
 jobs:
   fastTests:
-    name: Fast Tests and Lints
+    name: Fast Test
     runs-on: ubuntu-20.04
     steps:
     - name: Set up Go 1.x
@@ -51,12 +51,18 @@ jobs:
       env: 
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v2.5.2
-
     - name: Generate K8s YAML
       run: make generate-k8s-yaml
   
+  golangci:
+    # this action needs to run in its own job per setup
+    name: Lint Eastwood
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up golangci-lint
+        uses: golangci/golangci-lint-action@v2.5.2
+    
   buildLinux:
     name: Build Linux Binaries
     runs-on: ubuntu-20.04
