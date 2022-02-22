@@ -40,25 +40,25 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 .PHONY: toolchain
-toolchain:  # Download additional tools.
+toolchain:  ## Download additional tools.
 	@./scripts/toolchain.sh -d "$(PROJECT_DIR)/bin"
 
 ##@ Development
 
 .PHONY: manifests
-manifests:  # Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests:  ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate:  # Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate:  ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
-fmt: # Run go fmt against code.
+fmt: ## Run go fmt against code.
 	go fmt ./...
 
 .PHONY: vet
-vet: # Run go vet against code.
+vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
@@ -74,12 +74,12 @@ run: manifests generate fmt vet ## Run a controller from your host.
 ##@ Deployment
 
 .PHONY: apply
-apply:  # Deploy the controller into the current kubernetes cluster.
+apply:  ## Deploy the controller into the current kubernetes cluster.
 	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
 		$(HELM_OPTS) \
 		--set controller.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler) \
 		--set fullnameOverride=nthv2
 
 .PHONY: delete
-delete:  # Delete controller from current kubernetes cluster.
+delete:  ## Delete controller from current kubernetes cluster.
 	helm uninstall dev --namespace nthv2
