@@ -43,12 +43,6 @@ if [[ -z "$bin_dir" ]]; then
     exit 1
 fi
 
-tmp_dir="$(mktemp -d)"
-trap "rm -rf \"$tmp_dir\"" EXIT
-
-cd "$tmp_dir"
-go mod init tmp >/dev/null 2>&1
-
 for tool in ${tools[@]}; do
     echo "Downloading $tool"
     GOBIN="$bin_dir" go install "$tool"
