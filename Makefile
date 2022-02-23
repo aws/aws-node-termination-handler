@@ -12,7 +12,7 @@ GOARCH ?= amd64
 GOPROXY ?= "https://proxy.golang.org,direct"
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR_PATH = ${MAKEFILE_PATH}/build
-SUPPORTED_PLATFORMS_LINUX ?= "linux/amd64,linux/arm64,linux/arm,darwin/amd64"
+SUPPORTED_PLATFORMS_LINUX ?= "linux/amd64,linux/arm64"
 SUPPORTED_PLATFORMS_WINDOWS ?= "windows/amd64"
 BINARY_NAME ?= "node-termination-handler"
 

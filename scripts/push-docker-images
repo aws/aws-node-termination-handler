@@ -109,6 +109,10 @@ if [[ $MANIFEST == "true" ]]; then
       echo "creating manifest for $updated_img"
       docker manifest create $IMAGE_REPO:$VERSION $updated_img --amend
 
+      # Theoretically, this will not be necessary if we move all our builds to docker buildx.
+      # (The Windows build is the only one not using it at the moment.) The manifest create --amend command
+      # should figure out the OS and architecture automatically if the container was built properly.
+      # However, our builds in the past required this explicit annotation, and it doesn't hurt to keep it for now.
       os_arch=$(echo ${updated_img//$IMAGE_REPO:$VERSION-/})
       os=$(echo $os_arch | cut -d'-' -f1)
       arch=$(echo $os_arch | cut -d'-' -f2)

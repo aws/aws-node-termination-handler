@@ -1,4 +1,4 @@
-FROM golang:1.16 as builder
+FROM --platform=$BUILDPLATFORM golang:1.16 as builder
 
 ## GOLANG env
 ARG GOPROXY="https://proxy.golang.org|direct"
@@ -11,8 +11,9 @@ COPY go.sum .
 RUN go mod download
 
 ARG CGO_ENABLED=0
-ARG GOOS=linux
-ARG GOARCH=amd64
+ARG TARGETOS TARGETARCH
+ARG GOOS=$TARGETOS
+ARG GOARCH=$TARGETARCH
 
 # Build
 COPY . .
