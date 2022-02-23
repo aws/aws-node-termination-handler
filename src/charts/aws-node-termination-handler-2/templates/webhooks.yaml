@@ -1,0 +1,49 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+    name: defaulting.webhook.terminators.k8s.aws
+    namespace: {{ .Release.Namespace }}
+    labels:
+        {{- include "aws-node-termination-handler.labels" . | nindent 8 }}
+    {{- with .Values.annotations }}
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+webhooks:
+    - name: defaulting.webhook.terminators.k8s.aws
+      admissionReviewVersions: ["v1"]
+      clientConfig:
+          service:
+              name: {{ include "aws-node-termination-handler.fullname" . }}
+              namespace: {{ .Release.Namespace }}
+      failurePolicy: Fail
+      sideEffects: None
+      rules:
+          - apiGroups: ["k8s.aws"]
+            apiVersions: ["v1alpha1"]
+            resources: ["terminators", "terminators/status"]
+            operations: ["CREATE", "UPDATE"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+    name: validation.webhook.terminators.k8s.aws
+    namespace: {{ .Release.Namespace }}
+    labels:
+        {{- include "aws-node-termination-handler.labels" . | nindent 8 }}
+    {{- with .Values.annotations }}
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+webhooks:
+    - name: validation.webhook.terminators.k8s.aws
+      admissionReviewVersions: ["v1"]
+      clientConfig:
+          service:
+              name: {{ include "aws-node-termination-handler.fullname" . }}
+              namespace: {{ .Release.Namespace }}
+      failurePolicy: Fail
+      sideEffects: None
+      rules:
+          - apiGroups: ["k8s.aws"]
+            apiVersions: ["v1alpha1"]
+            resources: ["terminators", "terminators/status"]
+            operations: ["CREATE", "DELETE", "UPDATE"]

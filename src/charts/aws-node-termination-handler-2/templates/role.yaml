@@ -16,11 +16,25 @@ rules:
       resources: ["configmaps"]
       verbs: ["create", "delete", "get", "list", "patch", "watch", "update"]
 
+    - apiGroups: [""]
+      resources: ["events"]
+      verbs: ["get", "list", "watch"]
+
+    - apiGroups: [""]
+      resources: ["namespaces"]
+      verbs: ["get", "list", "watch"]
+
+    - apiGroups: [""]
+      resources: ["secrets"]
+      verbs: ["get", "list", "watch"]
+
+    - apiGroups: [""]
+      resources: ["secrets"]
+      resourceNames: ["{{ include "aws-node-termination-handler.fullname" . }}-cert"]
+      verbs: ["get", "list", "watch", "update"]
+
     - apiGroups: ["coordination.k8s.io"]
       resources: ["leases"]
       verbs: ["create", "get", "patch", "update", "watch"]
 
-    - apiGroups: [""]
-      resources: ["events"]
-      verbs: ["get", "list", "watch"]
 {{- end }}

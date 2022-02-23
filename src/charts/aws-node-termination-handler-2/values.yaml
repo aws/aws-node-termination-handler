@@ -10,33 +10,36 @@ labels: {}
 # Annotations to add to Kubernetes objects created by Helm deployment.
 annotations: {}
 
+# Global default log message level.
+logLevel: info
+
 pod:
-  # Number of aws-node-termination-handler controller instance pods.
-  replicas: 1
+    # Number of aws-node-termination-handler controller instance pods.
+    replicas: 1
 
-  # Update strategy for pods.
-  updateStrategy:
-    type: Recreate
+    # Update strategy for pods.
+    updateStrategy:
+        type: Recreate
 
-  # Labels to add to pods.
-  labels: {}
+    # Labels to add to pods.
+    labels: {}
 
-  # Annotations to add to pods.
-  annotations: {}
+    # Annotations to add to pods.
+    annotations: {}
 
-  # Security group configuration for pods.
-  securityContext:
-    fsGroup: 1000
+    # Security group configuration for pods.
+    securityContext:
+        fsGroup: 1000
 
-  # Priority class for the pods.
-  priorityClassName: "system-cluster-critical"
+    # Priority class for the pods.
+    priorityClassName: "system-cluster-critical"
 
-  # Bind the pod to the host network.
-  hostNetwork: false
+    # Bind the pod to the host network.
+    hostNetwork: false
 
-  # Node labels to match when scheduling pods.
-  nodeSelector:
-    kubernetes.io/os: linux
+    # Node labels to match when scheduling pods.
+    nodeSelector:
+        kubernetes.io/os: linux
 
 # Secret for accessing image.
 imagePullSecrets: []
@@ -44,38 +47,70 @@ imagePullSecrets: []
 # Policy on when to pull image.
 imagePullPolicy: IfNotPresent
 
+rbac:
+    # Create the RBAC objects. May fail if RBAC objects already exist.
+    create: true
+
 serviceAccount:
 
-  # Create the service account. May fail if service account already exists.
-  create: true
+    # Create the service account. May fail if service account already exists.
+    create: true
 
-  # Name of service account. If empty then a name will be generated.
-  name: ""
+    # Name of service account. If empty then a name will be generated.
+    name: ""
 
-  # Annotations to add to the service account.
-  annotations: {}
+    # Annotations to add to the service account.
+    annotations: {}
 
 controller:
-  # Image to deploy.
-  image: "public.ecr.aws/aws-node-termination-handler:v2.0.0-0.1"
+    # Image to deploy.
+    image: "public.ecr.aws/aws-node-termination-handler:v2.0.0-0.1"
 
-  # Additional security context configuration for the controller pod.
-  securityContext: {}
+    # Additional security context configuration for the controller pod.
+    securityContext: {}
 
-  # Environment variables.
-  env: []
-  # Example:
-  #   - name: AWS_REGION
-  # .   value: eu-west-1
+    # Environment variables.
+    env: []
+    # Example:
+    #   - name: AWS_REGION
+    # .   value: eu-west-1
 
-  # Resources for the controller pod.
-  resources:
-    requests:
-      cpu: 1
-      memory: 1Gi
-    limits:
-      cpu: 1
-      memory: 1Gi
+    # Resources for the controller pod.
+    resources:
+        requests:
+            cpu: 1
+            memory: 1Gi
+        limits:
+            cpu: 1
+            memory: 1Gi
 
-rbac:
-  create: true
+    # Minimum event level to log; "" to use global logLevel.
+    logLevel: ""
+
+webhook:
+    # Image to deploy.
+    image: "public.ecr.aws/aws-node-termination-handler:v2.0.0-0.1"
+
+    # Listen on port.
+    port: 8443
+
+    # Additional security context configuration for the controller pod.
+    securityContext: {}
+
+    # Environment variables.
+    env: []
+    # Example:
+    #   - name: AWS_REGION
+    # .   value: eu-west-1
+
+    # Resources for the controller pod.
+    resources:
+        requests:
+            cpu: 100m
+            memory: 50Mi
+        limits:
+            cpu: 100m
+            memory: 50Mi
+
+    # Minimum event level to log; "" to use global logLevel.
+    logLevel: ""
