@@ -62,6 +62,8 @@ if [[ $MANIFEST == "true" ]]; then
   fi
   cat <<< "$(jq '.+{"experimental":"enabled"}' $DOCKER_CLI_CONFIG)" > $DOCKER_CLI_CONFIG
   echo "Enabled experimental CLI features to execute docker manifest commands"
+  # Delete the local version of the manifest so we rely solely on the remote manifest
+  docker manifest rm $IMAGE_REPO:$VERSION || :
   manifest_exists=$(docker manifest inspect $IMAGE_REPO:$VERSION > /dev/null ; echo $?)
   if [[ manifest_exists -eq 0 ]]; then
     echo "manifest already exists"
