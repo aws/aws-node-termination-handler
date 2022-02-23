@@ -17,7 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -38,10 +41,10 @@ type TerminatorStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
 // Terminator is the Schema for the terminators API
+//+kubebuilder:object:root=true
+//+kubebuilder:resource:path=terminators,scope=Cluster
+//+kubebuilder:subresource:status
 type Terminator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -50,9 +53,19 @@ type Terminator struct {
 	Status TerminatorStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+func (t *Terminator) SetDefaults(_ context.Context) {
+	// Stubbed to satisfy interface requirements.
+	// TODO: actually set defaults
+}
+
+func (t *Terminator) Validate(_ context.Context) *apis.FieldError {
+	// Stubbed to satisfy interface requirements.
+	// TODO: actually validate
+	return nil
+}
 
 // TerminatorList contains a list of Terminator
+//+kubebuilder:object:root=true
 type TerminatorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
