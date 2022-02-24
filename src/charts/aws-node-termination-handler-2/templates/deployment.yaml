@@ -68,8 +68,12 @@ spec:
                   securityContext:
                       {{- toYaml . | nindent 22 }}
                   {{- end }}
-                  {{- with .Values.controller.env }}
                   env:
+                      - name: SYSTEM_NAMESPACE
+                        valueFrom:
+                            fieldRef:
+                                fieldPath: metadata.namespace
+                  {{- with .Values.controller.env }}
                       {{- toYaml . | nindent 22 }}
                   {{- end }}
                   ports:
