@@ -1,6 +1,0 @@
-apiVersion: node.k8s.aws/v1alpha1
-kind: Terminator
-metadata:
-  name: terminator-sample
-spec:
-  # TODO(user): Add fields here

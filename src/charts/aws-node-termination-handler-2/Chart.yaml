@@ -1,0 +1,19 @@
+apiVersion: v2
+name: aws-node-termination-handler-2
+description: A Helm chart for aws-node-termination-handler, an open-source component for gracefully handling termination events for node hosted in AWS.
+type: application
+version: 0.1.0
+appVersion: "2.0.0-0.1"
+kubeVersion: ">=1.16-0"
+keywords:
+  - aws
+  - ec2
+  - ec2-spot
+  - eks
+  - node
+  - node-termination
+  - spot
+home: https://github.com/aws/eks-charts
+sources:
+  - https://github.com/aws/aws-node-termination-handler
+  - https://github.com/aws/eks-charts
