@@ -29,6 +29,7 @@ const (
 	defaultInstanceMetadataURL              = "http://169.254.169.254"
 	dryRunConfigKey                         = "DRY_RUN"
 	nodeNameConfigKey                       = "NODE_NAME"
+	podNameConfigKey                        = "POD_NAME"
 	kubernetesServiceHostConfigKey          = "KUBERNETES_SERVICE_HOST"
 	kubernetesServicePortConfigKey          = "KUBERNETES_SERVICE_PORT"
 	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
@@ -103,6 +104,7 @@ const (
 type Config struct {
 	DryRun                           bool
 	NodeName                         string
+	PodName                          string
 	MetadataURL                      string
 	IgnoreDaemonSets                 bool
 	DeleteLocalData                  bool
@@ -157,6 +159,7 @@ func ParseCliArgs() (config Config, err error) {
 	}()
 	flag.BoolVar(&config.DryRun, "dry-run", getBoolEnv(dryRunConfigKey, false), "If true, only log if a node would be drained")
 	flag.StringVar(&config.NodeName, "node-name", getEnv(nodeNameConfigKey, ""), "The kubernetes node name")
+	flag.StringVar(&config.PodName, "pod-name", getEnv(podNameConfigKey, ""), "The kubernetes pod name")
 	flag.StringVar(&config.MetadataURL, "metadata-url", getEnv(instanceMetadataURLConfigKey, defaultInstanceMetadataURL), "The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing.")
 	flag.BoolVar(&config.IgnoreDaemonSets, "ignore-daemon-sets", getBoolEnv(ignoreDaemonSetsConfigKey, true), "If true, ignore daemon sets and drain other pods when a spot interrupt is received.")
 	flag.BoolVar(&config.DeleteLocalData, "delete-local-data", getBoolEnv(deleteLocalDataConfigKey, true), "If true, do not drain pods that are using local node storage in emptyDir")
@@ -241,6 +244,7 @@ func (c Config) PrintJsonConfigArgs() {
 	log.Info().
 		Bool("dry_run", c.DryRun).
 		Str("node_name", c.NodeName).
+		Str("pod_name", c.PodName).
 		Str("metadata_url", c.MetadataURL).
 		Str("kubernetes_service_host", c.KubernetesServiceHost).
 		Str("kubernetes_service_port", c.KubernetesServicePort).
@@ -286,6 +290,7 @@ func (c Config) PrintHumanConfigArgs() {
 		"aws-node-termination-handler arguments: \n"+
 			"\tdry-run: %t,\n"+
 			"\tnode-name: %s,\n"+
+			"\tpod-name: %s,\n"+
 			"\tmetadata-url: %s,\n"+
 			"\tkubernetes-service-host: %s,\n"+
 			"\tkubernetes-service-port: %s,\n"+
@@ -322,6 +327,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
+		c.PodName,
 		c.MetadataURL,
 		c.KubernetesServiceHost,
 		c.KubernetesServicePort,
