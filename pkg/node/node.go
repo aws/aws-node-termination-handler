@@ -579,6 +579,7 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		Force:               true,
 		GracePeriodSeconds:  nthConfig.PodTerminationGracePeriod,
 		IgnoreAllDaemonSets: nthConfig.IgnoreDaemonSets,
+		AdditionalFilters:   []drain.PodFilter{filterPodForDeletion(nthConfig.PodName)},
 		DeleteEmptyDirData:  nthConfig.DeleteLocalData,
 		Timeout:             time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second,
 		Out:                 log.Logger,
@@ -761,4 +762,13 @@ func getUptimeFunc(uptimeFile string) uptime.UptimeFuncType {
 		}
 	}
 	return uptime.Uptime
+}
+
+func filterPodForDeletion(podName string) func(pod corev1.Pod) drain.PodDeleteStatus {
+	return func(pod corev1.Pod) drain.PodDeleteStatus {
+		if pod.Name == podName {
+			return drain.MakePodDeleteStatusSkip()
+		}
+		return drain.MakePodDeleteStatusOkay()
+	}
 }
