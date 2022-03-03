@@ -241,6 +241,11 @@ $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp
 If you are sending Lifecycle termination events from ASG directly to SQS, instead of through EventBridge, then you will also need to create an IAM service role to give Amazon EC2 Auto Scaling access to your SQS queue. Please follow [these linked instructions to create the IAM service role: link.](https://docs.aws.amazon.com/autoscaling/ec2/userguide/configuring-lifecycle-hook-notifications.html#sqs-notifications)
 Note the ARNs for the SQS queue and the associated IAM role for Step 2.
 
+There are some caveats when using [server side encryption with SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html):
+* using [SSE-KMS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html) with a [customer managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-mgmt) requires [changing the KMS key policy](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-troubleshooting.html#eb-sqs-encrypted) to allow EventBridge to publish events to SQS.
+* using [SSE-KMS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html) with an [AWS managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-mgmt) is not supported as the KMS key policy can't be updated to allow EventBridge to publish events to SQS.
+* using [SSE-SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html) doesn't require extra setup and works out of the box as SQS queues without encryption at rest.
+
 #### 2. Setup a Termination Lifecycle Hook on an ASG:
 
 Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
