@@ -66,11 +66,15 @@ spec:
                   imagePullPolicy: {{ .Values.imagePullPolicy }}
                   {{- with .Values.controller.securityContext }}
                   securityContext:
-                      {{- toYaml . | nindent 20 }}
+                      {{- toYaml . | nindent 22 }}
                   {{- end }}
-                  {{- with .Values.controller.env }}
                   env:
-                      {{- toYaml . | nindent 20 }}
+                      - name: SYSTEM_NAMESPACE
+                        valueFrom:
+                            fieldRef:
+                                fieldPath: metadata.namespace
+                  {{- with .Values.controller.env }}
+                      {{- toYaml . | nindent 22 }}
                   {{- end }}
                   ports:
                       - name: http-metrics
@@ -82,12 +86,49 @@ spec:
                   livenessProbe:
                       httpGet:
                           path: /healthz
-                          port: http
+                          port: http-probes
                   readinessProbe:
                       httpGet:
                           path: /readyz
-                          port: http
+                          port: http-probes
                   {{- with .Values.controller.resources }}
                   resources:
-                      {{- toYaml . | nindent 20 }}
+                      {{- toYaml . | nindent 22 }}
+                  {{- end }}
+                - name: webhook
+                  image: {{ .Values.webhook.image }}
+                  imagePullPolicy: {{ .Values.imagePullPolicy }}
+                  {{- with .Values.webhook.securityContext }}
+                  securityContext:
+                      {{- toYaml . | nindent 22 }}
+                  {{- end }}
+                  env:
+                      - name: SERVICE_PORT
+                        value: {{ .Values.webhook.port | quote }}
+                      - name: SERVICE_NAME
+                        value: {{ include "aws-node-termination-handler.fullname" . }}
+                      - name: SYSTEM_NAMESPACE
+                        valueFrom:
+                            fieldRef:
+                                fieldPath: metadata.namespace
+                      {{- with .Values.webhook.env }}
+                          {{- toYaml . | nindent 26 }}
+                      {{- end }}
+                  ports:
+                      - name: https-webhook
+                        containerPort: {{ .Values.webhook.port }}
+                        protocol: TCP
+                  livenessProbe:
+                      httpGet:
+                          port: https-webhook
+                          scheme: HTTPS
+                          path: /healthz
+                  readinessProbe:
+                      httpGet:
+                          port: https-webhook
+                          scheme: HTTPS
+                          path: /readyz
+                  {{- with .Values.webhook.resources }}
+                  resources:
+                      {{- toYaml . | nindent 22 }}
                   {{- end }}
