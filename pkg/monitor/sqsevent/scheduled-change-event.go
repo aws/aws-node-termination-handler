@@ -100,6 +100,7 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 			StartTime:            time.Now(),
 			NodeName:             nodeInfo.Name,
 			InstanceID:           nodeInfo.InstanceID,
+			IsManaged:            nodeInfo.IsManaged,
 			Description:          fmt.Sprintf("AWS Health scheduled change event received. Instance %s will be interrupted at %s \n", nodeInfo.InstanceID, event.getTime()),
 		}
 		interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
