@@ -1,4 +1,4 @@
-{{- if and (lower .Values.targetNodeOs | contains "linux") (not .Values.enableSqsTerminationDraining) -}}
+{{- if and (not .Values.enableSqsTerminationDraining) (lower .Values.targetNodeOs | contains "linux") -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -7,220 +7,199 @@ metadata:
   labels:
     {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
 spec:
-  {{- if (or .Values.updateStrategy .Values.linuxUpdateStrategy) }}
+  {{- with .Values.updateStrategy }}
   updateStrategy:
-    {{- with .Values.updateStrategy }}
-      {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with .Values.linuxUpdateStrategy }}
-      {{- toYaml . | nindent 4 }}
-    {{- end }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "aws-node-termination-handler.selectorLabels" . | nindent 6 }}
-      {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
+      {{- include "aws-node-termination-handler.selectorLabelsDaemonset" . | nindent 6 }}
+      kubernetes.io/os: linux
   template:
     metadata:
-      {{- if (or .Values.podAnnotations .Values.linuxPodAnnotations) }}
-      annotations:
-      {{- range $key, $value := (mergeOverwrite (dict) .Values.podAnnotations .Values.linuxPodAnnotations) }}
-        {{ $key }}: {{ $value | quote }}
-      {{- end }}
-      {{- end }}
       labels:
-        {{- include "aws-node-termination-handler.selectorLabels" . | nindent 8 }}
+        {{- include "aws-node-termination-handler.selectorLabelsDaemonset" . | nindent 8 }}
+        kubernetes.io/os: linux
         k8s-app: aws-node-termination-handler
-        {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
-      {{- range $key, $value := (mergeOverwrite (dict) .Values.podLabels .Values.linuxPodLabels) }}
-        {{ $key }}: {{ $value | quote }}
+      {{- with (mergeOverwrite (dict) .Values.podLabels .Values.linuxPodLabels) }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.podAnnotations .Values.linuxPodAnnotations }}
+      annotations:
+        {{- toYaml (mergeOverwrite (dict) .Values.podAnnotations .Values.linuxPodAnnotations) | nindent 8 }}
       {{- end }}
     spec:
-      volumes:
-        - name: "uptime"
-          hostPath:
-            path: {{ .Values.procUptimeFile | default "/proc/uptime" | quote }}
-        {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
-        - name: "webhook-template"
-          configMap:
-            name: {{ .Values.webhookTemplateConfigMapName }}
-        {{- end }}
-      priorityClassName: {{ .Values.priorityClassName | quote }}
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . | quote }}
-                  operator: In
-                  values:
-                    - linux
-                - key: {{ include "aws-node-termination-handler.nodeSelectorTermsArch" . | quote }}
-                  operator: In
-                  values:
-                    - amd64
-                    - arm64
-                    - arm
-                - key: "eks.amazonaws.com/compute-type"
-                  operator: NotIn
-                  values:
-                    - fargate
-        {{- with .Values.affinity }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .Values.linuxAffinity }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
-      serviceAccountName: {{ template "aws-node-termination-handler.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aws-node-termination-handler.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.daemonsetPriorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
       hostNetwork: {{ .Values.useHostNetwork }}
-      dnsPolicy: {{ .Values.dnsPolicy | default "ClusterFirstWithHostNet" | quote }}
+      dnsPolicy: {{ default .Values.linuxDnsPolicy .Values.dnsPolicy }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-        - name: {{ include "aws-node-termination-handler.name" . }}
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: aws-node-termination-handler
+          {{- with .Values.securityContext }}
           securityContext:
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: {{ .Values.securityContext.runAsUserID }}
-            runAsGroup: {{ .Values.securityContext.runAsGroupID }}
-            allowPrivilegeEscalation: false
-          volumeMounts:
-            - name: "uptime"
-              mountPath: {{ .Values.procUptimeFile | default "/proc/uptime" | quote }}
-              readOnly: true
-            {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
-            - name: "webhook-template"
-              mountPath: "/config/"
-            {{- end }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "aws-node-termination-handler.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: DELETE_LOCAL_DATA
-            value: {{ .Values.deleteLocalData | quote }}
-          - name: IGNORE_DAEMON_SETS
-            value: {{ .Values.ignoreDaemonSets | quote }}
-          - name: GRACE_PERIOD
-            value: {{ .Values.gracePeriod | quote }}
-          - name: POD_TERMINATION_GRACE_PERIOD
-            value: {{ .Values.podTerminationGracePeriod | quote }}
-          - name: INSTANCE_METADATA_URL
-            value: {{ .Values.instanceMetadataURL | quote }}
-          - name: NODE_TERMINATION_GRACE_PERIOD
-            value: {{ .Values.nodeTerminationGracePeriod | quote }}
-          - name: WEBHOOK_URL
-          {{- if .Values.webhookURLSecretName }}
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.webhookURLSecretName }}
-                key: webhookurl
-          {{- else }}
-            value: {{ .Values.webhookURL | quote }}
-          {{- end }}
-          - name: WEBHOOK_HEADERS
-            value: {{ .Values.webhookHeaders | quote }}
-          {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
-          - name: WEBHOOK_TEMPLATE_FILE
-            value: {{ print "/config/" .Values.webhookTemplateConfigMapKey | quote }}
-          {{- end }}
-          - name: WEBHOOK_TEMPLATE
-            value: {{ .Values.webhookTemplate | quote }}
-          - name: DRY_RUN
-            value: {{ .Values.dryRun | quote }}
-          - name: ENABLE_SPOT_INTERRUPTION_DRAINING
-            value: {{ .Values.enableSpotInterruptionDraining | quote }}
-          - name: ENABLE_SCHEDULED_EVENT_DRAINING
-            value: {{ .Values.enableScheduledEventDraining | quote }}
-          - name: ENABLE_REBALANCE_MONITORING
-            value: {{ .Values.enableRebalanceMonitoring | quote }}
-          - name: ENABLE_REBALANCE_DRAINING
-            value: {{ .Values.enableRebalanceDraining | quote }}
-          - name: CHECK_ASG_TAG_BEFORE_DRAINING
-            value: {{ .Values.checkASGTagBeforeDraining | quote }}
-          - name: MANAGED_ASG_TAG
-            value: {{ .Values.managedAsgTag | quote }}
-          - name: METADATA_TRIES
-            value: {{ .Values.metadataTries | quote }}
-          - name: CORDON_ONLY
-            value: {{ .Values.cordonOnly | quote }}
-          - name: TAINT_NODE
-            value: {{ .Values.taintNode | quote }}
-          - name: JSON_LOGGING
-            value: {{ .Values.jsonLogging | quote }}
-          - name: LOG_LEVEL
-            value: {{ .Values.logLevel | quote }}
-          - name: WEBHOOK_PROXY
-            value: {{ .Values.webhookProxy | quote }}
-          - name: UPTIME_FROM_FILE
-            value: {{ .Values.procUptimeFile | quote }}
-          - name: ENABLE_PROMETHEUS_SERVER
-            value: {{ .Values.enablePrometheusServer | quote }}
-          - name: PROMETHEUS_SERVER_PORT
-            value: {{ .Values.prometheusServerPort | quote }}
-          - name: ENABLE_PROBES_SERVER
-            value: {{ .Values.enableProbesServer | quote }}
-          - name: PROBES_SERVER_PORT
-            value: {{ .Values.probesServerPort | quote }}
-          - name: PROBES_SERVER_ENDPOINT
-            value: {{ .Values.probesServerEndpoint | quote }}
-          - name: EMIT_KUBERNETES_EVENTS
-            value: {{ .Values.emitKubernetesEvents | quote }}
-          - name: KUBERNETES_EVENTS_EXTRA_ANNOTATIONS
-            value: {{ .Values.kubernetesEventsExtraAnnotations | quote }}
-{{- range $key, $value := .Values.extraEnv }}
-          - name: {{ $key }}
-            value: {{ $value | quote }}
-{{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENABLE_PROBES_SERVER
+              value: {{ .Values.enableProbesServer | quote }}
+            - name: PROBES_SERVER_PORT
+              value: {{ .Values.probes.httpGet.port | quote }}
+            - name: PROBES_SERVER_ENDPOINT
+              value: {{ .Values.probes.httpGet.path | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: JSON_LOGGING
+              value: {{ .Values.jsonLogging | quote }}
+            - name: ENABLE_PROMETHEUS_SERVER
+              value: {{ .Values.enablePrometheusServer | quote }}
+            - name: PROMETHEUS_SERVER_PORT
+              value: {{ .Values.prometheusServerPort | quote }}
+            {{- with .Values.instanceMetadataURL }}
+            - name: INSTANCE_METADATA_URL
+              value: {{ . | quote }}
+            {{- end }}
+            - name: METADATA_TRIES
+              value: {{ .Values.metadataTries | quote }}
+            - name: DRY_RUN
+              value: {{ .Values.dryRun | quote }}
+            - name: CORDON_ONLY
+              value: {{ .Values.cordonOnly | quote }}
+            - name: TAINT_NODE
+              value: {{ .Values.taintNode | quote }}
+            - name: EXCLUDE_FROM_LOAD_BALANCERS
+              value: {{ .Values.excludeFromLoadBalancers | quote }}
+            - name: DELETE_LOCAL_DATA
+              value: {{ .Values.deleteLocalData | quote }}
+            - name: IGNORE_DAEMON_SETS
+              value: {{ .Values.ignoreDaemonSets | quote }}
+            - name: POD_TERMINATION_GRACE_PERIOD
+              value: {{ .Values.podTerminationGracePeriod | quote }}
+            - name: NODE_TERMINATION_GRACE_PERIOD
+              value: {{ .Values.nodeTerminationGracePeriod | quote }}
+            - name: EMIT_KUBERNETES_EVENTS
+              value: {{ .Values.emitKubernetesEvents | quote }}
+            {{- with .Values.kubernetesEventsExtraAnnotations }}
+            - name: KUBERNETES_EVENTS_EXTRA_ANNOTATIONS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if or .Values.webhookURL .Values.webhookURLSecretName }}
+            - name: WEBHOOK_URL
+            {{- if .Values.webhookURLSecretName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.webhookURLSecretName }}
+                  key: webhookurl
+            {{- else }}
+              value: {{ .Values.webhookURL | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.webhookHeaders }}
+            - name: WEBHOOK_HEADERS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.webhookProxy }}
+            - name: WEBHOOK_PROXY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
+            - name: WEBHOOK_TEMPLATE_FILE
+              value: {{ print "/config/" .Values.webhookTemplateConfigMapKey | quote }}
+            {{- else if .Values.webhookTemplate }}
+            - name: WEBHOOK_TEMPLATE
+              value: {{ .Values.webhookTemplate | quote }}
+            {{- end }}
+            - name: ENABLE_SPOT_INTERRUPTION_DRAINING
+              value: {{ .Values.enableSpotInterruptionDraining | quote }}
+            - name: ENABLE_SCHEDULED_EVENT_DRAINING
+              value: {{ .Values.enableScheduledEventDraining | quote }}
+            - name: ENABLE_REBALANCE_MONITORING
+              value: {{ .Values.enableRebalanceMonitoring | quote }}
+            - name: ENABLE_REBALANCE_DRAINING
+              value: {{ .Values.enableRebalanceDraining | quote }}
+            - name: ENABLE_SQS_TERMINATION_DRAINING
+              value: "false"
+            - name: UPTIME_FROM_FILE
+              value: {{ .Values.procUptimeFile | quote }}
           {{- if or .Values.enablePrometheusServer .Values.enableProbesServer }}
           ports:
+          {{- if .Values.enableProbesServer }}
+           - name: liveness-probe
+             protocol: TCP
+             containerPort: {{ .Values.probes.httpGet.port }}
           {{- end }}
           {{- if .Values.enablePrometheusServer }}
-          - containerPort: {{ .Values.prometheusServerPort }}
-            {{- if .Values.useHostNetwork }}
-            hostPort: {{ .Values.prometheusServerPort }}
-            {{- end }}
-            name: http-metrics
-            protocol: TCP
+           - name: http-metrics
+             protocol: TCP
+             containerPort: {{ .Values.prometheusServerPort }}
           {{- end }}
-          {{- if .Values.enableProbesServer }}
-          - containerPort: {{ .Values.probesServerPort }}
-            {{- if .Values.useHostNetwork }}
-            hostPort: {{ .Values.probesServerPort }}
-            {{- end }}
-            name: liveness-probe
-            protocol: TCP
           {{- end }}
           {{- if .Values.enableProbesServer }}
           livenessProbe:
             {{- toYaml .Values.probes | nindent 12 }}
           {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: uptime
+              mountPath: {{ .Values.procUptimeFile }}
+              readOnly: true
+          {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
+            - name: webhook-template
+              mountPath: /config/
+          {{- end }}
+      volumes:
+        - name: uptime
+          hostPath:
+            path: {{ .Values.procUptimeFile | default "/proc/uptime" }}
+        {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
+        - name: webhook-template
+          configMap:
+            name: {{ .Values.webhookTemplateConfigMapName }}
+        {{- end }}
       nodeSelector:
-        {{ include "aws-node-termination-handler.nodeSelectorTermsOs" . }}: linux
-        {{- with .Values.nodeSelector }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .Values.linuxNodeSelector }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- if .Values.image.pullSecrets }}
-      imagePullSecrets:
-      {{- range .Values.image.pullSecrets }}
-        - name: {{ . }}
-      {{- end }}
-      {{- end }}
-    {{- with .Values.tolerations }}
-      tolerations:
+        kubernetes.io/os: linux
+      {{- with default .Values.daemonsetNodeSelector (default .Values.nodeSelector .Values.linuxNodeSelector) }}
         {{- toYaml . | nindent 8 }}
-    {{- end }}
+      {{- end }}
+      {{- if or .Values.daemonsetAffinity (or .Values.affinity .Values.linuxAffinity) }}
+      affinity:
+        {{- toYaml (default .Values.daemonsetAffinity (default .Values.affinity .Values.linuxAffinity)) | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.daemonsetTolerations (or .Values.tolerations .Values.linuxTolerations) }}
+      tolerations:
+        {{- toYaml (default .Values.daemonsetTolerations (default .Values.tolerations .Values.linuxTolerations )) | nindent 8 }}
+      {{- end }}
 {{- end -}}

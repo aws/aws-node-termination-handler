@@ -29,6 +29,7 @@ const (
 	defaultInstanceMetadataURL              = "http://169.254.169.254"
 	dryRunConfigKey                         = "DRY_RUN"
 	nodeNameConfigKey                       = "NODE_NAME"
+	podNameConfigKey                        = "POD_NAME"
 	kubernetesServiceHostConfigKey          = "KUBERNETES_SERVICE_HOST"
 	kubernetesServicePortConfigKey          = "KUBERNETES_SERVICE_PORT"
 	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
@@ -67,6 +68,9 @@ const (
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
 	taintNode                               = "TAINT_NODE"
+	taintEffectDefault                      = "NoSchedule"
+	taintEffect                             = "TAINT_EFFECT"
+	excludeFromLoadBalancers                = "EXCLUDE_FROM_LOAD_BALANCERS"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
 	logLevelConfigKey                       = "LOG_LEVEL"
@@ -100,6 +104,7 @@ const (
 type Config struct {
 	DryRun                           bool
 	NodeName                         string
+	PodName                          string
 	MetadataURL                      string
 	IgnoreDaemonSets                 bool
 	DeleteLocalData                  bool
@@ -123,6 +128,8 @@ type Config struct {
 	MetadataTries                    int
 	CordonOnly                       bool
 	TaintNode                        bool
+	TaintEffect                      string
+	ExcludeFromLoadBalancers         bool
 	JsonLogging                      bool
 	LogLevel                         string
 	UptimeFromFile                   string
@@ -152,6 +159,7 @@ func ParseCliArgs() (config Config, err error) {
 	}()
 	flag.BoolVar(&config.DryRun, "dry-run", getBoolEnv(dryRunConfigKey, false), "If true, only log if a node would be drained")
 	flag.StringVar(&config.NodeName, "node-name", getEnv(nodeNameConfigKey, ""), "The kubernetes node name")
+	flag.StringVar(&config.PodName, "pod-name", getEnv(podNameConfigKey, ""), "The kubernetes pod name")
 	flag.StringVar(&config.MetadataURL, "metadata-url", getEnv(instanceMetadataURLConfigKey, defaultInstanceMetadataURL), "The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing.")
 	flag.BoolVar(&config.IgnoreDaemonSets, "ignore-daemon-sets", getBoolEnv(ignoreDaemonSetsConfigKey, true), "If true, ignore daemon sets and drain other pods when a spot interrupt is received.")
 	flag.BoolVar(&config.DeleteLocalData, "delete-local-data", getBoolEnv(deleteLocalDataConfigKey, true), "If true, do not drain pods that are using local node storage in emptyDir")
@@ -175,6 +183,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
+	flag.StringVar(&config.TaintEffect, "taint-effect", getEnv(taintEffect, taintEffectDefault), "Sets the effect when a node is tainted.")
+	flag.BoolVar(&config.ExcludeFromLoadBalancers, "exclude-from-load-balancers", getBoolEnv(excludeFromLoadBalancers, false), "If true, nodes will be marked for exclusion from load balancers when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
@@ -234,6 +244,7 @@ func (c Config) PrintJsonConfigArgs() {
 	log.Info().
 		Bool("dry_run", c.DryRun).
 		Str("node_name", c.NodeName).
+		Str("pod_name", c.PodName).
 		Str("metadata_url", c.MetadataURL).
 		Str("kubernetes_service_host", c.KubernetesServiceHost).
 		Str("kubernetes_service_port", c.KubernetesServicePort).
@@ -249,6 +260,8 @@ func (c Config) PrintJsonConfigArgs() {
 		Int("metadata_tries", c.MetadataTries).
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).
+		Str("taint_effect", c.TaintEffect).
+		Bool("exclude_from_load_balancers", c.ExcludeFromLoadBalancers).
 		Bool("json_logging", c.JsonLogging).
 		Str("log_level", c.LogLevel).
 		Str("webhook_proxy", c.WebhookProxy).
@@ -277,6 +290,7 @@ func (c Config) PrintHumanConfigArgs() {
 		"aws-node-termination-handler arguments: \n"+
 			"\tdry-run: %t,\n"+
 			"\tnode-name: %s,\n"+
+			"\tpod-name: %s,\n"+
 			"\tmetadata-url: %s,\n"+
 			"\tkubernetes-service-host: %s,\n"+
 			"\tkubernetes-service-port: %s,\n"+
@@ -292,6 +306,8 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
+			"\ttaint-effect: %s,\n"+
+			"\texclude-from-load-balancers: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\tlog-level: %s,\n"+
 			"\twebhook-proxy: %s,\n"+
@@ -311,6 +327,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
+		c.PodName,
 		c.MetadataURL,
 		c.KubernetesServiceHost,
 		c.KubernetesServicePort,
@@ -326,6 +343,8 @@ func (c Config) PrintHumanConfigArgs() {
 		c.MetadataTries,
 		c.CordonOnly,
 		c.TaintNode,
+		c.TaintEffect,
+		c.ExcludeFromLoadBalancers,
 		c.JsonLogging,
 		c.LogLevel,
 		c.WebhookProxy,

@@ -9,6 +9,6 @@ function exit_and_fail() {
 }
 trap exit_and_fail INT ERR TERM
 
-docker build -t misspell -f $SCRIPTPATH/spellcheck-Dockerfile $SCRIPTPATH/
+docker buildx build --load -t misspell -f $SCRIPTPATH/spellcheck-Dockerfile $SCRIPTPATH/
 docker run -i --rm -v $SCRIPTPATH/../../:/app misspell /bin/bash -c 'find /app/ -type f -name "*.md" -not -path "build" | grep -v "/build/" | xargs misspell -error -debug'
 echo "✅ Markdown file spell check passed!"

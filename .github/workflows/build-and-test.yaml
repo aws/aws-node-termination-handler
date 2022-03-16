@@ -1,0 +1,187 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - "v*.*.*"
+  pull_request:
+  workflow_dispatch:
+  # Run M-F at 5AM CDT
+  schedule:
+    - cron: '0 10 * * 1-5'
+
+env:
+  DEFAULT_GO_VERSION: ^1.16
+  GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
+  GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
+  WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+jobs:
+  fastTests:
+    name: Fast Test
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Unit Tests
+      run: make unit-test
+    
+    - name: Lints
+      run: make spellcheck shellcheck helm-lint
+
+    - name: License Check
+      run: make license-test
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate K8s YAML
+      run: make generate-k8s-yaml
+  
+  golangci:
+    # this action needs to run in its own job per setup
+    name: Lint Eastwood
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up golangci-lint
+        uses: golangci/golangci-lint-action@v2.5.2
+    
+  buildLinux:
+    name: Build Linux Binaries
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Build Linux Binaries
+      run: make build-binaries
+
+  buildLinuxDocker:
+    name: Build Linux Docker Images
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Build Linux Docker Images
+      run: make build-docker-images
+
+  buildWindows:
+    name: Build Windows Binaries
+    runs-on: windows-2019
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Build Windows Binaries
+      run: choco install make && choco install zip && RefreshEnv.cmd && make build-binaries-windows
+
+  buildWindowsDocker:
+    name: Build Windows Docker Images
+    runs-on: windows-2019
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: Build Windows Docker Images
+      run: choco install make && RefreshEnv.cmd && make build-docker-images-windows
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        k8sVersion: ["1.17", "1.18", "1.19", "1.20", "1.21", "1.22"]
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: E2E Tests
+      run: test/k8s-local-cluster-test/run-test -v ${{ matrix.k8sVersion }}

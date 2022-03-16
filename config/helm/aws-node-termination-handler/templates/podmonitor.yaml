@@ -1,29 +1,29 @@
-{{- if .Values.podMonitor.create }}
+{{- if and (not .Values.enableSqsTerminationDraining) (and .Values.enablePrometheusServer .Values.podMonitor.create) -}}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: {{ template "aws-node-termination-handler.fullname" . }}
-  {{- if .Values.podMonitor.namespace }}
-  namespace: {{ .Values.podMonitor.namespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
+  namespace: {{ default .Release.Namespace .Values.podMonitor.namespace }}
   labels:
     {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
   {{- with .Values.podMonitor.labels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  jobLabel: {{ include "aws-node-termination-handler.name" . }}
+  jobLabel: app.kubernetes.io/name
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+      - {{ .Release.Namespace }}
   podMetricsEndpoints:
-  - interval: {{ .Values.podMonitor.interval }}
-    path: /metrics
-    port: http-metrics
-  sampleLimit: {{ .Values.podMonitor.sampleLimit }}
+    - port: http-metrics
+      path: /metrics
+      {{- with .Values.podMonitor.interval }}
+      interval: {{ . }}
+      {{- end }}
+  {{- with .Values.podMonitor.sampleLimit }}
+  sampleLimit: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
-      {{- include "aws-node-termination-handler.selectorLabels" . | nindent 6 }}
-{{- end }}
+      {{- include "aws-node-termination-handler.selectorLabelsDaemonset" . | nindent 6 }}
+{{- end -}}

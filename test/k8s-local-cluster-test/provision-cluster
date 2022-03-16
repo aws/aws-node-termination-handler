@@ -24,7 +24,7 @@ K8_1_17="kindest/node:v1.17.17@sha256:66f1d0d91a88b8a001811e2f1054af60eef3b669a9
 K8_VERSION="$K8_1_20"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
 KIND_VERSION="0.11.1"
-HELM_VERSION="3.6.0"
+HELM_VERSION="3.7.1"
 
 echoerr() { echo "$@" 1>&2; }
 

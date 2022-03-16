@@ -32,11 +32,11 @@ import (
   "id": "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
   "detail-type": "EC2 Instance-terminate Lifecycle Action",
   "source": "aws.autoscaling",
-  "account": "896453262834",
+  "account": "123456789012",
   "time": "2020-07-01T22:19:58Z",
   "region": "us-east-1",
   "resources": [
-    "arn:aws:autoscaling:us-east-1:896453262834:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/testt1.demo-0a20f32c.kops.sh"
+    "arn:aws:autoscaling:us-east-1:123456789012:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/testt1.demo-0a20f32c.kops.sh"
   ],
   "detail": {
     "LifecycleActionToken": "0befcbdb-6ecd-498a-9ff7-ae9b54447cd6",
@@ -55,9 +55,11 @@ type LifecycleDetail struct {
 	LifecycleHookName    string `json:"LifecycleHookName"`
 	EC2InstanceID        string `json:"EC2InstanceId"`
 	LifecycleTransition  string `json:"LifecycleTransition"`
+	RequestID            string `json:"RequestId"`
+	Time                 string `json:"Time"`
 }
 
-func (m SQSMonitor) asgTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {

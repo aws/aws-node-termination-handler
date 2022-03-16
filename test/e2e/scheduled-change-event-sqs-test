@@ -14,11 +14,11 @@ set -euo pipefail
 
 
 function fail_and_exit {
-    echo "❌ Spot Interruption SQS Test failed $CLUSTER_NAME ❌"
+    echo "❌ AWS Scheduled Change SQS Test failed $CLUSTER_NAME ❌"
     exit "${1:-1}"
 }
 
-echo "Starting Spot Interruption SQS Test for Node Termination Handler"
+echo "Starting AWS Scheduled Change SQS Test for Node Termination Handler"
 START_TIME=$(date -u +"%Y-%m-%dT%TZ")
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -73,6 +73,7 @@ anth_helm_args=(
   --set awsEndpoint="http://localstack.default"
   --set checkASGTagBeforeDraining=false
   --set enableSqsTerminationDraining=true
+  --set taintNode="true"
   --set "queueURL=${queue_url}"
   --wait
 )
@@ -124,35 +125,49 @@ if [[ $DEPLOYED -eq 0 ]]; then
     fail_and_exit 2
 fi
 
-SPOT_EVENT=$(cat <<EOF
+AWS_SCHEDULED_CHANGE_EVENT=$(cat <<EOF
 {
   "version": "0",
-  "id": "1e5527d7-bb36-4607-3370-4164db56a40e",
-  "detail-type": "EC2 Spot Instance Interruption Warning",
-  "source": "aws.ec2",
-  "account": "123456789012",
-  "time": "$(date -u +"%Y-%m-%dT%TZ")",
-  "region": "us-east-1",
-  "resources": [
-    "arn:aws:ec2:us-east-1b:instance/${instance_id}"
-  ],
+  "id": "7fb65329-1628-4cf3-a740-95fg457h1402",
+  "detail-type": "AWS Health Event",
+  "source": "aws.health",
+  "account": "account id",
+  "time": "${START_TIME}",
+  "region": "${AWS_REGION}",
+  "resources": ["${instance_id}"],
   "detail": {
-    "instance-id": "${instance_id}",
-    "instance-action": "terminate"
+    "eventArn": "arn:aws:health:region::event/id",
+    "service": "EC2",
+    "eventTypeCode": "AWS_EC2_DEDICATED_HOST_NETWORK_MAINTENANCE_SCHEDULED",
+    "eventTypeCategory": "scheduledChange",
+    "startTime": "Sat, 05 Jun 2016 15:10:09 GMT",
+    "eventDescription": [{
+      "language": "en_US",
+      "latestDescription": "A description of the event will be provided here"
+    }],
+    "affectedEntities": [{
+      "entityValue": "${instance_id}",
+      "tags": {
+        "stage": "prod",
+        "app": "my-app"
+      }
+    }]
   }
 }
 EOF
 )
 
-SPOT_EVENT_ONE_LINE=$(echo "${SPOT_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
-SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${SPOT_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+AWS_SCHEDULED_CHANGE_EVENT_ONE_LINE=$(echo "${AWS_SCHEDULED_CHANGE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${AWS_SCHEDULED_CHANGE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
 kubectl exec -i "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
-echo "✅ Sent Spot Interruption Event to SQS queue: ${queue_url}"
+echo "✅ Sent AWS Scheduled Change Event to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
 cordoned=0
+tainted=0
 evicted=0
+message_deleted=0
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
@@ -160,7 +175,12 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
+      echo "✅ Verified the worker node was tainted!"
+      tainted=1
+    fi
+
+    if [[ $tainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
         echo "✅ Verified the regular-pod-test pod was evicted!"
         evicted=1
     fi
@@ -168,7 +188,8 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
         kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
-        echo "✅ Spot Interruption SQS Test Passed $CLUSTER_NAME! ✅"
+        message_deleted=1
+        echo "✅ AWS Scheduled Change SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
 
@@ -178,8 +199,16 @@ done
 
 if [[ $cordoned -eq 0 ]]; then
     echo "❌ Worker node was not cordoned"
-else
-    echo "❌ regular-pod-test was not evicted"
+    fail_and_exit 3
+elif [[ $tainted -eq 0 ]]; then
+    echo "❌ Worker node was not tainted"
+    fail_and_exit 3
+elif [[ $evicted -eq 0 ]]; then
+    echo "❌ regular-pod-test was NOT evicted"
+    fail_and_exit 3
+elif [[ $message_deleted -eq 0 ]]; then
+    echo "❌ message was not removed from the queue after processing"
+    fail_and_exit 3
 fi
 
 fail_and_exit 1
