@@ -64,5 +64,5 @@ Resources:
           Arn: !GetAtt Queue.Arn
 Outputs:
   QueueURL:
-    Description: Url used by AWS NTH controller
+    Description: Queue url for AWS NTH controller
     Value: !Ref Queue
