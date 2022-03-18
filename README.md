@@ -199,6 +199,8 @@ The termination handler deployment requires some infrastructure to be setup befo
 2. AutoScaling Group Termination Lifecycle Hook
 3. Amazon EventBridge Rule
 4. IAM Role for the aws-node-termination-handler Queue Processing Pods
+  
+Cloudformation Template for creating SQS and EventBridge Rules can be found at [docs/cfn-template.yaml](docs/cfn-template.yaml)
 
 #### 1. Create an SQS Queue:
 
