@@ -29,6 +29,17 @@ Resources:
       Targets:
         - Id: 1
           Arn: !GetAtt Queue.Arn
+  ScheduledChangeRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      EventPattern:
+        source:
+          - aws.health
+        detail-type:
+          - AWS Health Event
+      Targets:
+        - Id: 1
+          Arn: !GetAtt Queue.Arn
   SpotTermRule:
     Type: 'AWS::Events::Rule'
     Properties:
