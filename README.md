@@ -201,7 +201,7 @@ The termination handler deployment requires some infrastructure to be setup befo
 4. IAM Role for the aws-node-termination-handler Queue Processing Pods
 
 #### 1. Create an SQS Queue:
-  
+
 Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
 
 ```
