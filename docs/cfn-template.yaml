@@ -29,7 +29,7 @@ Resources:
       Targets:
         - Id: 1
           Arn: !GetAtt Queue.Arn
-  ScheduledChangeRule:
+  ScheduleChangeRule:
     Type: 'AWS::Events::Rule'
     Properties:
       EventPattern:
