@@ -82,6 +82,14 @@ app.kubernetes.io/component: daemonset
 {{- end -}}
 
 {{/*
+Selector labels for the ServiceMonitor
+*/}}
+{{- define "aws-node-termination-handler.selectorServiceMonitor" -}}
+{{ include "aws-node-termination-handler.selectorLabels" . }}
+app.kubernetes.io/component: {{ .Release.Name }}
+{{- end -}}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "aws-node-termination-handler.serviceAccountName" -}}
