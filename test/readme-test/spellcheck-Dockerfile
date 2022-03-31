@@ -1,5 +1,5 @@
-FROM golang:1
+FROM golang:1.16
 
-RUN go get -u github.com/client9/misspell/cmd/misspell
+RUN go install github.com/client9/misspell/cmd/misspell@v0.3.4
 
 CMD [ "/go/bin/misspell" ]

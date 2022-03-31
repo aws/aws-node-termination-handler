@@ -202,7 +202,7 @@ The termination handler deployment requires some infrastructure to be setup befo
 
 #### 1. Create an SQS Queue:
 
-Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
 
 ```
 ## Queue Policy
@@ -296,7 +296,7 @@ See all the different events docs [here](https://docs.aws.amazon.com/eventbridge
 
 You may skip this step if sending events from ASG to SQS directly.
 
-Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
 
 ```
 $ aws events put-rule \
