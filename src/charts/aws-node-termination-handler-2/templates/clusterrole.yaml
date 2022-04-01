@@ -20,11 +20,15 @@ rules:
 
     - apiGroups: [""]
       resources: ["nodes"]
-      verbs: ["get", "list", "patch", "update"]
+      verbs: ["get", "list", "patch", "update", "watch"]
 
     - apiGroups: [""]
       resources: ["pods"]
-      verbs: ["get", "list"]
+      verbs: ["get", "list", "watch"]
+
+    - apiGroups: [""]
+      resources: ["configmaps"]
+      verbs: ["get", "list", "watch"]
 
     - apiGroups: [""]
       resources: ["pods/eviction"]

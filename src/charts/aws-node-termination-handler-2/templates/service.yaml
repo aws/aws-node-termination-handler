@@ -22,3 +22,7 @@ spec:
           port: 8081
           protocol: TCP
           targetPort: http-probes
+        - name: https-webhook
+          port: 443
+          protocol: TCP
+          targetPort: https-webhook

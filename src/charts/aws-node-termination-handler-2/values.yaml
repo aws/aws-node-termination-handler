@@ -10,8 +10,50 @@ labels: {}
 # Annotations to add to Kubernetes objects created by Helm deployment.
 annotations: {}
 
-# Global default log message level.
-logLevel: info
+terminator:
+    defaults:
+        sqs:
+            attributeNames:
+                - SentTimestamp
+            maxNumberOfMessages: 10
+            messageAttributeNames:
+                - All
+            visibilityTimeoutSeconds: 20
+            waitTimeSeconds: 20
+        drain:
+            force: true
+            gracePeriodSeconds: -1
+            ignoreAllDaemonSets: true
+            deleteEmptyDirData: true
+            timeoutSeconds: 120
+
+
+
+# Global logging configuration.
+# See https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L58-L94
+# for descriptions of each option.
+logging:
+    level: info
+    development: false
+    disableStacktrace: true
+    disableCaller: true
+    sampling:
+        initial: 100
+        thereafter: 100
+    outputPaths:
+        - stdout
+    errorOutputPaths:
+        - stderr
+    encoding: console
+    encoderConfig:
+        timeKey: time
+        levelKey: level
+        nameKey: logger
+        callerKey: caller
+        messageKey: message
+        stacktraceKey: stacktrace
+        levelEncoder: capital
+        timeEncoder: iso8601
 
 pod:
     # Number of aws-node-termination-handler controller instance pods.

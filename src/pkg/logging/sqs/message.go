@@ -1,0 +1,55 @@
+/*
+Copyright 2022.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package sqs
+
+import (
+	awssqs "github.com/aws/aws-sdk-go/service/sqs"
+
+	"go.uber.org/zap/zapcore"
+)
+
+type messageMarshaler struct {
+	*awssqs.Message
+}
+
+func NewMessageMarshaler(msg *awssqs.Message) zapcore.ObjectMarshaler {
+	return messageMarshaler{Message: msg}
+}
+
+func (s messageMarshaler) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if s.Message == nil {
+		return nil
+	}
+
+	if s.MessageId != nil {
+		enc.AddString("messageId", *s.MessageId)
+	}
+	enc.AddObject("attributes", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for key, value := range s.Attributes {
+			enc.AddString(key, *value)
+		}
+		return nil
+	}))
+	enc.AddObject("messageAttributes", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for key, value := range s.MessageAttributes {
+			enc.AddString(key, *value.StringValue)
+		}
+		return nil
+	}))
+
+	return nil
+}

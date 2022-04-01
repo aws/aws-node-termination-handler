@@ -20,7 +20,6 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -31,8 +30,29 @@ type TerminatorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Terminator. Edit terminator_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Sqs   SqsSpec   `json:"sqs,omitempty"`
+	Drain DrainSpec `json:"drain,omitempty"`
+}
+
+// SqsSpec defines inputs to SQS "receive messages" requests.
+type SqsSpec struct {
+	// https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.38.55/service/sqs#ReceiveMessageInput
+	AttributeNames           []string `json:"attributeNames,omitempty"`
+	MaxNumberOfMessages      int64    `json:"maxNumberOfMessages,omitempty"`
+	MessageAttributeNames    []string `json:"messageAttributeNames,omitempty"`
+	QueueUrl                 string   `json:"queueUrl,omitempty"`
+	VisibilityTimeoutSeconds int64    `json:"visibilityTimeoutSeconds,omitempty"`
+	WaitTimeSeconds          int64    `json:"waitTimeSeconds,omitempty"`
+}
+
+// DrainSpec defines inputs to the cordon and drain operations.
+type DrainSpec struct {
+	// https://pkg.go.dev/k8s.io/kubectl@v0.21.4/pkg/drain#Helper
+	Force               bool `json:"force,omitempty"`
+	GracePeriodSeconds  int  `json:"gracePeriodSeconds,omitempty"`
+	IgnoreAllDaemonSets bool `json:"ignoreAllDaemonSets,omitempty"`
+	DeleteEmptyDirData  bool `json:"deleteEmptyDirData,omitempty"`
+	TimeoutSeconds      int  `json:"timeoutSeconds,omitempty"`
 }
 
 // TerminatorStatus defines the observed state of Terminator
@@ -56,12 +76,6 @@ type Terminator struct {
 func (t *Terminator) SetDefaults(_ context.Context) {
 	// Stubbed to satisfy interface requirements.
 	// TODO: actually set defaults
-}
-
-func (t *Terminator) Validate(_ context.Context) *apis.FieldError {
-	// Stubbed to satisfy interface requirements.
-	// TODO: actually validate
-	return nil
 }
 
 // TerminatorList contains a list of Terminator
