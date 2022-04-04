@@ -14,32 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package terminator
+package adapter
 
 import (
 	"fmt"
 
 	"github.com/aws/aws-node-termination-handler/api/v1alpha1"
 	"github.com/aws/aws-node-termination-handler/pkg/node/cordondrain"
+	kubectlcordondrain "github.com/aws/aws-node-termination-handler/pkg/node/cordondrain/kubectl"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 )
 
-type cordonDrainerBuilderAdapter struct {
-	cordondrain.Builder
+type CordonDrainerBuilder struct {
+	kubectlcordondrain.Builder
 }
 
-func NewCordonDrainerBuilder(builder cordondrain.Builder) (CordonDrainerBuilder, error) {
-	if builder == nil {
-		return nil, fmt.Errorf("argument 'builder' is nil")
-	}
-	return cordonDrainerBuilderAdapter{Builder: builder}, nil
-}
-
-func (b cordonDrainerBuilderAdapter) NewCordonDrainer(terminator *v1alpha1.Terminator) (cordondrain.CordonDrainer, error) {
+func (b CordonDrainerBuilder) NewCordonDrainer(terminator *v1alpha1.Terminator) (terminator.CordonDrainer, error) {
 	if terminator == nil {
 		return nil, fmt.Errorf("argument 'terminator' is nil")
 	}
 
-	return b.Builder.Build(cordondrain.Config{
+	return b.Build(cordondrain.Config{
 		Force:               terminator.Spec.Drain.Force,
 		GracePeriodSeconds:  terminator.Spec.Drain.GracePeriodSeconds,
 		IgnoreAllDaemonSets: terminator.Spec.Drain.IgnoreAllDaemonSets,

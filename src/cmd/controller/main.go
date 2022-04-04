@@ -59,6 +59,7 @@ import (
 	nodename "github.com/aws/aws-node-termination-handler/pkg/node/name"
 	"github.com/aws/aws-node-termination-handler/pkg/sqsmessage"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+	terminatoradapter "github.com/aws/aws-node-termination-handler/pkg/terminator/adapter"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -146,71 +147,32 @@ func main() {
 		logger.Fatal("failed to create EC2 client")
 	}
 
-	nodeGetter, err := node.NewGetter(kubeClient)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create node getter")
-	}
-	nodeNameGetter, err := nodename.NewGetter(ec2Client)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create node name getter")
-	}
-
-	asgTerminateEventV1Parser, err := asgterminateeventv1.NewParser(asgClient)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create ASG instance-terminate lifecycle event v1 parser")
-	}
-	asgTerminateEventV2Parser, err := asgterminateeventv2.NewParser(asgClient)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create ASG instance-terminate lifecycle event v2 parser")
-	}
-	sqsMessageParser, err := terminator.NewSQSMessageParser(event.NewParser(
-		asgTerminateEventV1Parser,
-		asgTerminateEventV2Parser,
-		rebalancerecommendationeventv0.NewParser(),
-		scheduledchangeeventv1.NewParser(),
-		spotinterruptioneventv1.NewParser(),
-		statechangeeventv1.NewParser(),
-	))
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create SQS message parser")
-	}
-
-	terminatorGetter, err := terminator.NewGetter(kubeClient)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create terminator getter")
-	}
-
-	sqsMessageClient, err := sqsmessage.NewClient(sqsClient)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create SQS message client")
-	}
-	terminatorSQSClientBuilder, err := terminator.NewSQSClientBuilder(sqsMessageClient)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create terminator SQS message client builder")
-	}
-
-	cordonDrainerBuilder, err := kubectlcordondrainer.NewBuilder(
-		clientSet,
-		kubectlcordondrainer.DefaultCordoner,
-		kubectlcordondrainer.DefaultDrainer,
+	eventParser := event.NewAggregatedParser(
+		asgterminateeventv1.Parser{ASGLifecycleActionCompleter: asgClient},
+		asgterminateeventv2.Parser{ASGLifecycleActionCompleter: asgClient},
+		rebalancerecommendationeventv0.Parser{},
+		scheduledchangeeventv1.Parser{},
+		spotinterruptioneventv1.Parser{},
+		statechangeeventv1.Parser{},
 	)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create kubectl cordon/drain client")
-	}
-	terminatorCordonDrainerBuilder, err := terminator.NewCordonDrainerBuilder(cordonDrainerBuilder)
-	if err != nil {
-		logger.With("error", err).Fatal("failed to create terminator cordon/drain client")
-	}
 
 	rec := terminator.Reconciler{
-		Name:                 "terminator",
-		RequeueInterval:      time.Duration(10) * time.Second,
-		NodeGetter:           nodeGetter,
-		NodeNameGetter:       nodeNameGetter,
-		SQSClientBuilder:     terminatorSQSClientBuilder,
-		SQSMessageParser:     sqsMessageParser,
-		Getter:               terminatorGetter,
-		CordonDrainerBuilder: terminatorCordonDrainerBuilder,
+		Name:            "terminator",
+		RequeueInterval: time.Duration(10) * time.Second,
+		NodeGetter:      node.Getter{KubeGetter: kubeClient},
+		NodeNameGetter:  nodename.Getter{EC2InstancesDescriber: ec2Client},
+		SQSClientBuilder: terminatoradapter.SQSMessageClientBuilder{
+			SQSMessageClient: sqsmessage.Client{SQSClient: sqsClient},
+		},
+		SQSMessageParser: terminatoradapter.EventParser{Parser: eventParser},
+		Getter:           terminatoradapter.Getter{KubeGetter: kubeClient},
+		CordonDrainerBuilder: terminatoradapter.CordonDrainerBuilder{
+			Builder: kubectlcordondrainer.Builder{
+				ClientSet: clientSet,
+				Cordoner:  kubectlcordondrainer.DefaultCordoner,
+				Drainer:   kubectlcordondrainer.DefaultDrainer,
+			},
+		},
 	}
 	if err = rec.BuildController(
 		ctrl.NewControllerManagedBy(mgr).

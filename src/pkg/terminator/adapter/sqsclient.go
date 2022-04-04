@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package terminator
+package adapter
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/aws-node-termination-handler/api/v1alpha1"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -33,29 +33,18 @@ type (
 		DeleteSQSMessage(context.Context, *sqs.DeleteMessageInput) error
 	}
 
-	sqsMessageClientAdapterBuilder struct {
-		SQSMessageClient
-	}
-
-	sqsMessageClientAdapter struct {
+	sqsMessageClient struct {
 		sqs.DeleteMessageInput
 		sqs.ReceiveMessageInput
 		SQSMessageClient
 	}
+
+	SQSMessageClientBuilder struct {
+		SQSMessageClient
+	}
 )
 
-func NewSQSClientBuilder(client SQSMessageClient) (SQSClientBuilder, error) {
-	if client == nil {
-		return nil, fmt.Errorf("argument 'client' is nil")
-	}
-	return sqsMessageClientAdapterBuilder{SQSMessageClient: client}, nil
-}
-
-func (s sqsMessageClientAdapterBuilder) NewSQSClient(terminator *v1alpha1.Terminator) (SQSClient, error) {
-	if terminator == nil {
-		return nil, fmt.Errorf("argument 'terminator' is nil")
-	}
-
+func (s SQSMessageClientBuilder) NewSQSClient(terminator *v1alpha1.Terminator) (terminator.SQSClient, error) {
 	receiveMessageInput := sqs.ReceiveMessageInput{
 		MaxNumberOfMessages: aws.Int64(terminator.Spec.SQS.MaxNumberOfMessages),
 		QueueUrl:            aws.String(terminator.Spec.SQS.QueueURL),
@@ -75,27 +64,27 @@ func (s sqsMessageClientAdapterBuilder) NewSQSClient(terminator *v1alpha1.Termin
 		QueueUrl: aws.String(terminator.Spec.SQS.QueueURL),
 	}
 
-	return sqsMessageClientAdapter{
+	return sqsMessageClient{
 		DeleteMessageInput:  deleteMessageInput,
 		ReceiveMessageInput: receiveMessageInput,
 		SQSMessageClient:    s.SQSMessageClient,
 	}, nil
 }
 
-func (a sqsMessageClientAdapter) GetSQSMessages(ctx context.Context) ([]*sqs.Message, error) {
+func (s sqsMessageClient) GetSQSMessages(ctx context.Context) ([]*sqs.Message, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).
-		With("params", logging.NewReceiveMessageInputMarshaler(&a.ReceiveMessageInput)),
+		With("params", logging.NewReceiveMessageInputMarshaler(&s.ReceiveMessageInput)),
 	)
 
-	return a.SQSMessageClient.GetSQSMessages(ctx, &a.ReceiveMessageInput)
+	return s.SQSMessageClient.GetSQSMessages(ctx, &s.ReceiveMessageInput)
 }
 
-func (a sqsMessageClientAdapter) DeleteSQSMessage(ctx context.Context, msg *sqs.Message) error {
-	a.DeleteMessageInput.ReceiptHandle = msg.ReceiptHandle
+func (s sqsMessageClient) DeleteSQSMessage(ctx context.Context, msg *sqs.Message) error {
+	s.DeleteMessageInput.ReceiptHandle = msg.ReceiptHandle
 
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).
-		With("params", logging.NewDeleteMessageInputMarshaler(&a.DeleteMessageInput)),
+		With("params", logging.NewDeleteMessageInputMarshaler(&s.DeleteMessageInput)),
 	)
 
-	return a.SQSMessageClient.DeleteSQSMessage(ctx, &a.DeleteMessageInput)
+	return s.SQSMessageClient.DeleteSQSMessage(ctx, &s.DeleteMessageInput)
 }

@@ -20,8 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/aws/aws-node-termination-handler/pkg/event"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 )
 
 const (
@@ -30,11 +30,9 @@ const (
 	version    = "0"
 )
 
-func NewParser() event.Parser {
-	return event.ParserFunc(parse)
-}
+type Parser struct{}
 
-func parse(ctx context.Context, str string) event.Event {
+func (Parser) Parse(ctx context.Context, str string) terminator.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("rebalanceRecommendation.v0"))
 
 	evt := EC2InstanceRebalanceRecommendation{}

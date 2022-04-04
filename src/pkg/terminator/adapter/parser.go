@@ -14,37 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cordondrain
+package adapter
 
 import (
 	"context"
 
-	v1 "k8s.io/api/core/v1"
+	"github.com/aws/aws-node-termination-handler/pkg/event"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+
+	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
-type (
-	Config struct {
-		Force               bool
-		GracePeriodSeconds  int
-		IgnoreAllDaemonSets bool
-		DeleteEmptyDirData  bool
-		TimeoutSeconds      int
-	}
+type EventParser struct {
+	event.Parser
+}
 
-	Builder interface {
-		Build(Config) (CordonDrainer, error)
+func (e EventParser) Parse(ctx context.Context, msg *sqs.Message) terminator.Event {
+	if msg == nil || msg.Body == nil {
+		return e.Parser.Parse(ctx, "")
 	}
-
-	Cordoner interface {
-		Cordon(context.Context, *v1.Node) error
-	}
-
-	Drainer interface {
-		Drain(context.Context, *v1.Node) error
-	}
-
-	CordonDrainer interface {
-		Cordoner
-		Drainer
-	}
-)
+	return e.Parser.Parse(ctx, *msg.Body)
+}

@@ -32,26 +32,15 @@ type (
 		DescribeInstancesWithContext(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
 	}
 
-	Getter interface {
-		GetNodeName(context.Context, string) (string, error)
-	}
-
-	getter struct {
+	Getter struct {
 		EC2InstancesDescriber
 	}
 )
 
-func NewGetter(describer EC2InstancesDescriber) (Getter, error) {
-	if describer == nil {
-		return nil, fmt.Errorf("argument 'describer' is nil")
-	}
-	return getter{EC2InstancesDescriber: describer}, nil
-}
-
-func (n getter) GetNodeName(ctx context.Context, instanceId string) (string, error) {
+func (g Getter) GetNodeName(ctx context.Context, instanceId string) (string, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("nodeName"))
 
-	result, err := n.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
+	result, err := g.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceId)},
 	})
 	if err != nil {

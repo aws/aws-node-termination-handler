@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/aws/aws-node-termination-handler/pkg/event"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 )
 
 const (
@@ -34,11 +34,9 @@ const (
 
 var acceptedStatesList = strings.Split(acceptedStates, ",")
 
-func NewParser() event.Parser {
-	return event.ParserFunc(parse)
-}
+type Parser struct{}
 
-func parse(ctx context.Context, str string) event.Event {
+func (Parser) Parse(ctx context.Context, str string) terminator.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("stateChange.v1"))
 
 	evt := EC2InstanceStateChangeNotification{}

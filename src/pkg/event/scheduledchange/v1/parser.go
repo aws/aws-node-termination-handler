@@ -20,8 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/aws/aws-node-termination-handler/pkg/event"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 )
 
 const (
@@ -32,11 +32,9 @@ const (
 	acceptedEventTypeCategory = "scheduledChange"
 )
 
-func NewParser() event.Parser {
-	return event.ParserFunc(parse)
-}
+type Parser struct{}
 
-func parse(ctx context.Context, str string) event.Event {
+func (Parser) Parse(ctx context.Context, str string) terminator.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("scheduledChange.v1"))
 
 	evt := AWSHealthEvent{}

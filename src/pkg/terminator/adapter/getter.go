@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package terminator
+package adapter
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/aws-node-termination-handler/api/v1alpha1"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
@@ -33,19 +32,12 @@ type (
 		Get(context.Context, client.ObjectKey, client.Object) error
 	}
 
-	getter struct {
+	Getter struct {
 		KubeGetter
 	}
 )
 
-func NewGetter(kubeGetter KubeGetter) (Getter, error) {
-	if kubeGetter == nil {
-		return nil, fmt.Errorf("argument 'kubeGetter' is nil")
-	}
-	return getter{KubeGetter: kubeGetter}, nil
-}
-
-func (g getter) GetTerminator(ctx context.Context, name types.NamespacedName) (*v1alpha1.Terminator, error) {
+func (g Getter) GetTerminator(ctx context.Context, name types.NamespacedName) (*v1alpha1.Terminator, error) {
 	terminator := &v1alpha1.Terminator{}
 	if err := g.Get(ctx, name, terminator); err != nil {
 		if errors.IsNotFound(err) {

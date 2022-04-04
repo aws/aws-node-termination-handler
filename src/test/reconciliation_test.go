@@ -53,6 +53,7 @@ import (
 	nodename "github.com/aws/aws-node-termination-handler/pkg/node/name"
 	"github.com/aws/aws-node-termination-handler/pkg/sqsmessage"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+	terminatoradapter "github.com/aws/aws-node-termination-handler/pkg/terminator/adapter"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -139,8 +140,8 @@ var _ = Describe("Reconciliation", func() {
 		kubeGetFunc                    KubeGetFunc
 		receiveSQSMessageFunc          ReceiveSQSMessageFunc
 		deleteSQSMessageFunc           DeleteSQSMessageFunc
-		cordonFunc                     kubectlcordondrain.RunCordonFunc
-		drainFunc                      kubectlcordondrain.RunDrainFunc
+		cordonFunc                     kubectlcordondrain.CordonFunc
+		drainFunc                      kubectlcordondrain.DrainFunc
 	)
 
 	When("the SQS queue is empty", func() {
@@ -1624,62 +1625,42 @@ var _ = Describe("Reconciliation", func() {
 
 		// 3. Construct the reconciler.
 
-		nodeGetter, err := node.NewGetter(kubeClient)
-		Expect(nodeGetter, err).ToNot(BeNil())
+		eventParser := event.NewAggregatedParser(
+			asgterminateeventv1.Parser{ASGLifecycleActionCompleter: asgClient},
+			asgterminateeventv2.Parser{ASGLifecycleActionCompleter: asgClient},
+			rebalancerecommendationeventv0.Parser{},
+			scheduledchangeeventv1.Parser{},
+			spotinterruptioneventv1.Parser{},
+			statechangeeventv1.Parser{},
+		)
 
-		nodeNameGetter, err := nodename.NewGetter(ec2Client)
-		Expect(nodeNameGetter, err).ToNot(BeNil())
-
-		asgTerminateEventV1Parser, err := asgterminateeventv1.NewParser(asgClient)
-		Expect(asgTerminateEventV1Parser, err).ToNot(BeNil())
-
-		asgTerminateEventV2Parser, err := asgterminateeventv2.NewParser(asgClient)
-		Expect(asgTerminateEventV2Parser, err).ToNot(BeNil())
-
-		sqsMessageParser, err := terminator.NewSQSMessageParser(event.NewParser(
-			asgTerminateEventV1Parser,
-			asgTerminateEventV2Parser,
-			rebalancerecommendationeventv0.NewParser(),
-			scheduledchangeeventv1.NewParser(),
-			spotinterruptioneventv1.NewParser(),
-			statechangeeventv1.NewParser(),
-		))
-		Expect(sqsMessageParser, err).ToNot(BeNil())
-
-		terminatorGetter, err := terminator.NewGetter(kubeClient)
-		Expect(terminatorGetter, err).ToNot(BeNil())
-
-		sqsMessageClient, err := sqsmessage.NewClient(sqsClient)
-		Expect(sqsMessageClient, err).ToNot(BeNil())
-
-		terminatorSQSClientBuilder, err := terminator.NewSQSClientBuilder(sqsMessageClient)
-		Expect(terminatorSQSClientBuilder, err).ToNot(BeNil())
-
-		cordoner, err := kubectlcordondrain.NewCordoner(func(h *kubectl.Helper, n *v1.Node, d bool) error {
+		cordoner := kubectlcordondrain.CordonFunc(func(h *kubectl.Helper, n *v1.Node, d bool) error {
 			return cordonFunc(h, n, d)
 		})
-		Expect(cordoner, err).ToNot(BeNil())
 
-		drainer, err := kubectlcordondrain.NewDrainer(func(h *kubectl.Helper, n string) error {
+		drainer := kubectlcordondrain.DrainFunc(func(h *kubectl.Helper, n string) error {
 			return drainFunc(h, n)
 		})
-		Expect(drainer, err).ToNot(BeNil())
 
-		cordonDrainerBuilder, err := kubectlcordondrain.NewBuilder(&kubernetes.Clientset{}, cordoner, drainer)
-		Expect(cordonDrainerBuilder, err).ToNot(BeNil())
-
-		terminatorCordonDrainerBuilder, err := terminator.NewCordonDrainerBuilder(cordonDrainerBuilder)
-		Expect(terminatorCordonDrainerBuilder, err).ToNot(BeNil())
+		cordonDrainerBuilder := kubectlcordondrain.Builder{
+			ClientSet: &kubernetes.Clientset{},
+			Cordoner:  cordoner,
+			Drainer:   drainer,
+		}
 
 		reconciler = terminator.Reconciler{
-			Name:                 "terminator",
-			RequeueInterval:      time.Duration(10) * time.Second,
-			NodeGetter:           nodeGetter,
-			NodeNameGetter:       nodeNameGetter,
-			SQSClientBuilder:     terminatorSQSClientBuilder,
-			SQSMessageParser:     sqsMessageParser,
-			Getter:               terminatorGetter,
-			CordonDrainerBuilder: terminatorCordonDrainerBuilder,
+			Name:            "terminator",
+			RequeueInterval: time.Duration(10) * time.Second,
+			NodeGetter:      node.Getter{KubeGetter: kubeClient},
+			NodeNameGetter:  nodename.Getter{EC2InstancesDescriber: ec2Client},
+			SQSClientBuilder: terminatoradapter.SQSMessageClientBuilder{
+				SQSMessageClient: sqsmessage.Client{SQSClient: sqsClient},
+			},
+			SQSMessageParser: terminatoradapter.EventParser{Parser: eventParser},
+			Getter:           terminatoradapter.Getter{KubeGetter: kubeClient},
+			CordonDrainerBuilder: terminatoradapter.CordonDrainerBuilder{
+				Builder: cordonDrainerBuilder,
+			},
 		}
 	})
 

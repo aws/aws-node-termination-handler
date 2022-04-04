@@ -18,44 +18,21 @@ package kubectl
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/aws/aws-node-termination-handler/pkg/node/cordondrain"
-	"go.uber.org/multierr"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubectl/pkg/drain"
 )
 
-type cordonDrainer struct {
+type CordonDrainer struct {
 	Cordoner
 	Drainer
 	drain.Helper
 }
 
-func NewCordonDrainer(helper drain.Helper, cordoner Cordoner, drainer Drainer) (cordondrain.CordonDrainer, error) {
-	var err error
-	if cordoner == nil {
-		err = multierr.Append(err, fmt.Errorf("argument 'cordoner' is nil"))
-	}
-	if drainer == nil {
-		err = multierr.Append(err, fmt.Errorf("arguemnt 'drainer' is nil"))
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return cordonDrainer{
-		Cordoner: cordoner,
-		Drainer:  drainer,
-		Helper:   helper,
-	}, nil
-}
-
-func (c cordonDrainer) Cordon(ctx context.Context, node *v1.Node) error {
+func (c CordonDrainer) Cordon(ctx context.Context, node *v1.Node) error {
 	return c.Cordoner.Cordon(ctx, node, c.Helper)
 }
 
-func (c cordonDrainer) Drain(ctx context.Context, node *v1.Node) error {
+func (c CordonDrainer) Drain(ctx context.Context, node *v1.Node) error {
 	return c.Drainer.Drain(ctx, node, c.Helper)
 }

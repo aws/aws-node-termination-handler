@@ -21,15 +21,22 @@ import (
 	"encoding/json"
 
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 )
 
-type parser []Parser
+type (
+	Parser interface {
+		Parse(context.Context, string) terminator.Event
+	}
 
-func NewParser(parsers ...Parser) Parser {
-	return parser(parsers)
+	AggregatedParser []Parser
+)
+
+func NewAggregatedParser(parsers ...Parser) AggregatedParser {
+	return AggregatedParser(parsers)
 }
 
-func (p parser) Parse(ctx context.Context, str string) Event {
+func (p AggregatedParser) Parse(ctx context.Context, str string) terminator.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("event.parser"))
 
 	if str == "" {

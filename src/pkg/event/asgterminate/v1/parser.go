@@ -19,10 +19,9 @@ package v1
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
-	"github.com/aws/aws-node-termination-handler/pkg/event"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 )
 
 const (
@@ -32,18 +31,11 @@ const (
 	acceptedTransition = "autoscaling:EC2_INSTANCE_TERMINATING"
 )
 
-type parser struct {
+type Parser struct {
 	ASGLifecycleActionCompleter
 }
 
-func NewParser(completer ASGLifecycleActionCompleter) (event.Parser, error) {
-	if completer == nil {
-		return nil, fmt.Errorf("argument 'completer' is nil")
-	}
-	return parser{ASGLifecycleActionCompleter: completer}, nil
-}
-
-func (p parser) Parse(ctx context.Context, str string) event.Event {
+func (p Parser) Parse(ctx context.Context, str string) terminator.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("asgTerminateLifecycleAction.v1"))
 
 	evt := EC2InstanceTerminateLifecycleAction{

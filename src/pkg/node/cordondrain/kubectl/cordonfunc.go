@@ -26,40 +26,30 @@ import (
 	"k8s.io/kubectl/pkg/drain"
 )
 
-var DefaultDrainer = drainer(drain.RunNodeDrain)
+var DefaultCordoner = CordonFunc(drain.RunCordonOrUncordon)
 
-type (
-	RunDrainFunc = func(*drain.Helper, string) error
+type CordonFunc func(*drain.Helper, *v1.Node, bool) error
 
-	drainer RunDrainFunc
-)
-
-func NewDrainer(drainFunc RunDrainFunc) (Drainer, error) {
-	if drainFunc == nil {
-		return nil, fmt.Errorf("argument 'drainFunc' is nil")
-	}
-	return drainer(drainFunc), nil
-}
-
-func (d drainer) Drain(ctx context.Context, node *v1.Node, helper drain.Helper) error {
-	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("drain"))
+func (c CordonFunc) Cordon(ctx context.Context, node *v1.Node, helper drain.Helper) error {
+	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("cordon"))
 
 	if node == nil {
 		err := fmt.Errorf("argument 'node' is nil")
 		logging.FromContext(ctx).
 			With("error", err).
-			Error("failed to drain node")
+			Error("failed to cordon node")
 		return err
 	}
 
 	helper.Ctx = ctx
-	helper.Out = logging.NewWriter(logging.FromContext(ctx))
+	helper.Out = logging.Writer{SugaredLogger: logging.FromContext(ctx)}
 	helper.ErrOut = helper.Out
 
-	if err := d(&helper, node.Name); err != nil {
+	const updateNodeUnschedulable = true
+	if err := c(&helper, node, updateNodeUnschedulable); err != nil {
 		logging.FromContext(ctx).
 			With("error", err).
-			Error("failed to drain node")
+			Error("failed to cordon node")
 		return err
 	}
 

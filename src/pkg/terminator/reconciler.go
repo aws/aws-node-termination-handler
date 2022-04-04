@@ -22,9 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/api/v1alpha1"
-	"github.com/aws/aws-node-termination-handler/pkg/event"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
-	"github.com/aws/aws-node-termination-handler/pkg/node/cordondrain"
 
 	"github.com/aws/aws-sdk-go/service/sqs"
 
@@ -32,30 +30,39 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type (
+	CordonDrainer interface {
+		Cordon(context.Context, *v1.Node) error
+		Drain(context.Context, *v1.Node) error
+	}
+
+	CordonDrainerBuilder interface {
+		NewCordonDrainer(*v1alpha1.Terminator) (CordonDrainer, error)
+	}
+
+	Event interface {
+		zapcore.ObjectMarshaler
+
+		Done(context.Context) (tryAgain bool, err error)
+		EC2InstanceIds() []string
+	}
+
+	Getter interface {
+		GetTerminator(context.Context, types.NamespacedName) (*v1alpha1.Terminator, error)
+	}
+
 	NodeGetter interface {
 		GetNode(context.Context, string) (*v1.Node, error)
 	}
 
 	NodeNameGetter interface {
 		GetNodeName(context.Context, string) (string, error)
-	}
-
-	SQSMessageParser interface {
-		Parse(context.Context, *sqs.Message) event.Event
-	}
-
-	CordonDrainerBuilder interface {
-		NewCordonDrainer(*v1alpha1.Terminator) (cordondrain.CordonDrainer, error)
-	}
-
-	Getter interface {
-		GetTerminator(context.Context, types.NamespacedName) (*v1alpha1.Terminator, error)
 	}
 
 	SQSClient interface {
@@ -65,6 +72,10 @@ type (
 
 	SQSClientBuilder interface {
 		NewSQSClient(*v1alpha1.Terminator) (SQSClient, error)
+	}
+
+	SQSMessageParser interface {
+		Parse(context.Context, *sqs.Message) Event
 	}
 
 	Reconciler struct {

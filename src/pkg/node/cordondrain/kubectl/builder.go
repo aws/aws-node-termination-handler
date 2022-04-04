@@ -17,52 +17,44 @@ limitations under the License.
 package kubectl
 
 import (
-	"fmt"
+	"context"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/node/cordondrain"
-	"go.uber.org/multierr"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
 )
 
-type builder struct {
-	kubernetes.Interface
-	Cordoner
-	Drainer
-}
-
-func NewBuilder(kubeClient kubernetes.Interface, cordoner Cordoner, drainer Drainer) (cordondrain.Builder, error) {
-	var err error
-	if kubeClient == nil {
-		err = multierr.Append(err, fmt.Errorf("argument 'kubeClient' is nil"))
-	}
-	if cordoner == nil {
-		err = multierr.Append(err, fmt.Errorf("argument 'cordoner' is nil"))
-	}
-	if drainer == nil {
-		err = multierr.Append(err, fmt.Errorf("argument 'drainer' is nil"))
-	}
-	if err != nil {
-		return nil, err
+type (
+	Cordoner interface {
+		Cordon(context.Context, *v1.Node, drain.Helper) error
 	}
 
-	return builder{
-		Cordoner:  cordoner,
-		Drainer:   drainer,
-		Interface: kubeClient,
+	Drainer interface {
+		Drain(context.Context, *v1.Node, drain.Helper) error
+	}
+
+	Builder struct {
+		Cordoner
+		Drainer
+
+		ClientSet kubernetes.Interface
+	}
+)
+
+func (b Builder) Build(config cordondrain.Config) (CordonDrainer, error) {
+	return CordonDrainer{
+		Cordoner: b.Cordoner,
+		Drainer:  b.Drainer,
+		Helper: drain.Helper{
+			Client:              b.ClientSet,
+			Force:               config.Force,
+			GracePeriodSeconds:  config.GracePeriodSeconds,
+			IgnoreAllDaemonSets: config.IgnoreAllDaemonSets,
+			DeleteEmptyDirData:  config.DeleteEmptyDirData,
+			Timeout:             time.Duration(config.TimeoutSeconds) * time.Second,
+		},
 	}, nil
-}
-
-func (c builder) Build(config cordondrain.Config) (cordondrain.CordonDrainer, error) {
-	helper := drain.Helper{
-		Client:              c,
-		Force:               config.Force,
-		GracePeriodSeconds:  config.GracePeriodSeconds,
-		IgnoreAllDaemonSets: config.IgnoreAllDaemonSets,
-		DeleteEmptyDirData:  config.DeleteEmptyDirData,
-		Timeout:             time.Duration(config.TimeoutSeconds) * time.Second,
-	}
-	return NewCordonDrainer(helper, c.Cordoner, c.Drainer)
 }

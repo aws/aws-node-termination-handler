@@ -18,7 +18,6 @@ package sqsmessage
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 
@@ -33,27 +32,15 @@ type (
 		DeleteMessageWithContext(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
 	}
 
-	Client interface {
-		GetSQSMessages(context.Context, *sqs.ReceiveMessageInput) ([]*sqs.Message, error)
-		DeleteSQSMessage(context.Context, *sqs.DeleteMessageInput) error
-	}
-
-	sqsClient struct {
+	Client struct {
 		SQSClient
 	}
 )
 
-func NewClient(client SQSClient) (Client, error) {
-	if client == nil {
-		return nil, fmt.Errorf("argument 'client' is nil")
-	}
-	return sqsClient{SQSClient: client}, nil
-}
-
-func (s sqsClient) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessageInput) ([]*sqs.Message, error) {
+func (c Client) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessageInput) ([]*sqs.Message, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("sqsClient.getMessages"))
 
-	result, err := s.ReceiveMessageWithContext(ctx, params)
+	result, err := c.ReceiveMessageWithContext(ctx, params)
 	if err != nil {
 		logging.FromContext(ctx).
 			With("error", err).
@@ -64,10 +51,10 @@ func (s sqsClient) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessag
 	return result.Messages, nil
 }
 
-func (s sqsClient) DeleteSQSMessage(ctx context.Context, params *sqs.DeleteMessageInput) error {
+func (c Client) DeleteSQSMessage(ctx context.Context, params *sqs.DeleteMessageInput) error {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("sqsClient.deleteMessage"))
 
-	_, err := s.DeleteMessageWithContext(ctx, params)
+	_, err := c.DeleteMessageWithContext(ctx, params)
 	if err != nil {
 		logging.FromContext(ctx).
 			With("error", err).

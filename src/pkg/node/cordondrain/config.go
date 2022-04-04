@@ -14,14 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package event
+package cordondrain
 
-import (
-	"context"
-)
-
-type ParserFunc func(context.Context, string) Event
-
-func (pf ParserFunc) Parse(ctx context.Context, str string) Event {
-	return pf(ctx, str)
+type Config struct {
+	Force               bool
+	GracePeriodSeconds  int
+	IgnoreAllDaemonSets bool
+	DeleteEmptyDirData  bool
+	TimeoutSeconds      int
 }

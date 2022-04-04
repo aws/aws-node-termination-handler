@@ -17,28 +17,24 @@ limitations under the License.
 package logging
 
 import (
-	"io"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 )
 
-// loggerWriter adapts a logger to an `io.Writer`.
-type loggerWriter struct {
+// Writer adapts a logger to an `io.Writer`.
+type Writer struct {
 	*zap.SugaredLogger
-}
-
-func NewWriter(logger *zap.SugaredLogger) io.Writer {
-	return loggerWriter{SugaredLogger: logger}
 }
 
 // Write converts `buf` to a string and sends it to the underlying logger.
 // If the string beings with "warn" or "error" (case in-sensitive) the message
 // will be logged at the corresponding level; otherwise the level will be
 // "info".
-func (w loggerWriter) Write(buf []byte) (int, error) {
+func (w Writer) Write(buf []byte) (int, error) {
 	if w.SugaredLogger == nil {
-		return len(buf), nil
+		return 0, fmt.Errorf("Writer's backing logger is nil")
 	}
 
 	msg := string(buf)

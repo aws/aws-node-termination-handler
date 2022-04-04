@@ -18,7 +18,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 
@@ -28,31 +27,20 @@ import (
 )
 
 type (
-	Getter interface {
-		GetNode(context.Context, string) (*v1.Node, error)
-	}
-
 	KubeGetter interface {
 		Get(context.Context, client.ObjectKey, client.Object) error
 	}
 
-	getter struct {
+	Getter struct {
 		KubeGetter
 	}
 )
 
-func NewGetter(kubeGetter KubeGetter) (Getter, error) {
-	if kubeGetter == nil {
-		return nil, fmt.Errorf("argument 'kubeGetter' is nil")
-	}
-	return getter{KubeGetter: kubeGetter}, nil
-}
-
-func (n getter) GetNode(ctx context.Context, nodeName string) (*v1.Node, error) {
+func (g Getter) GetNode(ctx context.Context, nodeName string) (*v1.Node, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("node"))
 
 	node := &v1.Node{}
-	if err := n.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+	if err := g.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
 		logging.FromContext(ctx).
 			With("error", err).
 			Error("failed to retrieve node")
