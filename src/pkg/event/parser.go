@@ -42,7 +42,7 @@ func (p parser) Parse(ctx context.Context, str string) Event {
 		}
 	}
 
-	md := AwsMetadata{}
+	md := AWSMetadata{}
 	if err := json.Unmarshal([]byte(str), &md); err != nil {
 		logging.FromContext(ctx).
 			With("error", err).

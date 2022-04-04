@@ -29,7 +29,7 @@ type eventParserAdapter struct {
 	event.Parser
 }
 
-func NewSqsMessageParser(parser event.Parser) (SqsMessageParser, error) {
+func NewSQSMessageParser(parser event.Parser) (SQSMessageParser, error) {
 	if parser == nil {
 		return nil, fmt.Errorf("argument 'parser' is nil")
 	}

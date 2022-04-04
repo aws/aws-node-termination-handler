@@ -22,6 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 )
 
-type AsgLifecycleActionCompleter interface {
+type ASGLifecycleActionCompleter interface {
 	CompleteLifecycleActionWithContext(aws.Context, *autoscaling.CompleteLifecycleActionInput, ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error)
 }

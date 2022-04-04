@@ -116,13 +116,13 @@ spec:
                     default:
                       {{- toYaml . | nindent 22 }}
                     {{- end }}
-                  queueUrl:
+                  queueURL:
                     description: |
                       The URL of the Amazon SQS queue from which messages are received.
 
                         * Queue URLs and names are case-sensitive.
 
-                        * QueueUrl is a required field
+                        * QueueURL is a required field
                     type: string
                   visibilityTimeoutSeconds:
                     description: |

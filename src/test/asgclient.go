@@ -23,11 +23,11 @@ import (
 )
 
 type (
-	CompleteAsgLifecycleActionFunc = func(aws.Context, *autoscaling.CompleteLifecycleActionInput, ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error)
+	CompleteASGLifecycleActionFunc = func(aws.Context, *autoscaling.CompleteLifecycleActionInput, ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error)
 
-	AsgClient CompleteAsgLifecycleActionFunc
+	ASGClient CompleteASGLifecycleActionFunc
 )
 
-func (a AsgClient) CompleteLifecycleActionWithContext(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, options ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+func (a ASGClient) CompleteLifecycleActionWithContext(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, options ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 	return a(ctx, input, options...)
 }

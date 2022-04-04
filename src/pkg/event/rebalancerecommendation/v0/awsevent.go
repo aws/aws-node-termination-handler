@@ -23,25 +23,25 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// AwsEvent contains the properties defined by
+// AWSEvent contains the properties defined by
 // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/rebalance-recommendations.html#monitor-rebalance-recommendations
-type AwsEvent struct {
-	event.AwsMetadata
+type AWSEvent struct {
+	event.AWSMetadata
 
-	Detail Ec2InstanceRebalanceRecommendationDetail `json:"detail"`
+	Detail EC2InstanceRebalanceRecommendationDetail `json:"detail"`
 }
 
-func (e AwsEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(e.AwsMetadata).AddTo(enc)
+func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(e.AWSMetadata).AddTo(enc)
 	enc.AddObject("detail", e.Detail)
 	return nil
 }
 
-type Ec2InstanceRebalanceRecommendationDetail struct {
+type EC2InstanceRebalanceRecommendationDetail struct {
 	InstanceId string `json:"instance-id"`
 }
 
-func (e Ec2InstanceRebalanceRecommendationDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (e EC2InstanceRebalanceRecommendationDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("instance-id", e.InstanceId)
 	return nil
 }

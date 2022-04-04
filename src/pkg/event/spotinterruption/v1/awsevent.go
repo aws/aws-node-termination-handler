@@ -23,26 +23,26 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// AwsEvent contains the properties defined in AWS EventBridge schema
+// AWSEvent contains the properties defined in AWS EventBridge schema
 // aws.ec2@EC2SpotInstanceInterruptionWarning v1.
-type AwsEvent struct {
-	event.AwsMetadata
+type AWSEvent struct {
+	event.AWSMetadata
 
-	Detail Ec2SpotInstanceInterruptionWarningDetail `json:"detail"`
+	Detail EC2SpotInstanceInterruptionWarningDetail `json:"detail"`
 }
 
-func (e AwsEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(e.AwsMetadata).AddTo(enc)
+func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(e.AWSMetadata).AddTo(enc)
 	enc.AddObject("detail", e.Detail)
 	return nil
 }
 
-type Ec2SpotInstanceInterruptionWarningDetail struct {
+type EC2SpotInstanceInterruptionWarningDetail struct {
 	InstanceId     string `json:"instance-id"`
 	InstanceAction string `json:"instance-action"`
 }
 
-func (e Ec2SpotInstanceInterruptionWarningDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (e EC2SpotInstanceInterruptionWarningDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("instance-id", e.InstanceId)
 	enc.AddString("instance-action", e.InstanceAction)
 	return nil

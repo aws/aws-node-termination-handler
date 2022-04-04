@@ -23,33 +23,33 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// AwsEvent contains the properties defined in AWS EventBridge schema
+// AWSEvent contains the properties defined in AWS EventBridge schema
 // aws.autoscaling@EC2InstanceTerminateLifecycleAction v1.
-type AwsEvent struct {
-	event.AwsMetadata
+type AWSEvent struct {
+	event.AWSMetadata
 
-	Detail Ec2InstanceTerminateLifecycleActionDetail `json:"detail"`
+	Detail EC2InstanceTerminateLifecycleActionDetail `json:"detail"`
 }
 
-func (e AwsEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(e.AwsMetadata).AddTo(enc)
+func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(e.AWSMetadata).AddTo(enc)
 	enc.AddObject("detail", e.Detail)
 	return nil
 }
 
-type Ec2InstanceTerminateLifecycleActionDetail struct {
+type EC2InstanceTerminateLifecycleActionDetail struct {
 	LifecycleHookName    string `json:"LifecycleHookName"`
 	LifecycleTransition  string `json:"LifecycleTransition"`
 	AutoScalingGroupName string `json:"AutoScalingGroupName"`
-	Ec2InstanceId        string `json:"EC2InstanceId"`
+	EC2InstanceId        string `json:"EC2InstanceId"`
 	LifecycleActionToken string `json:"LifecycleActionToken"`
 }
 
-func (e Ec2InstanceTerminateLifecycleActionDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (e EC2InstanceTerminateLifecycleActionDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("LifecycleHookName", e.LifecycleHookName)
 	enc.AddString("LifecycleTransition", e.LifecycleTransition)
 	enc.AddString("AutoScalingGroupName", e.AutoScalingGroupName)
-	enc.AddString("EC2InstanceId", e.Ec2InstanceId)
+	enc.AddString("EC2InstanceId", e.EC2InstanceId)
 	enc.AddString("LifecycleActionToken", e.LifecycleActionToken)
 	return nil
 }

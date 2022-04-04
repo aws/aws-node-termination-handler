@@ -23,9 +23,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type noop AwsMetadata
+type noop AWSMetadata
 
-func (n noop) Ec2InstanceIds() []string {
+func (n noop) EC2InstanceIds() []string {
 	return []string{}
 }
 
@@ -34,6 +34,6 @@ func (n noop) Done(_ context.Context) (bool, error) {
 }
 
 func (n noop) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AwsMetadata(n)).AddTo(enc)
+	zap.Inline(AWSMetadata(n)).AddTo(enc)
 	return nil
 }

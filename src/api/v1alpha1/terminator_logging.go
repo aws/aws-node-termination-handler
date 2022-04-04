@@ -21,12 +21,12 @@ import (
 )
 
 func (t *TerminatorSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddObject("sqs", t.Sqs)
+	enc.AddObject("sqs", t.SQS)
 	enc.AddObject("drain", t.Drain)
 	return nil
 }
 
-func (s SqsSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (s SQSSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("attributeNames", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 		for _, attrName := range s.AttributeNames {
 			enc.AppendString(attrName)
@@ -43,7 +43,7 @@ func (s SqsSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}))
 
-	enc.AddString("queueUrl", s.QueueUrl)
+	enc.AddString("queueURL", s.QueueURL)
 	enc.AddInt64("visibilityTimeoutSeconds", s.VisibilityTimeoutSeconds)
 	enc.AddInt64("waitTimeSeconds", s.WaitTimeSeconds)
 	return nil

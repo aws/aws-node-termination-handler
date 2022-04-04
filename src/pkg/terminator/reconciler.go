@@ -46,7 +46,7 @@ type (
 		GetNodeName(context.Context, string) (string, error)
 	}
 
-	SqsMessageParser interface {
+	SQSMessageParser interface {
 		Parse(context.Context, *sqs.Message) event.Event
 	}
 
@@ -58,20 +58,20 @@ type (
 		GetTerminator(context.Context, types.NamespacedName) (*v1alpha1.Terminator, error)
 	}
 
-	SqsClient interface {
-		GetSqsMessages(context.Context) ([]*sqs.Message, error)
-		DeleteSqsMessage(context.Context, *sqs.Message) error
+	SQSClient interface {
+		GetSQSMessages(context.Context) ([]*sqs.Message, error)
+		DeleteSQSMessage(context.Context, *sqs.Message) error
 	}
 
-	SqsClientBuilder interface {
-		NewSqsClient(*v1alpha1.Terminator) (SqsClient, error)
+	SQSClientBuilder interface {
+		NewSQSClient(*v1alpha1.Terminator) (SQSClient, error)
 	}
 
 	Reconciler struct {
 		NodeGetter
 		NodeNameGetter
-		SqsClientBuilder
-		SqsMessageParser
+		SQSClientBuilder
+		SQSMessageParser
 		CordonDrainerBuilder
 		Getter
 
@@ -96,12 +96,12 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	sqsClient, err := r.NewSqsClient(terminator)
+	sqsClient, err := r.NewSQSClient(terminator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	sqsMessages, err := sqsClient.GetSqsMessages(ctx)
+	sqsMessages, err := sqsClient.GetSQSMessages(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -116,7 +116,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
 
 		savedCtx := ctx
-		for _, ec2InstanceId := range evt.Ec2InstanceIds() {
+		for _, ec2InstanceId := range evt.EC2InstanceIds() {
 			ctx = logging.WithLogger(savedCtx, logging.FromContext(savedCtx).
 				With("ec2InstanceId", ec2InstanceId),
 			)
@@ -156,7 +156,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 			continue
 		}
 
-		err = multierr.Append(err, sqsClient.DeleteSqsMessage(ctx, msg))
+		err = multierr.Append(err, sqsClient.DeleteSQSMessage(ctx, msg))
 	}
 	ctx = origCtx
 

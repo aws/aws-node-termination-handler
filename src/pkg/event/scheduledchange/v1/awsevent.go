@@ -23,21 +23,21 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// AwsEvent contains the properties defined in AWS EventBridge schema
+// AWSEvent contains the properties defined in AWS EventBridge schema
 // aws.health@AWSHealthEvent v1.
-type AwsEvent struct {
-	event.AwsMetadata
+type AWSEvent struct {
+	event.AWSMetadata
 
-	Detail AwsHealthEventDetail `json:"detail"`
+	Detail AWSHealthEventDetail `json:"detail"`
 }
 
-func (e AwsEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(e.AwsMetadata).AddTo(enc)
+func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(e.AWSMetadata).AddTo(enc)
 	enc.AddObject("detail", e.Detail)
 	return nil
 }
 
-type AwsHealthEventDetail struct {
+type AWSHealthEventDetail struct {
 	EventArn          string             `json:"eventArn"`
 	EventTypeCode     string             `json:"eventTypeCode"`
 	Service           string             `json:"service"`
@@ -48,7 +48,7 @@ type AwsHealthEventDetail struct {
 	AffectedEntities  []AffectedEntity   `json:"affectedEntities"`
 }
 
-func (e AwsHealthEventDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (e AWSHealthEventDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("eventArn", e.EventArn)
 	enc.AddString("eventTypeCode", e.EventTypeCode)
 	enc.AddString("eventTypeCategory", e.EventTypeCategory)

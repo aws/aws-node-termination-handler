@@ -28,22 +28,22 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Ec2InstanceTerminateLifecycleAction struct {
-	AsgLifecycleActionCompleter
-	AwsEvent
+type EC2InstanceTerminateLifecycleAction struct {
+	ASGLifecycleActionCompleter
+	AWSEvent
 }
 
-func (e Ec2InstanceTerminateLifecycleAction) Ec2InstanceIds() []string {
-	return []string{e.Detail.Ec2InstanceId}
+func (e EC2InstanceTerminateLifecycleAction) EC2InstanceIds() []string {
+	return []string{e.Detail.EC2InstanceId}
 }
 
-func (e Ec2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, error) {
+func (e EC2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, error) {
 	if _, err := e.CompleteLifecycleActionWithContext(ctx, &autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  aws.String(e.Detail.AutoScalingGroupName),
 		LifecycleActionResult: aws.String("CONTINUE"),
 		LifecycleHookName:     aws.String(e.Detail.LifecycleHookName),
 		LifecycleActionToken:  aws.String(e.Detail.LifecycleActionToken),
-		InstanceId:            aws.String(e.Detail.Ec2InstanceId),
+		InstanceId:            aws.String(e.Detail.EC2InstanceId),
 	}); err != nil {
 		var f awserr.RequestFailure
 		return errors.As(err, &f) && f.StatusCode() != 400, err
@@ -52,7 +52,7 @@ func (e Ec2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, er
 	return false, nil
 }
 
-func (e Ec2InstanceTerminateLifecycleAction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(e.AwsEvent).AddTo(enc)
+func (e EC2InstanceTerminateLifecycleAction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(e.AWSEvent).AddTo(enc)
 	return nil
 }

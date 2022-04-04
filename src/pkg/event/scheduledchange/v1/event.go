@@ -23,9 +23,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type AwsHealthEvent AwsEvent
+type AWSHealthEvent AWSEvent
 
-func (e AwsHealthEvent) Ec2InstanceIds() []string {
+func (e AWSHealthEvent) EC2InstanceIds() []string {
 	ids := make([]string, len(e.Detail.AffectedEntities))
 	for i, entity := range e.Detail.AffectedEntities {
 		ids[i] = entity.EntityValue
@@ -33,11 +33,11 @@ func (e AwsHealthEvent) Ec2InstanceIds() []string {
 	return ids
 }
 
-func (e AwsHealthEvent) Done(_ context.Context) (bool, error) {
+func (e AWSHealthEvent) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 
-func (e AwsHealthEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AwsEvent(e)).AddTo(enc)
+func (e AWSHealthEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
 }

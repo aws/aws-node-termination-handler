@@ -27,7 +27,7 @@ type (
 		zapcore.ObjectMarshaler
 
 		Done(context.Context) (tryAgain bool, err error)
-		Ec2InstanceIds() []string
+		EC2InstanceIds() []string
 	}
 
 	Parser interface {

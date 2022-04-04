@@ -23,26 +23,26 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// AwsEvent contains the properties defined in AWS EventBridge schema
+// AWSEvent contains the properties defined in AWS EventBridge schema
 // aws.ec2@EC2InstanceStateChangeNotification v1.
-type AwsEvent struct {
-	event.AwsMetadata
+type AWSEvent struct {
+	event.AWSMetadata
 
-	Detail Ec2InstanceStateChangeNotificationDetail `json:"detail"`
+	Detail EC2InstanceStateChangeNotificationDetail `json:"detail"`
 }
 
-func (e AwsEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(e.AwsMetadata).AddTo(enc)
+func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(e.AWSMetadata).AddTo(enc)
 	enc.AddObject("detail", e.Detail)
 	return nil
 }
 
-type Ec2InstanceStateChangeNotificationDetail struct {
+type EC2InstanceStateChangeNotificationDetail struct {
 	InstanceId string `json:"instance-id"`
 	State      string `json:"state"`
 }
 
-func (e Ec2InstanceStateChangeNotificationDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (e EC2InstanceStateChangeNotificationDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("instance-id", e.InstanceId)
 	enc.AddString("state", e.State)
 	return nil

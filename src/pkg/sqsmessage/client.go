@@ -28,29 +28,29 @@ import (
 )
 
 type (
-	SqsClient interface {
+	SQSClient interface {
 		ReceiveMessageWithContext(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
 		DeleteMessageWithContext(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
 	}
 
 	Client interface {
-		GetSqsMessages(context.Context, *sqs.ReceiveMessageInput) ([]*sqs.Message, error)
-		DeleteSqsMessage(context.Context, *sqs.DeleteMessageInput) error
+		GetSQSMessages(context.Context, *sqs.ReceiveMessageInput) ([]*sqs.Message, error)
+		DeleteSQSMessage(context.Context, *sqs.DeleteMessageInput) error
 	}
 
 	sqsClient struct {
-		SqsClient
+		SQSClient
 	}
 )
 
-func NewClient(client SqsClient) (Client, error) {
+func NewClient(client SQSClient) (Client, error) {
 	if client == nil {
 		return nil, fmt.Errorf("argument 'client' is nil")
 	}
-	return sqsClient{SqsClient: client}, nil
+	return sqsClient{SQSClient: client}, nil
 }
 
-func (s sqsClient) GetSqsMessages(ctx context.Context, params *sqs.ReceiveMessageInput) ([]*sqs.Message, error) {
+func (s sqsClient) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessageInput) ([]*sqs.Message, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("sqsClient.getMessages"))
 
 	result, err := s.ReceiveMessageWithContext(ctx, params)
@@ -64,7 +64,7 @@ func (s sqsClient) GetSqsMessages(ctx context.Context, params *sqs.ReceiveMessag
 	return result.Messages, nil
 }
 
-func (s sqsClient) DeleteSqsMessage(ctx context.Context, params *sqs.DeleteMessageInput) error {
+func (s sqsClient) DeleteSQSMessage(ctx context.Context, params *sqs.DeleteMessageInput) error {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("sqsClient.deleteMessage"))
 
 	_, err := s.DeleteMessageWithContext(ctx, params)

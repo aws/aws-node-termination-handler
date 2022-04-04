@@ -63,8 +63,8 @@ import (
 )
 
 type (
-	Ec2InstanceId = string
-	SqsQueueUrl   = string
+	EC2InstanceId = string
+	SQSQueueURL   = string
 	NodeName      = string
 
 	State string
@@ -78,7 +78,7 @@ const (
 var _ = Describe("Reconciliation", func() {
 	const (
 		errMsg   = "test error"
-		queueUrl = "http://fake-queue.sqs.aws"
+		queueURL = "http://fake-queue.sqs.aws"
 	)
 
 	var (
@@ -91,12 +91,12 @@ var _ = Describe("Reconciliation", func() {
 		// Nodes currently in the cluster.
 		nodes map[types.NamespacedName]*v1.Node
 		// Maps an EC2 instance id to an ASG lifecycle action state value.
-		asgLifecycleActions map[Ec2InstanceId]State
+		asgLifecycleActions map[EC2InstanceId]State
 		// Maps an EC2 instance id to the corresponding reservation for a node
 		// in the cluster.
-		ec2Reservations map[Ec2InstanceId]*ec2.Reservation
+		ec2Reservations map[EC2InstanceId]*ec2.Reservation
 		// Maps a queue URL to a list of messages waiting to be fetched.
-		sqsQueues map[SqsQueueUrl][]*sqs.Message
+		sqsQueues map[SQSQueueURL][]*sqs.Message
 
 		// Output variables
 		// These variables may be modified during reconciliation and should be
@@ -116,11 +116,11 @@ var _ = Describe("Reconciliation", func() {
 		// Names of all nodes currently in cluster.
 		nodeNames []NodeName
 		// Instance IDs for all nodes currently in cluster.
-		instanceIds []Ec2InstanceId
+		instanceIds []EC2InstanceId
 		// Change count of nodes in cluster.
 		resizeCluster func(nodeCount uint)
 		// Create an ASG lifecycle action state entry for an EC2 instance ID.
-		createPendingAsgLifecycleAction func(Ec2InstanceId)
+		createPendingASGLifecycleAction func(EC2InstanceId)
 
 		// Name of default terminator.
 		terminatorNamespaceName types.NamespacedName
@@ -134,11 +134,11 @@ var _ = Describe("Reconciliation", func() {
 		// Stubs
 		// Default implementations interract with the backing variables listed
 		// above. A test may put in place alternate behavior when needed.
-		completeAsgLifecycleActionFunc CompleteAsgLifecycleActionFunc
-		describeEc2InstancesFunc       DescribeEc2InstancesFunc
+		completeASGLifecycleActionFunc CompleteASGLifecycleActionFunc
+		describeEC2InstancesFunc       DescribeEC2InstancesFunc
 		kubeGetFunc                    KubeGetFunc
-		receiveSqsMessageFunc          ReceiveSqsMessageFunc
-		deleteSqsMessageFunc           DeleteSqsMessageFunc
+		receiveSQSMessageFunc          ReceiveSQSMessageFunc
+		deleteSQSMessageFunc           DeleteSQSMessageFunc
 		cordonFunc                     kubectlcordondrain.RunCordonFunc
 		drainFunc                      kubectlcordondrain.RunDrainFunc
 	)
@@ -158,7 +158,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -171,7 +171,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			createPendingAsgLifecycleAction(instanceIds[1])
+			createPendingASGLifecycleAction(instanceIds[1])
 		})
 
 		It("returns success and requeues the request with the reconciler's configured interval", func() {
@@ -188,7 +188,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -196,7 +196,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -209,7 +209,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			createPendingAsgLifecycleAction(instanceIds[1])
+			createPendingASGLifecycleAction(instanceIds[1])
 		})
 
 		It("returns success and requeues the request with the reconciler's configured interval", func() {
@@ -226,7 +226,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -234,7 +234,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -257,7 +257,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -265,7 +265,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(4)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.health",
@@ -293,7 +293,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -301,7 +301,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -324,7 +324,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -332,7 +332,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -356,7 +356,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -364,7 +364,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -388,7 +388,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -396,7 +396,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -420,7 +420,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -428,7 +428,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -452,7 +452,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -460,7 +460,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(12)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl],
+			sqsQueues[queueURL] = append(sqsQueues[queueURL],
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
@@ -608,7 +608,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the messages from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -616,7 +616,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(`{
 					"source": "test.suite",
@@ -637,7 +637,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -645,7 +645,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(`{
 					"source": "test.suite",
@@ -664,7 +664,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -707,7 +707,7 @@ var _ = Describe("Reconciliation", func() {
 
 	When("there is an error getting SQS messages", func() {
 		BeforeEach(func() {
-			receiveSqsMessageFunc = func(_ aws.Context, _ *sqs.ReceiveMessageInput, _ ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+			receiveSQSMessageFunc = func(_ aws.Context, _ *sqs.ReceiveMessageInput, _ ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
 				return nil, errors.New(errMsg)
 			}
 		})
@@ -725,7 +725,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -737,7 +737,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			describeEc2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
 				return nil, errors.New(errMsg)
 			}
 		})
@@ -760,7 +760,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -772,7 +772,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			describeEc2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
 				return &ec2.DescribeInstancesOutput{
 					Reservations: []*ec2.Reservation{},
 				}, nil
@@ -797,7 +797,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -809,7 +809,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			describeEc2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
 				return &ec2.DescribeInstancesOutput{
 					Reservations: []*ec2.Reservation{
 						{Instances: []*ec2.Instance{}},
@@ -836,7 +836,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -848,7 +848,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			describeEc2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
 				return &ec2.DescribeInstancesOutput{
 					Reservations: []*ec2.Reservation{
 						{
@@ -879,7 +879,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -891,7 +891,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			describeEc2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
 				return &ec2.DescribeInstancesOutput{
 					Reservations: []*ec2.Reservation{
 						{
@@ -922,7 +922,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -963,7 +963,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -998,7 +998,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -1036,7 +1036,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -1049,7 +1049,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			completeAsgLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 				return nil, errors.New(errMsg)
 			}
 		})
@@ -1068,7 +1068,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -1076,7 +1076,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -1089,7 +1089,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			completeAsgLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 				return nil, awserr.NewRequestFailure(awserr.New("", errMsg, errors.New(errMsg)), 404, "")
 			}
 		})
@@ -1108,7 +1108,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("does not delete the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(HaveLen(1))
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -1116,7 +1116,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -1129,7 +1129,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			completeAsgLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 				return nil, errors.New(errMsg)
 			}
 		})
@@ -1148,7 +1148,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(BeEmpty())
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 
@@ -1156,7 +1156,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -1169,7 +1169,7 @@ var _ = Describe("Reconciliation", func() {
 				}`, instanceIds[1])),
 			})
 
-			completeAsgLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 				return nil, awserr.NewRequestFailure(awserr.New("", errMsg, errors.New(errMsg)), 404, "")
 			}
 		})
@@ -1188,7 +1188,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("does not delete the message from the SQS queue", func() {
-			Expect(sqsQueues[queueUrl]).To(HaveLen(1))
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -1208,17 +1208,17 @@ var _ = Describe("Reconciliation", func() {
 			terminator, found := terminators[terminatorNamespaceName]
 			Expect(found).To(BeTrue())
 
-			terminator.Spec.Sqs.MaxNumberOfMessages = maxNumberOfMessages
-			terminator.Spec.Sqs.QueueUrl = queueUrl
-			terminator.Spec.Sqs.VisibilityTimeoutSeconds = visibilityTimeoutSeconds
-			terminator.Spec.Sqs.WaitTimeSeconds = waitTimeSeconds
-			terminator.Spec.Sqs.AttributeNames = append([]string{}, attributeNames...)
-			terminator.Spec.Sqs.MessageAttributeNames = append([]string{}, messageAttributeNames...)
+			terminator.Spec.SQS.MaxNumberOfMessages = maxNumberOfMessages
+			terminator.Spec.SQS.QueueURL = queueURL
+			terminator.Spec.SQS.VisibilityTimeoutSeconds = visibilityTimeoutSeconds
+			terminator.Spec.SQS.WaitTimeSeconds = waitTimeSeconds
+			terminator.Spec.SQS.AttributeNames = append([]string{}, attributeNames...)
+			terminator.Spec.SQS.MessageAttributeNames = append([]string{}, messageAttributeNames...)
 
-			defaultReceiveSqsMessageFunc := receiveSqsMessageFunc
-			receiveSqsMessageFunc = func(ctx aws.Context, in *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+			defaultReceiveSQSMessageFunc := receiveSQSMessageFunc
+			receiveSQSMessageFunc = func(ctx aws.Context, in *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
 				input = in
-				return defaultReceiveSqsMessageFunc(ctx, in, options...)
+				return defaultReceiveSQSMessageFunc(ctx, in, options...)
 			}
 		})
 
@@ -1238,7 +1238,7 @@ var _ = Describe("Reconciliation", func() {
 			Expect(*input.MaxNumberOfMessages).To(Equal(maxNumberOfMessages))
 
 			Expect(input.QueueUrl).ToNot(BeNil())
-			Expect(*input.QueueUrl).To(Equal(queueUrl))
+			Expect(*input.QueueUrl).To(Equal(queueURL))
 
 			Expect(input.VisibilityTimeout).ToNot(BeNil())
 			Expect(*input.VisibilityTimeout).To(Equal(visibilityTimeoutSeconds))
@@ -1278,7 +1278,7 @@ var _ = Describe("Reconciliation", func() {
 
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -1345,7 +1345,7 @@ var _ = Describe("Reconciliation", func() {
 
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -1394,7 +1394,7 @@ var _ = Describe("Reconciliation", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
-			sqsQueues[queueUrl] = append(sqsQueues[queueUrl], &sqs.Message{
+			sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -1410,10 +1410,10 @@ var _ = Describe("Reconciliation", func() {
 				}`, autoScalingGroupName, instanceIds[1], lifecycleActionToken, lifecycleHookName)),
 			})
 
-			defaultCompleteAsgLifecycleActionFunc := completeAsgLifecycleActionFunc
-			completeAsgLifecycleActionFunc = func(ctx aws.Context, in *autoscaling.CompleteLifecycleActionInput, options ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			defaultCompleteASGLifecycleActionFunc := completeASGLifecycleActionFunc
+			completeASGLifecycleActionFunc = func(ctx aws.Context, in *autoscaling.CompleteLifecycleActionInput, options ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 				input = in
-				return defaultCompleteAsgLifecycleActionFunc(ctx, in, options...)
+				return defaultCompleteASGLifecycleActionFunc(ctx, in, options...)
 			}
 		})
 
@@ -1439,7 +1439,7 @@ var _ = Describe("Reconciliation", func() {
 
 	// Setup the starter state:
 	// * One terminator (terminatorNamedspacedName)
-	// * The terminator references an empty sqs queue (queueUrl)
+	// * The terminator references an empty sqs queue (queueURL)
 	// * Zero nodes (use resizeCluster())
 	//
 	// Tests should modify the cluster/aws service states as needed.
@@ -1449,24 +1449,24 @@ var _ = Describe("Reconciliation", func() {
 		ctx = logging.WithLogger(context.Background(), zap.NewNop().Sugar())
 		terminatorNamespaceName = types.NamespacedName{Namespace: "test", Name: "foo"}
 		request = reconcile.Request{NamespacedName: terminatorNamespaceName}
-		sqsQueues = map[SqsQueueUrl][]*sqs.Message{queueUrl: {}}
+		sqsQueues = map[SQSQueueURL][]*sqs.Message{queueURL: {}}
 		terminators = map[types.NamespacedName]*v1alpha1.Terminator{
 			// For convenience create a terminator that points to the sqs queue.
 			terminatorNamespaceName: {
 				Spec: v1alpha1.TerminatorSpec{
-					Sqs: v1alpha1.SqsSpec{
-						QueueUrl: queueUrl,
+					SQS: v1alpha1.SQSSpec{
+						QueueURL: queueURL,
 					},
 				},
 			},
 		}
 		nodes = map[types.NamespacedName]*v1.Node{}
-		ec2Reservations = map[Ec2InstanceId]*ec2.Reservation{}
+		ec2Reservations = map[EC2InstanceId]*ec2.Reservation{}
 		cordonedNodes = map[NodeName]bool{}
 		drainedNodes = map[NodeName]bool{}
 
 		nodeNames = []NodeName{}
-		instanceIds = []Ec2InstanceId{}
+		instanceIds = []EC2InstanceId{}
 		resizeCluster = func(newNodeCount uint) {
 			for currNodeCount := uint(len(nodes)); currNodeCount < newNodeCount; currNodeCount++ {
 				nodeName := fmt.Sprintf("node-%d", currNodeCount)
@@ -1488,15 +1488,15 @@ var _ = Describe("Reconciliation", func() {
 			instanceIds = instanceIds[:newNodeCount]
 		}
 
-		asgLifecycleActions = map[Ec2InstanceId]State{}
-		createPendingAsgLifecycleAction = func(instanceId Ec2InstanceId) {
+		asgLifecycleActions = map[EC2InstanceId]State{}
+		createPendingASGLifecycleAction = func(instanceId EC2InstanceId) {
 			Expect(asgLifecycleActions).ToNot(HaveKey(instanceId))
 			asgLifecycleActions[instanceId] = StatePending
 		}
 
 		// 2. Setup stub clients.
 
-		describeEc2InstancesFunc = func(ctx aws.Context, input *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+		describeEC2InstancesFunc = func(ctx aws.Context, input *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
@@ -1513,11 +1513,11 @@ var _ = Describe("Reconciliation", func() {
 			return &output, nil
 		}
 
-		ec2Client := Ec2Client(func(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
-			return describeEc2InstancesFunc(ctx, input, options...)
+		ec2Client := EC2Client(func(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			return describeEC2InstancesFunc(ctx, input, options...)
 		})
 
-		completeAsgLifecycleActionFunc = func(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+		completeASGLifecycleActionFunc = func(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
@@ -1529,11 +1529,11 @@ var _ = Describe("Reconciliation", func() {
 			return &autoscaling.CompleteLifecycleActionOutput{}, nil
 		}
 
-		asgClient := AsgClient(func(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, options ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
-			return completeAsgLifecycleActionFunc(ctx, input, options...)
+		asgClient := ASGClient(func(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, options ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			return completeASGLifecycleActionFunc(ctx, input, options...)
 		})
 
-		receiveSqsMessageFunc = func(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+		receiveSQSMessageFunc = func(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
@@ -1545,7 +1545,7 @@ var _ = Describe("Reconciliation", func() {
 			return &sqs.ReceiveMessageOutput{Messages: append([]*sqs.Message{}, messages...)}, nil
 		}
 
-		deleteSqsMessageFunc = func(ctx aws.Context, input *sqs.DeleteMessageInput, options ...awsrequest.Option) (*sqs.DeleteMessageOutput, error) {
+		deleteSQSMessageFunc = func(ctx aws.Context, input *sqs.DeleteMessageInput, options ...awsrequest.Option) (*sqs.DeleteMessageOutput, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
@@ -1567,12 +1567,12 @@ var _ = Describe("Reconciliation", func() {
 			return &sqs.DeleteMessageOutput{}, nil
 		}
 
-		sqsClient := SqsClient{
-			ReceiveSqsMessageFunc: func(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
-				return receiveSqsMessageFunc(ctx, input, options...)
+		sqsClient := SQSClient{
+			ReceiveSQSMessageFunc: func(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+				return receiveSQSMessageFunc(ctx, input, options...)
 			},
-			DeleteSqsMessageFunc: func(ctx aws.Context, input *sqs.DeleteMessageInput, options ...awsrequest.Option) (*sqs.DeleteMessageOutput, error) {
-				return deleteSqsMessageFunc(ctx, input, options...)
+			DeleteSQSMessageFunc: func(ctx aws.Context, input *sqs.DeleteMessageInput, options ...awsrequest.Option) (*sqs.DeleteMessageOutput, error) {
+				return deleteSQSMessageFunc(ctx, input, options...)
 			},
 		}
 
@@ -1636,7 +1636,7 @@ var _ = Describe("Reconciliation", func() {
 		asgTerminateEventV2Parser, err := asgterminateeventv2.NewParser(asgClient)
 		Expect(asgTerminateEventV2Parser, err).ToNot(BeNil())
 
-		sqsMessageParser, err := terminator.NewSqsMessageParser(event.NewParser(
+		sqsMessageParser, err := terminator.NewSQSMessageParser(event.NewParser(
 			asgTerminateEventV1Parser,
 			asgTerminateEventV2Parser,
 			rebalancerecommendationeventv0.NewParser(),
@@ -1652,8 +1652,8 @@ var _ = Describe("Reconciliation", func() {
 		sqsMessageClient, err := sqsmessage.NewClient(sqsClient)
 		Expect(sqsMessageClient, err).ToNot(BeNil())
 
-		terminatorSqsClientBuilder, err := terminator.NewSqsClientBuilder(sqsMessageClient)
-		Expect(terminatorSqsClientBuilder, err).ToNot(BeNil())
+		terminatorSQSClientBuilder, err := terminator.NewSQSClientBuilder(sqsMessageClient)
+		Expect(terminatorSQSClientBuilder, err).ToNot(BeNil())
 
 		cordoner, err := kubectlcordondrain.NewCordoner(func(h *kubectl.Helper, n *v1.Node, d bool) error {
 			return cordonFunc(h, n, d)
@@ -1676,8 +1676,8 @@ var _ = Describe("Reconciliation", func() {
 			RequeueInterval:      time.Duration(10) * time.Second,
 			NodeGetter:           nodeGetter,
 			NodeNameGetter:       nodeNameGetter,
-			SqsClientBuilder:     terminatorSqsClientBuilder,
-			SqsMessageParser:     sqsMessageParser,
+			SQSClientBuilder:     terminatorSQSClientBuilder,
+			SQSMessageParser:     sqsMessageParser,
 			Getter:               terminatorGetter,
 			CordonDrainerBuilder: terminatorCordonDrainerBuilder,
 		}

@@ -37,7 +37,7 @@ func NewParser() event.Parser {
 func parse(ctx context.Context, str string) event.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("spotInterruption.v1"))
 
-	evt := Ec2SpotInstanceInterruptionWarning{}
+	evt := EC2SpotInstanceInterruptionWarning{}
 	if err := json.Unmarshal([]byte(str), &evt); err != nil {
 		logging.FromContext(ctx).
 			With("error", err).

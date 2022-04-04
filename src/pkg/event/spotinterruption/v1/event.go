@@ -23,17 +23,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Ec2SpotInstanceInterruptionWarning AwsEvent
+type EC2SpotInstanceInterruptionWarning AWSEvent
 
-func (e Ec2SpotInstanceInterruptionWarning) Ec2InstanceIds() []string {
+func (e EC2SpotInstanceInterruptionWarning) EC2InstanceIds() []string {
 	return []string{e.Detail.InstanceId}
 }
 
-func (e Ec2SpotInstanceInterruptionWarning) Done(_ context.Context) (bool, error) {
+func (e EC2SpotInstanceInterruptionWarning) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 
-func (e Ec2SpotInstanceInterruptionWarning) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AwsEvent(e)).AddTo(enc)
+func (e EC2SpotInstanceInterruptionWarning) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
 }

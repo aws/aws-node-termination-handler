@@ -28,74 +28,74 @@ import (
 )
 
 type (
-	SqsMessageClient interface {
-		GetSqsMessages(context.Context, *sqs.ReceiveMessageInput) ([]*sqs.Message, error)
-		DeleteSqsMessage(context.Context, *sqs.DeleteMessageInput) error
+	SQSMessageClient interface {
+		GetSQSMessages(context.Context, *sqs.ReceiveMessageInput) ([]*sqs.Message, error)
+		DeleteSQSMessage(context.Context, *sqs.DeleteMessageInput) error
 	}
 
 	sqsMessageClientAdapterBuilder struct {
-		SqsMessageClient
+		SQSMessageClient
 	}
 
 	sqsMessageClientAdapter struct {
 		sqs.DeleteMessageInput
 		sqs.ReceiveMessageInput
-		SqsMessageClient
+		SQSMessageClient
 	}
 )
 
-func NewSqsClientBuilder(client SqsMessageClient) (SqsClientBuilder, error) {
+func NewSQSClientBuilder(client SQSMessageClient) (SQSClientBuilder, error) {
 	if client == nil {
 		return nil, fmt.Errorf("argument 'client' is nil")
 	}
-	return sqsMessageClientAdapterBuilder{SqsMessageClient: client}, nil
+	return sqsMessageClientAdapterBuilder{SQSMessageClient: client}, nil
 }
 
-func (s sqsMessageClientAdapterBuilder) NewSqsClient(terminator *v1alpha1.Terminator) (SqsClient, error) {
+func (s sqsMessageClientAdapterBuilder) NewSQSClient(terminator *v1alpha1.Terminator) (SQSClient, error) {
 	if terminator == nil {
 		return nil, fmt.Errorf("argument 'terminator' is nil")
 	}
 
 	receiveMessageInput := sqs.ReceiveMessageInput{
-		MaxNumberOfMessages: aws.Int64(terminator.Spec.Sqs.MaxNumberOfMessages),
-		QueueUrl:            aws.String(terminator.Spec.Sqs.QueueUrl),
-		VisibilityTimeout:   aws.Int64(terminator.Spec.Sqs.VisibilityTimeoutSeconds),
-		WaitTimeSeconds:     aws.Int64(terminator.Spec.Sqs.WaitTimeSeconds),
+		MaxNumberOfMessages: aws.Int64(terminator.Spec.SQS.MaxNumberOfMessages),
+		QueueUrl:            aws.String(terminator.Spec.SQS.QueueURL),
+		VisibilityTimeout:   aws.Int64(terminator.Spec.SQS.VisibilityTimeoutSeconds),
+		WaitTimeSeconds:     aws.Int64(terminator.Spec.SQS.WaitTimeSeconds),
 	}
-	receiveMessageInput.AttributeNames = make([]*string, len(terminator.Spec.Sqs.AttributeNames))
-	for i, attrName := range terminator.Spec.Sqs.AttributeNames {
+	receiveMessageInput.AttributeNames = make([]*string, len(terminator.Spec.SQS.AttributeNames))
+	for i, attrName := range terminator.Spec.SQS.AttributeNames {
 		receiveMessageInput.AttributeNames[i] = aws.String(attrName)
 	}
-	receiveMessageInput.MessageAttributeNames = make([]*string, len(terminator.Spec.Sqs.MessageAttributeNames))
-	for i, attrName := range terminator.Spec.Sqs.MessageAttributeNames {
+	receiveMessageInput.MessageAttributeNames = make([]*string, len(terminator.Spec.SQS.MessageAttributeNames))
+	for i, attrName := range terminator.Spec.SQS.MessageAttributeNames {
 		receiveMessageInput.MessageAttributeNames[i] = aws.String(attrName)
 	}
 
 	deleteMessageInput := sqs.DeleteMessageInput{
-		QueueUrl: aws.String(terminator.Spec.Sqs.QueueUrl),
+		QueueUrl: aws.String(terminator.Spec.SQS.QueueURL),
 	}
 
 	return sqsMessageClientAdapter{
 		DeleteMessageInput:  deleteMessageInput,
 		ReceiveMessageInput: receiveMessageInput,
-		SqsMessageClient:    s.SqsMessageClient,
+		SQSMessageClient:    s.SQSMessageClient,
 	}, nil
 }
 
-func (a sqsMessageClientAdapter) GetSqsMessages(ctx context.Context) ([]*sqs.Message, error) {
+func (a sqsMessageClientAdapter) GetSQSMessages(ctx context.Context) ([]*sqs.Message, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).
 		With("params", logging.NewReceiveMessageInputMarshaler(&a.ReceiveMessageInput)),
 	)
 
-	return a.SqsMessageClient.GetSqsMessages(ctx, &a.ReceiveMessageInput)
+	return a.SQSMessageClient.GetSQSMessages(ctx, &a.ReceiveMessageInput)
 }
 
-func (a sqsMessageClientAdapter) DeleteSqsMessage(ctx context.Context, msg *sqs.Message) error {
+func (a sqsMessageClientAdapter) DeleteSQSMessage(ctx context.Context, msg *sqs.Message) error {
 	a.DeleteMessageInput.ReceiptHandle = msg.ReceiptHandle
 
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).
 		With("params", logging.NewDeleteMessageInputMarshaler(&a.DeleteMessageInput)),
 	)
 
-	return a.SqsMessageClient.DeleteSqsMessage(ctx, &a.DeleteMessageInput)
+	return a.SQSMessageClient.DeleteSQSMessage(ctx, &a.DeleteMessageInput)
 }

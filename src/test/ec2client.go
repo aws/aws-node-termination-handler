@@ -23,11 +23,11 @@ import (
 )
 
 type (
-	DescribeEc2InstancesFunc = func(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
+	DescribeEC2InstancesFunc = func(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
 
-	Ec2Client DescribeEc2InstancesFunc
+	EC2Client DescribeEC2InstancesFunc
 )
 
-func (e Ec2Client) DescribeInstancesWithContext(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...request.Option) (*ec2.DescribeInstancesOutput, error) {
+func (e EC2Client) DescribeInstancesWithContext(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...request.Option) (*ec2.DescribeInstancesOutput, error) {
 	return e(ctx, input, options...)
 }

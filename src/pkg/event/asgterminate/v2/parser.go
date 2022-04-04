@@ -33,21 +33,21 @@ const (
 )
 
 type parser struct {
-	AsgLifecycleActionCompleter
+	ASGLifecycleActionCompleter
 }
 
-func NewParser(completer AsgLifecycleActionCompleter) (event.Parser, error) {
+func NewParser(completer ASGLifecycleActionCompleter) (event.Parser, error) {
 	if completer == nil {
 		return nil, fmt.Errorf("argument 'completer' is nil")
 	}
-	return parser{AsgLifecycleActionCompleter: completer}, nil
+	return parser{ASGLifecycleActionCompleter: completer}, nil
 }
 
 func (p parser) Parse(ctx context.Context, str string) event.Event {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("asgTerminateLifecycleAction.v2"))
 
-	evt := Ec2InstanceTerminateLifecycleAction{
-		AsgLifecycleActionCompleter: p.AsgLifecycleActionCompleter,
+	evt := EC2InstanceTerminateLifecycleAction{
+		ASGLifecycleActionCompleter: p.ASGLifecycleActionCompleter,
 	}
 	if err := json.Unmarshal([]byte(str), &evt); err != nil {
 		logging.FromContext(ctx).

@@ -23,17 +23,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Ec2InstanceStateChangeNotification AwsEvent
+type EC2InstanceStateChangeNotification AWSEvent
 
-func (e Ec2InstanceStateChangeNotification) Ec2InstanceIds() []string {
+func (e EC2InstanceStateChangeNotification) EC2InstanceIds() []string {
 	return []string{e.Detail.InstanceId}
 }
 
-func (e Ec2InstanceStateChangeNotification) Done(_ context.Context) (bool, error) {
+func (e EC2InstanceStateChangeNotification) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 
-func (e Ec2InstanceStateChangeNotification) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AwsEvent(e)).AddTo(enc)
+func (e EC2InstanceStateChangeNotification) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
 }

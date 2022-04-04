@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type AwsMetadata struct {
+type AWSMetadata struct {
 	Account    string    `json:"account"`
 	DetailType string    `json:"detail-type"`
 	Id         string    `json:"id"`
@@ -33,7 +33,7 @@ type AwsMetadata struct {
 	Version    string    `json:"version"`
 }
 
-func (e AwsMetadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (e AWSMetadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("source", e.Source)
 	enc.AddString("detail-type", e.DetailType)
 	enc.AddString("id", e.Id)

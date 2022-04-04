@@ -127,7 +127,7 @@ func main() {
 	}
 	kubeClient := mgr.GetClient()
 
-	awsSession, err := newAwsSession()
+	awsSession, err := newAWSSession()
 	if err != nil {
 		logger.With("error", err).Fatal("failed to initialize AWS session")
 	}
@@ -161,7 +161,7 @@ func main() {
 	if err != nil {
 		logger.With("error", err).Fatal("failed to create ASG instance-terminate lifecycle event v2 parser")
 	}
-	sqsMessageParser, err := terminator.NewSqsMessageParser(event.NewParser(
+	sqsMessageParser, err := terminator.NewSQSMessageParser(event.NewParser(
 		asgTerminateEventV1Parser,
 		asgTerminateEventV2Parser,
 		rebalancerecommendationeventv0.NewParser(),
@@ -182,7 +182,7 @@ func main() {
 	if err != nil {
 		logger.With("error", err).Fatal("failed to create SQS message client")
 	}
-	terminatorSqsClientBuilder, err := terminator.NewSqsClientBuilder(sqsMessageClient)
+	terminatorSQSClientBuilder, err := terminator.NewSQSClientBuilder(sqsMessageClient)
 	if err != nil {
 		logger.With("error", err).Fatal("failed to create terminator SQS message client builder")
 	}
@@ -205,8 +205,8 @@ func main() {
 		RequeueInterval:      time.Duration(10) * time.Second,
 		NodeGetter:           nodeGetter,
 		NodeNameGetter:       nodeNameGetter,
-		SqsClientBuilder:     terminatorSqsClientBuilder,
-		SqsMessageParser:     sqsMessageParser,
+		SQSClientBuilder:     terminatorSQSClientBuilder,
+		SQSMessageParser:     sqsMessageParser,
 		Getter:               terminatorGetter,
 		CordonDrainerBuilder: terminatorCordonDrainerBuilder,
 	}
@@ -244,7 +244,7 @@ func parseOptions() Options {
 	return options
 }
 
-func newAwsSession() (*session.Session, error) {
+func newAWSSession() (*session.Session, error) {
 	config := aws.NewConfig().WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
 	sess, err := session.NewSessionWithOptions(session.Options{
 		Config:            *config,

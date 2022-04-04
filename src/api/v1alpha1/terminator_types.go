@@ -30,17 +30,17 @@ type TerminatorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Sqs   SqsSpec   `json:"sqs,omitempty"`
+	SQS   SQSSpec   `json:"sqs,omitempty"`
 	Drain DrainSpec `json:"drain,omitempty"`
 }
 
-// SqsSpec defines inputs to SQS "receive messages" requests.
-type SqsSpec struct {
+// SQSSpec defines inputs to SQS "receive messages" requests.
+type SQSSpec struct {
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.38.55/service/sqs#ReceiveMessageInput
 	AttributeNames           []string `json:"attributeNames,omitempty"`
 	MaxNumberOfMessages      int64    `json:"maxNumberOfMessages,omitempty"`
 	MessageAttributeNames    []string `json:"messageAttributeNames,omitempty"`
-	QueueUrl                 string   `json:"queueUrl,omitempty"`
+	QueueURL                 string   `json:"queueURL,omitempty"`
 	VisibilityTimeoutSeconds int64    `json:"visibilityTimeoutSeconds,omitempty"`
 	WaitTimeSeconds          int64    `json:"waitTimeSeconds,omitempty"`
 }

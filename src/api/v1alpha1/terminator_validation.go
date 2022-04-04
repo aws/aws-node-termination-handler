@@ -30,7 +30,7 @@ import (
 
 var (
 	// https://github.com/aws/aws-sdk-go/blob/v1.38.55/service/sqs/api.go#L3966-L3994
-	knownSqsAttributeNames = sets.NewString(sqs.MessageSystemAttributeName_Values()...)
+	knownSQSAttributeNames = sets.NewString(sqs.MessageSystemAttributeName_Values()...)
 )
 
 func (t *Terminator) Validate(_ context.Context) (errs *apis.FieldError) {
@@ -41,12 +41,12 @@ func (t *Terminator) Validate(_ context.Context) (errs *apis.FieldError) {
 }
 
 func (t *TerminatorSpec) validate() (errs *apis.FieldError) {
-	return t.Sqs.validate().ViaField("sqs")
+	return t.SQS.validate().ViaField("sqs")
 }
 
-func (s *SqsSpec) validate() (errs *apis.FieldError) {
+func (s *SQSSpec) validate() (errs *apis.FieldError) {
 	for _, attrName := range s.AttributeNames {
-		if !knownSqsAttributeNames.Has(attrName) {
+		if !knownSQSAttributeNames.Has(attrName) {
 			errs = errs.Also(apis.ErrInvalidValue(attrName, "attributeNames"))
 		}
 	}
@@ -74,8 +74,8 @@ func (s *SqsSpec) validate() (errs *apis.FieldError) {
 		}
 	}
 
-	if _, err := url.Parse(s.QueueUrl); err != nil {
-		errs = errs.Also(apis.ErrInvalidValue(s.QueueUrl, "queueUrl", "must be a valid URL"))
+	if _, err := url.Parse(s.QueueURL); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(s.QueueURL, "queueURL", "must be a valid URL"))
 	}
 
 	if s.VisibilityTimeoutSeconds < 0 {

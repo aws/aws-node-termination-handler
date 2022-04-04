@@ -28,7 +28,7 @@ import (
 )
 
 type (
-	Ec2InstancesDescriber interface {
+	EC2InstancesDescriber interface {
 		DescribeInstancesWithContext(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
 	}
 
@@ -37,15 +37,15 @@ type (
 	}
 
 	getter struct {
-		Ec2InstancesDescriber
+		EC2InstancesDescriber
 	}
 )
 
-func NewGetter(describer Ec2InstancesDescriber) (Getter, error) {
+func NewGetter(describer EC2InstancesDescriber) (Getter, error) {
 	if describer == nil {
 		return nil, fmt.Errorf("argument 'describer' is nil")
 	}
-	return getter{Ec2InstancesDescriber: describer}, nil
+	return getter{EC2InstancesDescriber: describer}, nil
 }
 
 func (n getter) GetNodeName(ctx context.Context, instanceId string) (string, error) {

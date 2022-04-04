@@ -23,17 +23,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Ec2InstanceRebalanceRecommendation AwsEvent
+type EC2InstanceRebalanceRecommendation AWSEvent
 
-func (e Ec2InstanceRebalanceRecommendation) Ec2InstanceIds() []string {
+func (e EC2InstanceRebalanceRecommendation) EC2InstanceIds() []string {
 	return []string{e.Detail.InstanceId}
 }
 
-func (e Ec2InstanceRebalanceRecommendation) Done(_ context.Context) (bool, error) {
+func (e EC2InstanceRebalanceRecommendation) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 
-func (e Ec2InstanceRebalanceRecommendation) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AwsEvent(e)).AddTo(enc)
+func (e EC2InstanceRebalanceRecommendation) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
 }

@@ -23,19 +23,19 @@ import (
 )
 
 type (
-	ReceiveSqsMessageFunc = func(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
-	DeleteSqsMessageFunc  = func(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
+	ReceiveSQSMessageFunc = func(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
+	DeleteSQSMessageFunc  = func(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
 
-	SqsClient struct {
-		ReceiveSqsMessageFunc
-		DeleteSqsMessageFunc
+	SQSClient struct {
+		ReceiveSQSMessageFunc
+		DeleteSQSMessageFunc
 	}
 )
 
-func (s SqsClient) ReceiveMessageWithContext(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...request.Option) (*sqs.ReceiveMessageOutput, error) {
-	return s.ReceiveSqsMessageFunc(ctx, input, options...)
+func (s SQSClient) ReceiveMessageWithContext(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...request.Option) (*sqs.ReceiveMessageOutput, error) {
+	return s.ReceiveSQSMessageFunc(ctx, input, options...)
 }
 
-func (s SqsClient) DeleteMessageWithContext(ctx aws.Context, input *sqs.DeleteMessageInput, options ...request.Option) (*sqs.DeleteMessageOutput, error) {
-	return s.DeleteSqsMessageFunc(ctx, input, options...)
+func (s SQSClient) DeleteMessageWithContext(ctx aws.Context, input *sqs.DeleteMessageInput, options ...request.Option) (*sqs.DeleteMessageOutput, error) {
+	return s.DeleteSQSMessageFunc(ctx, input, options...)
 }
