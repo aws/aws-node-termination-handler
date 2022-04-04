@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -76,6 +77,7 @@ const componentName = "controller"
 var scheme = runtime.NewScheme()
 
 type Options struct {
+	AWSRegion            string
 	MetricsAddr          string
 	EnableLeaderElection bool
 	ProbeAddr            string
@@ -127,7 +129,7 @@ func main() {
 	}
 	kubeClient := mgr.GetClient()
 
-	awsSession, err := newAWSSession()
+	awsSession, err := newAWSSession(options.AWSRegion)
 	if err != nil {
 		logger.With("error", err).Fatal("failed to initialize AWS session")
 	}
@@ -235,6 +237,7 @@ func main() {
 func parseOptions() Options {
 	options := Options{}
 
+	flag.StringVar(&options.AWSRegion, "aws-region", os.Getenv("AWS_REGION"), "The AWS region for API calls.")
 	flag.StringVar(&options.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&options.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&options.EnableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+
@@ -244,8 +247,10 @@ func parseOptions() Options {
 	return options
 }
 
-func newAWSSession() (*session.Session, error) {
-	config := aws.NewConfig().WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
+func newAWSSession(awsRegion string) (*session.Session, error) {
+	config := aws.NewConfig().
+		WithRegion(awsRegion).
+		WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
 	sess, err := session.NewSessionWithOptions(session.Options{
 		Config:            *config,
 		SharedConfigState: session.SharedConfigEnable,
@@ -254,12 +259,14 @@ func newAWSSession() (*session.Session, error) {
 		return nil, fmt.Errorf("failed to create AWS session: %w", err)
 	}
 
-	region, err := ec2metadata.New(sess).Region()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS region: %w", err)
+	if sess.Config.Region == nil || *sess.Config.Region == "" {
+		awsRegion, err := ec2metadata.New(sess).Region()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get AWS region: %w", err)
+		}
+		sess.Config.Region = aws.String(awsRegion)
 	}
 
-	sess.Config.Region = aws.String(region)
 	_, err = sess.Config.Credentials.Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS session credentials: %w", err)

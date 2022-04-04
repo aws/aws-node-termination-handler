@@ -85,6 +85,10 @@ spec:
                         valueFrom:
                             fieldRef:
                                 fieldPath: metadata.namespace
+                  {{- with .Values.aws.region }}
+                      - name: AWS_REGION
+                        value: {{ . | quote}}
+                  {{- end }}
                   {{- with .Values.controller.env }}
                       {{- toYaml . | nindent 22 }}
                   {{- end }}
@@ -123,9 +127,13 @@ spec:
                         valueFrom:
                             fieldRef:
                                 fieldPath: metadata.namespace
-                      {{- with .Values.webhook.env }}
-                          {{- toYaml . | nindent 26 }}
-                      {{- end }}
+                    {{- with .Values.aws.region }}
+                      - name: AWS_REGION
+                        value: {{ . | quote}}
+                    {{- end }}
+                    {{- with .Values.webhook.env }}
+                      {{- toYaml . | nindent 26 }}
+                    {{- end }}
                   ports:
                       - name: https-webhook
                         containerPort: {{ .Values.webhook.port }}

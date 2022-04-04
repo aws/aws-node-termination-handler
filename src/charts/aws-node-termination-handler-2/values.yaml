@@ -27,7 +27,9 @@ terminator:
             deleteEmptyDirData: true
             timeoutSeconds: 120
 
-
+aws:
+    # AWS region to use in API calls.
+    region: ""
 
 # Global logging configuration.
 # See https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L58-L94
