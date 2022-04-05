@@ -37,12 +37,7 @@ type TerminatorSpec struct {
 // SQSSpec defines inputs to SQS "receive messages" requests.
 type SQSSpec struct {
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.38.55/service/sqs#ReceiveMessageInput
-	AttributeNames           []string `json:"attributeNames,omitempty"`
-	MaxNumberOfMessages      int64    `json:"maxNumberOfMessages,omitempty"`
-	MessageAttributeNames    []string `json:"messageAttributeNames,omitempty"`
-	QueueURL                 string   `json:"queueURL,omitempty"`
-	VisibilityTimeoutSeconds int64    `json:"visibilityTimeoutSeconds,omitempty"`
-	WaitTimeSeconds          int64    `json:"waitTimeSeconds,omitempty"`
+	QueueURL string `json:"queueURL,omitempty"`
 }
 
 // DrainSpec defines inputs to the cordon and drain operations.

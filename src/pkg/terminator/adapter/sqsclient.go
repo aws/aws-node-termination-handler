@@ -46,18 +46,16 @@ type (
 
 func (s SQSMessageClientBuilder) NewSQSClient(terminator *v1alpha1.Terminator) (terminator.SQSClient, error) {
 	receiveMessageInput := sqs.ReceiveMessageInput{
-		MaxNumberOfMessages: aws.Int64(terminator.Spec.SQS.MaxNumberOfMessages),
 		QueueUrl:            aws.String(terminator.Spec.SQS.QueueURL),
-		VisibilityTimeout:   aws.Int64(terminator.Spec.SQS.VisibilityTimeoutSeconds),
-		WaitTimeSeconds:     aws.Int64(terminator.Spec.SQS.WaitTimeSeconds),
-	}
-	receiveMessageInput.AttributeNames = make([]*string, len(terminator.Spec.SQS.AttributeNames))
-	for i, attrName := range terminator.Spec.SQS.AttributeNames {
-		receiveMessageInput.AttributeNames[i] = aws.String(attrName)
-	}
-	receiveMessageInput.MessageAttributeNames = make([]*string, len(terminator.Spec.SQS.MessageAttributeNames))
-	for i, attrName := range terminator.Spec.SQS.MessageAttributeNames {
-		receiveMessageInput.MessageAttributeNames[i] = aws.String(attrName)
+		MaxNumberOfMessages: aws.Int64(10),
+		VisibilityTimeout:   aws.Int64(20), // Seconds
+		WaitTimeSeconds:     aws.Int64(20), // Seconds, maximum for long polling
+		AttributeNames: []*string{
+			aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
+		},
+		MessageAttributeNames: []*string{
+			aws.String(sqs.QueueAttributeNameAll),
+		},
 	}
 
 	deleteMessageInput := sqs.DeleteMessageInput{

@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"net/url"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/service/sqs"
 
@@ -45,46 +44,8 @@ func (t *TerminatorSpec) validate() (errs *apis.FieldError) {
 }
 
 func (s *SQSSpec) validate() (errs *apis.FieldError) {
-	for _, attrName := range s.AttributeNames {
-		if !knownSQSAttributeNames.Has(attrName) {
-			errs = errs.Also(apis.ErrInvalidValue(attrName, "attributeNames"))
-		}
-	}
-
-	// https://github.com/aws/aws-sdk-go/blob/v1.38.55/service/sqs/api.go#L3996-L3999
-	if s.MaxNumberOfMessages < 1 || 10 < s.MaxNumberOfMessages {
-		errs = errs.Also(apis.ErrInvalidValue(s.MaxNumberOfMessages, "maxNumberOfMessages", "must be in range 1-10"))
-	}
-
-	// https://github.com/aws/aws-sdk-go/blob/v1.38.55/service/sqs/api.go#L4001-L4021
-	//
-	// Simple checks are done below. More indepth checks are left to the SQS client/service.
-	for _, attrName := range s.MessageAttributeNames {
-		if len(attrName) > 256 {
-			errs = errs.Also(apis.ErrInvalidValue(attrName, "messageAttributeNames", "must be 256 characters or less"))
-		}
-
-		lcAttrName := strings.ToLower(attrName)
-		if strings.HasPrefix(lcAttrName, "aws") || strings.HasPrefix(lcAttrName, "amazon") {
-			errs = errs.Also(apis.ErrInvalidValue(attrName, "messageAttributeNames", `must not use reserved prefixes "AWS" or "Amazon"`))
-		}
-
-		if strings.HasPrefix(attrName, ".") || strings.HasSuffix(attrName, ".") {
-			errs = errs.Also(apis.ErrInvalidValue(attrName, "messageAttributeNames", "must not begin or end with a period (.)"))
-		}
-	}
-
 	if _, err := url.Parse(s.QueueURL); err != nil {
 		errs = errs.Also(apis.ErrInvalidValue(s.QueueURL, "queueURL", "must be a valid URL"))
 	}
-
-	if s.VisibilityTimeoutSeconds < 0 {
-		errs = errs.Also(apis.ErrInvalidValue(s.VisibilityTimeoutSeconds, "visibilityTimeoutSeconds", "must be zero or greater"))
-	}
-
-	if s.WaitTimeSeconds < 0 {
-		errs = errs.Also(apis.ErrInvalidValue(s.WaitTimeSeconds, "waitTimeSeconds", "must be zero or greater"))
-	}
-
 	return errs
 }

@@ -12,14 +12,6 @@ annotations: {}
 
 terminator:
     defaults:
-        sqs:
-            attributeNames:
-                - SentTimestamp
-            maxNumberOfMessages: 10
-            messageAttributeNames:
-                - All
-            visibilityTimeoutSeconds: 20
-            waitTimeSeconds: 20
         drain:
             force: true
             gracePeriodSeconds: -1

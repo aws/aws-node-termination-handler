@@ -1195,13 +1195,13 @@ var _ = Describe("Reconciliation", func() {
 
 	When("getting messages from a terminator's SQS queue", func() {
 		const (
-			maxNumberOfMessages      = int64(4)
-			visibilityTimeoutSeconds = int64(17)
-			waitTimeSeconds          = int64(31)
+			maxNumberOfMessages      = int64(10)
+			visibilityTimeoutSeconds = int64(20)
+			waitTimeSeconds          = int64(20)
 		)
 		var (
-			attributeNames        = []string{"TestAttributeName1", "TestAttributeName2"}
-			messageAttributeNames = []string{"TestMsgAttributeName1", "TestMsgAttributeName2"}
+			attributeNames        = []string{sqs.MessageSystemAttributeNameSentTimestamp}
+			messageAttributeNames = []string{sqs.QueueAttributeNameAll}
 			input                 *sqs.ReceiveMessageInput
 		)
 
@@ -1209,12 +1209,7 @@ var _ = Describe("Reconciliation", func() {
 			terminator, found := terminators[terminatorNamespaceName]
 			Expect(found).To(BeTrue())
 
-			terminator.Spec.SQS.MaxNumberOfMessages = maxNumberOfMessages
 			terminator.Spec.SQS.QueueURL = queueURL
-			terminator.Spec.SQS.VisibilityTimeoutSeconds = visibilityTimeoutSeconds
-			terminator.Spec.SQS.WaitTimeSeconds = waitTimeSeconds
-			terminator.Spec.SQS.AttributeNames = append([]string{}, attributeNames...)
-			terminator.Spec.SQS.MessageAttributeNames = append([]string{}, messageAttributeNames...)
 
 			defaultReceiveSQSMessageFunc := receiveSQSMessageFunc
 			receiveSQSMessageFunc = func(ctx aws.Context, in *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {

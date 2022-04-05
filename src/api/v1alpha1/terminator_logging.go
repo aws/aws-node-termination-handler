@@ -27,25 +27,7 @@ func (t *TerminatorSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func (s SQSSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddArray("attributeNames", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
-		for _, attrName := range s.AttributeNames {
-			enc.AppendString(attrName)
-		}
-		return nil
-	}))
-
-	enc.AddInt64("maxNumberOfMessages", s.MaxNumberOfMessages)
-
-	enc.AddArray("messageAttributeNames", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
-		for _, attrName := range s.MessageAttributeNames {
-			enc.AppendString(attrName)
-		}
-		return nil
-	}))
-
 	enc.AddString("queueURL", s.QueueURL)
-	enc.AddInt64("visibilityTimeoutSeconds", s.VisibilityTimeoutSeconds)
-	enc.AddInt64("waitTimeSeconds", s.WaitTimeSeconds)
 	return nil
 }
 
