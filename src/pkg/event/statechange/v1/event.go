@@ -25,8 +25,8 @@ import (
 
 type EC2InstanceStateChangeNotification AWSEvent
 
-func (e EC2InstanceStateChangeNotification) EC2InstanceIds() []string {
-	return []string{e.Detail.InstanceId}
+func (e EC2InstanceStateChangeNotification) EC2InstanceIDs() []string {
+	return []string{e.Detail.InstanceID}
 }
 
 func (e EC2InstanceStateChangeNotification) Done(_ context.Context) (bool, error) {

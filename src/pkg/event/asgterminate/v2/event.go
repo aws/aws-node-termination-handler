@@ -33,8 +33,8 @@ type EC2InstanceTerminateLifecycleAction struct {
 	AWSEvent
 }
 
-func (e EC2InstanceTerminateLifecycleAction) EC2InstanceIds() []string {
-	return []string{e.Detail.EC2InstanceId}
+func (e EC2InstanceTerminateLifecycleAction) EC2InstanceIDs() []string {
+	return []string{e.Detail.EC2InstanceID}
 }
 
 func (e EC2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, error) {
@@ -43,7 +43,7 @@ func (e EC2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, er
 		LifecycleActionResult: aws.String("CONTINUE"),
 		LifecycleHookName:     aws.String(e.Detail.LifecycleHookName),
 		LifecycleActionToken:  aws.String(e.Detail.LifecycleActionToken),
-		InstanceId:            aws.String(e.Detail.EC2InstanceId),
+		InstanceId:            aws.String(e.Detail.EC2InstanceID),
 	}); err != nil {
 		var f awserr.RequestFailure
 		return errors.As(err, &f) && f.StatusCode() != 400, err

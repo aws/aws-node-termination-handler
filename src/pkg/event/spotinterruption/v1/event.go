@@ -25,8 +25,8 @@ import (
 
 type EC2SpotInstanceInterruptionWarning AWSEvent
 
-func (e EC2SpotInstanceInterruptionWarning) EC2InstanceIds() []string {
-	return []string{e.Detail.InstanceId}
+func (e EC2SpotInstanceInterruptionWarning) EC2InstanceIDs() []string {
+	return []string{e.Detail.InstanceID}
 }
 
 func (e EC2SpotInstanceInterruptionWarning) Done(_ context.Context) (bool, error) {

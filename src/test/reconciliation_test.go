@@ -64,7 +64,7 @@ import (
 )
 
 type (
-	EC2InstanceId = string
+	EC2InstanceID = string
 	SQSQueueURL   = string
 	NodeName      = string
 
@@ -92,10 +92,10 @@ var _ = Describe("Reconciliation", func() {
 		// Nodes currently in the cluster.
 		nodes map[types.NamespacedName]*v1.Node
 		// Maps an EC2 instance id to an ASG lifecycle action state value.
-		asgLifecycleActions map[EC2InstanceId]State
+		asgLifecycleActions map[EC2InstanceID]State
 		// Maps an EC2 instance id to the corresponding reservation for a node
 		// in the cluster.
-		ec2Reservations map[EC2InstanceId]*ec2.Reservation
+		ec2Reservations map[EC2InstanceID]*ec2.Reservation
 		// Maps a queue URL to a list of messages waiting to be fetched.
 		sqsQueues map[SQSQueueURL][]*sqs.Message
 
@@ -117,11 +117,11 @@ var _ = Describe("Reconciliation", func() {
 		// Names of all nodes currently in cluster.
 		nodeNames []NodeName
 		// Instance IDs for all nodes currently in cluster.
-		instanceIds []EC2InstanceId
+		instanceIDs []EC2InstanceID
 		// Change count of nodes in cluster.
 		resizeCluster func(nodeCount uint)
 		// Create an ASG lifecycle action state entry for an EC2 instance ID.
-		createPendingASGLifecycleAction func(EC2InstanceId)
+		createPendingASGLifecycleAction func(EC2InstanceID)
 
 		// Name of default terminator.
 		terminatorNamespaceName types.NamespacedName
@@ -169,10 +169,10 @@ var _ = Describe("Reconciliation", func() {
 						"EC2InstanceId": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
-			createPendingASGLifecycleAction(instanceIds[1])
+			createPendingASGLifecycleAction(instanceIDs[1])
 		})
 
 		It("returns success and requeues the request with the reconciler's configured interval", func() {
@@ -185,7 +185,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("completes the ASG lifecycle action", func() {
-			Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIds[1], Equal(StateComplete)), HaveLen(1)))
+			Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StateComplete)), HaveLen(1)))
 		})
 
 		It("deletes the message from the SQS queue", func() {
@@ -207,10 +207,10 @@ var _ = Describe("Reconciliation", func() {
 						"EC2InstanceId": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
-			createPendingASGLifecycleAction(instanceIds[1])
+			createPendingASGLifecycleAction(instanceIDs[1])
 		})
 
 		It("returns success and requeues the request with the reconciler's configured interval", func() {
@@ -223,7 +223,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 
 		It("completes the ASG lifecycle action", func() {
-			Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIds[1], Equal(StateComplete)), HaveLen(1)))
+			Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StateComplete)), HaveLen(1)))
 		})
 
 		It("deletes the message from the SQS queue", func() {
@@ -244,7 +244,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -280,7 +280,7 @@ var _ = Describe("Reconciliation", func() {
 							{"entityValue": "%s"}
 						]
 					}
-				}`, instanceIds[1], instanceIds[2])),
+				}`, instanceIDs[1], instanceIDs[2])),
 			})
 		})
 
@@ -311,7 +311,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -343,7 +343,7 @@ var _ = Describe("Reconciliation", func() {
 						"instance-id": "%s",
 						"state": "stopping"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -375,7 +375,7 @@ var _ = Describe("Reconciliation", func() {
 						"instance-id": "%s",
 						"state": "stopped"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -407,7 +407,7 @@ var _ = Describe("Reconciliation", func() {
 						"instance-id": "%s",
 						"state": "shutting-down"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -439,7 +439,7 @@ var _ = Describe("Reconciliation", func() {
 						"instance-id": "%s",
 						"state": "terminated"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -472,7 +472,7 @@ var _ = Describe("Reconciliation", func() {
 							"EC2InstanceId": "%s",
 							"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 						}
-					}`, instanceIds[1])),
+					}`, instanceIDs[1])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-2"),
@@ -484,7 +484,7 @@ var _ = Describe("Reconciliation", func() {
 							"EC2InstanceId": "%s",
 							"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 						}
-					}`, instanceIds[2])),
+					}`, instanceIDs[2])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-3"),
@@ -495,7 +495,7 @@ var _ = Describe("Reconciliation", func() {
 						"detail": {
 							"instance-id": "%s"
 						}
-					}`, instanceIds[3])),
+					}`, instanceIDs[3])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-4"),
@@ -511,7 +511,7 @@ var _ = Describe("Reconciliation", func() {
 								{"entityValue": "%s"}
 							]
 						}
-					}`, instanceIds[4], instanceIds[5])),
+					}`, instanceIDs[4], instanceIDs[5])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-5"),
@@ -522,7 +522,7 @@ var _ = Describe("Reconciliation", func() {
 						"detail": {
 							"instance-id": "%s"
 						}
-					}`, instanceIds[6])),
+					}`, instanceIDs[6])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-6"),
@@ -534,7 +534,7 @@ var _ = Describe("Reconciliation", func() {
 							"instance-id": "%s",
 							"state": "stopping"
 						}
-					}`, instanceIds[7])),
+					}`, instanceIDs[7])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-7"),
@@ -546,7 +546,7 @@ var _ = Describe("Reconciliation", func() {
 							"instance-id": "%s",
 							"state": "stopped"
 						}
-					}`, instanceIds[8])),
+					}`, instanceIDs[8])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-8"),
@@ -558,7 +558,7 @@ var _ = Describe("Reconciliation", func() {
 							"instance-id": "%s",
 							"state": "shutting-down"
 						}
-					}`, instanceIds[9])),
+					}`, instanceIDs[9])),
 				},
 				&sqs.Message{
 					ReceiptHandle: aws.String("msg-9"),
@@ -570,7 +570,7 @@ var _ = Describe("Reconciliation", func() {
 							"instance-id": "%s",
 							"state": "terminated"
 						}
-					}`, instanceIds[10])),
+					}`, instanceIDs[10])),
 				},
 			)
 		})
@@ -735,7 +735,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
@@ -770,7 +770,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
@@ -807,7 +807,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
@@ -846,7 +846,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
@@ -889,7 +889,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			describeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
@@ -932,7 +932,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			defaultKubeGetFunc := kubeGetFunc
@@ -973,7 +973,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			cordonFunc = func(_ *kubectl.Helper, _ *v1.Node, _ bool) error {
@@ -1008,7 +1008,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			drainFunc = func(_ *kubectl.Helper, _ string) error {
@@ -1047,7 +1047,7 @@ var _ = Describe("Reconciliation", func() {
 						"EC2InstanceId": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
@@ -1087,7 +1087,7 @@ var _ = Describe("Reconciliation", func() {
 						"EC2InstanceId": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
@@ -1127,7 +1127,7 @@ var _ = Describe("Reconciliation", func() {
 						"EC2InstanceId": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
@@ -1167,7 +1167,7 @@ var _ = Describe("Reconciliation", func() {
 						"EC2InstanceId": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 
 			completeASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
@@ -1283,7 +1283,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -1350,7 +1350,7 @@ var _ = Describe("Reconciliation", func() {
 					"detail": {
 						"instance-id": "%s"
 					}
-				}`, instanceIds[1])),
+				}`, instanceIDs[1])),
 			})
 		})
 
@@ -1403,7 +1403,7 @@ var _ = Describe("Reconciliation", func() {
 						"LifecycleHookName": "%s",
 						"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
 					}
-				}`, autoScalingGroupName, instanceIds[1], lifecycleActionToken, lifecycleHookName)),
+				}`, autoScalingGroupName, instanceIDs[1], lifecycleActionToken, lifecycleHookName)),
 			})
 
 			defaultCompleteASGLifecycleActionFunc := completeASGLifecycleActionFunc
@@ -1429,7 +1429,7 @@ var _ = Describe("Reconciliation", func() {
 			Expect(*input.LifecycleActionToken).To(Equal(lifecycleActionToken))
 
 			Expect(input.InstanceId).ToNot(BeNil())
-			Expect(*input.InstanceId).To(Equal(instanceIds[1]))
+			Expect(*input.InstanceId).To(Equal(instanceIDs[1]))
 		})
 	})
 
@@ -1457,12 +1457,12 @@ var _ = Describe("Reconciliation", func() {
 			},
 		}
 		nodes = map[types.NamespacedName]*v1.Node{}
-		ec2Reservations = map[EC2InstanceId]*ec2.Reservation{}
+		ec2Reservations = map[EC2InstanceID]*ec2.Reservation{}
 		cordonedNodes = map[NodeName]bool{}
 		drainedNodes = map[NodeName]bool{}
 
 		nodeNames = []NodeName{}
-		instanceIds = []EC2InstanceId{}
+		instanceIDs = []EC2InstanceID{}
 		resizeCluster = func(newNodeCount uint) {
 			for currNodeCount := uint(len(nodes)); currNodeCount < newNodeCount; currNodeCount++ {
 				nodeName := fmt.Sprintf("node-%d", currNodeCount)
@@ -1471,9 +1471,9 @@ var _ = Describe("Reconciliation", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: nodeName},
 				}
 
-				instanceId := fmt.Sprintf("instanceId-%d", currNodeCount)
-				instanceIds = append(instanceIds, instanceId)
-				ec2Reservations[instanceId] = &ec2.Reservation{
+				instanceID := fmt.Sprintf("instance-%d", currNodeCount)
+				instanceIDs = append(instanceIDs, instanceID)
+				ec2Reservations[instanceID] = &ec2.Reservation{
 					Instances: []*ec2.Instance{
 						{PrivateDnsName: aws.String(nodeName)},
 					},
@@ -1481,13 +1481,13 @@ var _ = Describe("Reconciliation", func() {
 			}
 
 			nodeNames = nodeNames[:newNodeCount]
-			instanceIds = instanceIds[:newNodeCount]
+			instanceIDs = instanceIDs[:newNodeCount]
 		}
 
-		asgLifecycleActions = map[EC2InstanceId]State{}
-		createPendingASGLifecycleAction = func(instanceId EC2InstanceId) {
-			Expect(asgLifecycleActions).ToNot(HaveKey(instanceId))
-			asgLifecycleActions[instanceId] = StatePending
+		asgLifecycleActions = map[EC2InstanceID]State{}
+		createPendingASGLifecycleAction = func(instanceID EC2InstanceID) {
+			Expect(asgLifecycleActions).ToNot(HaveKey(instanceID))
+			asgLifecycleActions[instanceID] = StatePending
 		}
 
 		// 2. Setup stub clients.
@@ -1498,11 +1498,11 @@ var _ = Describe("Reconciliation", func() {
 			}
 
 			output := ec2.DescribeInstancesOutput{}
-			for _, instanceId := range input.InstanceIds {
-				if instanceId == nil {
+			for _, instanceID := range input.InstanceIds {
+				if instanceID == nil {
 					continue
 				}
-				if reservation, found := ec2Reservations[*instanceId]; found {
+				if reservation, found := ec2Reservations[*instanceID]; found {
 					output.Reservations = append(output.Reservations, reservation)
 				}
 			}

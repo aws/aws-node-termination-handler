@@ -25,7 +25,7 @@ import (
 
 type AWSHealthEvent AWSEvent
 
-func (e AWSHealthEvent) EC2InstanceIds() []string {
+func (e AWSHealthEvent) EC2InstanceIDs() []string {
 	ids := make([]string, len(e.Detail.AffectedEntities))
 	for i, entity := range e.Detail.AffectedEntities {
 		ids[i] = entity.EntityValue

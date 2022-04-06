@@ -38,10 +38,10 @@ func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 type EC2InstanceRebalanceRecommendationDetail struct {
-	InstanceId string `json:"instance-id"`
+	InstanceID string `json:"instance-id"`
 }
 
 func (e EC2InstanceRebalanceRecommendationDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("instance-id", e.InstanceId)
+	enc.AddString("instance-id", e.InstanceID)
 	return nil
 }

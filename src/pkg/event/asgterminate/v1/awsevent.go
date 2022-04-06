@@ -41,7 +41,7 @@ type EC2InstanceTerminateLifecycleActionDetail struct {
 	LifecycleHookName    string `json:"LifecycleHookName"`
 	LifecycleTransition  string `json:"LifecycleTransition"`
 	AutoScalingGroupName string `json:"AutoScalingGroupName"`
-	EC2InstanceId        string `json:"EC2InstanceId"`
+	EC2InstanceID        string `json:"EC2InstanceId"`
 	LifecycleActionToken string `json:"LifecycleActionToken"`
 }
 
@@ -49,7 +49,7 @@ func (e EC2InstanceTerminateLifecycleActionDetail) MarshalLogObject(enc zapcore.
 	enc.AddString("LifecycleHookName", e.LifecycleHookName)
 	enc.AddString("LifecycleTransition", e.LifecycleTransition)
 	enc.AddString("AutoScalingGroupName", e.AutoScalingGroupName)
-	enc.AddString("EC2InstanceId", e.EC2InstanceId)
+	enc.AddString("EC2InstanceId", e.EC2InstanceID)
 	enc.AddString("LifecycleActionToken", e.LifecycleActionToken)
 	return nil
 }

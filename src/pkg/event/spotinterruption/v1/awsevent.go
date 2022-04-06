@@ -38,12 +38,12 @@ func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 type EC2SpotInstanceInterruptionWarningDetail struct {
-	InstanceId     string `json:"instance-id"`
+	InstanceID     string `json:"instance-id"`
 	InstanceAction string `json:"instance-action"`
 }
 
 func (e EC2SpotInstanceInterruptionWarningDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("instance-id", e.InstanceId)
+	enc.AddString("instance-id", e.InstanceID)
 	enc.AddString("instance-action", e.InstanceAction)
 	return nil
 }

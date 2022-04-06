@@ -37,11 +37,11 @@ type (
 	}
 )
 
-func (g Getter) GetNodeName(ctx context.Context, instanceId string) (string, error) {
+func (g Getter) GetNodeName(ctx context.Context, instanceID string) (string, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("nodeName"))
 
 	result, err := g.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(instanceId)},
+		InstanceIds: []*string{aws.String(instanceID)},
 	})
 	if err != nil {
 		logging.FromContext(ctx).
@@ -51,7 +51,7 @@ func (g Getter) GetNodeName(ctx context.Context, instanceId string) (string, err
 	}
 
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		err = fmt.Errorf("no EC2 reservation for instance ID %s", instanceId)
+		err = fmt.Errorf("no EC2 reservation for instance ID %s", instanceID)
 		logging.FromContext(ctx).
 			With("error", err).
 			Error("EC2 instance not found")
@@ -59,7 +59,7 @@ func (g Getter) GetNodeName(ctx context.Context, instanceId string) (string, err
 	}
 
 	if result.Reservations[0].Instances[0].PrivateDnsName == nil {
-		err = fmt.Errorf("no PrivateDnsName for instance %s", instanceId)
+		err = fmt.Errorf("no PrivateDnsName for instance %s", instanceID)
 		logging.FromContext(ctx).
 			With("error", err).
 			Error("EC2 instance has no PrivateDnsName")
@@ -68,7 +68,7 @@ func (g Getter) GetNodeName(ctx context.Context, instanceId string) (string, err
 
 	nodeName := *result.Reservations[0].Instances[0].PrivateDnsName
 	if nodeName == "" {
-		err = fmt.Errorf("empty PrivateDnsName for instance %s", instanceId)
+		err = fmt.Errorf("empty PrivateDnsName for instance %s", instanceID)
 		logging.FromContext(ctx).
 			With("error", err).
 			Error("EC2 instance's PrivateDnsName is empty")

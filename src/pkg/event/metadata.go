@@ -25,7 +25,7 @@ import (
 type AWSMetadata struct {
 	Account    string    `json:"account"`
 	DetailType string    `json:"detail-type"`
-	Id         string    `json:"id"`
+	ID         string    `json:"id"`
 	Region     string    `json:"region"`
 	Resources  []string  `json:"resources"`
 	Source     string    `json:"source"`
@@ -36,7 +36,7 @@ type AWSMetadata struct {
 func (e AWSMetadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("source", e.Source)
 	enc.AddString("detail-type", e.DetailType)
-	enc.AddString("id", e.Id)
+	enc.AddString("id", e.ID)
 	enc.AddTime("time", e.Time)
 	enc.AddString("region", e.Region)
 	enc.AddArray("resources", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {

@@ -38,12 +38,12 @@ func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 type EC2InstanceStateChangeNotificationDetail struct {
-	InstanceId string `json:"instance-id"`
+	InstanceID string `json:"instance-id"`
 	State      string `json:"state"`
 }
 
 func (e EC2InstanceStateChangeNotificationDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("instance-id", e.InstanceId)
+	enc.AddString("instance-id", e.InstanceID)
 	enc.AddString("state", e.State)
 	return nil
 }

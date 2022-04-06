@@ -25,7 +25,7 @@ import (
 
 type noop AWSMetadata
 
-func (n noop) EC2InstanceIds() []string {
+func (n noop) EC2InstanceIDs() []string {
 	return []string{}
 }
 

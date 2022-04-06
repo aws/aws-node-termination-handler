@@ -38,7 +38,7 @@ func (e AWSEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 type AWSHealthEventDetail struct {
-	EventArn          string             `json:"eventArn"`
+	EventARN          string             `json:"eventArn"`
 	EventTypeCode     string             `json:"eventTypeCode"`
 	Service           string             `json:"service"`
 	EventDescription  []EventDescription `json:"eventDescription"`
@@ -49,7 +49,7 @@ type AWSHealthEventDetail struct {
 }
 
 func (e AWSHealthEventDetail) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("eventArn", e.EventArn)
+	enc.AddString("eventArn", e.EventARN)
 	enc.AddString("eventTypeCode", e.EventTypeCode)
 	enc.AddString("eventTypeCategory", e.EventTypeCategory)
 	enc.AddString("service", e.Service)

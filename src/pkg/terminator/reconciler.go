@@ -50,7 +50,7 @@ type (
 		zapcore.ObjectMarshaler
 
 		Done(context.Context) (tryAgain bool, err error)
-		EC2InstanceIds() []string
+		EC2InstanceIDs() []string
 	}
 
 	Getter interface {
@@ -127,12 +127,12 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
 
 		savedCtx := ctx
-		for _, ec2InstanceId := range evt.EC2InstanceIds() {
+		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
 			ctx = logging.WithLogger(savedCtx, logging.FromContext(savedCtx).
-				With("ec2InstanceId", ec2InstanceId),
+				With("ec2InstanceID", ec2InstanceID),
 			)
 
-			nodeName, e := r.GetNodeName(ctx, ec2InstanceId)
+			nodeName, e := r.GetNodeName(ctx, ec2InstanceID)
 			if e != nil {
 				err = multierr.Append(err, e)
 				continue

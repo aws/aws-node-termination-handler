@@ -25,8 +25,8 @@ import (
 
 type EC2InstanceRebalanceRecommendation AWSEvent
 
-func (e EC2InstanceRebalanceRecommendation) EC2InstanceIds() []string {
-	return []string{e.Detail.InstanceId}
+func (e EC2InstanceRebalanceRecommendation) EC2InstanceIDs() []string {
+	return []string{e.Detail.InstanceID}
 }
 
 func (e EC2InstanceRebalanceRecommendation) Done(_ context.Context) (bool, error) {
