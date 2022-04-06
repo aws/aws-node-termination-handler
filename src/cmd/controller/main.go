@@ -76,9 +76,9 @@ var scheme = runtime.NewScheme()
 
 type Options struct {
 	AWSRegion            string
-	MetricsAddr          string
+	MetricsAddress       string
 	EnableLeaderElection bool
-	ProbeAddr            string
+	ProbeAddress         string
 }
 
 func init() {
@@ -109,9 +109,9 @@ func main() {
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     options.MetricsAddr,
+		MetricsBindAddress:     options.MetricsAddress,
 		Port:                   9443,
-		HealthProbeBindAddress: options.ProbeAddr,
+		HealthProbeBindAddress: options.ProbeAddress,
 		LeaderElection:         options.EnableLeaderElection,
 		LeaderElectionID:       "aws-node-termination-handler.k8s.aws",
 		Logger:                 zapr.NewLogger(logging.FromContext(ctx).Desugar()),
@@ -197,8 +197,8 @@ func parseOptions() Options {
 	options := Options{}
 
 	flag.StringVar(&options.AWSRegion, "aws-region", os.Getenv("AWS_REGION"), "The AWS region for API calls.")
-	flag.StringVar(&options.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&options.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&options.MetricsAddress, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&options.ProbeAddress, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&options.EnableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+
 		"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
