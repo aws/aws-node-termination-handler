@@ -40,6 +40,7 @@ func (p AggregatedParser) Parse(ctx context.Context, str string) terminator.Even
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("event.parser"))
 
 	if str == "" {
+		logging.FromContext(ctx).Warn("nothing to parse")
 		return noop{}
 	}
 
@@ -49,11 +50,13 @@ func (p AggregatedParser) Parse(ctx context.Context, str string) terminator.Even
 		}
 	}
 
+	logging.FromContext(ctx).Error("failed to parse")
+
 	md := AWSMetadata{}
 	if err := json.Unmarshal([]byte(str), &md); err != nil {
 		logging.FromContext(ctx).
 			With("error", err).
-			Error("failed to parse SQS message metadata")
+			Error("failed to unmarshal message metadata")
 		return noop{}
 	}
 	return noop(md)
