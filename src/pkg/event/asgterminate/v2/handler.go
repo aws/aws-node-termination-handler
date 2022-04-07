@@ -18,11 +18,8 @@ package v2
 
 import (
 	"context"
-	"errors"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-node-termination-handler/pkg/event/asgterminate/lifecycleaction"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -38,18 +35,12 @@ func (e EC2InstanceTerminateLifecycleAction) EC2InstanceIDs() []string {
 }
 
 func (e EC2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, error) {
-	if _, err := e.CompleteLifecycleActionWithContext(ctx, &autoscaling.CompleteLifecycleActionInput{
-		AutoScalingGroupName:  aws.String(e.Detail.AutoScalingGroupName),
-		LifecycleActionResult: aws.String("CONTINUE"),
-		LifecycleHookName:     aws.String(e.Detail.LifecycleHookName),
-		LifecycleActionToken:  aws.String(e.Detail.LifecycleActionToken),
-		InstanceId:            aws.String(e.Detail.EC2InstanceID),
-	}); err != nil {
-		var f awserr.RequestFailure
-		return errors.As(err, &f) && f.StatusCode() != 400, err
-	}
-
-	return false, nil
+	return lifecycleaction.Complete(ctx, e, lifecycleaction.Input{
+		AutoScalingGroupName: e.Detail.AutoScalingGroupName,
+		LifecycleActionToken: e.Detail.LifecycleActionToken,
+		LifecycleHookName:    e.Detail.LifecycleHookName,
+		EC2InstanceID:        e.Detail.EC2InstanceID,
+	})
 }
 
 func (e EC2InstanceTerminateLifecycleAction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
