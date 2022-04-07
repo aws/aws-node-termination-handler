@@ -23,6 +23,7 @@ tools=(
     # setup-envtest version specifiers:
     #   https://pkg.go.dev/sigs.k8s.io/controller-runtime/tools/setup-envtest/versions?tab=versions
     "sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220217150738-f62a0f579d73"
+    "github.com/onsi/ginkgo/v2/ginkgo@v2.1.3"
 )
 
 bin_dir=""

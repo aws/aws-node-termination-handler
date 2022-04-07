@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+    - v2
+  push:
+    branches:
+    - v2
+  workflow_dispatch:
+
+jobs:
+
+  runMakeTest:
+    name: Run 'make test'
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Set up Go 1.17.x
+      uses: actions/setup-go@v3
+      with:
+        go-version: "1.17.x"
+    - run: go version
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v3
+      with:
+        ref: v2
+
+    - name: Restore go mod cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin/
+        key: gocache
+
+    - name: make test
+      run: make test
+      working-directory: ./src

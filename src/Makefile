@@ -2,10 +2,12 @@ PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 KO = $(PROJECT_DIR)/bin/ko
 ENVTEST = $(PROJECT_DIR)/bin/setup-envtest
+GINKGO = $(PROJECT_DIR)/bin/ginkgo
 TOOLCHAIN = \
 	$(CONTROLLER_GEN) \
 	$(KO) \
-	$(ENVTEST)
+	$(ENVTEST) \
+	$(GINKGO)
 HELM_BASE_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${NTHV2_IAM_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 KODATA = \
@@ -64,9 +66,9 @@ verify: ## Run go fmt and go vet against code.
 	go vet $(PROJECT_DIR)/...
 
 .PHONY: test
-test: ## Run tests.
+test: $(GINKGO) ## Run tests.
 	go vet $(PROJECT_DIR)/...
-	ginkgo run $(GINKGO_BASE_OPTS) $(GINKGO_OPTS) $(PROJECT_DIR)/test/
+	$(GINKGO) run $(GINKGO_BASE_OPTS) $(GINKGO_OPTS) $(PROJECT_DIR)/test/
 
 ##@ Build
 
