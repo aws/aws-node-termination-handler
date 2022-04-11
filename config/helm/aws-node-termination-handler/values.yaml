@@ -179,6 +179,9 @@ managedAsgTag: "aws-node-termination-handler/managed"
 # If true, assume that ASG tags will be appear on the ASG's instances
 assumeAsgTagPropagation: false
 
+# If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.
+useProviderId: false
+
 # ---------------------------------------------------------------------------------------------------------------------
 # IMDS Mode
 # ---------------------------------------------------------------------------------------------------------------------

@@ -363,6 +363,34 @@ func (n Node) GetNodeLabels(nodeName string) (map[string]string, error) {
 	return node.Labels, nil
 }
 
+func (n Node) GetNodeNameFromProviderID(providerId string) (string, error) {
+	if n.nthConfig.DryRun {
+		return "", nil
+	}
+
+	listOptions := metav1.ListOptions{}
+	nodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
+	if err != nil {
+		log.Err(err).Msgf("Error when trying to list nodes to find node with ProviderID")
+
+		return "", err
+	}
+
+	for _, n := range nodes.Items {
+		if n.Spec.ProviderID == providerId {
+			labels := n.GetObjectMeta().GetLabels()
+
+			if hostname, ok := labels["kubernetes.io/hostname="]; ok {
+				return hostname, nil
+			}
+
+			return n.GetObjectMeta().GetName(), nil
+		}
+	}
+
+	return "", nil
+}
+
 // TaintSpotItn adds the spot termination notice taint onto a node
 func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 	if !n.nthConfig.TaintNode {

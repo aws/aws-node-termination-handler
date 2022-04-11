@@ -260,6 +260,7 @@ func (m SQSMonitor) deleteMessages(messages []*sqs.Message) []error {
 type NodeInfo struct {
 	AsgName    string
 	InstanceID string
+	ProviderID string
 	IsManaged  bool
 	Name       string
 	Tags       map[string]string
@@ -303,9 +304,15 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		return nil, fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
 	}
 
+	providerID := ""
+	if *instance.Placement.AvailabilityZone != "" {
+		providerID = fmt.Sprintf("aws:///%s/%s", *instance.Placement.AvailabilityZone, instanceID)
+	}
+
 	nodeInfo := &NodeInfo{
 		Name:       *instance.PrivateDnsName,
 		InstanceID: instanceID,
+		ProviderID: providerID,
 		Tags:       make(map[string]string),
 		IsManaged:  true,
 	}
