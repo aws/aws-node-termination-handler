@@ -18,8 +18,6 @@ K8_1_20="kindest/node:v1.20.70@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf
 K8_1_19="kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729"
 # shellcheck disable=SC2034
 K8_1_18="kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c"
-# shellcheck disable=SC2034
-K8_1_17="kindest/node:v1.17.17@sha256:66f1d0d91a88b8a001811e2f1054af60eef3b669a9a74f9b6db871f2f1eeed00"
 
 K8_VERSION="$K8_1_20"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)

@@ -136,7 +136,7 @@ USAGE=$(cat << 'EOM'
             -n          Node Termination Handler Docker Image
             -d          use GOPROXY=direct to bypass proxy.golang.org
             -o          Override path w/ your own kubectl and kind binaries
-            -v          Kubernetes Version (Default: 1.20) [1.17, 1.18, 1.19, 1.20, 1.21, and 1.22]
+            -v          Kubernetes Version (Default: 1.20) [1.18, 1.19, 1.20, 1.21, and 1.22]
             -w          Webhook Docker Image
 
 EOM
