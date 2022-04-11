@@ -388,7 +388,7 @@ func (n Node) GetNodeNameFromProviderID(providerId string) (string, error) {
 		}
 	}
 
-	return "", nil
+	return "", fmt.Errorf("Node with ProviderID '%s' was not found in the cluster", providerId)
 }
 
 // TaintSpotItn adds the spot termination notice taint onto a node
