@@ -21,6 +21,14 @@ import (
 )
 
 func (t *TerminatorSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if len(t.MatchLabels) > 0 {
+		enc.AddObject("matchLabels", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+			for name, value := range t.MatchLabels {
+				enc.AddString(name, value)
+			}
+			return nil
+		}))
+	}
 	enc.AddObject("sqs", t.SQS)
 	enc.AddObject("drain", t.Drain)
 	return nil
