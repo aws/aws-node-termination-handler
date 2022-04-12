@@ -36,7 +36,7 @@ type (
 	}
 )
 
-func (g Getter) GetNode(ctx context.Context, nodeName string) (*v1.Node, error) {
+func (g Getter) GetNode(ctx context.Context, nodeName string, labels map[string]string) (*v1.Node, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("node"))
 
 	node := &v1.Node{}
@@ -45,6 +45,12 @@ func (g Getter) GetNode(ctx context.Context, nodeName string) (*v1.Node, error) 
 			With("error", err).
 			Error("failed to retrieve node")
 		return nil, err
+	}
+
+	for name, value := range labels {
+		if v, ok := node.Labels[name]; !ok || v != value {
+			return nil, nil
+		}
 	}
 
 	return node, nil
