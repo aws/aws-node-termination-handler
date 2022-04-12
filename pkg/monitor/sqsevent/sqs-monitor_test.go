@@ -786,7 +786,12 @@ func getDescribeInstancesResp(privateDNSName string, withASGTag bool, withManage
 			{
 				Instances: []*ec2.Instance{
 					{
-						InstanceId:     aws.String("i-0123456789"),
+						InstanceId: aws.String("i-0123456789"),
+						Placement: &ec2.Placement{
+							AvailabilityZone: aws.String("us-east-2a"),
+							GroupName:        aws.String(""),
+							Tenancy:          aws.String("default"),
+						},
 						PrivateDnsName: &privateDNSName,
 						Tags:           tags,
 					},
