@@ -25,5 +25,5 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "aws-node-termination-handler.labels" . | nindent 6 }}
+      {{- include "aws-node-termination-handler.selectorLabelsDeployment" . | nindent 6 }}
 {{- end -}}
