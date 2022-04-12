@@ -229,8 +229,8 @@ var _ = Describe("Reconciliation", func() {
 				Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StatePending)), HaveLen(1)))
 			})
 
-			It("deletes the message from the SQS queue", func() {
-				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			It("does not delete the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(HaveLen(1))
 			})
 		})
 	})
@@ -307,8 +307,8 @@ var _ = Describe("Reconciliation", func() {
 				Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StatePending)), HaveLen(1)))
 			})
 
-			It("deletes the message from the SQS queue", func() {
-				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			It("does not delete the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(HaveLen(1))
 			})
 		})
 	})
@@ -412,8 +412,8 @@ var _ = Describe("Reconciliation", func() {
 				Expect(drainedNodes).To(BeEmpty())
 			})
 
-			It("deletes the message from the SQS queue", func() {
-				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			It("does not delete the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(HaveLen(1))
 			})
 		})
 
@@ -448,8 +448,8 @@ var _ = Describe("Reconciliation", func() {
 				Expect(drainedNodes).To(BeEmpty())
 			})
 
-			It("deletes the message from the SQS queue", func() {
-				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			It("does not delete the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(HaveLen(1))
 			})
 		})
 	})
@@ -641,8 +641,8 @@ var _ = Describe("Reconciliation", func() {
 				Expect(drainedNodes).To(BeEmpty())
 			})
 
-			It("deletes the message from the SQS queue", func() {
-				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			It("does not delete the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(HaveLen(1))
 			})
 		})
 	})
@@ -827,8 +827,8 @@ var _ = Describe("Reconciliation", func() {
 			Expect(drainedNodes).To(BeEmpty())
 		})
 
-		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueURL]).To(BeEmpty())
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -850,8 +850,8 @@ var _ = Describe("Reconciliation", func() {
 			Expect(drainedNodes).To(BeEmpty())
 		})
 
-		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueURL]).To(BeEmpty())
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -874,8 +874,8 @@ var _ = Describe("Reconciliation", func() {
 			Expect(drainedNodes).To(BeEmpty())
 		})
 
-		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueURL]).To(BeEmpty())
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -901,8 +901,8 @@ var _ = Describe("Reconciliation", func() {
 			Expect(drainedNodes).To(BeEmpty())
 		})
 
-		It("deletes the message from the SQS queue", func() {
-			Expect(sqsQueues[queueURL]).To(BeEmpty())
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -1022,6 +1022,10 @@ var _ = Describe("Reconciliation", func() {
 			Expect(cordonedNodes).To(BeEmpty())
 			Expect(drainedNodes).To(BeEmpty())
 		})
+
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
+		})
 	})
 
 	When("there is no EC2 reservation for the instance ID", func() {
@@ -1058,6 +1062,10 @@ var _ = Describe("Reconciliation", func() {
 		It("does not cordon or drain any nodes", func() {
 			Expect(cordonedNodes).To(BeEmpty())
 			Expect(drainedNodes).To(BeEmpty())
+		})
+
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -1097,6 +1105,10 @@ var _ = Describe("Reconciliation", func() {
 		It("does not cordon or drain any nodes", func() {
 			Expect(cordonedNodes).To(BeEmpty())
 			Expect(drainedNodes).To(BeEmpty())
+		})
+
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
 		})
 	})
 
@@ -1141,6 +1153,10 @@ var _ = Describe("Reconciliation", func() {
 			Expect(cordonedNodes).To(BeEmpty())
 			Expect(drainedNodes).To(BeEmpty())
 		})
+
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
+		})
 	})
 
 	When("the EC2 reservation's instance's PrivateDnsName empty", func() {
@@ -1184,9 +1200,13 @@ var _ = Describe("Reconciliation", func() {
 			Expect(cordonedNodes).To(BeEmpty())
 			Expect(drainedNodes).To(BeEmpty())
 		})
+
+		It("does not delete the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(HaveLen(1))
+		})
 	})
 
-	When("there is an error getting the cluster node name for an EC2 instance ID", func() {
+	When("there is an error getting the cluster node for a node name", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
 
@@ -1213,12 +1233,8 @@ var _ = Describe("Reconciliation", func() {
 			}
 		})
 
-		It("does not requeue the request", func() {
-			Expect(result).To(BeZero())
-		})
-
-		It("returns an error", func() {
-			Expect(err).To(MatchError(ContainSubstring(errMsg)))
+		It("returns success and requeues the request with the reconciler's configured interval", func() {
+			Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
 		})
 
 		It("does not cordon or drain any nodes", func() {
@@ -1260,6 +1276,10 @@ var _ = Describe("Reconciliation", func() {
 			Expect(cordonedNodes).To(BeEmpty())
 			Expect(drainedNodes).To(BeEmpty())
 		})
+
+		It("deletes the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
+		})
 	})
 
 	When("draining a node fails", func() {
@@ -1297,6 +1317,10 @@ var _ = Describe("Reconciliation", func() {
 
 		It("does not drain the target node", func() {
 			Expect(drainedNodes).To(BeEmpty())
+		})
+
+		It("deletes the message from the SQS queue", func() {
+			Expect(sqsQueues[queueURL]).To(BeEmpty())
 		})
 	})
 

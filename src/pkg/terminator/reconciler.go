@@ -126,6 +126,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		evt := r.Parse(ctx, msg)
 		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
 
+		allInstancesHandled := true
 		savedCtx := ctx
 		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
 			ctx = logging.WithLogger(savedCtx, logging.FromContext(savedCtx).
@@ -135,6 +136,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 			nodeName, e := r.GetNodeName(ctx, ec2InstanceID)
 			if e != nil {
 				err = multierr.Append(err, e)
+				allInstancesHandled = false
 				continue
 			}
 
@@ -143,6 +145,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 			node, e := r.GetNode(ctx, nodeName)
 			if e != nil {
 				err = multierr.Append(err, e)
+				allInstancesHandled = false
 				continue
 			}
 
@@ -163,7 +166,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 			err = multierr.Append(err, e)
 		}
 
-		if tryAgain {
+		if tryAgain || !allInstancesHandled {
 			continue
 		}
 

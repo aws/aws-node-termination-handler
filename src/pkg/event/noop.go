@@ -30,7 +30,7 @@ func (n noop) EC2InstanceIDs() []string {
 }
 
 func (n noop) Done(_ context.Context) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (n noop) MarshalLogObject(enc zapcore.ObjectEncoder) error {
