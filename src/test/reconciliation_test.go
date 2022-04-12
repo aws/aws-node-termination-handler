@@ -1243,6 +1243,91 @@ var _ = Describe("Reconciliation", func() {
 		})
 	})
 
+	When("the terminator has a node label selector", func() {
+		When("the label selector matches the target node", func() {
+			const labelName = "a-test-label"
+			const labelValue = "test-label-value"
+
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				targetedNode, found := nodes[types.NamespacedName{Name: nodeNames[1]}]
+				Expect(found).To(BeTrue())
+
+				targetedNode.Labels = map[string]string{labelName: labelValue}
+
+				terminator, found := terminators[terminatorNamespaceName]
+				Expect(found).To(BeTrue())
+
+				terminator.Spec.MatchLabels = client.MatchingLabels{labelName: labelValue}
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Spot Instance Interruption Warning",
+						"version": "1",
+						"detail": {
+							"instance-id": "%s"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons and drains only the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+				Expect(drainedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("the label selector does not match the target node", func() {
+			const labelName = "a-test-label"
+			const labelValue = "test-label-value"
+
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator, found := terminators[terminatorNamespaceName]
+				Expect(found).To(BeTrue())
+
+				terminator.Spec.MatchLabels = client.MatchingLabels{labelName: labelValue}
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Spot Instance Interruption Warning",
+						"version": "1",
+						"detail": {
+							"instance-id": "%s"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain any nodes", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("does not delete the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(HaveLen(1))
+			})
+		})
+	})
+
 	When("cordoning a node fails", func() {
 		BeforeEach(func() {
 			resizeCluster(3)
