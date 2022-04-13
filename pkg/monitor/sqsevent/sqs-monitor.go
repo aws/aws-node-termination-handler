@@ -59,6 +59,18 @@ type InterruptionEventWrapper struct {
 	Err               error
 }
 
+type skip struct {
+	err error
+}
+
+func (s skip) Error() string {
+	return s.err.Error()
+}
+
+func (s skip) Unwrap() error {
+	return s.err
+}
+
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
@@ -76,8 +88,13 @@ func (m SQSMonitor) Monitor() error {
 	for _, message := range messages {
 		eventBridgeEvent, err := m.processSQSMessage(message)
 		if err != nil {
-			log.Err(err).Msg("error processing SQS message")
-			failedEventBridgeEvents++
+			var s skip
+			if errors.As(err, &s) {
+				log.Warn().Err(s).Msg("skip processing SQS message")
+			} else {
+				log.Err(err).Msg("error processing SQS message")
+				failedEventBridgeEvents++
+			}
 			continue
 		}
 
@@ -118,7 +135,16 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(*message.Body), &lifecycleEvent)
 
-	if err != nil || lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" {
+	switch {
+	case err != nil:
+		log.Err(err).Msg("only lifecycle events from ASG to SQS are supported outside EventBridge")
+		return eventBridgeEvent, err
+
+	case lifecycleEvent.LifecycleTransition == "autoscaling:TEST_NOTIFICATION":
+		log.Warn().Msg("ignoring ASG test notification")
+		return eventBridgeEvent, skip{fmt.Errorf("message is a test notification")}
+
+	case lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING":
 		log.Err(err).Msg("only lifecycle termination events from ASG to SQS are supported outside EventBridge")
 		err = fmt.Errorf("unsupported message type (%s)", message.String())
 		return eventBridgeEvent, err
