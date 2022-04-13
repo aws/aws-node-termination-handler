@@ -77,6 +77,22 @@ var asgLifecycleEventFromSQS = sqsevent.LifecycleDetail{
 	LifecycleActionToken: "b4dd0f5b-0ef2-4479-9dad-6c55f027000e",
 }
 
+var asgLifecycleTestNotification = sqsevent.EventBridgeEvent{
+	Version:    "0",
+	ID:         "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
+	DetailType: "EC2 Instance-terminate Lifecycle Action",
+	Source:     "aws.autoscaling",
+	Account:    "123456789012",
+	Time:       "2020-07-01T22:19:58Z",
+	Region:     "us-east-1",
+	Resources: []string{
+		"arn:aws:autoscaling:us-east-1:123456789012:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/nth-test1",
+	},
+	Detail: []byte(`{
+		"LifecycleTransition": "autoscaling:TEST_NOTIFICATION"
+	  }`),
+}
+
 var asgLifecycleTestNotificationFromSQS = sqsevent.LifecycleDetail{
 	LifecycleHookName:    "test-nth-asg-to-sqs",
 	RequestID:            "3775fac9-93c3-7ead-8713-159816566000",
@@ -151,6 +167,43 @@ func TestMonitor_EventBridgeSuccess(t *testing.T) {
 			h.Ok(t, fmt.Errorf("Expected an event to be generated"))
 		}
 
+	}
+}
+
+func TestMonitor_EventBridgeTestNotification(t *testing.T) {
+	msg, err := getSQSMessageFromEvent(asgLifecycleTestNotification)
+	h.Ok(t, err)
+	messages := []*sqs.Message{
+		&msg,
+	}
+	sqsMock := h.MockedSQS{
+		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
+		ReceiveMessageErr:  nil,
+	}
+	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
+	}
+	drainChan := make(chan monitor.InterruptionEvent, 1)
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		SQS:              sqsMock,
+		EC2:              ec2Mock,
+		ManagedAsgTag:    "aws-node-termination-handler/managed",
+		ASG:              mockIsManagedTrue(nil), // TODO: is this the right mock factory function?
+		CheckIfManaged:   true,
+		QueueURL:         "https://test-queue",
+		InterruptionChan: drainChan,
+	}
+
+	err = sqsMonitor.Monitor()
+	h.Ok(t, err)
+
+	select {
+	case result := <-drainChan:
+		h.Ok(t, fmt.Errorf("Did not expect a result on the drain channel: %#v", result))
+	default:
+		h.Ok(t, nil)
 	}
 }
 
