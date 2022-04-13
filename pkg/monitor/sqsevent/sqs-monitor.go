@@ -194,12 +194,17 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []InterruptionEventWrapper, message *sqs.Message) error {
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0
+	var skipErr skip
 
 	for _, eventWrapper := range interruptionEventWrappers {
 		switch {
 		case errors.Is(eventWrapper.Err, ErrNodeStateNotRunning):
 			// If the node is no longer running, just log and delete the message
 			log.Warn().Err(eventWrapper.Err).Msg("dropping interruption event for an already terminated node")
+			dropMessageSuggestionCount++
+
+		case errors.As(eventWrapper.Err, &skipErr):
+			log.Warn().Err(skipErr).Msg("dropping event")
 			dropMessageSuggestionCount++
 
 		case eventWrapper.Err != nil:
