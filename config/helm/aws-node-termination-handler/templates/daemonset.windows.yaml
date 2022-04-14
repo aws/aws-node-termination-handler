@@ -5,7 +5,7 @@ metadata:
   name: {{ include "aws-node-termination-handler.fullnameWindows" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+    {{- include "aws-node-termination-handler.labelsDaemonset" . | nindent 4 }}
 spec:
   {{- with .Values.updateStrategy }}
   updateStrategy:
