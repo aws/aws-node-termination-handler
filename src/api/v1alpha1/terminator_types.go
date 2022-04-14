@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2022 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -31,8 +30,24 @@ type TerminatorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Terminator. Edit terminator_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	SQS   SQSSpec   `json:"sqs,omitempty"`
+	Drain DrainSpec `json:"drain,omitempty"`
+}
+
+// SQSSpec defines inputs to SQS "receive messages" requests.
+type SQSSpec struct {
+	// https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.38.55/service/sqs#ReceiveMessageInput
+	QueueURL string `json:"queueURL,omitempty"`
+}
+
+// DrainSpec defines inputs to the cordon and drain operations.
+type DrainSpec struct {
+	// https://pkg.go.dev/k8s.io/kubectl@v0.21.4/pkg/drain#Helper
+	Force               bool `json:"force,omitempty"`
+	GracePeriodSeconds  int  `json:"gracePeriodSeconds,omitempty"`
+	IgnoreAllDaemonSets bool `json:"ignoreAllDaemonSets,omitempty"`
+	DeleteEmptyDirData  bool `json:"deleteEmptyDirData,omitempty"`
+	TimeoutSeconds      int  `json:"timeoutSeconds,omitempty"`
 }
 
 // TerminatorStatus defines the observed state of Terminator
@@ -56,12 +71,6 @@ type Terminator struct {
 func (t *Terminator) SetDefaults(_ context.Context) {
 	// Stubbed to satisfy interface requirements.
 	// TODO: actually set defaults
-}
-
-func (t *Terminator) Validate(_ context.Context) *apis.FieldError {
-	// Stubbed to satisfy interface requirements.
-	// TODO: actually validate
-	return nil
 }
 
 // TerminatorList contains a list of Terminator

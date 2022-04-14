@@ -1,0 +1,106 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: terminators.node.k8s.aws
+spec:
+  group: node.k8s.aws
+  names:
+    kind: Terminator
+    listKind: TerminatorList
+    plural: terminators
+    singular: terminator
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Terminator is the Schema for the terminators API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TerminatorSpec defines the desired state of Terminator
+            type: object
+            properties:
+              sqs:
+                description: AWS SQS queue configuration.
+                type: object
+                properties:
+                  queueURL:
+                    description: |
+                      The URL of the Amazon SQS queue from which messages are received.
+
+                        * Queue URLs and names are case-sensitive.
+
+                        * QueueURL is a required field
+                    type: string
+              drain:
+                description: TBD
+                type: object
+                properties:
+                  force:
+                    description: TBD
+                    type: boolean
+                    {{- with .Values.terminator.defaults.drain.force }}
+                    default: {{ . }}
+                    {{- end }}
+                  gracePeriodSeconds:
+                    description: |
+                      Time to wait for a pod to terminate.
+
+                        * A value of 0 will cause pods to be deleted immediately.
+
+                        * A negative value will use the pod's terminationGracePeriodSeconds.
+                    type: integer
+                    {{- with .Values.terminator.defaults.drain.gracePeriodSeconds }}
+                    default: {{ . }}
+                    {{- end }}
+                  ignoreAllDaemonSets:
+                    description: Do not terminate pods managed by a daemon set.
+                    type: boolean
+                    {{- with .Values.terminator.defaults.drain.ignoreAllDaemonSets }}
+                    default: {{ . }}
+                    {{- end }}
+                  deleteEmptyDirData:
+                    description: Terminate pods using emptyDir. The local data will be deleted.
+                    type: boolean
+                    {{- with .Values.terminator.defaults.drain.deleteEmptyDirData }}
+                    default: {{ . }}
+                    {{- end }}
+                  timeoutSeconds:
+                    description: |
+                      Time to wait for a "delete" command to complete.
+
+                        * A value of 0 means to wait indefinitly.
+                    type: integer
+                    {{- with .Values.terminator.defaults.drain.timeoutSeconds }}
+                    default: {{ . }}
+                    {{- end }}
+          status:
+            description: TerminatorStatus defines the observed state of Terminator
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

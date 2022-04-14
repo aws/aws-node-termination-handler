@@ -2,6 +2,8 @@ PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 KO = $(PROJECT_DIR)/bin/ko
 ENVTEST = $(PROJECT_DIR)/bin/setup-envtest
+HELM_BASE_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${NTHV2_IAM_ROLE_ARN}
+GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 
 
 # Image URL to use all building/pushing image targets
@@ -45,27 +47,24 @@ toolchain:  ## Download additional tools.
 
 ##@ Development
 
-.PHONY: manifests
-manifests:  ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-
 .PHONY: generate
 generate:  ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
 verify: ## Run go fmt and go vet against code.
-	go fmt ./...
-	go vet ./...
+	go fmt $(PROJECT_DIR)/...
+	go vet $(PROJECT_DIR)/...
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+test: ## Run tests.
+	go vet $(PROJECT_DIR)/...
+	ginkgo run $(GINKGO_BASE_OPTS) $(GINKGO_OPTS) $(PROJECT_DIR)/test/
 
 ##@ Build
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: ## Run a controller from your host.
 	go run ./main.go
 
 ##@ Deployment
@@ -73,6 +72,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 .PHONY: apply
 apply:  ## Deploy the controller into the current kubernetes cluster.
 	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
+		$(HELM_BASE_OPTS) \
 		$(HELM_OPTS) \
 		--set controller.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler/cmd/controller) \
 		--set webhook.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler/cmd/webhook) \
