@@ -43,6 +43,7 @@ func setEnvForTest(key string, val string) {
 func TestParseCliArgsEnvSuccess(t *testing.T) {
 	resetFlagsForTest()
 	setEnvForTest("ASSUME_ASG_TAG_PROPAGATION", "true")
+	setEnvForTest("USE_PROVIDER_ID", "true")
 	setEnvForTest("DELETE_LOCAL_DATA", "false")
 	setEnvForTest("DRY_RUN", "true")
 	setEnvForTest("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
@@ -68,6 +69,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 
 	// Assert all the values were set
 	h.Equals(t, true, nthConfig.AssumeAsgTagPropagation)
+	h.Equals(t, true, nthConfig.UseProviderId)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
@@ -103,6 +105,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	os.Args = []string{
 		"cmd",
 		"--assume-asg-tag-propagation=true",
+		"--use-provider-id=true",
 		"--delete-local-data=false",
 		"--dry-run=true",
 		"--enable-scheduled-event-draining=true",
@@ -128,6 +131,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 
 	// Assert all the values were set
 	h.Equals(t, true, nthConfig.AssumeAsgTagPropagation)
+	h.Equals(t, true, nthConfig.UseProviderId)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
@@ -158,6 +162,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 func TestParseCliArgsOverrides(t *testing.T) {
 	resetFlagsForTest()
 	setEnvForTest("ASSUME_ASG_TAG_PROPAGATION", "true")
+	setEnvForTest("USE_PROVIDER_ID", "true")
 	setEnvForTest("DELETE_LOCAL_DATA", "true")
 	setEnvForTest("DRY_RUN", "false")
 	setEnvForTest("ENABLE_SCHEDULED_EVENT_DRAINING", "false")
@@ -181,6 +186,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	os.Args = []string{
 		"cmd",
 		"--assume-asg-tag-propagation=false",
+		"--use-provider-id=false",
 		"--delete-local-data=false",
 		"--dry-run=true",
 		"--enable-scheduled-event-draining=true",
@@ -208,6 +214,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 
 	// Assert all the values were set
 	h.Equals(t, false, nthConfig.AssumeAsgTagPropagation)
+	h.Equals(t, false, nthConfig.UseProviderId)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)

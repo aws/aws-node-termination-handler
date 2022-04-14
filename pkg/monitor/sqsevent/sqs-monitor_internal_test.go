@@ -400,6 +400,7 @@ func TestGetNodeInfo_ASGTagErr(t *testing.T) {
 
 func getDescribeInstancesResp(instanceID string, privateDNSName string, tags map[string]string) ec2.DescribeInstancesOutput {
 	awsTags := []*ec2.Tag{}
+
 	for k, v := range tags {
 		awsTags = append(awsTags, &ec2.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
@@ -408,7 +409,12 @@ func getDescribeInstancesResp(instanceID string, privateDNSName string, tags map
 			{
 				Instances: []*ec2.Instance{
 					{
-						InstanceId:     aws.String(instanceID),
+						InstanceId: aws.String(instanceID),
+						Placement: &ec2.Placement{
+							AvailabilityZone: aws.String("us-east-2a"),
+							GroupName:        aws.String(""),
+							Tenancy:          aws.String("default"),
+						},
 						PrivateDnsName: aws.String(privateDNSName),
 						Tags:           awsTags,
 					},

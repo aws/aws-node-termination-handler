@@ -79,6 +79,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		NodeName:             nodeInfo.Name,
 		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           lifecycleDetail.EC2InstanceID,
+		ProviderID:           nodeInfo.ProviderID,
 		Description:          fmt.Sprintf("ASG Lifecycle Termination event received. Instance will be interrupted at %s \n", event.getTime()),
 	}
 

@@ -239,6 +239,7 @@ func main() {
 						Str("kind", event.Kind).
 						Str("node-name", event.NodeName).
 						Str("instance-id", event.InstanceID).
+						Str("provider-id", event.ProviderID).
 						Msg("Requesting instance drain")
 					event.InProgress = true
 					wg.Add(1)
@@ -317,6 +318,17 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nodeName := drainEvent.NodeName
+
+	if nthConfig.UseProviderId {
+		newNodeName, err := node.GetNodeNameFromProviderID(drainEvent.ProviderID)
+
+		if err != nil {
+			log.Err(err).Msgf("Unable to get node name for node with ProviderID '%s' using original AWS event node name ", drainEvent.ProviderID)
+		} else {
+			nodeName = newNodeName
+		}
+	}
+
 	nodeLabels, err := node.GetNodeLabels(nodeName)
 	if err != nil {
 		log.Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)

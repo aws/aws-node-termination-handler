@@ -113,6 +113,7 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `checkASGTagBeforeDraining`  | If `true`, check that the instance is tagged with the `managedAsgTag` before draining the node.                                                                           | `true`                                 |
 | `managedAsgTag`              | The node tag to check if `checkASGTagBeforeDraining` is `true`.                                                                                                           | `aws-node-termination-handler/managed` |
 | `assumeAsgTagPropagation`    | If `true`, assume that ASG tags will be appear on the ASG's instances.                                                                                                    | `false`                                |
+| `useProviderId`    | If `true`, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.                                                                                                    | `false`                                |
 
 ### IMDS Mode Configuration
 
