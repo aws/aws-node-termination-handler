@@ -190,7 +190,7 @@ func TestMonitor_EventBridgeTestNotification(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedAsgTag:    "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(nil), // TODO: is this the right mock factory function?
+		ASG:              mockIsManagedFalse(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -277,7 +277,7 @@ func TestMonitor_AsgDirectToSqsTestNotification(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedAsgTag:    "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(nil),
+		ASG:              mockIsManagedFalse(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
