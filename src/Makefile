@@ -2,9 +2,17 @@ PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 KO = $(PROJECT_DIR)/bin/ko
 ENVTEST = $(PROJECT_DIR)/bin/setup-envtest
+TOOLCHAIN = \
+	$(CONTROLLER_GEN) \
+	$(KO) \
+	$(ENVTEST)
 HELM_BASE_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${NTHV2_IAM_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
-
+KODATA = \
+	cmd/controller/kodata/HEAD \
+	cmd/controller/kodata/refs \
+	cmd/webhook/kodata/HEAD \
+	cmd/webhook/kodata/refs
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -41,14 +49,13 @@ SHELL = /usr/bin/env bash -o pipefail
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: toolchain
-toolchain:  ## Download additional tools.
+$(TOOLCHAIN) &:
 	@./scripts/toolchain.sh -d "$(PROJECT_DIR)/bin"
 
 ##@ Development
 
 .PHONY: generate
-generate:  ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: $(CONTROLLER_GEN)  ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
@@ -69,8 +76,12 @@ run: ## Run a controller from your host.
 
 ##@ Deployment
 
+$(KODATA):
+	mkdir -p $(@D)
+	cd $(@D) && ln -s `git rev-parse --git-path $(@F)` $(@F)
+
 .PHONY: apply
-apply:  ## Deploy the controller into the current kubernetes cluster.
+apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes cluster.
 	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
 		$(HELM_BASE_OPTS) \
 		$(HELM_OPTS) \
