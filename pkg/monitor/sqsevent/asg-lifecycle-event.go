@@ -66,6 +66,10 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		return nil, err
 	}
 
+	if lifecycleDetail.LifecycleTransition == "autoscaling:TEST_NOTIFICATION" {
+		return nil, skip{fmt.Errorf("message is an ASG test notification")}
+	}
+
 	nodeInfo, err := m.getNodeInfo(lifecycleDetail.EC2InstanceID)
 	if err != nil {
 		return nil, err

@@ -37,9 +37,6 @@ const (
 	ASGTagName = "aws:autoscaling:groupName"
 )
 
-// ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
-var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
-
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
 	InterruptionChan        chan<- monitor.InterruptionEvent
@@ -59,6 +56,18 @@ type InterruptionEventWrapper struct {
 	Err               error
 }
 
+type skip struct {
+	err error
+}
+
+func (s skip) Error() string {
+	return s.err.Error()
+}
+
+func (s skip) Unwrap() error {
+	return s.err
+}
+
 // Kind denotes the kind of event that is processed
 func (m SQSMonitor) Kind() string {
 	return SQSTerminateKind
@@ -76,8 +85,13 @@ func (m SQSMonitor) Monitor() error {
 	for _, message := range messages {
 		eventBridgeEvent, err := m.processSQSMessage(message)
 		if err != nil {
-			log.Err(err).Msg("error processing SQS message")
-			failedEventBridgeEvents++
+			var s skip
+			if errors.As(err, &s) {
+				log.Warn().Err(s).Msg("skip processing SQS message")
+			} else {
+				log.Err(err).Msg("error processing SQS message")
+				failedEventBridgeEvents++
+			}
 			continue
 		}
 
@@ -118,7 +132,16 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(*message.Body), &lifecycleEvent)
 
-	if err != nil || lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" {
+	switch {
+	case err != nil:
+		log.Err(err).Msg("only lifecycle events from ASG to SQS are supported outside EventBridge")
+		return eventBridgeEvent, err
+
+	case lifecycleEvent.LifecycleTransition == "autoscaling:TEST_NOTIFICATION":
+		log.Warn().Msg("ignoring ASG test notification")
+		return eventBridgeEvent, skip{fmt.Errorf("message is a test notification")}
+
+	case lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING":
 		log.Err(err).Msg("only lifecycle termination events from ASG to SQS are supported outside EventBridge")
 		err = fmt.Errorf("unsupported message type (%s)", message.String())
 		return eventBridgeEvent, err
@@ -168,12 +191,12 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []InterruptionEventWrapper, message *sqs.Message) error {
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0
+	var skipErr skip
 
 	for _, eventWrapper := range interruptionEventWrappers {
 		switch {
-		case errors.Is(eventWrapper.Err, ErrNodeStateNotRunning):
-			// If the node is no longer running, just log and delete the message
-			log.Warn().Err(eventWrapper.Err).Msg("dropping interruption event for an already terminated node")
+		case errors.As(eventWrapper.Err, &skipErr):
+			log.Warn().Err(skipErr).Msg("dropping event")
 			dropMessageSuggestionCount++
 
 		case eventWrapper.Err != nil:
@@ -277,14 +300,16 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotFound" {
-			log.Warn().Msgf("No instance found with instance-id %s", instanceID)
-			return nil, ErrNodeStateNotRunning
+			msg := fmt.Sprintf("No instance found with instance-id %s", instanceID)
+			log.Warn().Msg(msg)
+			return nil, skip{fmt.Errorf(msg)}
 		}
 		return nil, err
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		log.Warn().Msgf("No instance found with instance-id %s", instanceID)
-		return nil, ErrNodeStateNotRunning
+		msg := fmt.Sprintf("No reservation with instance-id %s", instanceID)
+		log.Warn().Msg(msg)
+		return nil, skip{fmt.Errorf(msg)}
 	}
 
 	instance := result.Reservations[0].Instances[0]
@@ -299,7 +324,7 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		}
 		// anything except running might not contain PrivateDnsName
 		if state != ec2.InstanceStateNameRunning {
-			return nil, fmt.Errorf("node: '%s' in state '%s': %w", instanceID, state, ErrNodeStateNotRunning)
+			return nil, skip{fmt.Errorf("node: '%s' in state '%s'", instanceID, state)}
 		}
 		return nil, fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
 	}
