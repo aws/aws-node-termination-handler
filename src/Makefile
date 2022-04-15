@@ -4,7 +4,11 @@ KO = $(PROJECT_DIR)/bin/ko
 ENVTEST = $(PROJECT_DIR)/bin/setup-envtest
 HELM_BASE_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${NTHV2_IAM_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
-
+KODATA = \
+	cmd/controller/kodata/HEAD \
+	cmd/controller/kodata/refs \
+	cmd/webhook/kodata/HEAD \
+	cmd/webhook/kodata/refs
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -69,8 +73,12 @@ run: ## Run a controller from your host.
 
 ##@ Deployment
 
+$(KODATA):
+	mkdir -p $(@D)
+	cd $(@D) && ln -s `git rev-parse --git-path $(@F)` $(@F)
+
 .PHONY: apply
-apply:  ## Deploy the controller into the current kubernetes cluster.
+apply: $(KODATA) ## Deploy the controller into the current kubernetes cluster.
 	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
 		$(HELM_BASE_OPTS) \
 		$(HELM_OPTS) \
