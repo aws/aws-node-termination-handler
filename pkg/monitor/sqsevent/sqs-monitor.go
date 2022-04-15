@@ -37,9 +37,6 @@ const (
 	ASGTagName = "aws:autoscaling:groupName"
 )
 
-// ErrNodeStateNotRunning forwards condition that the instance is terminated thus metadata missing
-var ErrNodeStateNotRunning = errors.New("node metadata unavailable")
-
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
 	InterruptionChan        chan<- monitor.InterruptionEvent
@@ -198,11 +195,6 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 
 	for _, eventWrapper := range interruptionEventWrappers {
 		switch {
-		case errors.Is(eventWrapper.Err, ErrNodeStateNotRunning):
-			// If the node is no longer running, just log and delete the message
-			log.Warn().Err(eventWrapper.Err).Msg("dropping interruption event for an already terminated node")
-			dropMessageSuggestionCount++
-
 		case errors.As(eventWrapper.Err, &skipErr):
 			log.Warn().Err(skipErr).Msg("dropping event")
 			dropMessageSuggestionCount++
@@ -307,14 +299,16 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotFound" {
-			log.Warn().Msgf("No instance found with instance-id %s", instanceID)
-			return nil, ErrNodeStateNotRunning
+			msg := fmt.Sprintf("No instance found with instance-id %s", instanceID)
+			log.Warn().Msg(msg)
+			return nil, skip{fmt.Errorf(msg)}
 		}
 		return nil, err
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		log.Warn().Msgf("No instance found with instance-id %s", instanceID)
-		return nil, ErrNodeStateNotRunning
+		msg := fmt.Sprintf("No reservation with instance-id %s", instanceID)
+		log.Warn().Msg(msg)
+		return nil, skip{fmt.Errorf(msg)}
 	}
 
 	instance := result.Reservations[0].Instances[0]
@@ -329,7 +323,7 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		}
 		// anything except running might not contain PrivateDnsName
 		if state != ec2.InstanceStateNameRunning {
-			return nil, fmt.Errorf("node: '%s' in state '%s': %w", instanceID, state, ErrNodeStateNotRunning)
+			return nil, skip{fmt.Errorf("node: '%s' in state '%s'", instanceID, state)}
 		}
 		return nil, fmt.Errorf("unable to retrieve PrivateDnsName name for '%s' in state '%s'", instanceID, state)
 	}
