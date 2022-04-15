@@ -7,12 +7,6 @@ git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git
 cd aws-node-termination-handler
 ```
 
-## Install build tools
-
-```sh
-make toolchain
-```
-
 ## Set environment variables
 
 ```sh
