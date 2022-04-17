@@ -139,13 +139,13 @@ spec:
               value: {{ .Values.webhookTemplate | quote }}
             {{- end }}
             - name: ENABLE_SPOT_INTERRUPTION_DRAINING
-              value: "false"
+              value: {{ .Values.enableSpotInterruptionDraining | quote }}
             - name: ENABLE_SCHEDULED_EVENT_DRAINING
-              value: "false"
+              value: {{ .Values.enableScheduledEventDraining | quote }}
             - name: ENABLE_REBALANCE_MONITORING
-              value: "false"
+              value: {{ .Values.enableRebalanceMonitoring | quote }}
             - name: ENABLE_REBALANCE_DRAINING
-              value: "false"
+              value: {{ .Values.enableRebalanceDraining | quote }}
             - name: ENABLE_SQS_TERMINATION_DRAINING
               value: "true"
             {{- with .Values.awsRegion }}
