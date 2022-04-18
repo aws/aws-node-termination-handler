@@ -31,6 +31,7 @@ func (t *TerminatorSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddObject("sqs", t.SQS)
 	enc.AddObject("drain", t.Drain)
+	enc.AddObject("events", t.Events)
 	return nil
 }
 
@@ -45,5 +46,14 @@ func (d DrainSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("ignoreAllDaemonSets", d.IgnoreAllDaemonSets)
 	enc.AddBool("deleteEmptyDirData", d.DeleteEmptyDirData)
 	enc.AddInt("timeoutSeconds", d.TimeoutSeconds)
+	return nil
+}
+
+func (e EventsSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("autoScalingTermination", e.AutoScalingTermination)
+	enc.AddString("rebalanceRecommendation", e.RebalanceRecommendation)
+	enc.AddString("scheduledChange", e.ScheduledChange)
+	enc.AddString("spotInterruption", e.SpotInterruption)
+	enc.AddString("stateChange", e.StateChange)
 	return nil
 }

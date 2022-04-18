@@ -18,18 +18,18 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 	"net/url"
-
-	"github.com/aws/aws-sdk-go/service/sqs"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis"
 )
 
-var (
-	// https://github.com/aws/aws-sdk-go/blob/v1.38.55/service/sqs/api.go#L3966-L3994
-	knownSQSAttributeNames = sets.NewString(sqs.MessageSystemAttributeName_Values()...)
+var knownActions = sets.NewString(
+	Actions.CordonAndDrain,
+	Actions.Cordon,
+	Actions.NoAction,
 )
 
 func (t *Terminator) Validate(_ context.Context) (errs *apis.FieldError) {
@@ -43,6 +43,7 @@ func (t *TerminatorSpec) validate() (errs *apis.FieldError) {
 	return errs.Also(
 		t.validateMatchLabels().ViaField("matchLabels"),
 		t.SQS.validate().ViaField("sqs"),
+		t.Events.validate().ViaField("events"),
 	)
 }
 
@@ -58,6 +59,22 @@ func (t *TerminatorSpec) validateMatchLabels() (errs *apis.FieldError) {
 func (s *SQSSpec) validate() (errs *apis.FieldError) {
 	if _, err := url.Parse(s.QueueURL); err != nil {
 		errs = errs.Also(apis.ErrInvalidValue(s.QueueURL, "queueURL", "must be a valid URL"))
+	}
+	return errs
+}
+
+func (e *EventsSpec) validate() (errs *apis.FieldError) {
+	errMsg := fmt.Sprintf("must be one of %s", knownActions.List())
+	for name, value := range map[string]string{
+		"autoScalingTermination":  e.AutoScalingTermination,
+		"rebalanceRecommendation": e.RebalanceRecommendation,
+		"scheduledChange":         e.ScheduledChange,
+		"spotInterruption":        e.SpotInterruption,
+		"stateChange":             e.StateChange,
+	} {
+		if !knownActions.Has(value) {
+			errs = errs.Also(apis.ErrInvalidValue(value, name, errMsg))
+		}
 	}
 	return errs
 }
