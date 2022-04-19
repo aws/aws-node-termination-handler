@@ -30,8 +30,9 @@ type TerminatorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	SQS   SQSSpec   `json:"sqs,omitempty"`
-	Drain DrainSpec `json:"drain,omitempty"`
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	SQS         SQSSpec           `json:"sqs,omitempty"`
+	Drain       DrainSpec         `json:"drain,omitempty"`
 }
 
 // SQSSpec defines inputs to SQS "receive messages" requests.

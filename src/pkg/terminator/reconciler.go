@@ -61,6 +61,10 @@ type (
 		GetNode(context.Context, string) (*v1.Node, error)
 	}
 
+	NodeGetterBuilder interface {
+		NewNodeGetter(*v1alpha1.Terminator) NodeGetter
+	}
+
 	NodeNameGetter interface {
 		GetNodeName(context.Context, string) (string, error)
 	}
@@ -79,7 +83,7 @@ type (
 	}
 
 	Reconciler struct {
-		NodeGetter
+		NodeGetterBuilder
 		NodeNameGetter
 		SQSClientBuilder
 		SQSMessageParser
@@ -101,6 +105,8 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 	if terminator == nil {
 		return reconcile.Result{}, nil
 	}
+
+	nodeGetter := r.NewNodeGetter(terminator)
 
 	cordondrainer, err := r.NewCordonDrainer(terminator)
 	if err != nil {
@@ -126,6 +132,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		evt := r.Parse(ctx, msg)
 		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
 
+		allInstancesHandled := true
 		savedCtx := ctx
 		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
 			ctx = logging.WithLogger(savedCtx, logging.FromContext(savedCtx).
@@ -135,14 +142,20 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 			nodeName, e := r.GetNodeName(ctx, ec2InstanceID)
 			if e != nil {
 				err = multierr.Append(err, e)
+				allInstancesHandled = false
 				continue
 			}
 
 			ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("node", nodeName))
 
-			node, e := r.GetNode(ctx, nodeName)
-			if e != nil {
-				err = multierr.Append(err, e)
+			node, e := nodeGetter.GetNode(ctx, nodeName)
+			if node == nil {
+				logger := logging.FromContext(ctx)
+				if e != nil {
+					logger = logger.With("error", e)
+				}
+				logger.Warn("no matching node found")
+				allInstancesHandled = false
 				continue
 			}
 
@@ -163,7 +176,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 			err = multierr.Append(err, e)
 		}
 
-		if tryAgain {
+		if tryAgain || !allInstancesHandled {
 			continue
 		}
 

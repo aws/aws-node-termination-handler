@@ -36,9 +36,16 @@ spec:
             description: TerminatorSpec defines the desired state of Terminator
             type: object
             properties:
+              matchLabels:
+                description: Filter nodes by label that will be acted upon.
+                type: object
+                additionalProperties:
+                  type: string
               sqs:
                 description: AWS SQS queue configuration.
                 type: object
+                required:
+                  - queueURL
                 properties:
                   queueURL:
                     description: |

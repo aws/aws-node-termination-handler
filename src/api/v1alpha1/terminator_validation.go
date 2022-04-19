@@ -40,7 +40,19 @@ func (t *Terminator) Validate(_ context.Context) (errs *apis.FieldError) {
 }
 
 func (t *TerminatorSpec) validate() (errs *apis.FieldError) {
-	return t.SQS.validate().ViaField("sqs")
+	return errs.Also(
+		t.validateMatchLabels().ViaField("matchLabels"),
+		t.SQS.validate().ViaField("sqs"),
+	)
+}
+
+func (t *TerminatorSpec) validateMatchLabels() (errs *apis.FieldError) {
+	for name, value := range t.MatchLabels {
+		if value == "" {
+			errs = errs.Also(apis.ErrInvalidValue(value, name, "label value cannot be empty"))
+		}
+	}
+	return errs
 }
 
 func (s *SQSSpec) validate() (errs *apis.FieldError) {

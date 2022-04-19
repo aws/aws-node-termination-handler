@@ -156,8 +156,10 @@ func main() {
 	rec := terminator.Reconciler{
 		Name:            "terminator",
 		RequeueInterval: time.Duration(10) * time.Second,
-		NodeGetter:      node.Getter{KubeGetter: kubeClient},
-		NodeNameGetter:  nodename.Getter{EC2InstancesDescriber: ec2Client},
+		NodeGetterBuilder: terminatoradapter.NodeGetterBuilder{
+			NodeGetter: node.Getter{KubeGetter: kubeClient},
+		},
+		NodeNameGetter: nodename.Getter{EC2InstancesDescriber: ec2Client},
 		SQSClientBuilder: terminatoradapter.SQSMessageClientBuilder{
 			SQSMessageClient: sqsmessage.Client{SQSClient: sqsClient},
 		},
