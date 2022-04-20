@@ -133,9 +133,15 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		evt := r.Parse(ctx, msg)
 		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
 
+		evtAction := actionForEvent(evt, terminator)
+		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("action", evtAction))
+
 		allInstancesHandled := true
+		ec2InstanceIDs := evt.EC2InstanceIDs()
 		savedCtx := ctx
-		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
+		for i := 0; i < len(ec2InstanceIDs) && evtAction != v1alpha1.Actions.NoAction; i++ {
+			ec2InstanceID := ec2InstanceIDs[i]
+
 			ctx = logging.WithLogger(savedCtx, logging.FromContext(savedCtx).
 				With("ec2InstanceID", ec2InstanceID),
 			)
@@ -162,6 +168,10 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 
 			if e = cordondrainer.Cordon(ctx, node); e != nil {
 				err = multierr.Append(err, e)
+				continue
+			}
+
+			if evtAction == v1alpha1.Actions.Cordon {
 				continue
 			}
 
@@ -200,4 +210,28 @@ func (r Reconciler) BuildController(builder *builder.Builder) error {
 		Named(r.Name).
 		For(&v1alpha1.Terminator{}).
 		Complete(r)
+}
+
+func actionForEvent(evt Event, terminator *v1alpha1.Terminator) v1alpha1.Action {
+	events := terminator.Spec.Events
+
+	switch evt.Kind() {
+	case EventKinds.AutoScalingTermination:
+		return events.AutoScalingTermination
+
+	case EventKinds.RebalanceRecommendation:
+		return events.RebalanceRecommendation
+
+	case EventKinds.ScheduledChange:
+		return events.ScheduledChange
+
+	case EventKinds.SpotInterruption:
+		return events.SpotInterruption
+
+	case EventKinds.StateChange:
+		return events.StateChange
+
+	default:
+		return v1alpha1.Actions.NoAction
+	}
 }
