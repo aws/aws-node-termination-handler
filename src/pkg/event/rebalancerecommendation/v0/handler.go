@@ -19,17 +19,23 @@ package v0
 import (
 	"context"
 
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type EC2InstanceRebalanceRecommendation AWSEvent
 
+func (EC2InstanceRebalanceRecommendation) Kind() terminator.EventKind {
+	return terminator.EventKinds.RebalanceRecommendation
+}
+
 func (e EC2InstanceRebalanceRecommendation) EC2InstanceIDs() []string {
 	return []string{e.Detail.InstanceID}
 }
 
-func (e EC2InstanceRebalanceRecommendation) Done(_ context.Context) (bool, error) {
+func (EC2InstanceRebalanceRecommendation) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 

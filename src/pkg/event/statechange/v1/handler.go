@@ -19,17 +19,23 @@ package v1
 import (
 	"context"
 
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type EC2InstanceStateChangeNotification AWSEvent
 
+func (EC2InstanceStateChangeNotification) Kind() terminator.EventKind {
+	return terminator.EventKinds.StateChange
+}
+
 func (e EC2InstanceStateChangeNotification) EC2InstanceIDs() []string {
 	return []string{e.Detail.InstanceID}
 }
 
-func (e EC2InstanceStateChangeNotification) Done(_ context.Context) (bool, error) {
+func (EC2InstanceStateChangeNotification) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 

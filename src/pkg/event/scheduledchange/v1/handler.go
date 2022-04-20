@@ -19,11 +19,17 @@ package v1
 import (
 	"context"
 
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type AWSHealthEvent AWSEvent
+
+func (AWSHealthEvent) Kind() terminator.EventKind {
+	return terminator.EventKinds.ScheduledChange
+}
 
 func (e AWSHealthEvent) EC2InstanceIDs() []string {
 	ids := make([]string, len(e.Detail.AffectedEntities))
@@ -33,7 +39,7 @@ func (e AWSHealthEvent) EC2InstanceIDs() []string {
 	return ids
 }
 
-func (e AWSHealthEvent) Done(_ context.Context) (bool, error) {
+func (AWSHealthEvent) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 

@@ -51,6 +51,7 @@ type (
 
 		Done(context.Context) (tryAgain bool, err error)
 		EC2InstanceIDs() []string
+		Kind() EventKind
 	}
 
 	Getter interface {
