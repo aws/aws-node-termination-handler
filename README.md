@@ -4,16 +4,13 @@
 
 <p>
   <a href="https://github.com/kubernetes/kubernetes/releases">
-    <img src="https://img.shields.io/badge/Kubernetes-%3E%3D%201.11-brightgreen" alt="kubernetes">
+    <img src="https://img.shields.io/badge/Kubernetes-%3E%3D%201.18-brightgreen" alt="kubernetes">
   </a>
-  <a href="https://golang.org/doc/go1.15">
+  <a href="https://golang.org/doc/go1.16">
     <img src="https://img.shields.io/github/go-mod/go-version/aws/aws-node-termination-handler?color=blueviolet" alt="go-version">
   </a>
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-ff69b4.svg" alt="license">
-  </a>
-  <a href="https://goreportcard.com/report/github.com/aws/aws-node-termination-handler">
-    <img src="https://goreportcard.com/badge/github.com/aws/aws-node-termination-handler" alt="go-report-card">
   </a>
   <a href="https://codecov.io/gh/aws/aws-node-termination-handler">
     <img src="https://img.shields.io/codecov/c/github/aws/aws-node-termination-handler" alt="build-status">
@@ -21,13 +18,20 @@
   <a href="https://gallery.ecr.aws/aws-ec2/aws-node-termination-handler">
     <img src="https://img.shields.io/docker/pulls/amazon/aws-node-termination-handler" alt="docker-pulls">
   </a>
+    <a href="https://github.com/aws/aws-node-termination-handler/workflows">
+    <img src="https://img.shields.io/github/workflow/status/aws/aws-node-termination-handler/Build%20and%20Test?label=Builds%20%26%20Tests">
+  </a>
 </p>
-
-![NTH Continuous Integration and Release](https://github.com/aws/aws-node-termination-handler/workflows/NTH%20Continuous%20Integration%20and%20Release/badge.svg)
 
 <div>
 <hr>
 </div>
+
+### Community Meeting
+NTH community meeting is hosted on a monthly cadence. Everyone is welcome to participate!
+* **When:** first Tuesday of every month from 9:00-9:30AM PST | [Calendar Event (ics)](https://raw.githubusercontent.com/aws/aws-node-termination-handler/main/assets/nth-community-meeting.ics)
+* **Where:** [Chime meeting bridge](https://chime.aws/6502066216)
+
 
 ## Project Summary
 
@@ -37,7 +41,7 @@ The aws-node-termination-handler (NTH) can operate in two different modes: Insta
 
 The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events` and react accordingly to drain and/or cordon the corresponding node.
 
-The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, and Spot Interruption Termination Notice events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termination handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API. The queue processor mode is currently in a beta preview, but we'd love your feedback on it!
+The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, Spot Interruption Termination Notice events, and Spot Rebalance Recommendation events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termination handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API.
 
 You can run the termination handler on any Kubernetes cluster running on AWS, including self-managed clusters and those created with Amazon [Elastic Kubernetes Service](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html).
 
@@ -57,21 +61,22 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
    - EC2 Instance Rebalance Recommendation
    - EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
    - EC2 Status Change Events
+   - EC2 Scheduled Change events from AWS Health
 - Helm installation and event configuration support
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
 ## Which one should I use?
-Feature |IMDS Processor | Queue Processor
-:---:|:---:|:---:
-K8s DaemonSet | ✅ | ❌
-K8s Deployment | ❌ | ✅
-Spot Instance Interruptions (ITN) | ✅ | ✅
-Scheduled Events | ✅ | ✅
-EC2 Instance Rebalance Recommendation | ✅ | ✅
-ASG Lifecycle Hooks | ❌ | ✅
-EC2 Status Changes | ❌ | ✅
-Setup Required | ❌ | ✅
+|                Feature                | IMDS Processor | Queue Processor |
+| :-----------------------------------: | :------------: | :-------------: |
+|             K8s DaemonSet             |       ✅        |        ❌        |
+|            K8s Deployment             |       ❌        |        ✅        |
+|   Spot Instance Interruptions (ITN)   |       ✅        |        ✅        |
+|           Scheduled Events            |       ✅        |        ✅        |
+| EC2 Instance Rebalance Recommendation |       ✅        |        ✅        |
+|          ASG Lifecycle Hooks          |       ❌        |        ✅        |
+|          EC2 Status Changes           |       ❌        |        ✅        |
+|            Setup Required             |       ❌        |        ✅        |
 
 
 ## Installation and Configuration
@@ -83,9 +88,11 @@ IMDS Processor Mode allows for a fine-grained configuration of IMDS paths that a
  - `enableRebalanceMonitoring`
  - `enableScheduledEventDraining`
 
+By default, IMDS mode will only Cordon in response to a Rebalance Recommendation event (all other events are Cordoned and Drained). Cordon is the default for a rebalance event because it's not known if an ASG is being utilized and if that ASG is configured to replace the instance on a rebalance event. If you are using an ASG w/ rebalance recommendations enabled, then you can set the `enableRebalanceDraining` flag to true to perform a Cordon and Drain when a rebalance event is received.
+
 The `enableSqsTerminationDraining` must be set to false for these configuration values to be considered.
 
-The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events.
+The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events. All events when operating in Queue Processor mode are Cordoned and Drained unless the `cordon-only` flag is set to true.
 
 
 The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queue Processor Mode is enabled, IMDS mode cannot be active. NTH cannot respond to queue events AND monitor IMDS paths. Queue Processor Mode still queries for node information on startup, but this information is not required for normal operation, so it is safe to disable IMDS for the NTH pod.
@@ -104,7 +111,7 @@ The termination handler DaemonSet installs into your cluster a [ServiceAccount](
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.13.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.16.1/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
@@ -182,54 +189,20 @@ For a full list of configuration options see our [Helm readme](https://github.co
 <details closed>
 <summary>AWS Node Termination Handler - Queue Processor (requires AWS IAM Permissions)</summary>
 
-## NOTE: THIS FUNCTIONALITY IS CURRENTLY IN BETA
 <br>
 
 ### Infrastructure Setup
 
 The termination handler deployment requires some infrastructure to be setup before deploying the application. You'll need the following AWS infrastructure components:
 
-1. AutoScaling Group Termination Lifecycle Hook
-2. Amazon Simple Queue Service (SQS) Queue
+1. Amazon Simple Queue Service (SQS) Queue
+2. AutoScaling Group Termination Lifecycle Hook
 3. Amazon EventBridge Rule
 4. IAM Role for the aws-node-termination-handler Queue Processing Pods
 
-#### 1. Setup a Termination Lifecycle Hook on an ASG:
+#### 1. Create an SQS Queue:
 
-Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
-
-```
-$ aws autoscaling put-lifecycle-hook \
-  --lifecycle-hook-name=my-k8s-term-hook \
-  --auto-scaling-group-name=my-k8s-asg \
-  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
-  --default-result=CONTINUE \
-  --heartbeat-timeout=300
-```
-
-#### 2. Tag the ASGs:
-
-By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
-
-```
-$ aws autoscaling create-or-update-tags \
-  --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
-```
-
-The value of the key does not matter.
-
-This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
-However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
-
-You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
-
-Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
-
-See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
-
-#### 3. Create an SQS Queue:
-
-Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
 
 ```
 ## Queue Policy
@@ -258,16 +231,72 @@ $ echo "$QUEUE_POLICY" | jq .
 $ cat << EOF > /tmp/queue-attributes.json
 {
   "MessageRetentionPeriod": "300",
-  "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g')"
+  "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g' | tr -d -s '\n' " ")"
 }
 EOF
 
 $ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
 ```
 
+If you are sending Lifecycle termination events from ASG directly to SQS, instead of through EventBridge, then you will also need to create an IAM service role to give Amazon EC2 Auto Scaling access to your SQS queue. Please follow [these linked instructions to create the IAM service role: link.](https://docs.aws.amazon.com/autoscaling/ec2/userguide/configuring-lifecycle-hook-notifications.html#sqs-notifications)
+Note the ARNs for the SQS queue and the associated IAM role for Step 2.
+
+There are some caveats when using [server side encryption with SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html):
+* using [SSE-KMS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html) with a [customer managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-mgmt) requires [changing the KMS key policy](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-troubleshooting.html#eb-sqs-encrypted) to allow EventBridge to publish events to SQS.
+* using [SSE-KMS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html) with an [AWS managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-mgmt) is not supported as the KMS key policy can't be updated to allow EventBridge to publish events to SQS.
+* using [SSE-SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html) doesn't require extra setup and works out of the box as SQS queues without encryption at rest.
+
+#### 2. Setup a Termination Lifecycle Hook on an ASG:
+
+Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+
+```
+$ aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+  --default-result=CONTINUE \
+  --heartbeat-timeout=300
+```
+
+If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
+
+```
+$ aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
+  --default-result=CONTINUE \
+  --heartbeat-timeout=300 \
+  --notification-target-arn <your test queue ARN here> \
+  --role-arn <your SQS access role ARN here>
+```
+
+#### 3. Tag the ASGs:
+
+By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
+
+```
+$ aws autoscaling create-or-update-tags \
+  --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
+```
+
+The value of the key does not matter.
+
+This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
+However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
+
+You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
+
+Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
+
+See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
+
 #### 4. Create Amazon EventBridge Rules
 
-Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, and Rebalance Recommendations are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+You may skip this step if sending events from ASG to SQS directly.
+
+Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
 
 ```
 $ aws events put-rule \
@@ -289,6 +318,20 @@ $ aws events put-rule \
   --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance Rebalance Recommendation\"]}"
 
 $ aws events put-targets --rule MyK8sRebalanceRule \
+  --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
+
+$ aws events put-rule \
+  --name MyK8sInstanceStateChangeRule \
+  --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance State-change Notification\"]}"
+
+$ aws events put-targets --rule MyK8sInstanceStateChangeRule \
+  --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
+
+$ aws events put-rule \
+  --name MyK8sScheduledChangeRule \
+  --event-pattern "{\"source\": [\"aws.health\"],\"detail-type\": [\"AWS Health Event\"]}"
+
+$ aws events put-targets --rule MyK8sScheduledChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 
@@ -383,7 +426,7 @@ Queue Processor needs an **sqs queue url** to function; therefore, manifest chan
 Minimal Config:
 
 ```
-curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.13.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
+curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.16.1/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
 <open all-resources-queue-processor.yaml and update QUEUE_URL value>
 kubectl apply -f ./all-resources-queue-processor.yaml
 ```
@@ -437,6 +480,15 @@ The termination handler relies on the following metadata endpoints to function p
 
 ## Building
 For build instructions please consult [BUILD.md](./BUILD.md).
+
+## Metrics
+Available Prometheus metrics:
+
+| Metric name    | Description                           |
+| -------------- | ------------------------------------- |
+| `actions_node` | Number of actions per node            |
+| `events_error` | Number of errors in events processing |
+
 
 ## Communication
 * If you've run into a bug or have a new feature request, please open an [issue](https://github.com/aws/aws-node-termination-handler/issues/new).

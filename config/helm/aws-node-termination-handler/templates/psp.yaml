@@ -4,7 +4,7 @@ kind: PodSecurityPolicy
 metadata:
   name: {{ template "aws-node-termination-handler.fullname" . }}
   labels:
-{{ include "aws-node-termination-handler.labels" . | indent 4 }}
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
   annotations:
     seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
 spec:
@@ -12,10 +12,16 @@ spec:
   hostIPC: false
   hostNetwork: {{ .Values.useHostNetwork }}
   hostPID: false
-{{- if and .Values.rbac.pspEnabled .Values.enablePrometheusServer }}
+{{- if and (and (not .Values.enableSqsTerminationDraining) .Values.useHostNetwork ) (or .Values.enablePrometheusServer .Values.enableProbesServer) }}
   hostPorts:
+{{- if .Values.enablePrometheusServer }}
   - min: {{ .Values.prometheusServerPort }}
     max: {{ .Values.prometheusServerPort }}
+{{- end }}
+{{- if .Values.enableProbesServer }}
+  - min: {{ .Values.probes.httpGet.port }}
+    max: {{ .Values.probes.httpGet.port }}
+{{- end }}
 {{- end }}
   readOnlyRootFilesystem: false
   allowPrivilegeEscalation: false
@@ -32,12 +38,13 @@ spec:
   volumes:
     - '*'
 ---
-kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
   name: {{ template "aws-node-termination-handler.fullname" . }}-psp
+  namespace: {{ .Release.Namespace }}
   labels:
-{{ include "aws-node-termination-handler.labels" . | indent 4 }}
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
 rules:
   - apiGroups: ['policy']
     resources: ['podsecuritypolicies']
@@ -49,11 +56,12 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ template "aws-node-termination-handler.fullname" . }}-psp
+  namespace: {{ .Release.Namespace }}
   labels:
-{{ include "aws-node-termination-handler.labels" . | indent 4 }}
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: {{ template "aws-node-termination-handler.fullname" . }}-psp
 subjects:
   - kind: ServiceAccount

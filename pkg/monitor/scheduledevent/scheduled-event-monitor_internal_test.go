@@ -14,8 +14,7 @@
 package scheduledevent
 
 import (
-	"flag"
-	"os"
+	"context"
 	"testing"
 	"time"
 
@@ -34,35 +33,24 @@ import (
 
 var nodeName = "NAME"
 
-func resetFlagsForTest() {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	os.Args = []string{"cmd"}
-	os.Setenv("NODE_NAME", nodeName)
-}
-
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
 		Client:              client,
 		Force:               true,
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
-		DeleteLocalData:     true,
+		DeleteEmptyDirData:  true,
 		Timeout:             time.Duration(120) * time.Second,
 		Out:                 log.Logger,
 		ErrOut:              log.Logger,
 	}
 }
 
-func getNthConfig(t *testing.T) config.Config {
-	nthConfig, err := config.ParseCliArgs()
-	if err != nil {
-		t.Error("failed to create nthConfig")
-	}
-	return nthConfig
-}
-
 func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
-	tNode, err := node.NewWithValues(getNthConfig(t), drainHelper, uptime.Uptime)
+	nthConfig := config.Config{
+		NodeName: nodeName,
+	}
+	tNode, err := node.NewWithValues(nthConfig, drainHelper, uptime.Uptime)
 	if err != nil {
 		t.Error("failed to create node")
 	}
@@ -79,7 +67,7 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 	}
 
 	client := fake.NewSimpleClientset()
-	_, err := client.CoreV1().Nodes().Create(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})
+	_, err := client.CoreV1().Nodes().Create(context.Background(), &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}, metav1.CreateOptions{})
 	h.Ok(t, err)
 
 	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client), uptime.Uptime)
@@ -91,27 +79,33 @@ func TestUncordonAfterRebootPreDrainSuccess(t *testing.T) {
 }
 
 func TestUncordonAfterRebootPreDrainMarkWithEventIDFailure(t *testing.T) {
-	resetFlagsForTest()
-
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
 	h.Assert(t, err != nil, "Failed to return error on MarkWithEventID failing to fetch node")
 }
 
 func TestUncordonAfterRebootPreDrainNodeAlreadyMarkedSuccess(t *testing.T) {
-	resetFlagsForTest()
+	nthConfig := config.Config{
+		DryRun:   true,
+		NodeName: nodeName,
+	}
 
 	client := fake.NewSimpleClientset()
-	client.CoreV1().Nodes().Create(&v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+			},
+			Spec: v1.NodeSpec{
+				Unschedulable: true,
+			},
 		},
-		Spec: v1.NodeSpec{
-			Unschedulable: true,
-		},
-	})
+		metav1.CreateOptions{})
+	h.Ok(t, err)
 
-	tNode := getNode(t, getDrainHelper(client))
-	err := uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
+	tNode, err := node.NewWithValues(nthConfig, getDrainHelper(client), uptime.Uptime)
+	h.Ok(t, err)
+
+	err = uncordonAfterRebootPreDrain(monitor.InterruptionEvent{}, *tNode)
 	h.Ok(t, err)
 }

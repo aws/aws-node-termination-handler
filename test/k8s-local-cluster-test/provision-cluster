@@ -9,22 +9,22 @@ OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 
 # shellcheck disable=SC2034
-K8_1_19="kindest/node:v1.19.1@sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600"
+K8_1_23="kindest/node:v1.23.5@sha256:1a72748086bc24ed6163de1d1e33cc0e2eb5a1eb5ebffdb15b53c3bcd5376a6f"
 # shellcheck disable=SC2034
-K8_1_18="kindest/node:v1.18.8@sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb"
+K8_1_22="kindest/node:v1.22.2@sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f"
 # shellcheck disable=SC2034
-K8_1_17="kindest/node:v1.17.11@sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555"
+K8_1_21="kindest/node:v1.21.2@sha256:9d07ff05e4afefbba983fac311807b3c17a5f36e7061f6cb7e2ba756255b2be4"
 # shellcheck disable=SC2034
-K8_1_16="kindest/node:v1.16.15@sha256:a89c771f7de234e6547d43695c7ab047809ffc71a0c3b65aa54eda051c45ed20"
+K8_1_20="kindest/node:v1.20.70@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9"
 # shellcheck disable=SC2034
-K8_1_15="kindest/node:v1.15.12@sha256:d9b939055c1e852fe3d86955ee24976cab46cba518abcb8b13ba70917e6547a6"
+K8_1_19="kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729"
 # shellcheck disable=SC2034
-K8_1_14="kindest/node:v1.14.10@sha256:ce4355398a704fca68006f8a29f37aafb49f8fc2f64ede3ccd0d9198da910146"
+K8_1_18="kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c"
 
-K8_VERSION="$K8_1_17"
+K8_VERSION="$K8_1_20"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-KIND_VERSION="0.9.0"
-HELM_VERSION="3.3.1"
+KIND_VERSION="0.11.1"
+HELM_VERSION="3.7.1"
 
 echoerr() { echo "$@" 1>&2; }
 
@@ -33,7 +33,7 @@ USAGE=$(cat << 'EOM'
   Executes the spot termination integration test for the Node Termination Handler.
   Outputs the cluster context directory to stdout on successful completion
 
-  Example: provision-cluster -b my-test -i 123 -v 1.16
+  Example: provision-cluster -b my-test -i 123 -v 1.20
 
           Optional:
             -b          Base Name of cluster
@@ -121,8 +121,10 @@ else
   export PATH=$TMP_DIR:$PATH
 fi
 
+# Disable spinners and color in kind output
+export TERM=dumb
 echoerr "🥑 Creating k8s cluster using \"kind\""
-retry 3 kind create cluster -q --name "$CLUSTER_NAME" --image $K8_VERSION --config "$KIND_CONFIG_FILE" --kubeconfig $TMP_DIR/kubeconfig 1>&2
+retry 3 kind create cluster --name "$CLUSTER_NAME" --image $K8_VERSION --config "$KIND_CONFIG_FILE" --kubeconfig $TMP_DIR/kubeconfig 1>&2
 
 echo "$CLUSTER_NAME" > "$TMP_DIR/clustername"
 echoerr "👍 Created k8s cluster using \"kind\""

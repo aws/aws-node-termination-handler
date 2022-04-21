@@ -48,25 +48,26 @@ type SpotInterruptionDetail struct {
 	InstanceAction string `json:"instance-action"`
 }
 
-func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent, message *sqs.Message) (monitor.InterruptionEvent, error) {
+func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	spotInterruptionDetail := &SpotInterruptionDetail{}
 	err := json.Unmarshal(event.Detail, spotInterruptionDetail)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
 
-	nodeName, err := m.retrieveNodeName(spotInterruptionDetail.InstanceID)
+	nodeInfo, err := m.getNodeInfo(spotInterruptionDetail.InstanceID)
 	if err != nil {
-		return monitor.InterruptionEvent{}, err
+		return nil, err
 	}
-	asgName, _ := m.retrieveAutoScalingGroupName(spotInterruptionDetail.InstanceID)
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("spot-itn-event-%x", event.ID),
 		Kind:                 SQSTerminateKind,
-		AutoScalingGroupName: asgName,
+		AutoScalingGroupName: nodeInfo.AsgName,
 		StartTime:            event.getTime(),
-		NodeName:             nodeName,
+		NodeName:             nodeInfo.Name,
+		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           spotInterruptionDetail.InstanceID,
+		ProviderID:           nodeInfo.ProviderID,
 		Description:          fmt.Sprintf("Spot Interruption event received. Instance %s will be interrupted at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
@@ -83,5 +84,5 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event EventBridgeEvent
 		}
 		return nil
 	}
-	return interruptionEvent, nil
+	return &interruptionEvent, nil
 }

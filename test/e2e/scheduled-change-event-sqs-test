@@ -1,0 +1,214 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $WEBHOOK_DOCKER_REPO
+#   $WEBHOOK_DOCKER_TAG
+#   $AEMM_URL
+#   $AEMM_VERSION
+
+
+function fail_and_exit {
+    echo "❌ AWS Scheduled Change SQS Test failed $CLUSTER_NAME ❌"
+    exit "${1:-1}"
+}
+
+echo "Starting AWS Scheduled Change SQS Test for Node Termination Handler"
+START_TIME=$(date -u +"%Y-%m-%dT%TZ")
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+common_helm_args=()
+
+localstack_helm_args=(
+    upgrade
+    --install
+    "$CLUSTER_NAME-localstack"
+    "$SCRIPTPATH/../../config/helm/localstack/"
+    --wait
+    --namespace default
+    --set nodeSelector."${NTH_CONTROL_LABEL}"
+    --set defaultRegion="${AWS_REGION}"
+)
+
+set -x
+helm "${localstack_helm_args[@]}"
+set +x
+
+sleep 10
+
+RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test}]'"
+localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
+                                  -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
+                                  | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
+echo "🥑 Using localstack pod ${localstack_pod}"
+run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
+private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
+instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
+echo "🥑 Started mock EC2 instance (${instance_id}) w/ private DNS name: ${private_dns_name}"
+
+CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
+
+echo "🥑 Created SQS Queue ${queue_url}"
+
+anth_helm_args=(
+  upgrade
+  --install
+  --namespace kube-system
+  "$CLUSTER_NAME-acth"
+  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set nodeSelector."${NTH_CONTROL_LABEL}"
+  --set tolerations[0].operator=Exists
+  --set awsAccessKeyID=foo
+  --set awsSecretAccessKey=bar
+  --set awsRegion="${AWS_REGION}"
+  --set awsEndpoint="http://localstack.default"
+  --set checkASGTagBeforeDraining=false
+  --set enableSqsTerminationDraining=true
+  --set taintNode="true"
+  --set "queueURL=${queue_url}"
+  --wait
+)
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    anth_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${anth_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  --namespace default
+  "$CLUSTER_NAME-emtp"
+  "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
+)
+[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    echo "Setup Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    echo "❌ regular-pod-test pod deployment failed"
+    fail_and_exit 2
+fi
+
+AWS_SCHEDULED_CHANGE_EVENT=$(cat <<EOF
+{
+  "version": "0",
+  "id": "7fb65329-1628-4cf3-a740-95fg457h1402",
+  "detail-type": "AWS Health Event",
+  "source": "aws.health",
+  "account": "account id",
+  "time": "${START_TIME}",
+  "region": "${AWS_REGION}",
+  "resources": ["${instance_id}"],
+  "detail": {
+    "eventArn": "arn:aws:health:region::event/id",
+    "service": "EC2",
+    "eventTypeCode": "AWS_EC2_DEDICATED_HOST_NETWORK_MAINTENANCE_SCHEDULED",
+    "eventTypeCategory": "scheduledChange",
+    "startTime": "Sat, 05 Jun 2016 15:10:09 GMT",
+    "eventDescription": [{
+      "language": "en_US",
+      "latestDescription": "A description of the event will be provided here"
+    }],
+    "affectedEntities": [{
+      "entityValue": "${instance_id}",
+      "tags": {
+        "stage": "prod",
+        "app": "my-app"
+      }
+    }]
+  }
+}
+EOF
+)
+
+AWS_SCHEDULED_CHANGE_EVENT_ONE_LINE=$(echo "${AWS_SCHEDULED_CHANGE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${AWS_SCHEDULED_CHANGE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+kubectl exec -i "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
+echo "✅ Sent AWS Scheduled Change Event to SQS queue: ${queue_url}"
+
+GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
+
+cordoned=0
+tainted=0
+evicted=0
+message_deleted=0
+test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
+        echo "✅ Verified the worker node was cordoned!"
+        cordoned=1
+    fi
+
+    if [[ $cordoned -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep "aws-node-termination-handler/scheduled-maintenance" >/dev/null; then
+      echo "✅ Verified the worker node was tainted!"
+      tainted=1
+    fi
+
+    if [[ $tainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        evicted=1
+    fi
+
+    if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
+        echo "✅ Verified the message was deleted from the queue after processing!"
+        message_deleted=1
+        echo "✅ AWS Scheduled Change SQS Test Passed $CLUSTER_NAME! ✅"
+        exit 0
+    fi
+
+    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ $cordoned -eq 0 ]]; then
+    echo "❌ Worker node was not cordoned"
+    fail_and_exit 3
+elif [[ $tainted -eq 0 ]]; then
+    echo "❌ Worker node was not tainted"
+    fail_and_exit 3
+elif [[ $evicted -eq 0 ]]; then
+    echo "❌ regular-pod-test was NOT evicted"
+    fail_and_exit 3
+elif [[ $message_deleted -eq 0 ]]; then
+    echo "❌ message was not removed from the queue after processing"
+    fail_and_exit 3
+fi
+
+fail_and_exit 1

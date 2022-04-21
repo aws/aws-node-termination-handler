@@ -94,7 +94,8 @@ func TestIsConfigProvided(t *testing.T) {
 	result := isConfigProvided(cliArgName, envVarName)
 	h.Equals(t, false, result)
 
-	flag.Set(cliArgName, value)
+	err := flag.Set(cliArgName, value)
+	h.Ok(t, err)
 	result = isConfigProvided(cliArgName, envVarName)
 	h.Equals(t, true, result)
 

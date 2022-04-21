@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/rs/zerolog/log"
 )
 
@@ -31,6 +29,7 @@ const (
 	defaultInstanceMetadataURL              = "http://169.254.169.254"
 	dryRunConfigKey                         = "DRY_RUN"
 	nodeNameConfigKey                       = "NODE_NAME"
+	podNameConfigKey                        = "POD_NAME"
 	kubernetesServiceHostConfigKey          = "KUBERNETES_SERVICE_HOST"
 	kubernetesServicePortConfigKey          = "KUBERNETES_SERVICE_PORT"
 	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
@@ -63,10 +62,17 @@ const (
 	checkASGTagBeforeDrainingDefault        = true
 	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
 	managedAsgTagDefault                    = "aws-node-termination-handler/managed"
+	assumeAsgTagPropagationKey              = "ASSUME_ASG_TAG_PROPAGATION"
+	assumeAsgTagPropagationDefault          = false
+	useProviderIdConfigKey                  = "USE_PROVIDER_ID"
+	useProviderIdDefault                    = false
 	metadataTriesConfigKey                  = "METADATA_TRIES"
 	metadataTriesDefault                    = 3
 	cordonOnly                              = "CORDON_ONLY"
 	taintNode                               = "TAINT_NODE"
+	taintEffectDefault                      = "NoSchedule"
+	taintEffect                             = "TAINT_EFFECT"
+	excludeFromLoadBalancers                = "EXCLUDE_FROM_LOAD_BALANCERS"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
 	logLevelConfigKey                       = "LOG_LEVEL"
@@ -91,11 +97,8 @@ const (
 	emitKubernetesEventsConfigKey             = "EMIT_KUBERNETES_EVENTS"
 	emitKubernetesEventsDefault               = false
 	kubernetesEventsExtraAnnotationsConfigKey = "KUBERNETES_EVENTS_EXTRA_ANNOTATIONS"
-	kubernetesEventsExtraAnnotationsDefault   = ""
-	region                                    = ""
 	awsRegionConfigKey                        = "AWS_REGION"
 	awsEndpointConfigKey                      = "AWS_ENDPOINT"
-	queueURL                                  = ""
 	queueURLConfigKey                         = "QUEUE_URL"
 )
 
@@ -103,6 +106,7 @@ const (
 type Config struct {
 	DryRun                           bool
 	NodeName                         string
+	PodName                          string
 	MetadataURL                      string
 	IgnoreDaemonSets                 bool
 	DeleteLocalData                  bool
@@ -122,9 +126,12 @@ type Config struct {
 	EnableRebalanceDraining          bool
 	CheckASGTagBeforeDraining        bool
 	ManagedAsgTag                    string
+	AssumeAsgTagPropagation          bool
 	MetadataTries                    int
 	CordonOnly                       bool
 	TaintNode                        bool
+	TaintEffect                      string
+	ExcludeFromLoadBalancers         bool
 	JsonLogging                      bool
 	LogLevel                         string
 	UptimeFromFile                   string
@@ -139,7 +146,7 @@ type Config struct {
 	AWSEndpoint                      string
 	QueueURL                         string
 	Workers                          int
-	AWSSession                       *session.Session
+	UseProviderId                    bool
 }
 
 //ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -155,6 +162,7 @@ func ParseCliArgs() (config Config, err error) {
 	}()
 	flag.BoolVar(&config.DryRun, "dry-run", getBoolEnv(dryRunConfigKey, false), "If true, only log if a node would be drained")
 	flag.StringVar(&config.NodeName, "node-name", getEnv(nodeNameConfigKey, ""), "The kubernetes node name")
+	flag.StringVar(&config.PodName, "pod-name", getEnv(podNameConfigKey, ""), "The kubernetes pod name")
 	flag.StringVar(&config.MetadataURL, "metadata-url", getEnv(instanceMetadataURLConfigKey, defaultInstanceMetadataURL), "The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing.")
 	flag.BoolVar(&config.IgnoreDaemonSets, "ignore-daemon-sets", getBoolEnv(ignoreDaemonSetsConfigKey, true), "If true, ignore daemon sets and drain other pods when a spot interrupt is received.")
 	flag.BoolVar(&config.DeleteLocalData, "delete-local-data", getBoolEnv(deleteLocalDataConfigKey, true), "If true, do not drain pods that are using local node storage in emptyDir")
@@ -171,13 +179,15 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "[EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
 	flag.BoolVar(&config.EnableSQSTerminationDraining, "enable-sqs-termination-draining", getBoolEnv(enableSQSTerminationDrainingConfigKey, enableSQSTerminationDrainingDefault), "If true, drain nodes when an SQS termination event is received")
-	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received")
+	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set \"enableRebalanceDraining\".")
 	flag.BoolVar(&config.EnableRebalanceDraining, "enable-rebalance-draining", getBoolEnv(enableRebalanceDrainingConfigKey, enableRebalanceDrainingDefault), "If true, drain nodes when the rebalance recommendation notice is received")
 	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node")
 	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "Sets the tag to check for on instances that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
+	flag.StringVar(&config.TaintEffect, "taint-effect", getEnv(taintEffect, taintEffectDefault), "Sets the effect when a node is tainted.")
+	flag.BoolVar(&config.ExcludeFromLoadBalancers, "exclude-from-load-balancers", getBoolEnv(excludeFromLoadBalancers, false), "If true, nodes will be marked for exclusion from load balancers when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
@@ -192,27 +202,9 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
-
+	flag.BoolVar(&config.AssumeAsgTagPropagation, "assume-asg-tag-propagation", getBoolEnv(assumeAsgTagPropagationKey, assumeAsgTagPropagationDefault), "If true, assume that ASG tags will be appear on the ASG's instances.")
+	flag.BoolVar(&config.UseProviderId, "use-provider-id", getBoolEnv(useProviderIdConfigKey, useProviderIdDefault), "If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.")
 	flag.Parse()
-
-	if config.EnableSQSTerminationDraining {
-		sess := session.Must(session.NewSessionWithOptions(session.Options{
-			SharedConfigState: session.SharedConfigEnable,
-		}))
-		if config.AWSRegion != "" {
-			sess.Config.Region = &config.AWSRegion
-		} else if *sess.Config.Region == "" && config.QueueURL != "" {
-			config.AWSRegion = getRegionFromQueueURL(config.QueueURL)
-			log.Debug().Str("Retrieved AWS region from queue-url: \"%s\"", config.AWSRegion)
-			sess.Config.Region = &config.AWSRegion
-		} else {
-			config.AWSRegion = *sess.Config.Region
-		}
-		config.AWSSession = sess
-		if config.AWSEndpoint != "" {
-			config.AWSSession.Config.Endpoint = &config.AWSEndpoint
-		}
-	}
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
 		log.Warn().Msg("Deprecated argument \"grace-period\" and the replacement argument \"pod-termination-grace-period\" was provided. Using the newer argument \"pod-termination-grace-period\"")
@@ -256,6 +248,7 @@ func (c Config) PrintJsonConfigArgs() {
 	log.Info().
 		Bool("dry_run", c.DryRun).
 		Str("node_name", c.NodeName).
+		Str("pod_name", c.PodName).
 		Str("metadata_url", c.MetadataURL).
 		Str("kubernetes_service_host", c.KubernetesServiceHost).
 		Str("kubernetes_service_port", c.KubernetesServicePort).
@@ -271,6 +264,8 @@ func (c Config) PrintJsonConfigArgs() {
 		Int("metadata_tries", c.MetadataTries).
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).
+		Str("taint_effect", c.TaintEffect).
+		Bool("exclude_from_load_balancers", c.ExcludeFromLoadBalancers).
 		Bool("json_logging", c.JsonLogging).
 		Str("log_level", c.LogLevel).
 		Str("webhook_proxy", c.WebhookProxy).
@@ -284,6 +279,8 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("queue_url", c.QueueURL).
 		Bool("check_asg_tag_before_draining", c.CheckASGTagBeforeDraining).
 		Str("ManagedAsgTag", c.ManagedAsgTag).
+		Bool("assume_asg_tag_propagation", c.AssumeAsgTagPropagation).
+		Bool("use_provider_id", c.UseProviderId).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -298,6 +295,7 @@ func (c Config) PrintHumanConfigArgs() {
 		"aws-node-termination-handler arguments: \n"+
 			"\tdry-run: %t,\n"+
 			"\tnode-name: %s,\n"+
+			"\tpod-name: %s,\n"+
 			"\tmetadata-url: %s,\n"+
 			"\tkubernetes-service-host: %s,\n"+
 			"\tkubernetes-service-port: %s,\n"+
@@ -313,6 +311,8 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tmetadata-tries: %d,\n"+
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
+			"\ttaint-effect: %s,\n"+
+			"\texclude-from-load-balancers: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\tlog-level: %s,\n"+
 			"\twebhook-proxy: %s,\n"+
@@ -328,9 +328,12 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
 			"\tmanaged-asg-tag: %s,\n"+
+			"\tassume-asg-tag-propagation: %t,\n"+
+			"\tuse-provider-id: %t,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
 		c.NodeName,
+		c.PodName,
 		c.MetadataURL,
 		c.KubernetesServiceHost,
 		c.KubernetesServicePort,
@@ -346,6 +349,8 @@ func (c Config) PrintHumanConfigArgs() {
 		c.MetadataTries,
 		c.CordonOnly,
 		c.TaintNode,
+		c.TaintEffect,
+		c.ExcludeFromLoadBalancers,
 		c.JsonLogging,
 		c.LogLevel,
 		c.WebhookProxy,
@@ -361,6 +366,8 @@ func (c Config) PrintHumanConfigArgs() {
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
 		c.ManagedAsgTag,
+		c.AssumeAsgTagPropagation,
+		c.UseProviderId,
 		c.AWSEndpoint,
 	)
 }
@@ -412,15 +419,4 @@ func isConfigProvided(cliArgName string, envVarName string) bool {
 		}
 	})
 	return cliArgProvided
-}
-
-func getRegionFromQueueURL(queueURL string) string {
-	for _, partition := range endpoints.DefaultPartitions() {
-		for regionID := range partition.Regions() {
-			if strings.Contains(queueURL, regionID) {
-				return regionID
-			}
-		}
-	}
-	return ""
 }

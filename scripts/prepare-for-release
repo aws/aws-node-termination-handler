@@ -235,7 +235,8 @@ EOM
     # gh actions cannot respond to prompts
     if [[ $RELEASE_PREP == true ]]; then
       while true; do
-          read -p "🥑${BOLD}Do you wish to create the release prep PR? Enter y/n  " yn
+          echo -e "🥑${BOLD}Do you wish to create the release prep PR? Enter y/n"
+          read -p "" yn
           case $yn in
               [Yy]* ) create_pr; break;;
               [Nn]* ) rollback; exit;;

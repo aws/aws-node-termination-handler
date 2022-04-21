@@ -4,7 +4,7 @@ kind: ClusterConfig
 metadata:
   name: nth-eks-cluster-test
   region: us-west-2
-  version: '1.16'
+  version: '1.20'
 cloudWatch:
   clusterLogging:
     enableTypes: ["*"]

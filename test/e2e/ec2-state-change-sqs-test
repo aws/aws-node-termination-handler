@@ -28,12 +28,12 @@ common_helm_args=()
 localstack_helm_args=(
     upgrade
     --install
+    --namespace default
     "$CLUSTER_NAME-localstack"
     "$SCRIPTPATH/../../config/helm/localstack/"
-    --wait
-    --namespace default
-    --set nodeSelector."$NTH_CONTROL_LABEL"
+    --set nodeSelector."${NTH_CONTROL_LABEL}"
     --set defaultRegion="${AWS_REGION}"
+    --wait
 )
 
 set -x
@@ -42,41 +42,41 @@ set +x
 
 sleep 10
 
-RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION}"
+RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test}]'"
 set -x
 localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
                                   -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
                                   | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
 echo "🥑 Using localstack pod $localstack_pod"
-run_instances_resp=$(kubectl exec -it "${localstack_pod}" -- bash -c "$RUN_INSTANCE_CMD")
+run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "$RUN_INSTANCE_CMD")
 private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
 echo "🥑 Started mock EC2 instance ($instance_id) w/ private DNS name: ${private_dns_name}"
 
 CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
-queue_url=$(kubectl exec -it "${localstack_pod}" -- bash -c "$CREATE_SQS_CMD" | jq -r .QueueUrl)
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "$CREATE_SQS_CMD" | jq -r .QueueUrl)
 
 echo "🥑 Created SQS Queue ${queue_url}"
 
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-acth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set nodeSelector."${NTH_CONTROL_LABEL}"
+  --set tolerations[0].operator=Exists
   --set awsAccessKeyID=foo
   --set awsSecretAccessKey=bar
   --set awsRegion="${AWS_REGION}"
   --set awsEndpoint="http://localstack.default"
   --set checkASGTagBeforeDraining=false
   --set enableSqsTerminationDraining=true
-  --set enableScheduledEventDraining=false
-  --set enableSpotInterruptionDraining=false
-  --set nodeSelector."$NTH_CONTROL_LABEL"
   --set "queueURL=${queue_url}"
+  --wait
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -90,11 +90,12 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -147,7 +148,7 @@ EOF
 
 EC2_STATE_CHANGE_EVENT_ONE_LINE=$(echo "${EC2_STATE_CHANGE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${EC2_STATE_CHANGE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
-kubectl exec -it "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
+kubectl exec -i "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
 echo "✅ Sent EC2 State Change Event to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
@@ -166,8 +167,8 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         evicted=1
     fi
 
-    if [[ ${evicted} -eq 1 && $(kubectl exec -it "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
-        kubectl exec -it "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD"
+    if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -i "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD"
         echo "✅ Verified the message was deleted from the queue after processing!"
         echo "✅ EC2 State Change SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0
@@ -183,5 +184,4 @@ else
     echo "❌ regular-pod-test was not evicted"
 fi
 
-echo "❌ EC2 State Change SQS Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

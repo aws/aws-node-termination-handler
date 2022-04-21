@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
-HELM_VERSION="3.0.2"
+HELM_VERSION="3.7.1"
 NAMESPACE="kube-system"
 
 MAKEFILEPATH=$SCRIPTPATH/../Makefile
@@ -62,6 +62,7 @@ $BUILD_DIR/helm template aws-node-termination-handler \
 $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --set enableSqsTerminationDraining="true" \
+    --set enableProbesServer="true" \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $QP_AGG_RESOURCES_YAML
 
 # IMDS mode - remove helm annotations from template
@@ -83,6 +84,7 @@ $BUILD_DIR/helm template aws-node-termination-handler \
 $BUILD_DIR/helm template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --set enableSqsTerminationDraining="true" \
+    --set enableProbesServer="true" \
     --output-dir $QP_INDV_RESOURCES_DIR/ \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/
 

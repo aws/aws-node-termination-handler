@@ -1,0 +1,49 @@
+name: Stale Issues / PRs
+
+on:
+  schedule:
+    - cron: "0 17 * * *"  # Runs every day at 12:00PM CST
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      # 15+5 day stale policy for PRs
+      # * Except PRs marked as "stalebot-ignore"
+      - name: Stale PRs policy
+        uses: actions/stale@v4.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          exempt-pr-labels: "stalebot-ignore"
+          days-before-stale: 15
+          days-before-close: 5
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          remove-stale-when-updated: true
+          stale-pr-label: "stale"
+          operations-per-run: 100
+          stale-pr-message: >
+            This PR has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
+            If you want this PR to never become stale, please ask a maintainer to apply the "stalebot-ignore" label.
+          close-pr-message: >
+            This PR was closed because it has become stale with no activity.
+
+      # 30+5 day stale policy for open issues
+      # * Except Issues marked as "stalebot-ignore"
+      - name: Stale Issues policy
+        uses: actions/stale@v4.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          exempt-issue-labels: "stalebot-ignore"
+          days-before-stale: 30
+          days-before-close: 5
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          remove-stale-when-updated: true
+          stale-issue-label: "stale"
+          operations-per-run: 100
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
+            If you want this issue to never become stale, please ask a maintainer to apply the "stalebot-ignore" label.
+          close-issue-message: >
+            This issue was closed because it has become stale with no activity.

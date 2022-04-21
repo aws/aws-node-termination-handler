@@ -33,6 +33,9 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -106,10 +109,11 @@ func main() {
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region
-		if nthConfig.AWSSession != nil {
-			nthConfig.AWSSession.Config.Region = &nodeMetadata.Region
-		}
-	} else if nthConfig.AWSRegion == "" && nodeMetadata.Region == "" && nthConfig.EnableSQSTerminationDraining {
+	} else if nthConfig.AWSRegion == "" && nthConfig.QueueURL != "" {
+		nthConfig.AWSRegion = getRegionFromQueueURL(nthConfig.QueueURL)
+		log.Debug().Str("Retrieved AWS region from queue-url: \"%s\"", nthConfig.AWSRegion)
+	}
+	if nthConfig.AWSRegion == "" && nthConfig.EnableSQSTerminationDraining {
 		nthConfig.Print()
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
@@ -129,13 +133,16 @@ func main() {
 			stopCh <- struct{}{}
 		}()
 		//will retry 4 times with an interval of 2 seconds.
-		wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+		err = wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
 			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 			if err != nil {
-				log.Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
+				log.Warn().Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
 			}
 			return false, nil
 		}, stopCh)
+		if err != nil {
+			log.Warn().Err(err).Msgf("All retries failed, unable to complete the uncordon after reboot workflow")
+		}
 	}
 
 	interruptionChan := make(chan monitor.InterruptionEvent)
@@ -157,21 +164,27 @@ func main() {
 		monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
 	}
 	if nthConfig.EnableSQSTerminationDraining {
-		creds, err := nthConfig.AWSSession.Config.Credentials.Get()
+		cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
+		sess := session.Must(session.NewSessionWithOptions(session.Options{
+			Config:            *cfg,
+			SharedConfigState: session.SharedConfigEnable,
+		}))
+		creds, err := sess.Config.Credentials.Get()
 		if err != nil {
-			log.Err(err).Msg("Unable to get AWS credentials")
+			log.Fatal().Err(err).Msg("Unable to get AWS credentials")
 		}
 		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
 
 		sqsMonitor := sqsevent.SQSMonitor{
-			CheckIfManaged:   nthConfig.CheckASGTagBeforeDraining,
-			ManagedAsgTag:    nthConfig.ManagedAsgTag,
-			QueueURL:         nthConfig.QueueURL,
-			InterruptionChan: interruptionChan,
-			CancelChan:       cancelChan,
-			SQS:              sqs.New(nthConfig.AWSSession),
-			ASG:              autoscaling.New(nthConfig.AWSSession),
-			EC2:              ec2.New(nthConfig.AWSSession),
+			CheckIfManaged:          nthConfig.CheckASGTagBeforeDraining,
+			ManagedAsgTag:           nthConfig.ManagedAsgTag,
+			AssumeAsgTagPropagation: nthConfig.AssumeAsgTagPropagation,
+			QueueURL:                nthConfig.QueueURL,
+			InterruptionChan:        interruptionChan,
+			CancelChan:              cancelChan,
+			SQS:                     sqs.New(sess),
+			ASG:                     autoscaling.New(sess),
+			EC2:                     ec2.New(sess),
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}
@@ -217,16 +230,24 @@ func main() {
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
 			break
 		default:
-			for event, ok := interruptionEventStore.GetActiveEvent(); ok && !event.InProgress; event, ok = interruptionEventStore.GetActiveEvent() {
+		EventLoop:
+			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
 				select {
 				case interruptionEventStore.Workers <- 1:
+					log.Info().
+						Str("event-id", event.EventID).
+						Str("kind", event.Kind).
+						Str("node-name", event.NodeName).
+						Str("instance-id", event.InstanceID).
+						Str("provider-id", event.ProviderID).
+						Msg("Requesting instance drain")
 					event.InProgress = true
 					wg.Add(1)
 					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
 					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
-					break
+					break EventLoop
 				}
 			}
 		}
@@ -279,8 +300,15 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			}
 			metrics.NodeActionsInc("uncordon", nodeName, err)
 
-			node.RemoveNTHLabels(nodeName)
-			node.RemoveNTHTaints(nodeName)
+			err = node.RemoveNTHLabels(nodeName)
+			if err != nil {
+				log.Warn().Err(err).Msg("There was an issue removing NTH labels from node")
+			}
+
+			err = node.RemoveNTHTaints(nodeName)
+			if err != nil {
+				log.Warn().Err(err).Msg("There was an issue removing NTH taints from node")
+			}
 		} else {
 			log.Info().Msg("Another interruption event is active, not uncordoning the node")
 		}
@@ -290,6 +318,17 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, wg *sync.WaitGroup) {
 	defer wg.Done()
 	nodeName := drainEvent.NodeName
+
+	if nthConfig.UseProviderId {
+		newNodeName, err := node.GetNodeNameFromProviderID(drainEvent.ProviderID)
+
+		if err != nil {
+			log.Err(err).Msgf("Unable to get node name for node with ProviderID '%s' using original AWS event node name ", drainEvent.ProviderID)
+		} else {
+			nodeName = newNodeName
+		}
+	}
+
 	nodeLabels, err := node.GetNodeLabels(nodeName)
 	if err != nil {
 		log.Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
@@ -299,20 +338,36 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		runPreDrainTask(node, nodeName, drainEvent, metrics, recorder)
 	}
 
-	if nthConfig.CordonOnly || (drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
-		cordonNode(node, nodeName, drainEvent, metrics, recorder)
-	} else {
-		cordonAndDrainNode(node, nodeName, metrics, recorder)
+	podNameList, err := node.FetchPodNameList(nodeName)
+	if err != nil {
+		log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
+	}
+	drainEvent.Pods = podNameList
+	err = node.LogPods(podNameList, nodeName)
+	if err != nil {
+		log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
 	}
 
-	interruptionEventStore.MarkAllAsProcessed(nodeName)
+	if nthConfig.CordonOnly || (!nthConfig.EnableSQSTerminationDraining && drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
+		err = cordonNode(node, nodeName, drainEvent, metrics, recorder)
+	} else {
+		err = cordonAndDrainNode(node, nodeName, drainEvent, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
+	}
+
 	if nthConfig.WebhookURL != "" {
 		webhook.Post(nodeMetadata, drainEvent, nthConfig)
 	}
-	if drainEvent.PostDrainTask != nil {
-		runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
+
+	if err != nil {
+		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
+		<-interruptionEventStore.Workers
+	} else {
+		interruptionEventStore.MarkAllAsProcessed(nodeName)
+		if drainEvent.PostDrainTask != nil {
+			runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
+		}
+		<-interruptionEventStore.Workers
 	}
-	<-interruptionEventStore.Workers
 
 }
 
@@ -327,33 +382,26 @@ func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.Interr
 	metrics.NodeActionsInc("pre-drain", nodeName, err)
 }
 
-func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
-	err := node.Cordon(nodeName)
+func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) error {
+	err := node.Cordon(nodeName, drainEvent.Description)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 		} else {
 			log.Err(err).Msg("There was a problem while trying to cordon the node")
 			recorder.Emit(nodeName, observability.Warning, observability.CordonErrReason, observability.CordonErrMsgFmt, err.Error())
-			os.Exit(1)
 		}
+		return err
 	} else {
-		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned")
-		podNameList, err := node.FetchPodNameList(nodeName)
-		if err != nil {
-			log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
-		}
-		err = node.LogPods(podNameList, nodeName)
-		if err != nil {
-			log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
-		}
+		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned")
 		metrics.NodeActionsInc("cordon", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 	}
+	return nil
 }
 
-func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
-	err := node.CordonAndDrain(nodeName, recorder)
+func cordonAndDrainNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder, sqsTerminationDraining bool) error {
+	err := node.CordonAndDrain(nodeName, drainEvent.Description)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
@@ -361,13 +409,14 @@ func cordonAndDrainNode(node node.Node, nodeName string, metrics observability.M
 			log.Err(err).Msg("There was a problem while trying to cordon and drain the node")
 			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 			recorder.Emit(nodeName, observability.Warning, observability.CordonAndDrainErrReason, observability.CordonAndDrainErrMsgFmt, err.Error())
-			os.Exit(1)
 		}
+		return err
 	} else {
-		log.Info().Str("node_name", nodeName).Msg("Node successfully cordoned and drained")
+		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned and drained")
 		metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 	}
+	return nil
 }
 
 func runPostDrainTask(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
@@ -379,4 +428,15 @@ func runPostDrainTask(node node.Node, nodeName string, drainEvent *monitor.Inter
 		recorder.Emit(nodeName, observability.Normal, observability.PostDrainReason, observability.PostDrainMsg)
 	}
 	metrics.NodeActionsInc("post-drain", nodeName, err)
+}
+
+func getRegionFromQueueURL(queueURL string) string {
+	for _, partition := range endpoints.DefaultPartitions() {
+		for regionID := range partition.Regions() {
+			if strings.Contains(queueURL, regionID) {
+				return regionID
+			}
+		}
+	}
+	return ""
 }

@@ -1,3 +1,8 @@
-{{ .Release.Name }} has been installed or updated. To check the status of pods, run:
-
-kubectl get pods --namespace {{ .Values.namespace }}
+***********************************************************************
+* AWS Node Termination Handler                                        *
+***********************************************************************
+  Chart version: {{ .Chart.Version }}
+  App version:   {{ .Chart.AppVersion }}
+  Image tag:     {{ include "aws-node-termination-handler.image" . }}
+  Mode :         {{ if .Values.enableSqsTerminationDraining }}Queue Processor{{ else }}IMDS{{ end }}
+***********************************************************************

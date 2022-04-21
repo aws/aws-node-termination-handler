@@ -28,12 +28,12 @@ common_helm_args=()
 localstack_helm_args=(
     upgrade
     --install
+    --namespace default
     "$CLUSTER_NAME-localstack"
     "$SCRIPTPATH/../../config/helm/localstack/"
-    --wait
-    --namespace default
-    --set nodeSelector."$NTH_CONTROL_LABEL"
+    --set nodeSelector."${NTH_CONTROL_LABEL}"
     --set defaultRegion="${AWS_REGION}"
+    --wait
 )
 
 set -x
@@ -42,41 +42,40 @@ set +x
 
 sleep 10
 
-RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION}"
+RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test}]'"
 localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
                                   -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
                                   | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
 echo "🥑 Using localstack pod ${localstack_pod}"
-run_instances_resp=$(kubectl exec -it "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
+run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
 private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
 echo "🥑 Started mock EC2 instance (${instance_id}) w/ private DNS name: ${private_dns_name}"
 
 CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
-queue_url=$(kubectl exec -it "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
 
 echo "🥑 Created SQS Queue ${queue_url}"
 
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-acth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --namespace kube-system
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set nodeSelector."${NTH_CONTROL_LABEL}"
+  --set tolerations[0].operator=Exists
   --set awsAccessKeyID=foo
   --set awsSecretAccessKey=bar
   --set awsRegion="${AWS_REGION}"
   --set awsEndpoint="http://localstack.default"
   --set checkASGTagBeforeDraining=false
   --set enableSqsTerminationDraining=true
-  --set enableScheduledEventDraining=false
-  --set enableSpotInterruptionDraining=false
-  --set enableRebalanceMonitoring=false
   --set taintNode="true"
-  --set nodeSelector."$NTH_CONTROL_LABEL"
   --set "queueURL=${queue_url}"
+  --wait
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -90,11 +89,12 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -146,14 +146,14 @@ EOF
 
 REBALANCE_EVENT_ONE_LINE=$(echo "${REBALANCE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${REBALANCE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
-kubectl exec -it "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
+kubectl exec -i "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
 echo "✅ Sent Rebalance Recommendation to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
 cordoned=0
 tainted=0
-not_evicted=0
+evicted=0
 message_deleted=0
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
@@ -167,16 +167,17 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
       tainted=1
     fi
 
-    if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
-        echo "✅ Verified the regular-pod-test pod was NOT evicted!"
-        not_evicted=1
+    if [[ $tainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        evicted=1
     fi
 
-    if [[ ${tainted} -eq 1 && $(kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
-        kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
+    if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
         message_deleted=1
-        break
+        echo "✅ Rebalance Recommendation SQS Test Passed $CLUSTER_NAME! ✅"
+        exit 0
     fi
 
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
@@ -189,59 +190,12 @@ if [[ $cordoned -eq 0 ]]; then
 elif [[ $tainted -eq 0 ]]; then
   echo "❌ Worker node was not tainted"
   fail_and_exit 3
-elif [[ $not_evicted -eq 0 ]]; then
-  echo "❌ regular-pod-test was evicted"
+elif [[ $evicted -eq 0 ]]; then
+  echo "❌ regular-pod-test was NOT evicted"
   fail_and_exit 3
 elif [[ $message_deleted -eq 0 ]]; then
   echo "❌ message was not removed from the queue after processing"
   fail_and_exit 3
 fi
 
-# Ensure pod is evicted following a spot itn
-SPOT_EVENT=$(cat <<EOF
-{
-  "version": "0",
-  "id": "1e5527d7-bb36-4607-3370-4164db56a40e",
-  "detail-type": "EC2 Spot Instance Interruption Warning",
-  "source": "aws.ec2",
-  "account": "123456789012",
-  "time": "$(date -u +"%Y-%m-%dT%TZ")",
-  "region": "us-east-1",
-  "resources": [
-    "arn:aws:ec2:us-east-1b:instance/${instance_id}"
-  ],
-  "detail": {
-    "instance-id": "${instance_id}",
-    "instance-action": "terminate"
-  }
-}
-EOF
-)
-
-SPOT_EVENT_ONE_LINE=$(echo "${SPOT_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
-SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${SPOT_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
-kubectl exec -it "${localstack_pod}" -- bash -c "${SEND_SQS_CMD}"
-echo "✅ Sent Spot Interruption Event to SQS queue: ${queue_url}"
-GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
-
-echo "🥑 Waiting for Spot ITN..."
-evicted=0
-for i in $(seq 1 $TAINT_CHECK_CYCLES); do
-    if [[ $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
-        echo "✅ Verified the regular-pod-test pod was evicted!"
-        evicted=1
-    fi
-
-    if [[ ${evicted} -eq 1 && $(kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
-        kubectl exec -it "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
-        echo "✅ Verified the message was deleted from the queue after processing!"
-        echo "✅ Rebalance Recommendation SQS Test Passed $CLUSTER_NAME! ✅"
-        exit 0
-    fi
-
-    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
-    sleep $TAINT_CHECK_SLEEP
-done
-
-echo "❌ Rebalance Recommendation SQS Test Failed $CLUSTER_NAME ❌"
 fail_and_exit 1

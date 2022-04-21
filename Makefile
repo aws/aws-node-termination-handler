@@ -7,14 +7,12 @@ ECR_REPO ?= ${ECR_REGISTRY}/aws-node-termination-handler
 IMG ?= amazon/aws-node-termination-handler
 IMG_TAG ?= ${VERSION}
 IMG_W_TAG = ${IMG}:${IMG_TAG}
-DOCKER_USERNAME ?= ""
-DOCKERHUB_TOKEN ?= ""
 GOOS ?= linux
 GOARCH ?= amd64
 GOPROXY ?= "https://proxy.golang.org,direct"
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR_PATH = ${MAKEFILE_PATH}/build
-SUPPORTED_PLATFORMS_LINUX ?= "linux/amd64,linux/arm64,linux/arm,darwin/amd64"
+SUPPORTED_PLATFORMS_LINUX ?= "linux/amd64,linux/arm64"
 SUPPORTED_PLATFORMS_WINDOWS ?= "windows/amd64"
 BINARY_NAME ?= "node-termination-handler"
 
@@ -36,10 +34,6 @@ docker-build:
 docker-run:
 	docker run ${IMG_W_TAG}
 
-docker-push:
-	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
-	docker push ${IMG_W_TAG}
-
 build-docker-images:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION}
 
@@ -47,15 +41,11 @@ build-docker-images-windows:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION}
 
 push-docker-images:
-	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION} -m
 	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${ECR_REPO} -v ${VERSION} -m
 
 push-docker-images-windows:
-	@docker login -u ${DOCKER_USERNAME} -p="${DOCKERHUB_TOKEN}"
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION} -m
 	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
@@ -87,8 +77,8 @@ compatibility-test:
 license-test:
 	${MAKEFILE_PATH}/test/license-test/run-license-test.sh
 
-go-report-card-test:
-	${MAKEFILE_PATH}/test/go-report-card-test/run-report-card-test.sh
+go-linter:
+	golangci-lint run
 
 helm-sync-test:
 	${MAKEFILE_PATH}/test/helm-sync-test/run-helm-sync-test
@@ -116,9 +106,6 @@ upload-resources-to-github-windows:
 
 generate-k8s-yaml:
 	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
-
-sync-readme-to-dockerhub:
-	${MAKEFILE_PATH}/scripts/sync-readme-to-dockerhub
 
 sync-readme-to-ecr-public:
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
@@ -153,15 +140,12 @@ release: build-binaries build-docker-images push-docker-images generate-k8s-yaml
 
 release-windows: build-binaries-windows build-docker-images-windows push-docker-images-windows upload-resources-to-github-windows
 
-test: spellcheck shellcheck unit-test e2e-test compatibility-test license-test go-report-card-test helm-sync-test helm-version-sync-test helm-lint
+test: spellcheck shellcheck unit-test e2e-test compatibility-test license-test go-linter helm-sync-test helm-version-sync-test helm-lint
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*$$' $(MAKEFILE_LIST) | sort
 
 ## Targets intended to be run in preparation for a new release
-draft-release-notes:
-	${MAKEFILE_PATH}/scripts/draft-release-notes
-
 create-local-release-tag-major:
 	${MAKEFILE_PATH}/scripts/create-local-tag-for-release -m
 

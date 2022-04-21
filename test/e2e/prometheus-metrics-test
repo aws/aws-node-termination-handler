@@ -20,16 +20,14 @@ common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
-retry 5 helm install prometheus-operator "$SCRIPTPATH/../../config/helm/prometheus-operator/" --set prometheusOperator.admissionWebhooks.enabled="false"
+retry 5 helm install prometheus-operator "$SCRIPTPATH/../../config/helm/kube-prometheus-stack/" --set prometheusOperator.admissionWebhooks.enabled="false" --set grafana.enabled="false" --set nodeExporter.enabled="false" --set kubeStateMetrics.enabled="false"
 
 anth_helm_args=(
   upgrade
   --install
+  --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --wait
-  --force
-  --namespace kube-system
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
@@ -38,7 +36,9 @@ anth_helm_args=(
   --set taintNode="true"
   --set enablePrometheusServer="true"
   --set podMonitor.create="true"
-  --set tolerations=""
+  --set daemonsetTolerations=""
+  --wait
+  --force
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -52,12 +52,12 @@ set +x
 emtp_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-emtp"
   "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
-  --wait
-  --namespace default
   --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
   --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
 )
 [[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
     emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
@@ -71,13 +71,13 @@ set +x
 aemm_helm_args=(
   upgrade
   --install
+  --namespace default
   "$CLUSTER_NAME-aemm"
   "$AEMM_DL_URL"
-  --wait
-  --namespace default
   --set servicePort="$IMDS_PORT"
   --set 'tolerations[0].effect=NoSchedule'
   --set 'tolerations[0].operator=Exists'
+  --wait
 )
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
     aemm_helm_args+=("${common_helm_args[@]}")
@@ -91,7 +91,7 @@ TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
 
-for i in `seq 1 10`; do
+for i in $(seq 1 10); do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
         DEPLOYED=1
@@ -106,11 +106,11 @@ fi
 
 
 EXIT_STATUS=1
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
-      if kubectl get nodes $CLUSTER_NAME-worker | grep SchedulingDisabled; then
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+      if kubectl get nodes "${CLUSTER_NAME}-worker" | grep SchedulingDisabled; then
           echo "✅ Verified the worker node was cordoned!"
 
-          if kubectl get nodes $CLUSTER_NAME-worker -o json | grep -q "aws-node-termination-handler/spot-itn"; then
+          if kubectl get nodes "${CLUSTER_NAME}-worker" -o json | grep -q "aws-node-termination-handler/spot-itn"; then
             echo "✅ Verified the worked node was tainted!"
           else
             echo "❌ Failed tainting node for spot termination event"
@@ -145,7 +145,7 @@ echo "✅ Port-forwarded pod $POD_NAME"
 
 sleep 10
 
-for i in `seq 1 $TAINT_CHECK_CYCLES`; do
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
     echo "✅ Fetched /metrics."
     failed=""

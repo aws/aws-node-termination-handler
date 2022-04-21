@@ -31,16 +31,26 @@ type Store struct {
 	ignoredEvents          map[string]struct{}
 	atLeastOneEvent        bool
 	Workers                chan int
+	callsSinceLastClean    int
+	callsSinceLastLog      int
+	cleaningPeriod         int
+	loggingPeriod          int
 }
 
 // New Creates a new interruption event store
 func New(nthConfig config.Config) *Store {
-	return &Store{
+	store := &Store{
 		NthConfig:              nthConfig,
 		interruptionEventStore: make(map[string]*monitor.InterruptionEvent),
 		ignoredEvents:          make(map[string]struct{}),
 		Workers:                make(chan int, nthConfig.Workers),
+		cleaningPeriod:         7200,
+		loggingPeriod:          1800,
 	}
+	if nthConfig.LogLevel == "debug" {
+		store.loggingPeriod = 60
+	}
+	return store
 }
 
 // CancelInterruptionEvent removes an interruption event from the internal store
@@ -70,6 +80,8 @@ func (s *Store) AddInterruptionEvent(interruptionEvent *monitor.InterruptionEven
 
 // GetActiveEvent returns true if there are interruption events in the internal store
 func (s *Store) GetActiveEvent() (*monitor.InterruptionEvent, bool) {
+	s.cleanPeriodically()
+	s.logPeriodically()
 	s.RLock()
 	defer s.RUnlock()
 	for _, interruptionEvent := range s.interruptionEventStore {
@@ -94,7 +106,7 @@ func (s *Store) ShouldDrainNode() bool {
 
 func (s *Store) shouldEventDrain(interruptionEvent *monitor.InterruptionEvent) bool {
 	_, ignored := s.ignoredEvents[interruptionEvent.EventID]
-	if !ignored && !interruptionEvent.NodeProcessed && s.TimeUntilDrain(interruptionEvent) <= 0 {
+	if !ignored && !interruptionEvent.InProgress && !interruptionEvent.NodeProcessed && s.TimeUntilDrain(interruptionEvent) <= 0 {
 		return true
 	}
 	return false
@@ -147,4 +159,48 @@ func (s *Store) ShouldUncordonNode(nodeName string) bool {
 	}
 
 	return true
+}
+
+// cleanPeriodically removes old events from the store every N times it is called
+//
+// Cleaning consists of removing events with NodeProcessed=true
+func (s *Store) cleanPeriodically() {
+	s.Lock()
+	defer s.Unlock()
+	s.callsSinceLastClean++
+	if s.callsSinceLastClean < s.cleaningPeriod {
+		return
+	}
+	log.Info().Msg("Garbage-collecting the interruption event store")
+	toDelete := []string{}
+	for _, e := range s.interruptionEventStore {
+		if e.NodeProcessed {
+			toDelete = append(toDelete, e.EventID)
+		}
+	}
+	for _, id := range toDelete {
+		delete(s.interruptionEventStore, id)
+	}
+	s.callsSinceLastClean = 0
+}
+
+// logPeriodically logs statistics about the store every N times it is called.
+func (s *Store) logPeriodically() {
+	s.Lock()
+	defer s.Unlock()
+	s.callsSinceLastLog++
+	if s.callsSinceLastLog < s.loggingPeriod {
+		return
+	}
+	drainableEventCount := 0
+	for _, interruptionEvent := range s.interruptionEventStore {
+		if s.shouldEventDrain(interruptionEvent) {
+			drainableEventCount += 1
+		}
+	}
+	log.Info().
+		Int("size", len(s.interruptionEventStore)).
+		Int("drainable-events", drainableEventCount).
+		Msg("event store statistics")
+	s.callsSinceLastLog = 0
 }

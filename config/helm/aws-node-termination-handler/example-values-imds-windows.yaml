@@ -1,0 +1,5 @@
+enableSqsTerminationDraining: false
+
+targetNodeOs: windows
+
+enableProbesServer: true

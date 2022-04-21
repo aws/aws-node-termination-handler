@@ -21,18 +21,17 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/metric/prometheus"
-	"go.opentelemetry.io/otel/sdk/metric/controller/pull"
+	"go.opentelemetry.io/otel/metric"
 )
 
 var (
-	labelEventErrorWhereKey = kv.Key("event/error/where")
+	labelEventErrorWhereKey = attribute.Key("event/error/where")
 
-	labelNodeActionKey = kv.Key("node/action")
-	labelNodeStatusKey = kv.Key("node/status")
-	labelNodeNameKey   = kv.Key("node/name")
+	labelNodeActionKey = attribute.Key("node/action")
+	labelNodeStatusKey = attribute.Key("node/status")
+	labelNodeNameKey   = attribute.Key("node/name")
 )
 
 // Metrics represents the stats for observability
@@ -49,19 +48,21 @@ func InitMetrics(enabled bool, port int) (Metrics, error) {
 		return Metrics{}, nil
 	}
 
-	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{}, pull.WithStateful(false))
+	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{})
 	if err != nil {
 		return Metrics{}, err
 	}
 
-	metrics, err := registerMetricsWith(exporter.Provider())
+	metrics, err := registerMetricsWith(exporter.MeterProvider())
 	if err != nil {
 		return Metrics{}, err
 	}
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
-	if err := runtime.Start(metrics.meter, 1*time.Second); err != nil {
+	if err := runtime.Start(
+		runtime.WithMeterProvider(exporter.MeterProvider()),
+		runtime.WithMinimumReadMemStatsInterval(1*time.Second)); err != nil {
 		return Metrics{}, err
 	}
 
@@ -92,7 +93,7 @@ func (m Metrics) NodeActionsInc(action, nodeName string, err error) {
 		return
 	}
 
-	labels := []kv.KeyValue{labelNodeActionKey.String(action), labelNodeNameKey.String(nodeName)}
+	labels := []attribute.KeyValue{labelNodeActionKey.String(action), labelNodeNameKey.String(nodeName)}
 	if err != nil {
 		labels = append(labels, labelNodeStatusKey.String("error"))
 	} else {
@@ -102,7 +103,7 @@ func (m Metrics) NodeActionsInc(action, nodeName string, err error) {
 	m.actionsCounter.Add(context.Background(), 1, labels...)
 }
 
-func registerMetricsWith(provider metric.Provider) (Metrics, error) {
+func registerMetricsWith(provider metric.MeterProvider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
 	actionsCounter, err := meter.NewInt64Counter("actions.node", metric.WithDescription("Number of actions per node"))

@@ -1,7 +1,10 @@
+{{- if .Values.rbac.create -}}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ include "aws-node-termination-handler.fullname" . }}
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
 rules:
 - apiGroups:
     - ""
@@ -44,4 +47,6 @@ rules:
     - events
   verbs:
     - create
+    - patch
 {{- end }}
+{{- end -}}
