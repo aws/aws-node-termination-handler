@@ -42,7 +42,6 @@ func setEnvForTest(key string, val string) {
 
 func TestParseCliArgsEnvSuccess(t *testing.T) {
 	resetFlagsForTest()
-	setEnvForTest("ASSUME_ASG_TAG_PROPAGATION", "true")
 	setEnvForTest("USE_PROVIDER_ID", "true")
 	setEnvForTest("DELETE_LOCAL_DATA", "false")
 	setEnvForTest("DRY_RUN", "true")
@@ -68,7 +67,6 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Ok(t, err)
 
 	// Assert all the values were set
-	h.Equals(t, true, nthConfig.AssumeAsgTagPropagation)
 	h.Equals(t, true, nthConfig.UseProviderId)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
@@ -104,7 +102,6 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	resetFlagsForTest()
 	os.Args = []string{
 		"cmd",
-		"--assume-asg-tag-propagation=true",
 		"--use-provider-id=true",
 		"--delete-local-data=false",
 		"--dry-run=true",
@@ -130,7 +127,6 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Ok(t, err)
 
 	// Assert all the values were set
-	h.Equals(t, true, nthConfig.AssumeAsgTagPropagation)
 	h.Equals(t, true, nthConfig.UseProviderId)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)
@@ -161,7 +157,6 @@ func TestParseCliArgsSuccess(t *testing.T) {
 
 func TestParseCliArgsOverrides(t *testing.T) {
 	resetFlagsForTest()
-	setEnvForTest("ASSUME_ASG_TAG_PROPAGATION", "true")
 	setEnvForTest("USE_PROVIDER_ID", "true")
 	setEnvForTest("DELETE_LOCAL_DATA", "true")
 	setEnvForTest("DRY_RUN", "false")
@@ -185,7 +180,6 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	setEnvForTest("CORDON_ONLY", "true")
 	os.Args = []string{
 		"cmd",
-		"--assume-asg-tag-propagation=false",
 		"--use-provider-id=false",
 		"--delete-local-data=false",
 		"--dry-run=true",
@@ -213,7 +207,6 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Ok(t, err)
 
 	// Assert all the values were set
-	h.Equals(t, false, nthConfig.AssumeAsgTagPropagation)
 	h.Equals(t, false, nthConfig.UseProviderId)
 	h.Equals(t, false, nthConfig.DeleteLocalData)
 	h.Equals(t, true, nthConfig.DryRun)

@@ -62,8 +62,6 @@ const (
 	checkASGTagBeforeDrainingDefault        = true
 	managedAsgTagConfigKey                  = "MANAGED_ASG_TAG"
 	managedAsgTagDefault                    = "aws-node-termination-handler/managed"
-	assumeAsgTagPropagationKey              = "ASSUME_ASG_TAG_PROPAGATION"
-	assumeAsgTagPropagationDefault          = false
 	useProviderIdConfigKey                  = "USE_PROVIDER_ID"
 	useProviderIdDefault                    = false
 	metadataTriesConfigKey                  = "METADATA_TRIES"
@@ -126,7 +124,6 @@ type Config struct {
 	EnableRebalanceDraining          bool
 	CheckASGTagBeforeDraining        bool
 	ManagedAsgTag                    string
-	AssumeAsgTagPropagation          bool
 	MetadataTries                    int
 	CordonOnly                       bool
 	TaintNode                        bool
@@ -202,7 +199,6 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
-	flag.BoolVar(&config.AssumeAsgTagPropagation, "assume-asg-tag-propagation", getBoolEnv(assumeAsgTagPropagationKey, assumeAsgTagPropagationDefault), "If true, assume that ASG tags will be appear on the ASG's instances.")
 	flag.BoolVar(&config.UseProviderId, "use-provider-id", getBoolEnv(useProviderIdConfigKey, useProviderIdDefault), "If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.")
 	flag.Parse()
 
@@ -279,7 +275,6 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("queue_url", c.QueueURL).
 		Bool("check_asg_tag_before_draining", c.CheckASGTagBeforeDraining).
 		Str("ManagedAsgTag", c.ManagedAsgTag).
-		Bool("assume_asg_tag_propagation", c.AssumeAsgTagPropagation).
 		Bool("use_provider_id", c.UseProviderId).
 		Msg("aws-node-termination-handler arguments")
 }
@@ -328,7 +323,6 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tqueue-url: %s,\n"+
 			"\tcheck-asg-tag-before-draining: %t,\n"+
 			"\tmanaged-asg-tag: %s,\n"+
-			"\tassume-asg-tag-propagation: %t,\n"+
 			"\tuse-provider-id: %t,\n"+
 			"\taws-endpoint: %s,\n",
 		c.DryRun,
@@ -366,7 +360,6 @@ func (c Config) PrintHumanConfigArgs() {
 		c.QueueURL,
 		c.CheckASGTagBeforeDraining,
 		c.ManagedAsgTag,
-		c.AssumeAsgTagPropagation,
 		c.UseProviderId,
 		c.AWSEndpoint,
 	)

@@ -83,30 +83,6 @@ func TestGetNodeInfo_BothTags_Managed(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-func TestGetNodeInfo_BothTags_AssumePropagation_Managed(t *testing.T) {
-	asgName := "test-asg"
-	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(
-			"i-beebeebe",
-			"mydns.example.com",
-			map[string]string{
-				"aws-nth/managed": "true",
-				ASGTagName:        asgName,
-			}),
-	}
-	monitor := SQSMonitor{
-		AssumeAsgTagPropagation: true,
-		EC2:                     ec2Mock,
-		ASG:                     h.MockedASG{},
-		CheckIfManaged:          true,
-		ManagedAsgTag:           "aws-nth/managed",
-	}
-	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
-	h.Ok(t, err)
-	h.Equals(t, asgName, nodeInfo.AsgName)
-	h.Equals(t, true, nodeInfo.IsManaged)
-}
-
 func TestGetNodeInfo_ASGTag_ASGNotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp(
@@ -161,40 +137,6 @@ func TestGetNodeInfo_ASGTag_ASGManaged(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-func TestGetNodeInfo_ASGTag_AssumePropagation_NotManaged(t *testing.T) {
-	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp(
-			"i-beebeebe",
-			"mydns.example.com",
-			map[string]string{
-				ASGTagName: "test-asg",
-			}),
-	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: aws.String("asg-from-api-not-used")},
-			},
-		},
-		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
-			Tags: []*autoscaling.TagDescription{
-				{Key: aws.String("aws-nth/managed")},
-			},
-		},
-	}
-	monitor := SQSMonitor{
-		AssumeAsgTagPropagation: true,
-		EC2:                     ec2Mock,
-		ASG:                     asgMock,
-		CheckIfManaged:          true,
-		ManagedAsgTag:           "aws-nth/managed",
-	}
-	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
-	h.Ok(t, err)
-	h.Equals(t, "test-asg", nodeInfo.AsgName)
-	h.Equals(t, false, nodeInfo.IsManaged)
-}
-
 func TestGetNodeInfo_NoASG(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
@@ -235,23 +177,6 @@ func TestGetNodeInfo_NoASG_NotManaged(t *testing.T) {
 	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
-func TestGetNodeInfo_NoASG_AssumePropagation_NotManaged(t *testing.T) {
-	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
-	}
-	monitor := SQSMonitor{
-		AssumeAsgTagPropagation: true,
-		EC2:                     ec2Mock,
-		ASG:                     getUnusableMockedASG(),
-		CheckIfManaged:          true,
-		ManagedAsgTag:           "aws-nth/managed",
-	}
-	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
-	h.Ok(t, err)
-	h.Equals(t, "", nodeInfo.AsgName)
-	h.Equals(t, false, nodeInfo.IsManaged)
-}
-
 func TestGetNodeInfo_ASG(t *testing.T) {
 	asgName := "my-asg"
 	ec2Mock := h.MockedEC2{
@@ -272,23 +197,6 @@ func TestGetNodeInfo_ASG(t *testing.T) {
 	h.Ok(t, err)
 	h.Equals(t, asgName, nodeInfo.AsgName)
 	h.Equals(t, true, nodeInfo.IsManaged)
-}
-
-func TestGetNodeInfo_ASG_AssumePropagation_NotManaged(t *testing.T) {
-	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
-	}
-	monitor := SQSMonitor{
-		AssumeAsgTagPropagation: true,
-		EC2:                     ec2Mock,
-		ASG:                     getUnusableMockedASG(),
-		CheckIfManaged:          true,
-		ManagedAsgTag:           "aws-nth/managed",
-	}
-	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
-	h.Ok(t, err)
-	h.Equals(t, "", nodeInfo.AsgName)
-	h.Equals(t, false, nodeInfo.IsManaged)
 }
 
 func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) {

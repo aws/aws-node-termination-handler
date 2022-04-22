@@ -86,8 +86,6 @@ spec:
               value: {{ .Values.checkASGTagBeforeDraining | quote }}
             - name: MANAGED_ASG_TAG
               value: {{ .Values.managedAsgTag | quote }}
-            - name: ASSUME_ASG_TAG_PROPAGATION
-              value: {{ .Values.assumeAsgTagPropagation | quote }}
             - name: USE_PROVIDER_ID
               value: {{ .Values.useProviderId | quote }}
             - name: DRY_RUN
