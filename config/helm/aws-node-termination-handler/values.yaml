@@ -171,6 +171,7 @@ queueURL: ""
 workers: 10
 
 # If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node
+# If false, disables calls to ASG API.
 checkASGTagBeforeDraining: true
 
 # The tag to ensure is on a node if checkASGTagBeforeDraining is true
