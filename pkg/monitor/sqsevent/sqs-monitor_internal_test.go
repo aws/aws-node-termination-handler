@@ -195,7 +195,8 @@ func TestGetNodeInfo_ASG(t *testing.T) {
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
-	h.Equals(t, asgName, nodeInfo.AsgName)
+	// CheckIfManaged defaults to false; therefore, do not call ASG API
+	h.Equals(t, "", nodeInfo.AsgName)
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
@@ -274,8 +275,9 @@ func TestGetNodeInfo_ASGError(t *testing.T) {
 		DescribeAutoScalingInstancesErr: fmt.Errorf("error"),
 	}
 	monitor := SQSMonitor{
-		EC2: ec2Mock,
-		ASG: asgMock,
+		EC2:            ec2Mock,
+		ASG:            asgMock,
+		CheckIfManaged: true, //enables calling ASG API
 	}
 	_, err := monitor.getNodeInfo("i-0123456789")
 	h.Nok(t, err)
