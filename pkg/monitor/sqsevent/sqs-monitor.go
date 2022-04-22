@@ -347,22 +347,24 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		}
 	}
 
-	if nodeInfo.AsgName == "" {
-		// If ASG tags are not propagated we might need to use the API
-		// to retrieve the ASG name
-		nodeInfo.AsgName, err = m.retrieveAutoScalingGroupName(nodeInfo.InstanceID)
-		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve AutoScaling group: %w", err)
+	if m.CheckIfManaged {
+		if nodeInfo.AsgName == "" {
+			// If ASG tags are not propagated we might need to use the API
+			// to retrieve the ASG name
+			nodeInfo.AsgName, err = m.retrieveAutoScalingGroupName(nodeInfo.InstanceID)
+			if err != nil {
+				return nil, fmt.Errorf("unable to retrieve AutoScaling group: %w", err)
+			}
+		}
+		if nodeInfo.Tags[m.ManagedAsgTag] == "" {
+			// if ASG tags are not propagated we might have to check the ASG directly
+			nodeInfo.IsManaged, err = m.isASGManaged(nodeInfo.AsgName, nodeInfo.InstanceID)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	if m.CheckIfManaged && nodeInfo.Tags[m.ManagedAsgTag] == "" {
-		// if ASG tags are not propagated we might have to check the ASG directly
-		nodeInfo.IsManaged, err = m.isASGManaged(nodeInfo.AsgName, nodeInfo.InstanceID)
-		if err != nil {
-			return nil, err
-		}
-	}
 	infoJSON, _ := json.MarshalIndent(nodeInfo, " ", "    ")
 	log.Debug().Msgf("Got node info from AWS: %s", infoJSON)
 
