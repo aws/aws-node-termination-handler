@@ -110,9 +110,8 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `awsRegion`                  | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through the `AWS_REGION` environment variable, IMDS, or the specified queue URL. | `""`                                   |
 | `queueURL`                   | Listens for messages on the specified SQS queue URL.                                                                                                                      | `""`                                   |
 | `workers`                    | The maximum amount of parallel event processors to handle concurrent events.                                                                                              | `10`                                   |
-| `checkASGTagBeforeDraining`  | If `true`, check that the instance is tagged with the `managedAsgTag` before draining the node.                                                                           | `true`                                 |
+| `checkASGTagBeforeDraining`  | If `true`, check that the instance is tagged with the `managedAsgTag` before draining the node. If `false`, disables calls ASG API.                                                                          | `true`                                 |
 | `managedAsgTag`              | The node tag to check if `checkASGTagBeforeDraining` is `true`.                                                                                                           | `aws-node-termination-handler/managed` |
-| `assumeAsgTagPropagation`    | If `true`, assume that ASG tags will be appear on the ASG's instances.                                                                                                    | `false`                                |
 | `useProviderId`    | If `true`, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.                                                                                                    | `false`                                |
 
 ### IMDS Mode Configuration
