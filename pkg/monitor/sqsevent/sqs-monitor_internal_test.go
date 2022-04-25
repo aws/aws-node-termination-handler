@@ -333,10 +333,3 @@ func getDescribeInstancesResp(instanceID string, privateDNSName string, tags map
 		},
 	}
 }
-
-func getUnusableMockedASG() h.MockedASG {
-	return h.MockedASG{
-		DescribeAutoScalingInstancesErr: fmt.Errorf("not used"),
-		DescribeTagsPagesErr:            fmt.Errorf("not used"),
-	}
-}
