@@ -329,7 +329,7 @@ $ aws events put-targets --rule MyK8sInstanceStateChangeRule \
 
 $ aws events put-rule \
   --name MyK8sScheduledChangeRule \
-  --event-pattern "{\"source\": [\"aws.health\"],\"detail-type\": [\"AWS Health Event\"]}"
+  --event-pattern "{\"source\": [\"aws.health\"],\"detail-type\": [\"AWS Health Event\"],\"detail\": {\"service\": [\"EC2\"],\"eventTypeCategory\": [\"scheduledChange\"]}}"
 
 $ aws events put-targets --rule MyK8sScheduledChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"

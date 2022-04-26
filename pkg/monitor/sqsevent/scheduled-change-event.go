@@ -76,13 +76,13 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 	}
 
 	if scheduledChangeEventDetail.Service != "EC2" {
-		err := fmt.Errorf("events from Amazon EventBridge for service (%s) are not supported", scheduledChangeEventDetail.Service)
-		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
+		log.Warn().Msgf("events from Amazon EventBridge for service (%s) are not supported", scheduledChangeEventDetail.Service)
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, nil})
 	}
 
 	if scheduledChangeEventDetail.EventTypeCategory != "scheduledChange" {
-		err := fmt.Errorf("events from Amazon EventBridge with EventTypeCategory (%s) are not supported", scheduledChangeEventDetail.EventTypeCategory)
-		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, err})
+		log.Warn().Msgf("events from Amazon EventBridge with EventTypeCategory (%s) are not supported", scheduledChangeEventDetail.EventTypeCategory)
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, nil})
 	}
 
 	for _, affectedEntity := range scheduledChangeEventDetail.AffectedEntities {
