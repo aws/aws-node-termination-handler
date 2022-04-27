@@ -51,6 +51,7 @@ type (
 
 		Done(context.Context) (tryAgain bool, err error)
 		EC2InstanceIDs() []string
+		Kind() EventKind
 	}
 
 	Getter interface {
@@ -123,71 +124,80 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	origCtx := ctx
 	for _, msg := range sqsMessages {
-		ctx = logging.WithLogger(origCtx, logging.FromContext(origCtx).
-			With("sqsMessage", logging.NewMessageMarshaler(msg)),
-		)
-
-		evt := r.Parse(ctx, msg)
-		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
-
-		allInstancesHandled := true
-		savedCtx := ctx
-		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
-			ctx = logging.WithLogger(savedCtx, logging.FromContext(savedCtx).
-				With("ec2InstanceID", ec2InstanceID),
-			)
-
-			nodeName, e := r.GetNodeName(ctx, ec2InstanceID)
-			if e != nil {
-				err = multierr.Append(err, e)
-				allInstancesHandled = false
-				continue
-			}
-
-			ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("node", nodeName))
-
-			node, e := nodeGetter.GetNode(ctx, nodeName)
-			if node == nil {
-				logger := logging.FromContext(ctx)
-				if e != nil {
-					logger = logger.With("error", e)
-				}
-				logger.Warn("no matching node found")
-				allInstancesHandled = false
-				continue
-			}
-
-			if e = cordondrainer.Cordon(ctx, node); e != nil {
-				err = multierr.Append(err, e)
-				continue
-			}
-
-			if e = cordondrainer.Drain(ctx, node); e != nil {
-				err = multierr.Append(err, e)
-				continue
-			}
-		}
-		ctx = savedCtx
-
-		tryAgain, e := evt.Done(ctx)
-		if e != nil {
-			err = multierr.Append(err, e)
-		}
-
-		if tryAgain || !allInstancesHandled {
-			continue
-		}
-
-		err = multierr.Append(err, sqsClient.DeleteSQSMessage(ctx, msg))
+		e := r.handleMessage(ctx, msg, terminator, nodeGetter, cordondrainer, sqsClient)
+		err = multierr.Append(err, e)
 	}
-	ctx = origCtx
 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{RequeueAfter: r.RequeueInterval}, nil
+}
+
+func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, terminator *v1alpha1.Terminator, nodeGetter NodeGetter, cordondrainer CordonDrainer, sqsClient SQSClient) (err error) {
+	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("sqsMessage", logging.NewMessageMarshaler(msg)))
+
+	evt := r.Parse(ctx, msg)
+	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
+
+	evtAction := actionForEvent(evt, terminator)
+	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("action", evtAction))
+
+	allInstancesHandled := true
+	if evtAction != v1alpha1.Actions.NoAction {
+		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
+			instanceHandled, e := r.handleInstance(ctx, ec2InstanceID, evtAction, nodeGetter, cordondrainer)
+			err = multierr.Append(err, e)
+			allInstancesHandled = allInstancesHandled && instanceHandled
+		}
+	}
+
+	tryAgain, e := evt.Done(ctx)
+	if e != nil {
+		err = multierr.Append(err, e)
+	}
+
+	if tryAgain || !allInstancesHandled {
+		return err
+	}
+
+	return multierr.Append(err, sqsClient.DeleteSQSMessage(ctx, msg))
+}
+
+func (r Reconciler) handleInstance(ctx context.Context, ec2InstanceID string, evtAction v1alpha1.Action, nodeGetter NodeGetter, cordondrainer CordonDrainer) (bool, error) {
+	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("ec2InstanceID", ec2InstanceID))
+
+	nodeName, err := r.GetNodeName(ctx, ec2InstanceID)
+	if err != nil {
+		return false, err
+	}
+
+	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("node", nodeName))
+
+	node, err := nodeGetter.GetNode(ctx, nodeName)
+	if node == nil {
+		logger := logging.FromContext(ctx)
+		if err != nil {
+			logger = logger.With("error", err)
+		}
+		logger.Warn("no matching node found")
+		return false, nil
+	}
+
+	if err = cordondrainer.Cordon(ctx, node); err != nil {
+		return true, err
+	}
+
+	if evtAction == v1alpha1.Actions.Cordon {
+		return true, nil
+	}
+
+	if err = cordondrainer.Drain(ctx, node); err != nil {
+		return true, err
+	}
+
+	return true, nil
 }
 
 func (r Reconciler) BuildController(builder *builder.Builder) error {
@@ -199,4 +209,28 @@ func (r Reconciler) BuildController(builder *builder.Builder) error {
 		Named(r.Name).
 		For(&v1alpha1.Terminator{}).
 		Complete(r)
+}
+
+func actionForEvent(evt Event, terminator *v1alpha1.Terminator) v1alpha1.Action {
+	events := terminator.Spec.Events
+
+	switch evt.Kind() {
+	case EventKinds.AutoScalingTermination:
+		return events.AutoScalingTermination
+
+	case EventKinds.RebalanceRecommendation:
+		return events.RebalanceRecommendation
+
+	case EventKinds.ScheduledChange:
+		return events.ScheduledChange
+
+	case EventKinds.SpotInterruption:
+		return events.SpotInterruption
+
+	case EventKinds.StateChange:
+		return events.StateChange
+
+	default:
+		return v1alpha1.Actions.NoAction
+	}
 }

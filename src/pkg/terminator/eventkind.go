@@ -14,32 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package event
+package terminator
 
-import (
-	"context"
+type EventKind string
 
-	"github.com/aws/aws-node-termination-handler/pkg/terminator"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-)
-
-type noop AWSMetadata
-
-func (noop) Kind() terminator.EventKind {
-	return terminator.EventKinds.Noop
+var EventKinds = struct {
+	AutoScalingTermination,
+	RebalanceRecommendation,
+	ScheduledChange,
+	SpotInterruption,
+	StateChange,
+	Noop EventKind
+}{
+	AutoScalingTermination:  EventKind("autoScalingTermination"),
+	RebalanceRecommendation: EventKind("rebalanceRecommendation"),
+	ScheduledChange:         EventKind("scheduledChange"),
+	SpotInterruption:        EventKind("spotInterruption"),
+	StateChange:             EventKind("stateChange"),
+	Noop:                    EventKind("noop"),
 }
 
-func (noop) EC2InstanceIDs() []string {
-	return []string{}
-}
-
-func (noop) Done(_ context.Context) (bool, error) {
-	return true, nil
-}
-
-func (n noop) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AWSMetadata(n)).AddTo(enc)
-	return nil
+func (e EventKind) String() string {
+	return string(e)
 }

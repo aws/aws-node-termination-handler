@@ -485,7 +485,7 @@ var _ = Describe("Reconciliation", func() {
 		})
 	})
 
-	When("the SQS queue contains a State Change (stopping) Notification", func() {
+	When("the SQS queue contains a State Change Notification", func() {
 		When("the state is stopping", func() {
 			BeforeEach(func() {
 				resizeCluster(3)
@@ -903,6 +903,474 @@ var _ = Describe("Reconciliation", func() {
 
 		It("does not delete the message from the SQS queue", func() {
 			Expect(sqsQueues[queueURL]).To(HaveLen(1))
+		})
+	})
+
+	When("the terminator has event configuration", func() {
+		When("Cordon on ASG Termination v1", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.AutoScalingTermination = "Cordon"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.autoscaling",
+						"detail-type": "EC2 Instance-terminate Lifecycle Action",
+						"version": "1",
+						"detail": {
+							"EC2InstanceId": "%s",
+							"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+						}
+					}`, instanceIDs[1])),
+				})
+
+				createPendingASGLifecycleAction(instanceIDs[1])
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+			})
+
+			It("does not drain the targeted node", func() {
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("completes the ASG lifecycle action", func() {
+				Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StateComplete)), HaveLen(1)))
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("\"No Action\" on ASG Termination v1", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.AutoScalingTermination = "NoAction"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.autoscaling",
+						"detail-type": "EC2 Instance-terminate Lifecycle Action",
+						"version": "1",
+						"detail": {
+							"EC2InstanceId": "%s",
+							"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+						}
+					}`, instanceIDs[1])),
+				})
+
+				createPendingASGLifecycleAction(instanceIDs[1])
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain the targeted node", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("completes the ASG lifecycle action", func() {
+				Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StateComplete)), HaveLen(1)))
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("Cordon on ASG Termination v2", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.AutoScalingTermination = "Cordon"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.autoscaling",
+						"detail-type": "EC2 Instance-terminate Lifecycle Action",
+						"version": "2",
+						"detail": {
+							"EC2InstanceId": "%s",
+							"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+						}
+					}`, instanceIDs[1])),
+				})
+
+				createPendingASGLifecycleAction(instanceIDs[1])
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+			})
+
+			It("does not drain the targeted node", func() {
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("completes the ASG lifecycle action", func() {
+				Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StateComplete)), HaveLen(1)))
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("\"No Action\" on ASG Termination v2", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.AutoScalingTermination = "NoAction"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.autoscaling",
+						"detail-type": "EC2 Instance-terminate Lifecycle Action",
+						"version": "2",
+						"detail": {
+							"EC2InstanceId": "%s",
+							"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+						}
+					}`, instanceIDs[1])),
+				})
+
+				createPendingASGLifecycleAction(instanceIDs[1])
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain the targeted node", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("completes the ASG lifecycle action", func() {
+				Expect(asgLifecycleActions).To(And(HaveKeyWithValue(instanceIDs[1], Equal(StateComplete)), HaveLen(1)))
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("Cordon on Rebalance Recommendation", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.RebalanceRecommendation = "Cordon"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Instance Rebalance Recommendation",
+						"version": "0",
+						"detail": {
+							"instance-id": "%s"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+			})
+
+			It("does not drain the targeted node", func() {
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("\"No Action\" on Rebalance Recommendation", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.RebalanceRecommendation = "NoAction"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Instance Rebalance Recommendation",
+						"version": "0",
+						"detail": {
+							"instance-id": "%s"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain the targeted node", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("Cordon on Scheduled Change", func() {
+			BeforeEach(func() {
+				resizeCluster(4)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.ScheduledChange = "Cordon"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.health",
+						"detail-type": "AWS Health Event",
+						"version": "1",
+						"detail": {
+							"service": "EC2",
+							"eventTypeCategory": "scheduledChange",
+							"affectedEntities": [
+								{"entityValue": "%s"},
+								{"entityValue": "%s"}
+							]
+						}
+					}`, instanceIDs[1], instanceIDs[2])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveKey(nodeNames[2]), HaveLen(2)))
+			})
+
+			It("does not drain the targeted node", func() {
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("\"No Action\" on Scheduled Change", func() {
+			BeforeEach(func() {
+				resizeCluster(4)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.ScheduledChange = "NoAction"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.health",
+						"detail-type": "AWS Health Event",
+						"version": "1",
+						"detail": {
+							"service": "EC2",
+							"eventTypeCategory": "scheduledChange",
+							"affectedEntities": [
+								{"entityValue": "%s"},
+								{"entityValue": "%s"}
+							]
+						}
+					}`, instanceIDs[1], instanceIDs[2])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain the targeted node", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("Cordon on Spot Interruption", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.SpotInterruption = "Cordon"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Spot Instance Interruption Warning",
+						"version": "1",
+						"detail": {
+							"instance-id": "%s"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+			})
+
+			It("does not drain the targeted node", func() {
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("\"No Action\" on Spot Interruption", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.SpotInterruption = "NoAction"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Spot Instance Interruption Warning",
+						"version": "1",
+						"detail": {
+							"instance-id": "%s"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain the targeted node", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("Cordon on State Change", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.StateChange = "Cordon"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Instance State-change Notification",
+						"version": "1",
+						"detail": {
+							"instance-id": "%s",
+							"state": "stopping"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("cordons the targeted node", func() {
+				Expect(cordonedNodes).To(And(HaveKey(nodeNames[1]), HaveLen(1)))
+			})
+
+			It("does not drain the targeted node", func() {
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
+		})
+
+		When("\"No Action\" on State Change", func() {
+			BeforeEach(func() {
+				resizeCluster(3)
+
+				terminator := terminators[terminatorNamespaceName]
+				terminator.Spec.Events.StateChange = "NoAction"
+
+				sqsQueues[queueURL] = append(sqsQueues[queueURL], &sqs.Message{
+					ReceiptHandle: aws.String("msg-1"),
+					Body: aws.String(fmt.Sprintf(`{
+						"source": "aws.ec2",
+						"detail-type": "EC2 Instance State-change Notification",
+						"version": "1",
+						"detail": {
+							"instance-id": "%s",
+							"state": "stopping"
+						}
+					}`, instanceIDs[1])),
+				})
+			})
+
+			It("returns success and requeues the request with the reconciler's configured interval", func() {
+				Expect(result, err).To(HaveField("RequeueAfter", Equal(reconciler.RequeueInterval)))
+			})
+
+			It("does not cordon or drain the targeted node", func() {
+				Expect(cordonedNodes).To(BeEmpty())
+				Expect(drainedNodes).To(BeEmpty())
+			})
+
+			It("deletes the message from the SQS queue", func() {
+				Expect(sqsQueues[queueURL]).To(BeEmpty())
+			})
 		})
 	})
 

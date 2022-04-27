@@ -33,6 +33,7 @@ type TerminatorSpec struct {
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 	SQS         SQSSpec           `json:"sqs,omitempty"`
 	Drain       DrainSpec         `json:"drain,omitempty"`
+	Events      EventsSpec        `json:"events,omitempty"`
 }
 
 // SQSSpec defines inputs to SQS "receive messages" requests.
@@ -49,6 +50,27 @@ type DrainSpec struct {
 	IgnoreAllDaemonSets bool `json:"ignoreAllDaemonSets,omitempty"`
 	DeleteEmptyDirData  bool `json:"deleteEmptyDirData,omitempty"`
 	TimeoutSeconds      int  `json:"timeoutSeconds,omitempty"`
+}
+
+type Action = string
+
+var Actions = struct {
+	CordonAndDrain,
+	Cordon,
+	NoAction Action
+}{
+	CordonAndDrain: Action("CordonAndDrain"),
+	Cordon:         Action("Cordon"),
+	NoAction:       Action("NoAction"),
+}
+
+// EventsSpec defines the action(s) that should be performed in response to a particular event.
+type EventsSpec struct {
+	AutoScalingTermination  Action `json:"autoScalingTermination,omitempty"`
+	RebalanceRecommendation Action `json:"rebalanceRecommendation,omitempty"`
+	ScheduledChange         Action `json:"scheduledChange,omitempty"`
+	SpotInterruption        Action `json:"spotInterruption,omitempty"`
+	StateChange             Action `json:"stateChange,omitempty"`
 }
 
 // TerminatorStatus defines the observed state of Terminator

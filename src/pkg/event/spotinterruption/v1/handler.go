@@ -19,17 +19,23 @@ package v1
 import (
 	"context"
 
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type EC2SpotInstanceInterruptionWarning AWSEvent
 
+func (EC2SpotInstanceInterruptionWarning) Kind() terminator.EventKind {
+	return terminator.EventKinds.SpotInterruption
+}
+
 func (e EC2SpotInstanceInterruptionWarning) EC2InstanceIDs() []string {
 	return []string{e.Detail.InstanceID}
 }
 
-func (e EC2SpotInstanceInterruptionWarning) Done(_ context.Context) (bool, error) {
+func (EC2SpotInstanceInterruptionWarning) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 

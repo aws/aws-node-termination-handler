@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-node-termination-handler/pkg/event/asgterminate/lifecycleaction"
+	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -28,6 +29,10 @@ import (
 type EC2InstanceTerminateLifecycleAction struct {
 	ASGLifecycleActionCompleter
 	AWSEvent
+}
+
+func (EC2InstanceTerminateLifecycleAction) Kind() terminator.EventKind {
+	return terminator.EventKinds.AutoScalingTermination
 }
 
 func (e EC2InstanceTerminateLifecycleAction) EC2InstanceIDs() []string {

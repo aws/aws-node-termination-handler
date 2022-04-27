@@ -97,6 +97,45 @@ spec:
                     {{- with .Values.terminator.defaults.drain.timeoutSeconds }}
                     default: {{ . }}
                     {{- end }}
+              events:
+                description: Specify what action should be taken when a particular message type is received.
+                type: object
+                properties:
+                  autoScalingTermination:
+                    type: string
+                    enum:
+                      - CordonAndDrain
+                      - Cordon
+                      - NoAction
+                    default: CordonAndDrain
+                  rebalanceRecommendation:
+                    type: string
+                    enum:
+                      - CordonAndDrain
+                      - Cordon
+                      - NoAction
+                    default: CordonAndDrain
+                  scheduledChange:
+                    type: string
+                    enum:
+                      - CordonAndDrain
+                      - Cordon
+                      - NoAction
+                    default: CordonAndDrain
+                  spotInterruption:
+                    type: string
+                    enum:
+                      - CordonAndDrain
+                      - Cordon
+                      - NoAction
+                    default: CordonAndDrain
+                  stateChange:
+                    type: string
+                    enum:
+                      - CordonAndDrain
+                      - Cordon
+                      - NoAction
+                    default: CordonAndDrain
           status:
             description: TerminatorStatus defines the observed state of Terminator
             type: object
