@@ -59,9 +59,9 @@ var Actions = struct {
 	Cordon,
 	NoAction Action
 }{
-	CordonAndDrain: "CordonAndDrain",
-	Cordon:         "Cordon",
-	NoAction:       "NoAction",
+	CordonAndDrain: Action("CordonAndDrain"),
+	Cordon:         Action("Cordon"),
+	NoAction:       Action("NoAction"),
 }
 
 // EventsSpec defines the action(s) that should be performed in response to a particular event.
