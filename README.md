@@ -27,11 +27,6 @@
 <hr>
 </div>
 
-### Community Meeting
-NTH community meeting is hosted on a monthly cadence. Everyone is welcome to participate!
-* **When:** first Tuesday of every month from 9:00-9:30AM PST | [Calendar Event (ics)](https://raw.githubusercontent.com/aws/aws-node-termination-handler/main/assets/nth-community-meeting.ics)
-* **Where:** [Chime meeting bridge](https://chime.aws/6502066216)
-
 
 ## Project Summary
 
