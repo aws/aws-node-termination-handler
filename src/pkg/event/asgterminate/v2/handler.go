@@ -18,6 +18,7 @@ package v2
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/event/asgterminate/lifecycleaction"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
@@ -31,8 +32,8 @@ type EC2InstanceTerminateLifecycleAction struct {
 	AWSEvent
 }
 
-func (EC2InstanceTerminateLifecycleAction) Kind() terminator.EventKind {
-	return terminator.EventKinds.AutoScalingTermination
+func (e EC2InstanceTerminateLifecycleAction) EventID() string {
+	return e.AWSEvent.ID
 }
 
 func (e EC2InstanceTerminateLifecycleAction) EC2InstanceIDs() []string {
@@ -48,7 +49,15 @@ func (e EC2InstanceTerminateLifecycleAction) Done(ctx context.Context) (bool, er
 	})
 }
 
+func (EC2InstanceTerminateLifecycleAction) Kind() terminator.EventKind {
+	return terminator.EventKinds.AutoScalingTermination
+}
+
 func (e EC2InstanceTerminateLifecycleAction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	zap.Inline(e.AWSEvent).AddTo(enc)
 	return nil
+}
+
+func (e EC2InstanceTerminateLifecycleAction) StartTime() time.Time {
+	return e.AWSEvent.Time
 }

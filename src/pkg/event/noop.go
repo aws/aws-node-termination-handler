@@ -18,6 +18,7 @@ package event
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
@@ -27,8 +28,8 @@ import (
 
 type noop AWSMetadata
 
-func (noop) Kind() terminator.EventKind {
-	return terminator.EventKinds.Noop
+func (noop) EventID() string {
+	return ""
 }
 
 func (noop) EC2InstanceIDs() []string {
@@ -39,7 +40,15 @@ func (noop) Done(_ context.Context) (bool, error) {
 	return true, nil
 }
 
+func (noop) Kind() terminator.EventKind {
+	return terminator.EventKinds.Noop
+}
+
 func (n noop) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	zap.Inline(AWSMetadata(n)).AddTo(enc)
 	return nil
+}
+
+func (noop) StartTime() time.Time {
+	return time.Now()
 }
