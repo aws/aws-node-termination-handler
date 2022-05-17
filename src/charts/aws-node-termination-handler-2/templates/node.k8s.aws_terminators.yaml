@@ -136,6 +136,42 @@ spec:
                       - Cordon
                       - NoAction
                     default: CordonAndDrain
+              webhook:
+                description: Send notification of handled events.
+                type: object
+                properties:
+                  url:
+                    description: URL to send notifications.
+                    type: string
+                  proxyURL:
+                    description: Proxy URL to use to send notifications.
+                    type: string
+                  headers:
+                    description: HTTP headers to include when sending notifications.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          description: Header name.
+                          type: string
+                        value:
+                          description: Header value.
+                          type: string
+                      required:
+                        - name
+                        - value
+                    {{- with .Values.terminator.defaults.webhook.headers }}
+                    default:
+                      {{- toYaml . | nindent 22 }}
+                    {{- end }}
+                  template:
+                    description: Used to generate the request payload.
+                    type: string
+                    {{- with .Values.terminator.defaults.webhook.template }}
+                    default: |
+                      {{ . }}
+                    {{- end }}
           status:
             description: TerminatorStatus defines the observed state of Terminator
             type: object
