@@ -1,3 +1,8 @@
+# The "grouped targets" feature requires Make 4.3.
+ifneq (4.3,$(firstword $(sort $(or $(MAKE_VERSION),00-unknown) 4.3)))
+    $(error using make version $(MAKE_VERSION), please use version 4.3 or newer)
+endif
+
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 KO = $(PROJECT_DIR)/bin/ko
@@ -15,6 +20,7 @@ KODATA = \
 	cmd/controller/kodata/refs \
 	cmd/webhook/kodata/HEAD \
 	cmd/webhook/kodata/refs
+CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -66,9 +72,13 @@ verify: ## Run go fmt and go vet against code.
 	go vet $(PROJECT_DIR)/...
 
 .PHONY: test
-test: $(GINKGO) ## Run tests.
+test $(CODECOVERAGE_OUT) &: $(GINKGO) ## Run tests.
 	go vet $(PROJECT_DIR)/...
 	$(GINKGO) run $(GINKGO_BASE_OPTS) $(GINKGO_OPTS) $(PROJECT_DIR)/test/
+
+.PHONY: explore-test-coverage
+explore-test-coverage: $(CODECOVERAGE_OUT) ## Display test coverage report in default web browser.
+	go tool cover -html=$<
 
 ##@ Build
 
