@@ -16,7 +16,7 @@ limitations under the License.
 
 package terminator
 
-type EventKind string
+type EventKind = string
 
 var EventKinds = struct {
 	AutoScalingTermination,
@@ -32,8 +32,4 @@ var EventKinds = struct {
 	SpotInterruption:        EventKind("spotInterruption"),
 	StateChange:             EventKind("stateChange"),
 	Noop:                    EventKind("noop"),
-}
-
-func (e EventKind) String() string {
-	return string(e)
 }

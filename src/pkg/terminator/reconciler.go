@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/api/v1alpha1"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
+	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 
 	"github.com/aws/aws-sdk-go/service/sqs"
 
@@ -47,6 +48,7 @@ type (
 	}
 
 	Event interface {
+		webhook.Event
 		zapcore.ObjectMarshaler
 
 		Done(context.Context) (tryAgain bool, err error)
@@ -83,13 +85,22 @@ type (
 		Parse(context.Context, *sqs.Message) Event
 	}
 
+	WebhookClient interface {
+		NewRequest() webhook.Request
+	}
+
+	WebhookClientBuilder interface {
+		NewWebhookClient(*v1alpha1.Terminator) (WebhookClient, error)
+	}
+
 	Reconciler struct {
+		CordonDrainerBuilder
+		Getter
 		NodeGetterBuilder
 		NodeNameGetter
 		SQSClientBuilder
 		SQSMessageParser
-		CordonDrainerBuilder
-		Getter
+		WebhookClientBuilder
 
 		Name            string
 		RequeueInterval time.Duration
@@ -109,6 +120,11 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 
 	nodeGetter := r.NewNodeGetter(terminator)
 
+	webhookClient, err := r.NewWebhookClient(terminator)
+	if err != nil {
+		logging.FromContext(ctx).With("error", err).Warn("failed to initialize webhook client")
+	}
+
 	cordondrainer, err := r.NewCordonDrainer(terminator)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -125,7 +141,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 	}
 
 	for _, msg := range sqsMessages {
-		e := r.handleMessage(ctx, msg, terminator, nodeGetter, cordondrainer, sqsClient)
+		e := r.handleMessage(ctx, msg, terminator, nodeGetter, cordondrainer, sqsClient, webhookClient.NewRequest())
 		err = multierr.Append(err, e)
 	}
 
@@ -135,11 +151,13 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 	return reconcile.Result{RequeueAfter: r.RequeueInterval}, nil
 }
 
-func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, terminator *v1alpha1.Terminator, nodeGetter NodeGetter, cordondrainer CordonDrainer, sqsClient SQSClient) (err error) {
+func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, terminator *v1alpha1.Terminator, nodeGetter NodeGetter, cordondrainer CordonDrainer, sqsClient SQSClient, webhookRequest webhook.Request) (err error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("sqsMessage", logging.NewMessageMarshaler(msg)))
 
 	evt := r.Parse(ctx, msg)
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("event", evt))
+
+	webhookRequest.Event = evt
 
 	evtAction := actionForEvent(evt, terminator)
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("action", evtAction))
@@ -147,7 +165,8 @@ func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, termina
 	allInstancesHandled := true
 	if evtAction != v1alpha1.Actions.NoAction {
 		for _, ec2InstanceID := range evt.EC2InstanceIDs() {
-			instanceHandled, e := r.handleInstance(ctx, ec2InstanceID, evtAction, nodeGetter, cordondrainer)
+			webhookRequest.InstanceID = ec2InstanceID
+			instanceHandled, e := r.handleInstance(ctx, ec2InstanceID, evtAction, nodeGetter, cordondrainer, webhookRequest)
 			err = multierr.Append(err, e)
 			allInstancesHandled = allInstancesHandled && instanceHandled
 		}
@@ -165,7 +184,7 @@ func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, termina
 	return multierr.Append(err, sqsClient.DeleteSQSMessage(ctx, msg))
 }
 
-func (r Reconciler) handleInstance(ctx context.Context, ec2InstanceID string, evtAction v1alpha1.Action, nodeGetter NodeGetter, cordondrainer CordonDrainer) (bool, error) {
+func (r Reconciler) handleInstance(ctx context.Context, ec2InstanceID string, evtAction v1alpha1.Action, nodeGetter NodeGetter, cordondrainer CordonDrainer, webhookRequest webhook.Request) (bool, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("ec2InstanceID", ec2InstanceID))
 
 	nodeName, err := r.GetNodeName(ctx, ec2InstanceID)
@@ -183,6 +202,13 @@ func (r Reconciler) handleInstance(ctx context.Context, ec2InstanceID string, ev
 		}
 		logger.Warn("no matching node found")
 		return false, nil
+	}
+
+	webhookRequest.NodeName = nodeName
+	if err = webhookRequest.Send(ctx); err != nil {
+		logging.FromContext(ctx).
+			With("error", err).
+			Error("webhook notification failed")
 	}
 
 	if err = cordondrainer.Cordon(ctx, node); err != nil {
