@@ -34,6 +34,7 @@ type TerminatorSpec struct {
 	SQS         SQSSpec           `json:"sqs,omitempty"`
 	Drain       DrainSpec         `json:"drain,omitempty"`
 	Events      EventsSpec        `json:"events,omitempty"`
+	Webhook     WebhookSpec       `json:"webhook,omitempty"`
 }
 
 // SQSSpec defines inputs to SQS "receive messages" requests.
@@ -71,6 +72,20 @@ type EventsSpec struct {
 	ScheduledChange         Action `json:"scheduledChange,omitempty"`
 	SpotInterruption        Action `json:"spotInterruption,omitempty"`
 	StateChange             Action `json:"stateChange,omitempty"`
+}
+
+// HeaderSpec defines the HTTP headers to include with webhook notifications.
+type HeaderSpec struct {
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
+}
+
+// WebhookSpec defines the configuration of webhook notifications to send when events are handled.
+type WebhookSpec struct {
+	URL      string       `json:"url,omitempty"`
+	ProxyURL string       `json:"proxyURL,omitempty"`
+	Headers  []HeaderSpec `json:"headers,omitempty"`
+	Template string       `json:"template,omitempty"`
 }
 
 // TerminatorStatus defines the observed state of Terminator
