@@ -89,6 +89,7 @@ var asgLifecycleTestNotification = sqsevent.EventBridgeEvent{
 		"arn:aws:autoscaling:us-east-1:123456789012:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/nth-test1",
 	},
 	Detail: []byte(`{
+		"Event": "autoscaling:TEST_NOTIFICATION",
 		"LifecycleTransition": "autoscaling:TEST_NOTIFICATION"
 	  }`),
 }
@@ -96,6 +97,7 @@ var asgLifecycleTestNotification = sqsevent.EventBridgeEvent{
 var asgLifecycleTestNotificationFromSQS = sqsevent.LifecycleDetail{
 	LifecycleHookName:    "test-nth-asg-to-sqs",
 	RequestID:            "3775fac9-93c3-7ead-8713-159816566000",
+	Event:                "autoscaling:TEST_NOTIFICATION",
 	LifecycleTransition:  "autoscaling:TEST_NOTIFICATION",
 	AutoScalingGroupName: "my-asg",
 	Time:                 "2022-01-31T23:07:47.872Z",

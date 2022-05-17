@@ -136,7 +136,8 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 		log.Err(err).Msg("only lifecycle events from ASG to SQS are supported outside EventBridge")
 		return eventBridgeEvent, err
 
-	case lifecycleEvent.LifecycleTransition == "autoscaling:TEST_NOTIFICATION":
+	case lifecycleEvent.Event == "autoscaling:TEST_NOTIFICATION" ||
+		lifecycleEvent.LifecycleTransition == "autoscaling:TEST_NOTIFICATION":
 		log.Warn().Msg("ignoring ASG test notification")
 		return eventBridgeEvent, skip{fmt.Errorf("message is a test notification")}
 

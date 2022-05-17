@@ -55,6 +55,7 @@ type LifecycleDetail struct {
 	LifecycleHookName    string `json:"LifecycleHookName"`
 	EC2InstanceID        string `json:"EC2InstanceId"`
 	LifecycleTransition  string `json:"LifecycleTransition"`
+	Event                string `json:"Event"`
 	RequestID            string `json:"RequestId"`
 	Time                 string `json:"Time"`
 }
@@ -66,7 +67,8 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		return nil, err
 	}
 
-	if lifecycleDetail.LifecycleTransition == "autoscaling:TEST_NOTIFICATION" {
+	if lifecycleDetail.Event == "autoscaling:TEST_NOTIFICATION" ||
+		lifecycleDetail.LifecycleTransition == "autoscaling:TEST_NOTIFICATION" {
 		return nil, skip{fmt.Errorf("message is an ASG test notification")}
 	}
 
