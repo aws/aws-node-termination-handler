@@ -48,6 +48,8 @@ import (
 }
 */
 
+const TEST_NOTIFICATION = "autoscaling:TEST_NOTIFICATION"
+
 // LifecycleDetail provides the ASG lifecycle event details
 type LifecycleDetail struct {
 	LifecycleActionToken string `json:"LifecycleActionToken"`
@@ -67,8 +69,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		return nil, err
 	}
 
-	if lifecycleDetail.Event == "autoscaling:TEST_NOTIFICATION" ||
-		lifecycleDetail.LifecycleTransition == "autoscaling:TEST_NOTIFICATION" {
+	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
 		return nil, skip{fmt.Errorf("message is an ASG test notification")}
 	}
 
