@@ -27,7 +27,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+
 	"github.com/rs/zerolog/log"
+
 	"go.uber.org/multierr"
 )
 
