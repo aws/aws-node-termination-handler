@@ -140,7 +140,6 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 		return eventBridgeEvent, err
 
 	case lifecycleEvent.Event == TEST_NOTIFICATION || lifecycleEvent.LifecycleTransition == TEST_NOTIFICATION:
-		log.Warn().Msg("ignoring ASG test notification")
 		err := fmt.Errorf("message is a test notification")
 		if errs := m.deleteMessages([]*sqs.Message{message}); errs != nil {
 			err = multierr.Append(err, errs[0])
