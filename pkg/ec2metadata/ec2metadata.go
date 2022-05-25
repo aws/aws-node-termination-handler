@@ -196,16 +196,17 @@ func (e *Service) GetRebalanceRecommendationEvent() (rebalanceRec *RebalanceReco
 // GetMetadataInfo generic function for retrieving ec2 metadata
 func (e *Service) GetMetadataInfo(path string) (info string, err error) {
 	resp, err := e.Request(path)
-	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
-	}
-	if err != nil {
+	if err != nil || resp == nil {
 		return "", fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("Unable to parse http response: %w", err)
+		return "", fmt.Errorf("Unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Debug().Msgf("Metadata response status code: %d. Body: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
 	}
 	return string(body), nil
 }
