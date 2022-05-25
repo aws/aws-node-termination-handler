@@ -27,7 +27,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+
 	"github.com/rs/zerolog/log"
+
+	"go.uber.org/multierr"
 )
 
 const (
@@ -137,8 +140,11 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 		return eventBridgeEvent, err
 
 	case lifecycleEvent.Event == TEST_NOTIFICATION || lifecycleEvent.LifecycleTransition == TEST_NOTIFICATION:
-		log.Warn().Msg("ignoring ASG test notification")
-		return eventBridgeEvent, skip{fmt.Errorf("message is a test notification")}
+		err := fmt.Errorf("message is a test notification")
+		if errs := m.deleteMessages([]*sqs.Message{message}); errs != nil {
+			err = multierr.Append(err, errs[0])
+		}
+		return eventBridgeEvent, skip{err}
 
 	case lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING":
 		log.Err(err).Msg("only lifecycle termination events from ASG to SQS are supported outside EventBridge")
