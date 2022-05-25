@@ -14,41 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package event
+package adapter
 
 import (
-	"context"
-	"time"
+	"net/http"
 
+	"github.com/aws/aws-node-termination-handler/api/v1alpha1"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 )
 
-type noop AWSMetadata
+type WebhookClientBuilder func(url, proxyURL, template string, headers http.Header) (webhook.Client, error)
 
-func (noop) EventID() string {
-	return ""
-}
+func (b WebhookClientBuilder) NewWebhookClient(terminator *v1alpha1.Terminator) (terminator.WebhookClient, error) {
+	headers := http.Header{}
+	for _, h := range terminator.Spec.Webhook.Headers {
+		headers.Add(h.Name, h.Value)
+	}
 
-func (noop) EC2InstanceIDs() []string {
-	return []string{}
-}
-
-func (noop) Done(_ context.Context) (bool, error) {
-	return true, nil
-}
-
-func (noop) Kind() terminator.EventKind {
-	return terminator.EventKinds.Noop
-}
-
-func (n noop) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	zap.Inline(AWSMetadata(n)).AddTo(enc)
-	return nil
-}
-
-func (noop) StartTime() time.Time {
-	return time.Now()
+	return b(
+		terminator.Spec.Webhook.URL,
+		terminator.Spec.Webhook.ProxyURL,
+		terminator.Spec.Webhook.Template,
+		headers,
+	)
 }

@@ -57,3 +57,22 @@ func (e EventsSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("stateChange", e.StateChange)
 	return nil
 }
+
+func (w WebhookSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("url", w.URL)
+	enc.AddString("proxyURL", w.ProxyURL)
+
+	enc.AddArray("headers", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+		for _, header := range w.Headers {
+			enc.AppendObject(zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+				enc.AddString("name", header.Name)
+				enc.AddString("value", header.Value)
+				return nil
+			}))
+		}
+		return nil
+	}))
+
+	enc.AddString("template", w.Template)
+	return nil
+}

@@ -14,22 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package terminator
+package webhook
 
-type EventKind = string
+import "time"
 
-var EventKinds = struct {
-	AutoScalingTermination,
-	RebalanceRecommendation,
-	ScheduledChange,
-	SpotInterruption,
-	StateChange,
-	Noop EventKind
-}{
-	AutoScalingTermination:  EventKind("autoScalingTermination"),
-	RebalanceRecommendation: EventKind("rebalanceRecommendation"),
-	ScheduledChange:         EventKind("scheduledChange"),
-	SpotInterruption:        EventKind("spotInterruption"),
-	StateChange:             EventKind("stateChange"),
-	Noop:                    EventKind("noop"),
+type Notification struct {
+	EventID    string
+	InstanceID string
+	Kind       string
+	NodeName   string
+	StartTime  time.Time
 }

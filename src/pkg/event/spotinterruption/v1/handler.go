@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
@@ -27,8 +28,8 @@ import (
 
 type EC2SpotInstanceInterruptionWarning AWSEvent
 
-func (EC2SpotInstanceInterruptionWarning) Kind() terminator.EventKind {
-	return terminator.EventKinds.SpotInterruption
+func (e EC2SpotInstanceInterruptionWarning) EventID() string {
+	return e.ID
 }
 
 func (e EC2SpotInstanceInterruptionWarning) EC2InstanceIDs() []string {
@@ -39,7 +40,15 @@ func (EC2SpotInstanceInterruptionWarning) Done(_ context.Context) (bool, error) 
 	return false, nil
 }
 
+func (EC2SpotInstanceInterruptionWarning) Kind() terminator.EventKind {
+	return terminator.EventKinds.SpotInterruption
+}
+
 func (e EC2SpotInstanceInterruptionWarning) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
+}
+
+func (e EC2SpotInstanceInterruptionWarning) StartTime() time.Time {
+	return e.Time
 }

@@ -57,6 +57,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/sqsmessage"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 	terminatoradapter "github.com/aws/aws-node-termination-handler/pkg/terminator/adapter"
+	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -172,6 +173,9 @@ func main() {
 				Drainer:   kubectlcordondrainer.DefaultDrainer,
 			},
 		},
+		WebhookClientBuilder: terminatoradapter.WebhookClientBuilder(
+			webhook.ClientBuilder(webhook.NewHttpClientDo).NewClient,
+		),
 	}
 	if err = rec.BuildController(
 		ctrl.NewControllerManagedBy(mgr).

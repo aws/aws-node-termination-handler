@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
@@ -27,8 +28,8 @@ import (
 
 type AWSHealthEvent AWSEvent
 
-func (AWSHealthEvent) Kind() terminator.EventKind {
-	return terminator.EventKinds.ScheduledChange
+func (e AWSHealthEvent) EventID() string {
+	return e.ID
 }
 
 func (e AWSHealthEvent) EC2InstanceIDs() []string {
@@ -43,7 +44,15 @@ func (AWSHealthEvent) Done(_ context.Context) (bool, error) {
 	return false, nil
 }
 
+func (AWSHealthEvent) Kind() terminator.EventKind {
+	return terminator.EventKinds.ScheduledChange
+}
+
 func (e AWSHealthEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
+}
+
+func (e AWSHealthEvent) StartTime() time.Time {
+	return e.Time
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"text/template"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -44,6 +45,7 @@ func (t *TerminatorSpec) validate() (errs *apis.FieldError) {
 		t.validateMatchLabels().ViaField("matchLabels"),
 		t.SQS.validate().ViaField("sqs"),
 		t.Events.validate().ViaField("events"),
+		t.Webhook.validate().ViaField("webhook"),
 	)
 }
 
@@ -76,5 +78,30 @@ func (e *EventsSpec) validate() (errs *apis.FieldError) {
 			errs = errs.Also(apis.ErrInvalidValue(value, name, errMsg))
 		}
 	}
+	return errs
+}
+
+func (w *WebhookSpec) validate() (errs *apis.FieldError) {
+	if _, err := url.Parse(w.URL); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(w.URL, "url", err.Error()))
+	}
+
+	if _, err := url.Parse(w.ProxyURL); err != nil && w.ProxyURL != "" {
+		errs = errs.Also(apis.ErrInvalidValue(w.ProxyURL, "proxyURL", "must be a valid URL"))
+	}
+
+	for i, h := range w.Headers {
+		if h.Name != "" {
+			continue
+		}
+		errs = errs.Also(apis.ErrInvalidValue(h.Name, "name", "must not be empty").ViaFieldIndex("headers", i))
+	}
+
+	if w.Template == "" {
+		errs = errs.Also(apis.ErrInvalidValue(w.Template, "template", "must not be empty"))
+	} else if _, err := template.New("Validate").Parse(w.Template); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(w.Template, "template", err.Error()))
+	}
+
 	return errs
 }

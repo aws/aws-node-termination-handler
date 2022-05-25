@@ -18,6 +18,11 @@ terminator:
             ignoreAllDaemonSets: true
             deleteEmptyDirData: true
             timeoutSeconds: 120
+        webhook:
+            headers:
+                - name: Content-Type
+                  value: application/json
+            template: '{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Start Time: {{ .StartTime }}"}'
 
 aws:
     # AWS region to use in API calls.

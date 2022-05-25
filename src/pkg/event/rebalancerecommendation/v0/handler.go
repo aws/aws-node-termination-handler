@@ -18,6 +18,7 @@ package v0
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
@@ -27,8 +28,8 @@ import (
 
 type EC2InstanceRebalanceRecommendation AWSEvent
 
-func (EC2InstanceRebalanceRecommendation) Kind() terminator.EventKind {
-	return terminator.EventKinds.RebalanceRecommendation
+func (e EC2InstanceRebalanceRecommendation) EventID() string {
+	return e.ID
 }
 
 func (e EC2InstanceRebalanceRecommendation) EC2InstanceIDs() []string {
@@ -39,7 +40,15 @@ func (EC2InstanceRebalanceRecommendation) Done(_ context.Context) (bool, error) 
 	return false, nil
 }
 
+func (EC2InstanceRebalanceRecommendation) Kind() terminator.EventKind {
+	return terminator.EventKinds.RebalanceRecommendation
+}
+
 func (e EC2InstanceRebalanceRecommendation) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
+}
+
+func (e EC2InstanceRebalanceRecommendation) StartTime() time.Time {
+	return e.Time
 }

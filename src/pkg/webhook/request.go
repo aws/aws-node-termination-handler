@@ -14,22 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package terminator
+package webhook
 
-type EventKind = string
+import (
+	"context"
+	"time"
+)
 
-var EventKinds = struct {
-	AutoScalingTermination,
-	RebalanceRecommendation,
-	ScheduledChange,
-	SpotInterruption,
-	StateChange,
-	Noop EventKind
-}{
-	AutoScalingTermination:  EventKind("autoScalingTermination"),
-	RebalanceRecommendation: EventKind("rebalanceRecommendation"),
-	ScheduledChange:         EventKind("scheduledChange"),
-	SpotInterruption:        EventKind("spotInterruption"),
-	StateChange:             EventKind("stateChange"),
-	Noop:                    EventKind("noop"),
+type (
+	sendFuncType func(context.Context, Notification) error
+
+	Event interface {
+		EventID() string
+		Kind() string
+		StartTime() time.Time
+	}
+
+	Request struct {
+		sendFunc sendFuncType
+
+		Event      Event
+		InstanceID string
+		NodeName   string
+	}
+)
+
+func (r Request) Send(ctx context.Context) error {
+	return r.sendFunc(ctx, Notification{
+		EventID:    r.Event.EventID(),
+		InstanceID: r.InstanceID,
+		Kind:       r.Event.Kind(),
+		NodeName:   r.NodeName,
+		StartTime:  r.Event.StartTime(),
+	})
 }

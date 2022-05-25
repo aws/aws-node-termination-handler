@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
@@ -27,8 +28,8 @@ import (
 
 type EC2InstanceStateChangeNotification AWSEvent
 
-func (EC2InstanceStateChangeNotification) Kind() terminator.EventKind {
-	return terminator.EventKinds.StateChange
+func (e EC2InstanceStateChangeNotification) EventID() string {
+	return e.ID
 }
 
 func (e EC2InstanceStateChangeNotification) EC2InstanceIDs() []string {
@@ -39,7 +40,15 @@ func (EC2InstanceStateChangeNotification) Done(_ context.Context) (bool, error) 
 	return false, nil
 }
 
+func (EC2InstanceStateChangeNotification) Kind() terminator.EventKind {
+	return terminator.EventKinds.StateChange
+}
+
 func (e EC2InstanceStateChangeNotification) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	zap.Inline(AWSEvent(e)).AddTo(enc)
 	return nil
+}
+
+func (e EC2InstanceStateChangeNotification) StartTime() time.Time {
+	return e.Time
 }
