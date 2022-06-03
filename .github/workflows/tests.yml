@@ -35,4 +35,3 @@ jobs:
 
     - name: make test
       run: make test
-      working-directory: ./src
