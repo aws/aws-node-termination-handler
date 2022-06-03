@@ -44,6 +44,8 @@ TBD
 ##  Contributing
 Contributions are welcome! Please read our [guidelines](https://github.com/aws/aws-node-termination-handler/blob/main/CONTRIBUTING.md) and our [Code of Conduct](https://github.com/aws/aws-node-termination-handler/blob/main/CODE_OF_CONDUCT.md)
 
+To setup a development environment see the instructions in [DEVELOPMENT.md](./DEVELOPMENT.md).
+
 ## License
 This project is licensed under the Apache-2.0 License.
 
