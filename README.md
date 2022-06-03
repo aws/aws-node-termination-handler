@@ -2,12 +2,6 @@
 
 <h4>Gracefully handle EC2 instance shutdown within Kubernetes</h4>
 
-### Community Meeting
-NTH community meeting is hosted on a monthly cadence. Everyone is welcome to participate!
-* **When:** first Tuesday of every month from 9:00-9:30AM PST | [Calendar Event (ics)](https://raw.githubusercontent.com/aws/aws-node-termination-handler/main/assets/nth-community-meeting.ics)
-* **Where:** [Chime meeting bridge](https://chime.aws/6502066216)
-
-
 ## Project Summary
 
 This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down.
