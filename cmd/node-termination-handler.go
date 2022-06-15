@@ -287,6 +287,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 	for {
 		interruptionEvent := <-cancelChan
 		nodeName := interruptionEvent.NodeName
+		eventID := interruptionEvent.EventID
 		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
 		if interruptionEventStore.ShouldUncordonNode(nodeName) {
 			log.Info().Msg("Uncordoning the node due to a cancellation event")
@@ -297,7 +298,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 			} else {
 				recorder.Emit(nodeName, observability.Normal, observability.UncordonReason, observability.UncordonMsg)
 			}
-			metrics.NodeActionsInc("uncordon", nodeName, err)
+			metrics.NodeActionsInc("uncordon", nodeName, eventID, err)
 
 			err = node.RemoveNTHLabels(nodeName)
 			if err != nil {
@@ -378,7 +379,7 @@ func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.Interr
 	} else {
 		recorder.Emit(nodeName, observability.Normal, observability.PreDrainReason, observability.PreDrainMsg)
 	}
-	metrics.NodeActionsInc("pre-drain", nodeName, err)
+	metrics.NodeActionsInc("pre-drain", nodeName, drainEvent.EventID, err)
 }
 
 func cordonNode(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) error {
@@ -393,7 +394,7 @@ func cordonNode(node node.Node, nodeName string, drainEvent *monitor.Interruptio
 		return err
 	} else {
 		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned")
-		metrics.NodeActionsInc("cordon", nodeName, err)
+		metrics.NodeActionsInc("cordon", nodeName, drainEvent.EventID, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonReason, observability.CordonMsg)
 	}
 	return nil
@@ -406,13 +407,13 @@ func cordonAndDrainNode(node node.Node, nodeName string, drainEvent *monitor.Int
 			log.Err(err).Msgf("node '%s' not found in the cluster", nodeName)
 		} else {
 			log.Err(err).Msg("There was a problem while trying to cordon and drain the node")
-			metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
+			metrics.NodeActionsInc("cordon-and-drain", nodeName, drainEvent.EventID, err)
 			recorder.Emit(nodeName, observability.Warning, observability.CordonAndDrainErrReason, observability.CordonAndDrainErrMsgFmt, err.Error())
 		}
 		return err
 	} else {
 		log.Info().Str("node_name", nodeName).Str("reason", drainEvent.Description).Msg("Node successfully cordoned and drained")
-		metrics.NodeActionsInc("cordon-and-drain", nodeName, err)
+		metrics.NodeActionsInc("cordon-and-drain", nodeName, drainEvent.EventID, err)
 		recorder.Emit(nodeName, observability.Normal, observability.CordonAndDrainReason, observability.CordonAndDrainMsg)
 	}
 	return nil
@@ -426,7 +427,7 @@ func runPostDrainTask(node node.Node, nodeName string, drainEvent *monitor.Inter
 	} else {
 		recorder.Emit(nodeName, observability.Normal, observability.PostDrainReason, observability.PostDrainMsg)
 	}
-	metrics.NodeActionsInc("post-drain", nodeName, err)
+	metrics.NodeActionsInc("post-drain", nodeName, drainEvent.EventID, err)
 }
 
 func getRegionFromQueueURL(queueURL string) string {

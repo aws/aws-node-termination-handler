@@ -32,6 +32,7 @@ var (
 	labelNodeActionKey = attribute.Key("node/action")
 	labelNodeStatusKey = attribute.Key("node/status")
 	labelNodeNameKey   = attribute.Key("node/name")
+	labelEventIDKey    = attribute.Key("node/event-id")
 )
 
 // Metrics represents the stats for observability
@@ -88,12 +89,12 @@ func (m Metrics) ErrorEventsInc(where string) {
 }
 
 // NodeActionsInc will increment one for the node stats counter, partitioned by action, nodeName and status, and only if metrics are enabled.
-func (m Metrics) NodeActionsInc(action, nodeName string, err error) {
+func (m Metrics) NodeActionsInc(action, nodeName string, eventID string, err error) {
 	if !m.enabled {
 		return
 	}
 
-	labels := []attribute.KeyValue{labelNodeActionKey.String(action), labelNodeNameKey.String(nodeName)}
+	labels := []attribute.KeyValue{labelNodeActionKey.String(action), labelNodeNameKey.String(nodeName), labelEventIDKey.String(eventID)}
 	if err != nil {
 		labels = append(labels, labelNodeStatusKey.String("error"))
 	} else {
