@@ -188,7 +188,9 @@ For a full list of configuration options see our [Helm readme](https://github.co
 
 ### Infrastructure Setup
 
-The termination handler deployment requires some infrastructure to be setup before deploying the application. You'll need the following AWS infrastructure components:
+The termination handler deployment requires some infrastructure to be set up before deploying the application. In a multi-cluster environment, you will need to repeat the following setup steps for each cluster.
+
+You'll need the following AWS infrastructure components:
 
 1. Amazon Simple Queue Service (SQS) Queue
 2. AutoScaling Group Termination Lifecycle Hook
@@ -197,7 +199,7 @@ The termination handler deployment requires some infrastructure to be setup befo
 
 #### 1. Create an SQS Queue:
 
-Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
+Here is the AWS CLI command to create an SQS queue to hold termination events from ASG and EC2, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation (template [here](docs/cfn-template.yaml)) or Terraform:
 
 ```
 ## Queue Policy
@@ -241,7 +243,7 @@ There are some caveats when using [server side encryption with SQS](https://docs
 * using [SSE-KMS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html) with an [AWS managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-mgmt) is not supported as the KMS key policy can't be updated to allow EventBridge to publish events to SQS.
 * using [SSE-SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html) doesn't require extra setup and works out of the box as SQS queues without encryption at rest.
 
-#### 2. Setup a Termination Lifecycle Hook on an ASG:
+#### 2. Set up a Termination Lifecycle Hook on an ASG:
 
 Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
@@ -291,7 +293,7 @@ See all the different events docs [here](https://docs.aws.amazon.com/eventbridge
 
 You may skip this step if sending events from ASG to SQS directly.
 
-Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform (template describing these resources can be found [here](docs/cfn-template.yaml)):
+Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation (template [here](docs/cfn-template.yaml)) or Terraform:
 
 ```
 $ aws events put-rule \
