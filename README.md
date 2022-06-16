@@ -188,7 +188,7 @@ For a full list of configuration options see our [Helm readme](https://github.co
 
 ### Infrastructure Setup
 
-The termination handler deployment requires some infrastructure to be set up before deploying the application. In a multi-cluster environment, you will need to repeat the following setup steps for each cluster.
+The termination handler requires some infrastructure prepared before deploying the application. In a multi-cluster environment, you will need to repeat the following steps for each cluster.
 
 You'll need the following AWS infrastructure components:
 
@@ -243,7 +243,7 @@ There are some caveats when using [server side encryption with SQS](https://docs
 * using [SSE-KMS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html) with an [AWS managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-mgmt) is not supported as the KMS key policy can't be updated to allow EventBridge to publish events to SQS.
 * using [SSE-SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html) doesn't require extra setup and works out of the box as SQS queues without encryption at rest.
 
-#### 2. Set up a Termination Lifecycle Hook on an ASG:
+#### 2. Create an ASG Termination Lifecycle Hook:
 
 Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
