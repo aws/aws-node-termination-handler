@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Message queue and infrastructure for use with AWS Node Termination Handler.
+
+Parameters:
+  ClusterName:
+    Description: EKS Cluster Name
+    Type: String
+
+  MessageRetentionPeriod:
+    Description: The number of seconds that SQS will retain a message.
+    Type: Number
+    MinValue: 60
+    MaxValue: 1209600
+    Default: 300
+
+  QueueName:
+    Description: Name for new queue
+    Type: String
+
+Resources:
+  Queue:
+    Description: Queue for messages from EC2 Auto Scaling.
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      Tags:
+        - Key: "nth:cluster-name"
+          Value: !Ref ClusterName
+
+  AutoScalingTerminateRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "nth_${ClusterName}_${QueueName}_auto-scaling-terminate"
+      Description: !Sub "Route instance-terminate lifecycle actions from EC2 Auto Scaling to SQS Queue, ${QueueName}."
+      EventPattern:
+        source:
+          - aws.autoscaling
+        detail-type:
+          - EC2 Instance-terminate Lifecycle Action
+        version:
+          - "1"
+          - "2"
+        detail:
+          LifecycleTransition:
+            - "autoscaling:EC2_INSTANCE_TERMINATING"
+      State: ENABLED
+      Targets:
+        - Id: !GetAtt Queue.QueueName
+          Arn: !GetAtt Queue.Arn
+
+  RebalanceRecommendationRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "nth_${ClusterName}_${QueueName}_rebalance-recommendation"
+      Description: !Sub "Route rebalance recommendations from EC2 to SQS Queue, ${QueueName}."
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Instance Rebalance Recommendation
+        version:
+          - "0"
+      State: ENABLED
+      Targets:
+        - Id: !GetAtt Queue.QueueName
+          Arn: !GetAtt Queue.Arn
+
+  ScheduledChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "nth_${ClusterName}_${QueueName}_scheduled-change"
+      Description: !Sub "Route scheduled change health events from AWS Health to SQS Queue, ${QueueName}."
+      EventPattern:
+        source:
+          - aws.health
+        detail-type:
+          - AWS Health Event
+        version:
+          - "1"
+        detail:
+          source:
+            - EC2
+          eventTypeCategory:
+            - scheduledChange
+      State: ENABLED
+      Targets:
+        - Id: !GetAtt Queue.QueueName
+          Arn: !GetAtt Queue.Arn
+
+  SpotInterruptionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "nth_${ClusterName}_${QueueName}_spot-interruption"
+      Description: !Sub "Route spot interruption notices from EC2 to SQS Queue, ${QueueName}."
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Spot Instance Interruption Warning
+        version:
+          - "1"
+      State: ENABLED
+      Targets:
+        - Id: !GetAtt Queue.QueueName
+          Arn: !GetAtt Queue.Arn
+
+  StateChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "nth_${ClusterName}_${QueueName}_state-change"
+      Description: !Sub "Route state change notifications from EC2 to SQS Queue, ${QueueName}."
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Instance State-change Notification
+        version:
+          - "1"
+        detail:
+          state:
+            - stopping
+            - stopped
+            - shutting-down
+            - terminated
+      State: ENABLED
+      Targets:
+        - Id: !GetAtt Queue.QueueName
+          Arn: !GetAtt Queue.Arn
+
+Outputs:
+  QueueURL:
+    Description: URL of SQS Queue.
+    Value: !Ref Queue

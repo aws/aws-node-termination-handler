@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Infrastructure needed by AWS Node Termination Handler.
+
+Parameters:
+  ClusterName:
+    Description: EKS Cluster Name
+    Type: String
+
+Resources:
+  ServiceAccountPolicy:
+    Description: >
+      This policy should be attached to the Kubernetes Service Account that will be used
+      by the AWS Node Termination Handler controller process to interact with AWS resources.
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ClusterName}-serviceaccount"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - autoscaling:CompleteLifecycleAction
+              - autoscaling:DescribeAutoScalingInstances
+              - autoscaling:DescribeTags
+              - ec2:DescribeInstances
+              - sqs:DeleteMessage
+              - sqs:ReceiveMessage
+            Resource: "*"
+
+Outputs:
+  ServiceAccountPolicyARN:
+    Description: ARN of the IAM Policy created for the Kubernetes Service Account.
+    Value: !Ref ServiceAccountPolicy

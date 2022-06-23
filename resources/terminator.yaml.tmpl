@@ -1,0 +1,33 @@
+apiVersion: node.k8s.aws/v1alpha1
+kind: Terminator
+metadata:
+  name: ${TERMINATOR_NAME}
+
+spec:
+  sqs:
+    queueURL: ${QUEUE_URL}
+
+  #matchLabels:
+  #  myLabel: foo
+
+  #events:
+  #  autoScalingTermination: CordonAndDrain
+  #  rebalanceRecommendation: CordonAndDrain
+  #  scheduledChange: CordonAndDrain
+  #  spotInterruption: CordonAndDrain
+  #  stateChange: CordonAndDrain
+
+  #drain:
+  #  force: true
+  #  gracePeriodSeconds: -1
+  #  ignoreAllDaemonSets: true
+  #  deleteEmptyDirData: true
+  #  timeoutSeconds: 120
+
+  #webhook:
+  #  url: http://example.com/my-webhook
+  #  proxyURL: https://proxy.example.com
+  #  headers:
+  #    - name: X-My-Custom-Header
+  #      value: foo
+  #  template: 'Kind: {{ .Kind }}, Node: {{ .NodeName }}, EventID: {{ .EventID }}'

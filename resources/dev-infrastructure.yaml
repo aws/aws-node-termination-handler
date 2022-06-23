@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Development environment infrastructure for AWS Node Termination Handler.
+
+Parameters:
+  ClusterName:
+    Description: EKS Cluster Name
+    Type: String
+
+Resources:
+  ControllerRepository:
+    Description: AWS ECR Repository where development builds of the AWS Node Termination Handler controller will be pushed.
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "nthv2/${ClusterName}/controller"
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: false
+
+  WebhookRepository:
+    Description: AWS ECR Repository where development builds of the AWS Node Termination Handler webhook handler will be pushed.
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "nthv2/${ClusterName}/webhook"
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: false
+
+Outputs:
+  ControllerRepositoryName:
+    Description: Name of the controller's ECR image repository.
+    Value: !Ref ControllerRepository
+
+  RepositoryBaseURI:
+    Description: Base URI for the controller and webhook image repositories.
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/nthv2/${ClusterName}"
+
+  WebhookRepositoryName:
+    Description: Name of the controller's ECR image repository.
+    Value: !Ref WebhookRepository
