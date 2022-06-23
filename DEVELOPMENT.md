@@ -1,73 +1,138 @@
 # Setup Development Environment
 
-## Clone the repo
+## 1. Clone the repo
 
 ```sh
-git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git 
-cd aws-node-termination-handler
+git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git nthv2
+cd nthv2
 ```
 
-## Set environment variables
+## 2. Set environment variables
+
+*Tip:* Several steps in this guide, and utility scripts, use environment variables. Saving these environment variables in a file, or using a shell extension like [direnv](https://direnv.net), will make it easy to restore your development environment in a new shell instance.
 
 ```sh
-export AWS_REGION=<region>
-export AWS_ACCOUNT_ID=<account-id>
 export CLUSTER_NAME=<name>
+export AWS_REGION=<region>
 ```
 
-## Create Image Repositories
+## 3. Create a basic EKS Cluster
+
+Skip this set if you already have an EKS cluster.
 
 ```sh
-aws ecr create-repository \
-    --repository-name nthv2/controller \
-    --image-scanning-configuration scanOnPush=true \
-    --region "${AWS_REGION}"
+envsubst <resources/eks-cluster.yaml.tmpl | eksctl create cluster --kubeconfig "${PWD}/kubeconfig" -f -
 
-aws ecr create-repository \
-    --repository-name nthv2/webhook \
-    --image-scanning-configuration scanOnPush=true \
-    --region "${AWS_REGION}"
+export KUBECONFIG="$PWD/kubeconfig"
+```
 
-export KO_DOCKER_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/nthv2"
+If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
+
+## 4. Create Infrastructure
+
+```sh
+export INFRASTRUCTURE_STACK_NAME="nth-${CLUSTER_NAME}"
+
+aws cloudformation deploy \
+    --template-file resources/infrastructure.yaml \
+    --stack-name "${INFRASTRUCTURE_STACK_NAME}" \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --parameter-overrides ClusterName="${CLUSTER_NAME}"
+
+export DEV_INFRASTRUCTURE_STACK_NAME="${INFRASTRUCTURE_NAME}-dev"
+
+aws cloudformation deploy \
+    --template-file resources/dev-infrastructure.yaml \
+    --stack-name "${DEV_INFRASTRUCTURE_STACK_NAME}" \
+    --parameter-overrides ClusterName="${CLUSTER_NAME}"
+
+export QUEUE_NAME=<name>
+export QUEUE_STACK_NAME="${INFRASTRUCTURE_STACK_NAME}-queue-${QUEUE_NAME}"
+
+aws cloudformation deploy \
+    --template-file resources/queue-infrastructure.yaml \
+    --stack-name "${QUEUE_STACK_NAME}" \
+    --parameter-overrides \
+        ClusterName="${CLUSTER_NAME}" \
+        QueueName="${QUEUE_NAME}"
+```
+
+## 5. Connect Infrastructure to EKS Cluster
+
+```sh
+export CLUSTER_NAMESPACE=<namespace>
+export SERVICE_ACCOUNT_NAME="nth-${CLUSTER_NAME}-serviceaccount"
+
+eksctl create iamserviceaccount \
+    --cluster "${CLUSTER_NAME}" \
+    --namespace "${CLUSTER_NAMESPACE}" \
+    --name "${SERVICE_ACCOUNT_NAME}" \
+    --role-name "${SERVICE_ACCOUNT_NAME}" \
+    --attach-policy-arn $(./scripts/get-cfn-stack-output.sh "${INFRASTRUCTURE_STACK_NAME}" ServiceAccountPolicyARN) \
+    --role-only \
+    --approve
+
+export SERVICE_ACCOUNT_ROLE_ARN=$(eksctl get iamserviceaccount \
+    --cluster "${CLUSTER_NAME}" \
+    --namespace "${CLUSTER_NAMESPACE}" \
+    --name "${SERVICE_ACCOUNT_NAME}" \
+    --output json | \
+    jq -r '.[0].status.roleARN')
+```
+
+## 6. Configure and Login to Image Repository
+
+```sh
+export KO_DOCKER_REPO=$(./scripts/get-cfn-stack-output.sh "${DEV_INFRASTRUCTURE_STACK_NAME}" RepositoryBaseURI)
 
 ./scripts/docker-login-ecr.sh
 ```
 
-## Create an EKS Cluster
-
-```sh
-envsubst src/resources/eks-cluster.yaml.tmpl | eksctl create cluster -f -
-```
-
-### Create the Controller IAM Role
-
-```sh
-aws cloudformation deploy \
-    --template-file src/resources/controller-iam-role.yaml \
-    --stack-name "nthv2-${CLUSTER_NAME}" \
-    --capabilities CAPABILITY_NAMED_IAM \
-    --parameter-overrides "ClusterName=${CLUSTER_NAME}"
-
-eksctl create iamserviceaccount \
-    --cluster "${CLUSTER_NAME}" \
-    --name nthv2 \
-    --namespace nthv2 \
-    --role-name "${CLUSTER_NAME}-nthv2" \
-    --attach-policy-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/Nthv2ControllerPolicy-${CLUSTER_NAME}" \
-    --role-only \
-    --approve
-
-export NTHV2_IAM_ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-nthv2
-```
-
-## Build and deploy controller to Kubernetes cluster
+## 7. Build and deploy controller to EKS cluster
 
 ```sh
 make apply
 ```
 
-## Remove deployed controller from Kubernetes cluster
+### 7.1. (Optional) Providing additional Helm values
+
+The `apply` target sets some Helm chart values for you based on environment variables. To set additional Helm values use the `HELM_OPTS` make argument. For example:
+
+```sh
+make HELM_OPTS='--set logging.level=debug' apply
+```
+
+## 8. Define and deploy a Terminator to EKS cluster
+
+```sh
+export TERMINATOR_NAME=<name>
+export QUEUE_URL=$(./scripts/get-cfn-stack-output.sh "${QUEUE_STACK_NAME}" QueueURL)
+
+envsubst <resources/terminator.yaml.tmpl >terminator-${TERMINATOR_NAME}.yaml
+
+kubectl apply -f terminator-${TERMINATOR_NAME}.yaml
+```
+
+If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
+
+## 9. Remove deployed controller from EKS cluster
 
 ```sh
 make delete
+```
+
+# Tear down Development Environment
+
+```sh
+make delete
+
+eksctl delete cluster --name "${CLUSTER_NAME}"
+
+aws cloudformation delete-stack --stack-name "${QUEUE_STACK_NAME}"
+
+./scripts/clear-image-repo.sh "$(./scripts/get-cfn-stack-output.sh ${DEV_INFRASTRUCTURE_STACK_NAME} ControllerRepositoryName)"
+./scripts/clear-image-repo.sh "$(./scripts/get-cfn-stack-output.sh ${DEV_INFRASTRUCTURE_STACK_NAME} WebhookRepositoryName)"
+aws cloudformation delete-stack --stack-name "${DEV_INFRASTRUCTURE_STACK_NAME}"
+
+aws cloudformation delete-stack --stack-name "${INFRASTRUCTURE_STACK_NAME}"
 ```

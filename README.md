@@ -17,20 +17,15 @@ This project ensures that the Kubernetes control plane responds appropriately to
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
-## Installation and Configuration
-
-TBD
-
-### Installation and Configuration
-
-TBD
+## Getting Started
 
 ### Infrastructure Setup
 
 TBD
 
-## Building
-For build instructions please consult [BUILD.md](./BUILD.md).
+### Installation and Configuration
+
+For a full list of inputs see the Helm chart [README.md](./charts/aws-node-termination-handler-2/README.md).
 
 ## Metrics
 
@@ -48,4 +43,3 @@ To setup a development environment see the instructions in [DEVELOPMENT.md](./DE
 
 ## License
 This project is licensed under the Apache-2.0 License.
-
