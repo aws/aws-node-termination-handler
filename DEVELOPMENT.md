@@ -39,7 +39,7 @@ aws cloudformation deploy \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides ClusterName="${CLUSTER_NAME}"
 
-export DEV_INFRASTRUCTURE_STACK_NAME="${INFRASTRUCTURE_NAME}-dev"
+export DEV_INFRASTRUCTURE_STACK_NAME="${INFRASTRUCTURE_STACK_NAME}-dev"
 
 aws cloudformation deploy \
     --template-file resources/dev-infrastructure.yaml \
