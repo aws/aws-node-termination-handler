@@ -38,14 +38,27 @@ aws cloudformation deploy \
     --stack-name "${INFRASTRUCTURE_STACK_NAME}" \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides ClusterName="${CLUSTER_NAME}"
+```
 
+Resources created:
+
+* `ServiceAccountPolicy` - IAM Managed Policy that allows access to Auto Scaling Groups, EC2, and SQS.
+
+```sh
 export DEV_INFRASTRUCTURE_STACK_NAME="${INFRASTRUCTURE_STACK_NAME}-dev"
 
 aws cloudformation deploy \
     --template-file resources/dev-infrastructure.yaml \
     --stack-name "${DEV_INFRASTRUCTURE_STACK_NAME}" \
     --parameter-overrides ClusterName="${CLUSTER_NAME}"
+```
 
+Resources created:
+
+* `ControllerRespository` - ECR Respository for images of the Kubernetes controller.
+* `WebhookRespository` - ECR Repository for images of the Kubernetes admission webhook.
+
+```sh
 export QUEUE_NAME=<name>
 export QUEUE_STACK_NAME="${INFRASTRUCTURE_STACK_NAME}-queue-${QUEUE_NAME}"
 
@@ -56,6 +69,15 @@ aws cloudformation deploy \
         ClusterName="${CLUSTER_NAME}" \
         QueueName="${QUEUE_NAME}"
 ```
+
+Resources created:
+
+* `Queue` - SQS Queue that will receive messages from EventBridge
+* `AutoScalingTerminationRule` - EventBridge Rule to route instance-terminate lifecycle action messages from Auto Scaling Groups to `Queue`
+* `RebalanceRecommendationRule` - EventBridge Rule to route rebalance recommendation messages from EC2 to `Queue`
+* `ScheduledChangeRule` - EventBridge Rule to route scheduled change messages from AWS Health to `Queue`
+* `SpotInterruptionRule` - EventBridge Rule to route EC2 Spot interruption notice messages from EC2 to `Queue`
+* `StateChangeRule` - EventBridgeRule to route state change messages from EC2 to `Queue`
 
 ## 4. Connect Infrastructure to EKS Cluster
 
