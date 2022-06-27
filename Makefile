@@ -5,7 +5,7 @@ CONTROLLER_GEN = $(BIN_DIR)controller-gen
 KO = $(BIN_DIR)/ko
 SETUP_ENVTEST = $(BIN_DIR)/setup-envtest
 GINKGO = $(BIN_DIR)/ginkgo
-HELM_BASE_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${NTHV2_IAM_ROLE_ARN}
+HELM_BASE_OPTS ?= --set aws.region=${AWS_REGION},serviceAccount.name=${SERVICE_ACCOUNT_NAME},serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${SERVICE_ACCOUNT_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 KODATA = \
 	cmd/controller/kodata/HEAD \

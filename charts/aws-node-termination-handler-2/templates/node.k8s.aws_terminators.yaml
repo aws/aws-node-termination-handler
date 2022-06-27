@@ -37,7 +37,7 @@ spec:
             type: object
             properties:
               matchLabels:
-                description: Filter nodes by label that will be acted upon.
+                description: Action will only be taken if the target node has all the matching labels and values.
                 type: object
                 additionalProperties:
                   type: string
@@ -56,43 +56,35 @@ spec:
                         * QueueURL is a required field
                     type: string
               drain:
-                description: TBD
+                description: Configuration for the cordon and drain actions.
                 type: object
                 properties:
                   force:
-                    description: TBD
+                    description: Enable termination of pods without a controller.
                     type: boolean
                     {{- with .Values.terminator.defaults.drain.force }}
                     default: {{ . }}
                     {{- end }}
                   gracePeriodSeconds:
-                    description: |
-                      Time to wait for a pod to terminate.
-
-                        * A value of 0 will cause pods to be deleted immediately.
-
-                        * A negative value will use the pod's terminationGracePeriodSeconds.
+                    description: Wait time for pods to exit. If negative then the pod's configured gracetime will be used.
                     type: integer
                     {{- with .Values.terminator.defaults.drain.gracePeriodSeconds }}
                     default: {{ . }}
                     {{- end }}
                   ignoreAllDaemonSets:
-                    description: Do not terminate pods managed by a daemon set.
+                    description: Enable ignoring pods managed by a DaemonSet.
                     type: boolean
                     {{- with .Values.terminator.defaults.drain.ignoreAllDaemonSets }}
                     default: {{ . }}
                     {{- end }}
                   deleteEmptyDirData:
-                    description: Terminate pods using emptyDir. The local data will be deleted.
+                    description: Enable termination of pods with local data that will be deleted.
                     type: boolean
                     {{- with .Values.terminator.defaults.drain.deleteEmptyDirData }}
                     default: {{ . }}
                     {{- end }}
                   timeoutSeconds:
-                    description: |
-                      Time to wait for a "delete" command to complete.
-
-                        * A value of 0 means to wait indefinitly.
+                    description: Wait time before failing the action. If zero, wait forever.
                     type: integer
                     {{- with .Values.terminator.defaults.drain.timeoutSeconds }}
                     default: {{ . }}

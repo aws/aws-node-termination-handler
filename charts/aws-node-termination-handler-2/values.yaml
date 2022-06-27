@@ -1,0 +1,194 @@
+# Annotation names and values to add to objects in the Helm release.
+annotations: {}
+
+aws:
+    # AWS region name (e.g. "us-east-1") to use when making API calls.
+    region: ""
+
+controller:
+    # Environment variables.
+    env: []
+    # Example:
+    #   - name: AWS_REGION
+    # .   value: eu-west-1
+
+    # Image to deploy.
+    image: "public.ecr.aws/aws-node-termination-handler:v2.0.0-0.1"
+
+    # Override global logging level.
+    logLevel: ""
+
+    # Additional security context configuration for the controller pod.
+    securityContext: {}
+
+    # Resources for the controller pod.
+    resources:
+        requests:
+            cpu: 1
+            memory: 1Gi
+        limits:
+            cpu: 1
+            memory: 1Gi
+
+# Override the Helm release name. Name will be truncated if longer than 63 characters.
+fullnameOverride: ""
+
+# Policy on when to pull image.
+# See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#container-v1-core
+imagePullPolicy: IfNotPresent
+
+# Secrets for accessing image.
+# See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#podspec-v1-core
+imagePullSecrets: []
+
+# Label names and values to add to objects in the Helm release.
+labels: {}
+
+# Global logging configuration.
+logging:
+    # Enable "debug mode" in logging module. May be useful during development.
+    development: false
+    # Disable annotating log messages with calling function's file name and line number.
+    disableCaller: true
+    # Disable stacktrace captures for all message levels.
+    disableStacktrace: true
+    # Logging module encoding mode. Possible values: `console`, `json`.
+    encoding: console
+    encoderConfig:
+        # Name of the caller field.
+        callerKey: caller
+        # Level encoder name. Possible values: `capital`, `capitalColor`, `color`; otherwise the level name
+        # will be encoded as lowercase.
+        levelEncoder: capital
+        # Name of the level field.
+        levelKey: level
+        # Name of the message field.
+        messageKey: message
+        # Name of the name field.
+        nameKey: logger
+        # Name of the stacktrace field.
+        stacktraceKey: stacktrace
+        # Time encoder name. Possible values: `iso8601`, `millis`, `nano`, `rfc3339`, `rfc3339nano`;
+        # otherwise the time will be encoded in epoch format.
+        timeEncoder: iso8601
+        # Name of the time field.
+        timeKey: time
+    # List of paths to output internal errors from the logging module. Possible values: `stderr`, `stdout`;
+    # otherwise a valid file path.
+    errorOutputPaths:
+        - stderr
+    # Minimum message level to include in the log. Possible values: `debug`, `info`, `warn`, `error`, `panic`,
+    # `fatal`.
+    level: info
+    # List of additional output paths. Possible values: `stderr`, `stdout`; otherwise a valid file path.
+    outputPaths:
+        - stdout
+    sampling:
+        # Limit of initial messages per second to accept.
+        initial: 100
+        # Limit of messages per second to accept after initial phase.
+        thereafter: 100
+
+# Override the Helm chart name. Name will be truncated if longer than 63 characters.
+nameOverride: ""
+
+pod:
+    # Annotations to apply to deployed pods.
+    annotations: {}
+
+    # Request host network for pod.
+    hostNetwork: false
+
+    # Labels to apply to deployed pods.
+    labels: {}
+
+    # Node selector labels.
+    nodeSelector:
+        kubernetes.io/os: linux
+
+    # Pod priority class.
+    # See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#podspec-v1-core
+    priorityClassName: "system-cluster-critical"
+
+    # Number of instances to create.
+    replicas: 1
+
+    # Pod security group configuration.
+    # See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#podsecuritycontext-v1-core
+    securityContext:
+        fsGroup: 1000
+
+    # Deployment update strategy configuration.
+    # See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deploymentstrategy-v1-apps
+    updateStrategy:
+        type: Recreate
+
+rbac:
+    # Create the RBAC objects. May fail if RBAC objects already exist.
+    create: true
+
+serviceAccount:
+    # Create the service account. May fail if service account already exists.
+    create: true
+
+    # Name of service account. If empty then a name will be generated.
+    name: ""
+
+    # Annotations to add to the service account.
+    annotations: {}
+        # "eks.amazonaws.com/role-arn": <Service Account ARN>
+
+terminator:
+    defaults:
+        drain:
+            # Terminate pods that do not have a controller.
+            force: true
+            # Duration to wait for each pod to terminate. If negative then the pod's grace period will be used.
+            gracePeriodSeconds: -1
+            # Do not terminate pods managed by a DaemonSet.
+            ignoreAllDaemonSets: true
+            # Terminate pods that have local data that will be deleted.
+            deleteEmptyDirData: true
+            # Duration to wait before giving up. If 0, then wait forever.
+            timeoutSeconds: 120
+        webhook:
+            # List of HTTP heads to include in webhook requests.
+            headers:
+                - name: Content-Type
+                  value: application/json
+            # Template used to generate webhook request body. The template may reference:
+            # * EventID
+            # * Kind
+            # * InstanceID
+            # * NodeName
+            # * StartTime
+            # See https://pkg.go.dev/text/template documentation for template format examples and explanation.
+            template: '{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Start Time: {{ .StartTime }}"}'
+
+webhook:
+    # Environment variables.
+    env: []
+    # Example:
+    #   - name: AWS_REGION
+    # .   value: eu-west-1
+
+    # Image to deploy.
+    image: "public.ecr.aws/aws-node-termination-handler:v2.0.0-0.1"
+
+    # Override global logging level.
+    logLevel: ""
+
+    # Listen on port.
+    port: 8443
+
+    # Resources for the webhook pod.
+    resources:
+        requests:
+            cpu: 100m
+            memory: 50Mi
+        limits:
+            cpu: 100m
+            memory: 50Mi
+
+    # Additional security context configuration for the webhook pod.
+    securityContext: {}
