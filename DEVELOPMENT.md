@@ -7,7 +7,7 @@ git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git nt
 cd nthv2
 ```
 
-## 2. Set environment variables
+## 2. Specify an EKS Cluster
 
 *Tip:* Several steps in this guide, and utility scripts, use environment variables. Saving these environment variables in a file, or using a shell extension like [direnv](https://direnv.net), will make it easy to restore your development environment in a new shell instance.
 
@@ -16,7 +16,7 @@ export CLUSTER_NAME=<name>
 export AWS_REGION=<region>
 ```
 
-## 3. Create a basic EKS Cluster
+### 2.1. (Optional) Create the EKS Cluster
 
 Skip this set if you already have an EKS cluster.
 
@@ -28,7 +28,7 @@ export KUBECONFIG="$PWD/kubeconfig"
 
 If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
 
-## 4. Create Infrastructure
+## 3. Create Infrastructure
 
 ```sh
 export INFRASTRUCTURE_STACK_NAME="nth-${CLUSTER_NAME}"
@@ -57,7 +57,7 @@ aws cloudformation deploy \
         QueueName="${QUEUE_NAME}"
 ```
 
-## 5. Connect Infrastructure to EKS Cluster
+## 4. Connect Infrastructure to EKS Cluster
 
 ```sh
 export CLUSTER_NAMESPACE=<namespace>
@@ -80,7 +80,7 @@ export SERVICE_ACCOUNT_ROLE_ARN=$(eksctl get iamserviceaccount \
     jq -r '.[0].status.roleARN')
 ```
 
-## 6. Configure and Login to Image Repository
+## 5. Configure and Login to Image Repository
 
 ```sh
 export KO_DOCKER_REPO=$(./scripts/get-cfn-stack-output.sh "${DEV_INFRASTRUCTURE_STACK_NAME}" RepositoryBaseURI)
@@ -88,13 +88,13 @@ export KO_DOCKER_REPO=$(./scripts/get-cfn-stack-output.sh "${DEV_INFRASTRUCTURE_
 ./scripts/docker-login-ecr.sh
 ```
 
-## 7. Build and deploy controller to EKS cluster
+## 6. Build and deploy controller to EKS cluster
 
 ```sh
 make apply
 ```
 
-### 7.1. (Optional) Providing additional Helm values
+### 6.1. (Optional) Providing additional Helm values
 
 The `apply` target sets some Helm chart values for you based on environment variables. To set additional Helm values use the `HELM_OPTS` make argument. For example:
 
@@ -102,7 +102,7 @@ The `apply` target sets some Helm chart values for you based on environment vari
 make HELM_OPTS='--set logging.level=debug' apply
 ```
 
-## 8. Define and deploy a Terminator to EKS cluster
+## 7. Define and deploy a Terminator to EKS cluster
 
 ```sh
 export TERMINATOR_NAME=<name>
@@ -115,7 +115,7 @@ kubectl apply -f terminator-${TERMINATOR_NAME}.yaml
 
 If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
 
-## 9. Remove deployed controller from EKS cluster
+## 8. Remove deployed controller from EKS cluster
 
 ```sh
 make delete
