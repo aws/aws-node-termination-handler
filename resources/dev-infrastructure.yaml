@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: Development environment infrastructure for AWS Node Termination Handler.
+Description: ECR Repositories for AWS Node Termination Handler Kubernetes controller and admissions webhook.
 
 Parameters:
   ClusterName:

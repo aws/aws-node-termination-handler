@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: Infrastructure needed by AWS Node Termination Handler.
+Description: IAM Managed Policy for AWS Node Termination Handler Kubernetes controller.
 
 Parameters:
   ClusterName:

@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: Message queue and infrastructure for use with AWS Node Termination Handler.
+Description: SQS Queue and EventBridge Rules for messages handled by AWS Node Termination Handler.
 
 Parameters:
   ClusterName:
