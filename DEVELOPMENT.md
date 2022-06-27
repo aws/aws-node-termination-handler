@@ -9,7 +9,7 @@ cd nthv2
 
 ## 2. Specify an EKS Cluster
 
-*Tip:* Several steps in this guide, and utility scripts, use environment variables. Saving these environment variables in a file, or using a shell extension like [direnv](https://direnv.net), will make it easy to restore your development environment in a new shell instance.
+*Tip:* Several steps in this guide, and utility scripts, use environment variables. Saving these environment variables in a file, or using a shell extension that manages sets of environment variables, will make it easier to restore your development environment in a new shell.
 
 ```sh
 export CLUSTER_NAME=<name>
