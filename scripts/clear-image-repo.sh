@@ -3,7 +3,7 @@
 usage=$(cat << EOM
 usage: $(basename "$0") -h | REPO_NAME
 
-    Delete all image in an ECR repository.
+    Delete all images in an ECR repository.
 
     Options:
         -h      Print usage message then exit.

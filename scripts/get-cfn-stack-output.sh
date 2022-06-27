@@ -3,7 +3,7 @@
 usage=$(cat << EOM
 usage: $(basename "$0") -h | STACK_NAME OUTPUT_NAME
 
-    Get the specified output value from a Cloud Formation stack.
+    Get the specified output value from a CloudFormation stack.
 
     Options:
         -h      Print usage message then exit.
