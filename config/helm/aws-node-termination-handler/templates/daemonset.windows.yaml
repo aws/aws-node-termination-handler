@@ -77,6 +77,8 @@ spec:
               value: {{ .Values.probes.httpGet.port | quote }}
             - name: PROBES_SERVER_ENDPOINT
               value: {{ .Values.probes.httpGet.path | quote }}
+            - name: CHECK_ASG_TAG_BEFORE_DRAINING
+              value: {{ .Values.checkASGTagBeforeDraining | quote }}
             - name: LOG_LEVEL
               value: {{ .Values.logLevel | quote }}
             - name: JSON_LOGGING
