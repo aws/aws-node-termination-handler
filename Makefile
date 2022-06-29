@@ -105,7 +105,9 @@ $(KODATA):
 
 .PHONY: apply
 apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes cluster.
-	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
+	helm upgrade --install dev charts/aws-node-termination-handler-2 \
+		--namespace ${CLUSTER_NAMESPACE} \
+		--create-namespace \
 		$(HELM_BASE_OPTS) \
 		$(HELM_OPTS) \
 		--set controller.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler/cmd/controller) \
