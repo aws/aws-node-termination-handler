@@ -32,7 +32,7 @@ Resources:
   AutoScalingTerminateRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "nth_${ClusterName}_${QueueName}_auto-scaling-terminate"
+      Name: !Sub "nth_${ClusterName}_${QueueName}_asgtrm"
       Description: !Sub "Route instance-terminate lifecycle actions from EC2 Auto Scaling to SQS Queue, ${QueueName}."
       EventPattern:
         source:
@@ -53,7 +53,7 @@ Resources:
   RebalanceRecommendationRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "nth_${ClusterName}_${QueueName}_rebalance-recommendation"
+      Name: !Sub "nth_${ClusterName}_${QueueName}_rebrec"
       Description: !Sub "Route rebalance recommendations from EC2 to SQS Queue, ${QueueName}."
       EventPattern:
         source:
@@ -70,7 +70,7 @@ Resources:
   ScheduledChangeRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "nth_${ClusterName}_${QueueName}_scheduled-change"
+      Name: !Sub "nth_${ClusterName}_${QueueName}_schchg"
       Description: !Sub "Route scheduled change health events from AWS Health to SQS Queue, ${QueueName}."
       EventPattern:
         source:
@@ -92,7 +92,7 @@ Resources:
   SpotInterruptionRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "nth_${ClusterName}_${QueueName}_spot-interruption"
+      Name: !Sub "nth_${ClusterName}_${QueueName}_sptint"
       Description: !Sub "Route spot interruption notices from EC2 to SQS Queue, ${QueueName}."
       EventPattern:
         source:
@@ -109,7 +109,7 @@ Resources:
   StateChangeRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "nth_${ClusterName}_${QueueName}_state-change"
+      Name: !Sub "nth_${ClusterName}_${QueueName}_sttchg"
       Description: !Sub "Route state change notifications from EC2 to SQS Queue, ${QueueName}."
       EventPattern:
         source:

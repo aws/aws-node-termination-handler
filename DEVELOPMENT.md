@@ -59,6 +59,10 @@ Resources created:
 * `WebhookRespository` - ECR Repository for images of the Kubernetes admission webhook.
 
 ```sh
+# Note: The queue-infrastructure.yaml template generates the names of EventBridge rules
+# from the ClusterName and QueueName parameters. To avoid exceeding name length limits
+# the combined length of ClusterName and QueueName parameters should not exceed 51
+# characters.
 export QUEUE_NAME=<name>
 export QUEUE_STACK_NAME="${INFRASTRUCTURE_STACK_NAME}-queue-${QUEUE_NAME}"
 
