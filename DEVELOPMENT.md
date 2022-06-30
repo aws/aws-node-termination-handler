@@ -12,6 +12,11 @@
 ```sh
 git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git nthv2
 cd nthv2
+
+# Display all targets and the descriptions.
+make help
+
+make test
 ```
 
 ## 2. Specify an EKS Cluster
