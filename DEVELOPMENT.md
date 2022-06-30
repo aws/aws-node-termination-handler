@@ -1,5 +1,12 @@
 # Setup Development Environment
 
+**Tools used in this guide**
+* [kubectl](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html)
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions) - version 2 is recommended
+* [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html)
+* [jq](https://stedolan.github.io/jq/)
+* [envsubst](https://www.gnu.org/software/gettext/manual/html_node/envsubst-Invocation.html)
+
 ## 1. Clone the repo
 
 ```sh
