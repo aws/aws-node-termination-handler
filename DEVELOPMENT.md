@@ -26,7 +26,7 @@ envsubst <resources/eks-cluster.yaml.tmpl | eksctl create cluster --kubeconfig "
 export KUBECONFIG="$PWD/kubeconfig"
 ```
 
-If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
+As an alternative to using `envsubst` you can copy the template file and substitute the referenced values.
 
 ## 3. Create Infrastructure
 
@@ -139,7 +139,7 @@ envsubst <resources/terminator.yaml.tmpl >terminator-${TERMINATOR_NAME}.yaml
 kubectl apply -f terminator-${TERMINATOR_NAME}.yaml
 ```
 
-If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
+As an alternative to using `envsubst` you can copy the template file and substitute the referenced values.
 
 ## 8. Remove deployed controller from EKS cluster
 
