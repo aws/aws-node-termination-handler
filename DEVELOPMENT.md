@@ -40,6 +40,12 @@ export KUBECONFIG="$PWD/kubeconfig"
 
 As an alternative to using `envsubst` you can copy the template file and substitute the referenced values.
 
+### 2.2. Create an IAM OIDC provider
+
+*Note:* If you created your cluster using `resource/eks-cluster.yaml.tmpl` in the previous step then your cluster will already have an IAM OIDC provider.
+
+This [guide](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) will walk you through determining whether you cluster already has an IAM OIDC provider, and how to create one if it does not already exist.
+
 ## 3. Create Infrastructure
 
 ```sh
