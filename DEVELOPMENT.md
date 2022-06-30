@@ -140,6 +140,13 @@ The `apply` target sets some Helm chart values for you based on environment vari
 make HELM_OPTS='--set logging.level=debug' apply
 ```
 
+### 6.2. (Optional) List all deployed resources
+
+```sh
+kubectl api-resources --verbs=list --namespaced -o name | \
+    xargs -n 1 kubectl get --show-kind --ignore-not-found --namespace "${CLUSTER_NAMESPACE}"
+```
+
 ## 7. Define and deploy a Terminator to EKS cluster
 
 ```sh
