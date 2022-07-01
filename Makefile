@@ -58,7 +58,7 @@ $(GINKGO):
 	GOBIN="$(BIN_DIR)" go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
 
 $(KO):
-	GOBIN="$(BIN_DIR)" go install github.com/google/ko@v0.9.3
+	@./scripts/download-ko.sh "$(BIN_DIR)"
 
 $(SETUP_ENVTEST):
 	GOBIN="$(BIN_DIR)" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220217150738-f62a0f579d73

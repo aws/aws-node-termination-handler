@@ -2,16 +2,18 @@
 
 **Tools used in this guide**
 * [kubectl](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html)
-* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions) - version 2 is recommended
+* [aws](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions) - version 2 is recommended
 * [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html)
 * [jq](https://stedolan.github.io/jq/)
 * [envsubst](https://www.gnu.org/software/gettext/manual/html_node/envsubst-Invocation.html)
+* [wget](https://www.gnu.org/software/wget/)
+* [Go](https://go.dev/dl/) - version 1.17+
 
 ## 1. Clone the repo
 
 ```sh
-git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git nthv2
-cd nthv2
+git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git "${GOPATH}/src/nthv2"
+cd "${GOPATH}/src/nthv2"
 
 # Display all targets and the descriptions.
 make help
