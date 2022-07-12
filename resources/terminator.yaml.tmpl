@@ -2,6 +2,7 @@ apiVersion: node.k8s.aws/v1alpha1
 kind: Terminator
 metadata:
   name: ${TERMINATOR_NAME}
+  namespace: ${CLUSTER_NAMESPACE}
 
 spec:
   sqs:
