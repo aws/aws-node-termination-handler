@@ -23,8 +23,7 @@ CHART=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/Chart.yaml
 CURR_CHART_VERSION=$(cat $CHART | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
 UPDATED_CHART_VERSION=""
 CHART_VALUES=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/values.yaml
-# ReadMe will be updated post-release due to long NTH release time
-FILES=("$CHART" "$CHART_VALUES")
+FILES=("$REPO_README" "$CHART" "$CHART_VALUES")
 FILES_CHANGED=()
 
 # release prep
@@ -54,7 +53,6 @@ HELP=$(cat << 'EOM'
 
   Options:
     -d      create a draft pr
-    -m      update versions in ReadMe only
     -r      target repo full name for the pr (default: aws/aws-node-termination-handler)
     -h      help
 
@@ -69,7 +67,7 @@ REPO_FULL_NAME=""
 NEED_ROLLBACK=true
 
 process_args() {
-    while getopts "hdmr:" opt; do
+    while getopts "hdr:" opt; do
         case ${opt} in
             h )
             echo -e "$HELP" 1>&2
@@ -77,13 +75,6 @@ process_args() {
             ;;
             d )
             DRAFT=true
-            ;;
-            m )
-            FILES=("$REPO_README")
-            # release should be completed, so no longer prep
-            COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release 🤖🥑"
-            PR_TITLE="🥑🤖 $LATEST_TAG release"
-            RELEASE_PREP=false
             ;;
             r )
             # todo: validate $REPO_FULL_NAME

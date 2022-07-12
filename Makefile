@@ -158,9 +158,6 @@ create-local-release-tag-patch:
 create-release-prep-pr:
 	${MAKEFILE_PATH}/scripts/prepare-for-release
 
-create-release-prep-pr-readme:
-	${MAKEFILE_PATH}/scripts/prepare-for-release -m
-
 create-release-prep-pr-draft:
 	${MAKEFILE_PATH}/scripts/prepare-for-release -d
 
