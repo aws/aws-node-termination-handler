@@ -13,6 +13,8 @@ spec:
     listKind: TerminatorList
     plural: terminators
     singular: terminator
+    categories:
+    - all
   scope: Namespaced
   versions:
   - name: v1alpha1
