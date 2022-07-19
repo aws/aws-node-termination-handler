@@ -52,6 +52,7 @@ fi
 
 echo "Downloading github.com/google/ko@v${version} ..."
 
+mkdir -p "${dir_path}"
 cd "${dir_path}"
 wget https://github.com/google/ko/releases/download/v${version}/ko_${version}_${os}_${arch}.tar.gz -O - | \
     tar xzf - ko
