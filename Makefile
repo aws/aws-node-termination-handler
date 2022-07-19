@@ -116,4 +116,4 @@ apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes clus
 
 .PHONY: delete
 delete:  ## Delete controller from current kubernetes cluster.
-	helm uninstall dev --namespace nthv2
+	helm uninstall dev --namespace ${CLUSTER_NAMESPACE}
