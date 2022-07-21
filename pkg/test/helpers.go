@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+	"time"
 )
 
 // Assert fails the test if the condition is false.
@@ -56,4 +57,13 @@ func Equals(tb testing.TB, exp, act interface{}) {
 		tb.FailNow()
 	}
 
+}
+
+// TimeWithinRange fails the test if act is not after lowerBound or not before upperBound
+func TimeWithinRange(tb testing.TB, act time.Time, lowerBound time.Time, upperBound time.Time) {
+	if !(act.After(lowerBound) && act.Before(upperBound)) {
+		_, file, line, _ := runtime.Caller(1)
+		fmt.Printf("\033[31m%s:%d:\n\n\tlower bound: %#v\n\n\tgot: %#v\n\n\tupper bound: %#v\033[39m\n\n", filepath.Base(file), line, lowerBound, act, upperBound)
+		tb.FailNow()
+	}
 }

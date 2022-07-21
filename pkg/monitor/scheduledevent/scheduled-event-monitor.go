@@ -105,7 +105,7 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.Interruption
 			Description:  fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
 			State:        scheduledEvent.State,
 			NodeName:     m.NodeName,
-			StartTime:    notBefore,
+			StartTime:    time.Now(),
 			EndTime:      notAfter,
 			PreDrainTask: preDrainFunc,
 		})

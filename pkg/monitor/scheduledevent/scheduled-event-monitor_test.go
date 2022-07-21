@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -47,6 +48,11 @@ var scheduledEventResponse = []byte(`[{
 	"State": "` + scheduledEventState + `"
 }]`)
 
+// oneSecondAgo returns a time.Time object representing one second prior to now
+func oneSecondAgo() time.Time {
+	return time.Now().Add(time.Second * -1)
+}
+
 func TestMonitor_Success(t *testing.T) {
 	var requestPath string = ec2metadata.ScheduledEventPath
 
@@ -71,7 +77,7 @@ func TestMonitor_Success(t *testing.T) {
 		h.Equals(t, scheduledEventId, result.EventID)
 		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
 		h.Equals(t, scheduledEventState, result.State)
-		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
+		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
 
 		h.Assert(t, strings.Contains(result.Description, scheduledEventCode),
@@ -126,7 +132,7 @@ func TestMonitor_CanceledEvent(t *testing.T) {
 		h.Equals(t, scheduledEventId, result.EventID)
 		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
 		h.Equals(t, state, result.State)
-		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
+		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
 
 		h.Assert(t, strings.Contains(result.Description, scheduledEventCode),
@@ -253,7 +259,7 @@ func TestMonitor_EndTimeParseFail(t *testing.T) {
 		h.Equals(t, scheduledEventId, result.EventID)
 		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
 		h.Equals(t, scheduledEventState, result.State)
-		h.Equals(t, expScheduledEventStartTimeFmt, result.StartTime.String())
+		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventStartTimeFmt, result.EndTime.String())
 
 		h.Assert(t, strings.Contains(result.Description, scheduledEventCode),
