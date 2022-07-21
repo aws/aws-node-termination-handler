@@ -58,7 +58,7 @@ $(GINKGO):
 	GOBIN="$(BIN_DIR)" go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
 
 $(KO):
-	GOBIN="$(BIN_DIR)" go install github.com/google/ko@v0.9.3
+	@./scripts/download-ko.sh "$(BIN_DIR)"
 
 $(SETUP_ENVTEST):
 	GOBIN="$(BIN_DIR)" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220217150738-f62a0f579d73
@@ -105,7 +105,9 @@ $(KODATA):
 
 .PHONY: apply
 apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes cluster.
-	helm upgrade --install dev charts/aws-node-termination-handler-2 --namespace nthv2 --create-namespace \
+	helm upgrade --install dev charts/aws-node-termination-handler-2 \
+		--namespace ${CLUSTER_NAMESPACE} \
+		--create-namespace \
 		$(HELM_BASE_OPTS) \
 		$(HELM_OPTS) \
 		--set controller.image=$(shell $(KO) publish -B github.com/aws/aws-node-termination-handler/cmd/controller) \
@@ -114,4 +116,4 @@ apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes clus
 
 .PHONY: delete
 delete:  ## Delete controller from current kubernetes cluster.
-	helm uninstall dev --namespace nthv2
+	helm uninstall dev --namespace ${CLUSTER_NAMESPACE}

@@ -1,10 +1,24 @@
 # Setup Development Environment
 
+**Tools used in this guide**
+* [kubectl](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html)
+* [aws](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions) - version 2 is recommended
+* [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html)
+* [jq](https://stedolan.github.io/jq/)
+* [envsubst](https://www.gnu.org/software/gettext/manual/html_node/envsubst-Invocation.html)
+* [wget](https://www.gnu.org/software/wget/)
+* [Go](https://go.dev/dl/) - version 1.17+
+
 ## 1. Clone the repo
 
 ```sh
-git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git nthv2
-cd nthv2
+git clone --branch v2 https://github.com/aws/aws-node-termination-handler.git "${GOPATH}/src/nthv2"
+cd "${GOPATH}/src/nthv2"
+
+# Display all targets and the descriptions.
+make help
+
+make test
 ```
 
 ## 2. Specify an EKS Cluster
@@ -26,7 +40,13 @@ envsubst <resources/eks-cluster.yaml.tmpl | eksctl create cluster --kubeconfig "
 export KUBECONFIG="$PWD/kubeconfig"
 ```
 
-If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
+As an alternative to using `envsubst` you can copy the template file and substitute the referenced values.
+
+### 2.2. Create an IAM OIDC provider
+
+*Note:* If you created your cluster using `resource/eks-cluster.yaml.tmpl` in the previous step then your cluster will already have an IAM OIDC provider.
+
+This [guide](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) will walk you through determining whether you cluster already has an IAM OIDC provider, and how to create one if it does not already exist.
 
 ## 3. Create Infrastructure
 
@@ -59,6 +79,10 @@ Resources created:
 * `WebhookRespository` - ECR Repository for images of the Kubernetes admission webhook.
 
 ```sh
+# Note: The queue-infrastructure.yaml template generates the names of EventBridge rules
+# from the ClusterName and QueueName parameters. To avoid exceeding name length limits
+# the combined length of ClusterName and QueueName parameters should not exceed 51
+# characters.
 export QUEUE_NAME=<name>
 export QUEUE_STACK_NAME="${INFRASTRUCTURE_STACK_NAME}-queue-${QUEUE_NAME}"
 
@@ -124,6 +148,13 @@ The `apply` target sets some Helm chart values for you based on environment vari
 make HELM_OPTS='--set logging.level=debug' apply
 ```
 
+### 6.2. (Optional) List all deployed resources
+
+```sh
+kubectl api-resources --verbs=list --namespaced -o name | \
+    xargs -n 1 kubectl get --show-kind --ignore-not-found --namespace "${CLUSTER_NAMESPACE}"
+```
+
 ## 7. Define and deploy a Terminator to EKS cluster
 
 ```sh
@@ -135,7 +166,7 @@ envsubst <resources/terminator.yaml.tmpl >terminator-${TERMINATOR_NAME}.yaml
 kubectl apply -f terminator-${TERMINATOR_NAME}.yaml
 ```
 
-If you do not want to use `envsubst` you can copy the template file and substitute the referenced values.
+As an alternative to using `envsubst` you can copy the template file and substitute the referenced values.
 
 ## 8. Remove deployed controller from EKS cluster
 
