@@ -52,7 +52,7 @@ spec:
       {{- end }}
       containers:
         - name: aws-node-termination-handler
-          {{- with .Values.securityContext }}
+          {{- with unset .Values.securityContext "runAsUser" }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
