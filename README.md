@@ -269,19 +269,26 @@ $ aws autoscaling put-lifecycle-hook \
   --role-arn <your SQS access role ARN here>
 ```
 
-#### 3. Tag the ASGs:
+#### 3. Tag the ASGs and Instances:
 
-By default the aws-node-termination-handler will only manage terminations for ASGs tagged w/ `key=aws-node-termination-handler/managed`
+By default the aws-node-termination-handler will only manage terminations for instances tagged with `key=aws-node-termination-handler/managed`.
+The value of the key does not matter.
 
+To tag ASGs and propagate the tags to your instances (recommended):
 ```
 $ aws autoscaling create-or-update-tags \
   --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
 ```
 
-The value of the key does not matter.
+To tag an EC2 instance:
+```
+aws ec2 create-tags \
+    --resources i-1234567890abcdef0 \
+    --tags 'Key="aws-node-termination-handler/managed",Value='
+```
 
 This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
-However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-asg-tag-before-draining=false` or environment variable `CHECK_ASG_TAG_BEFORE_DRAINING=false`.
+However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-tag-before-draining=false` or environment variable `CHECK_TAG_BEFORE_DRAINING=false`.
 
 You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
 

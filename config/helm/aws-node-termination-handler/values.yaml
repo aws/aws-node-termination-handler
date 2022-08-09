@@ -171,11 +171,10 @@ queueURL: ""
 workers: 10
 
 # If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node
-# If false, disables calls to ASG API.
-checkASGTagBeforeDraining: true
+checkTagBeforeDraining: true
 
-# The tag to ensure is on a node if checkASGTagBeforeDraining is true
-managedAsgTag: "aws-node-termination-handler/managed"
+# The tag to ensure is on a node if checkTagBeforeDraining is true
+managedTag: "aws-node-termination-handler/managed"
 
 # If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.
 useProviderId: false

@@ -76,7 +76,7 @@ func TestGetNodeInfo_BothTags_Managed(t *testing.T) {
 		EC2:            ec2Mock,
 		ASG:            h.MockedASG{},
 		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
+		ManagedTag:     "aws-nth/managed",
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -101,7 +101,7 @@ func TestGetNodeInfo_ASGTag_ASGNotManaged(t *testing.T) {
 		EC2:            ec2Mock,
 		ASG:            asgMock,
 		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
+		ManagedTag:     "aws-nth/managed",
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -129,7 +129,7 @@ func TestGetNodeInfo_ASGTag_ASGManaged(t *testing.T) {
 		EC2:            ec2Mock,
 		ASG:            asgMock,
 		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
+		ManagedTag:     "aws-nth/managed",
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -137,18 +137,12 @@ func TestGetNodeInfo_ASGTag_ASGManaged(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-func TestGetNodeInfo_NoASG(t *testing.T) {
+func TestGetNodeInfo_NoASG_Managed(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
 	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{},
-		},
-	}
 	monitor := SQSMonitor{
 		EC2: ec2Mock,
-		ASG: asgMock,
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -160,16 +154,10 @@ func TestGetNodeInfo_NoASG_NotManaged(t *testing.T) {
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
 	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{},
-		},
-	}
 	monitor := SQSMonitor{
 		EC2:            ec2Mock,
-		ASG:            asgMock,
 		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
+		ManagedTag:     "aws-nth/managed",
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -200,28 +188,17 @@ func TestGetNodeInfo_ASG(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) {
+func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) { // austin: may be root cause of failures
 	asgName := "test-asg"
+	managedTag := "aws-nth/managed"
+	tags := map[string]string{managedTag: "", "aws:autoscaling:groupName": asgName}
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
-	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: aws.String(asgName)},
-			},
-		},
-		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
-			Tags: []*autoscaling.TagDescription{
-				{Key: aws.String("aws-nth/managed")},
-			},
-		},
+		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", tags),
 	}
 	monitor := SQSMonitor{
 		EC2:            ec2Mock,
-		ASG:            asgMock,
 		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
+		ManagedTag:     managedTag,
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -231,24 +208,14 @@ func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) {
 
 func TestGetNodeInfo_ASG_ASGNotManaged(t *testing.T) {
 	asgName := "test-asg"
+	tags := map[string]string{"aws:autoscaling:groupName": asgName}
 	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
-	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: aws.String(asgName)},
-			},
-		},
-		DescribeTagsPagesResp: autoscaling.DescribeTagsOutput{
-			Tags: []*autoscaling.TagDescription{},
-		},
+		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", tags),
 	}
 	monitor := SQSMonitor{
 		EC2:            ec2Mock,
-		ASG:            asgMock,
 		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
+		ManagedTag:     "aws-nth/managed",
 	}
 	nodeInfo, err := monitor.getNodeInfo("i-0123456789")
 	h.Ok(t, err)
@@ -262,45 +229,6 @@ func TestGetNodeInfo_Err(t *testing.T) {
 	}
 	monitor := SQSMonitor{
 		EC2: ec2Mock,
-	}
-	_, err := monitor.getNodeInfo("i-0123456789")
-	h.Nok(t, err)
-}
-
-func TestGetNodeInfo_ASGError(t *testing.T) {
-	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
-	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesErr: fmt.Errorf("error"),
-	}
-	monitor := SQSMonitor{
-		EC2:            ec2Mock,
-		ASG:            asgMock,
-		CheckIfManaged: true, //enables calling ASG API
-	}
-	_, err := monitor.getNodeInfo("i-0123456789")
-	h.Nok(t, err)
-}
-
-func TestGetNodeInfo_ASGTagErr(t *testing.T) {
-	asgName := "test-asg"
-	ec2Mock := h.MockedEC2{
-		DescribeInstancesResp: getDescribeInstancesResp("i-beebeebe", "mydns.example.com", map[string]string{}),
-	}
-	asgMock := h.MockedASG{
-		DescribeAutoScalingInstancesResp: autoscaling.DescribeAutoScalingInstancesOutput{
-			AutoScalingInstances: []*autoscaling.InstanceDetails{
-				{AutoScalingGroupName: aws.String(asgName)},
-			},
-		},
-		DescribeTagsPagesErr: fmt.Errorf("error"),
-	}
-	monitor := SQSMonitor{
-		EC2:            ec2Mock,
-		ASG:            asgMock,
-		CheckIfManaged: true,
-		ManagedAsgTag:  "aws-nth/managed",
 	}
 	_, err := monitor.getNodeInfo("i-0123456789")
 	h.Nok(t, err)

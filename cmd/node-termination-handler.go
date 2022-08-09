@@ -176,8 +176,8 @@ func main() {
 		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
 
 		sqsMonitor := sqsevent.SQSMonitor{
-			CheckIfManaged:   nthConfig.CheckASGTagBeforeDraining,
-			ManagedAsgTag:    nthConfig.ManagedAsgTag,
+			CheckIfManaged:   nthConfig.CheckTagBeforeDraining,
+			ManagedTag:       nthConfig.ManagedTag,
 			QueueURL:         nthConfig.QueueURL,
 			InterruptionChan: interruptionChan,
 			CancelChan:       cancelChan,

@@ -48,7 +48,7 @@ type SQSMonitor struct {
 	ASG              autoscalingiface.AutoScalingAPI
 	EC2              ec2iface.EC2API
 	CheckIfManaged   bool
-	ManagedAsgTag    string
+	ManagedTag       string
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
@@ -213,7 +213,7 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 			dropMessageSuggestionCount++
 
 		case m.CheckIfManaged && !eventWrapper.InterruptionEvent.IsManaged:
-			// This event isn't for an instance that is managed by this process
+			// This event is for an instance that is not managed by this process
 			log.Debug().Str("instance-id", eventWrapper.InterruptionEvent.InstanceID).Msg("dropping interruption event for unmanaged node")
 			dropMessageSuggestionCount++
 
@@ -352,8 +352,10 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		}
 	}
 
-	if m.CheckIfManaged && nodeInfo.Tags[m.ManagedAsgTag] == "" {
-		nodeInfo.IsManaged = false
+	if m.CheckIfManaged {
+		if _, ok := nodeInfo.Tags[m.ManagedTag]; !ok { // austin: wait, the presence of this should be a good sign...how did this ever work?
+			nodeInfo.IsManaged = false
+		}
 	}
 
 	infoJSON, _ := json.MarshalIndent(nodeInfo, " ", "    ")
