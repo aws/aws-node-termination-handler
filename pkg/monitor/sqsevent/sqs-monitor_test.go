@@ -838,45 +838,6 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 	}
 }
 
-func TestMonitor_InstanceManagedErr(t *testing.T) {
-	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent} {
-		msg, err := getSQSMessageFromEvent(event)
-		h.Ok(t, err)
-		messages := []*sqs.Message{
-			&msg,
-		}
-		sqsMock := h.MockedSQS{
-			ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: messages},
-			ReceiveMessageErr:  nil,
-		}
-		dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
-		ec2Mock := h.MockedEC2{
-			DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, false, false),
-		}
-
-		drainChan := make(chan monitor.InterruptionEvent, 1)
-
-		sqsMonitor := sqsevent.SQSMonitor{
-			SQS:              sqsMock,
-			EC2:              ec2Mock,
-			ASG:              mockIsManagedErr(nil), // austin: no longer a valid way to confirm not managed
-			CheckIfManaged:   true,
-			QueueURL:         "https://test-queue",
-			InterruptionChan: drainChan,
-		}
-
-		err = sqsMonitor.Monitor()
-		h.Nok(t, err)
-
-		select {
-		case <-drainChan:
-			h.Ok(t, fmt.Errorf("Expected no events"))
-		default:
-			h.Ok(t, nil)
-		}
-	}
-}
-
 // AWS Mock Helpers specific to sqs-monitor tests
 
 func getDescribeInstancesResp(privateDNSName string, withASGTag bool, withManagedTag bool) ec2.DescribeInstancesOutput {
