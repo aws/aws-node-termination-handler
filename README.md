@@ -269,7 +269,7 @@ $ aws autoscaling put-lifecycle-hook \
   --role-arn <your SQS access role ARN here>
 ```
 
-#### 3. Tag the ASGs and Instances:
+#### 3. Tag the Instances:
 
 By default the aws-node-termination-handler will only manage terminations for instances tagged with `key=aws-node-termination-handler/managed`.
 The value of the key does not matter.

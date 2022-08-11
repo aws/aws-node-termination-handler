@@ -184,9 +184,9 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.EnableSQSTerminationDraining, "enable-sqs-termination-draining", getBoolEnv(enableSQSTerminationDrainingConfigKey, enableSQSTerminationDrainingDefault), "If true, drain nodes when an SQS termination event is received")
 	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set \"enableRebalanceDraining\".")
 	flag.BoolVar(&config.EnableRebalanceDraining, "enable-rebalance-draining", getBoolEnv(enableRebalanceDrainingConfigKey, enableRebalanceDrainingDefault), "If true, drain nodes when the rebalance recommendation notice is received")
-	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "[DEPRECATED] * Use check-tag-before-draining instead * If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node. If false, disables calls to ASG API.") // austin: mark as deprecated, same as grace-period
-	flag.BoolVar(&config.CheckTagBeforeDraining, "check-tag-before-draining", getBoolEnv(checkTagBeforeDrainingConfigKey, checkTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node.")                                                                                                          // austin: mark as deprecated, same as grace-period
-	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "[DEPRECATED] * Use managed-tag instead * Sets the tag to check instances for that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")                                                                                            // austin: mark as deprecated, same as grace-period
+	flag.BoolVar(&config.CheckASGTagBeforeDraining, "check-asg-tag-before-draining", getBoolEnv(checkASGTagBeforeDrainingConfigKey, checkASGTagBeforeDrainingDefault), "[DEPRECATED] * Use check-tag-before-draining instead * If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node. If false, disables calls to ASG API.")
+	flag.BoolVar(&config.CheckTagBeforeDraining, "check-tag-before-draining", getBoolEnv(checkTagBeforeDrainingConfigKey, checkTagBeforeDrainingDefault), "If true, check that the instance is tagged with \"aws-node-termination-handler/managed\" as the key before draining the node.")
+	flag.StringVar(&config.ManagedAsgTag, "managed-asg-tag", getEnv(managedAsgTagConfigKey, managedAsgTagDefault), "[DEPRECATED] * Use managed-tag instead * Sets the tag to check instances for that is propogated from the ASG before taking action, default to aws-node-termination-handler/managed")
 	flag.StringVar(&config.ManagedTag, "managed-tag", getEnv(managedTagConfigKey, managedTagDefault), "Sets the tag to check instances for before taking action, default to aws-node-termination-handler/managed")
 	flag.IntVar(&config.MetadataTries, "metadata-tries", getIntEnv(metadataTriesConfigKey, metadataTriesDefault), "The number of times to try requesting metadata. If you would like 2 retries, set metadata-tries to 3.")
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
@@ -218,14 +218,14 @@ func ParseCliArgs() (config Config, err error) {
 	}
 
 	if isConfigProvided("managed-asg-tag", managedAsgTagConfigKey) && isConfigProvided("managed-tag", managedTagConfigKey) {
-		log.Warn().Msg("Deprecated argument \"managed-asg-tag\" and the replacement argument \"managed-tag\" was provided. Using the newer argument \"managed-tag\"") // austin: check that user is expected to provide these similar to grace period
+		log.Warn().Msg("Deprecated argument \"managed-asg-tag\" and the replacement argument \"managed-tag\" was provided. Using the newer argument \"managed-tag\"")
 	} else if isConfigProvided("managed-asg-tag", managedAsgTagConfigKey) {
 		log.Warn().Msg("Deprecated argument \"managed-asg-tag\" was provided. This argument will eventually be removed. Please switch to \"managed-tag\" instead.")
 		config.ManagedTag = config.ManagedAsgTag
 	}
 
 	if isConfigProvided("check-asg-tag-before-draining", checkASGTagBeforeDrainingConfigKey) && isConfigProvided("check-tag-before-draining", checkTagBeforeDrainingConfigKey) {
-		log.Warn().Msg("Deprecated argument \"check-asg-tag-before-draining\" and the replacement argument \"check-tag-before-draining\" was provided. Using the newer argument \"check-tag-before-draining\"") // austin: check that user is expected to provide these similar to grace period
+		log.Warn().Msg("Deprecated argument \"check-asg-tag-before-draining\" and the replacement argument \"check-tag-before-draining\" was provided. Using the newer argument \"check-tag-before-draining\"")
 	} else if isConfigProvided("check-asg-tag-before-draining", checkASGTagBeforeDrainingConfigKey) {
 		log.Warn().Msg("Deprecated argument \"check-asg-tag-before-draining\" was provided. This argument will eventually be removed. Please switch to \"check-tag-before-draining\" instead.")
 		config.CheckTagBeforeDraining = config.CheckASGTagBeforeDraining
