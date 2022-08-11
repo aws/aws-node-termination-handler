@@ -817,10 +817,9 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 		drainChan := make(chan monitor.InterruptionEvent, 1)
 
 		sqsMonitor := sqsevent.SQSMonitor{
-			SQS: sqsMock,
-			EC2: ec2Mock,
-			// ASG:              mockIsManagedFalse(nil), // austin: this may be a faulty test case, instance not managed should not check asg
-			ManagedTag:       "aws-node-termination-handler/managed",
+			SQS:              sqsMock,
+			EC2:              ec2Mock,
+			ASG:              mockIsManagedFalse(nil),
 			CheckIfManaged:   true,
 			QueueURL:         "https://test-queue",
 			InterruptionChan: drainChan,
