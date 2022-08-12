@@ -17,15 +17,104 @@ This project ensures that the Kubernetes control plane responds appropriately to
 - Webhook feature to send shutdown or restart notification messages
 - Unit & Integration Tests
 
+## Differences from v1
+
+The first major version of AWS Node Termination Handler (NTH) originally operated only as a daemon deployed to every desired node in the cluster (aka IMDS Mode); later the option to deploy only a single pod which read events from an SQS queue was added (aka Queue Processor Mode). Both heavily utilized Helm for configuration, and changing configuration meant updating the deployment.
+
+This second major version of NTH aims to refine the Queue Processor Mode. Only a single pod is deployed and configuration is done using a new custom resource called *Terminators*. A *Terminator* contains much of the configuration about where NTH should fetch events, what actions to take for a given event type, filter nodes to act upon, and webhook notifications. Multiple *Terminators* may be deployed, modified, or removed without needing to redeploy NTH itself.
+
 ## Getting Started
 
-### Infrastructure Setup
+### 1. Setup Infrastructure
 
-TBD
+#### 1.1. Create an IAM OIDC Provider
 
-### Installation and Configuration
+Your EKS cluster must have an IAM OIDC Provider. Follow the steps in [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) to determine whether your EKS cluster already has an IAM OIDC Provider and, if necessary, create one.
 
-For a full list of inputs see the Helm chart [README.md](./charts/aws-node-termination-handler-2/README.md).
+#### 1.2. Create the NTH Service Account
+
+##### 1.2.1. Create the IAM Policy
+
+Download the service account policy template for AWS CloudFormation at https://github.com/aws/aws-node-termination-handler/releases/download/VERSION/infrastructure.yaml
+
+Then create the IAM Policy by deploying the AWS CloudFormation stack:
+```sh
+aws cloudformation deploy \
+  --template-file infrastructure.yaml \
+  --stack-name nth-service-account \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+##### 1.2.2. Create the Service Account
+
+Use either the AWS CLI or AWS Console to lookup the ARN of the IAM Policy for the service account.
+
+Create the cluster service account using the following command:
+```sh
+eksctl create iamserviceaccount \
+  --cluster <CLUSTER NAME> \
+  --namespace <NAMESPACE> \
+  --name "nth-service-account" \
+  --role-name "nth-service-account" \
+  --attach-policy-arn <SERVICE ACCOUNT POLICY ARN> \
+  --role-only \
+  --approve
+```
+
+### 2. Deploy NTH
+
+Get the ARN of the service account role:
+```sh
+eksctl get iamserviceaccount \
+  --cluster <CLUSTER NAME> \
+  --namespace <NAMESPACE> \
+  --name "nth-service-account"
+```
+
+Add the AWS `eks-charts` helm repository and deploy the chart:
+```sh
+helm repo add eks https://aws.github.io/eks-charts
+
+helm upgrade \
+  --install \
+  nth \
+  eks/aws-node-termination-handler-2 \
+  --namespace <NAMESPACE> \
+  --create-namespace \
+  --set aws.region=<AWS REGION> \
+  --set serviceAccount.name="nth-service-account" \
+  --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=<SERVICE ACCOUNT ROLE ARN>
+```
+
+For a full list of inputs see the Helm chart `README.md`.
+
+### 3. Create a Terminator
+
+#### 3.1. Create an SQS Queue
+
+NTH reads events from one or more SQS Queues. If you already have an SQS Queue available then you may skip this step.
+
+*Note:* Multiple Terminators may read from a single SQS Queue. A Terminator will only delete a message if a matching node was found in the cluster. The SQS Queue's visibility window setting can help to ensure that a message is delivered to only one Terminator at a time.
+
+You may create your own SQS Queue but an AWS CloudFormation template is available that will create an SQS Queue and commonly used rules for AWS EventBridge. Download from https://github.com/aws/aws-node-termination-handler/releases/download/VERSION/queue-infrastructure.yaml
+
+```sh
+aws cloudformation deploy \
+  --template-file queue-infrastructure.yaml \
+  --stack-name nth-queue \
+  --parameter-overrides \
+      ClusterName=<CLUSTER NAME> \
+      QueueName=<QUEUE NAME>
+```
+
+#### 3.2. Define and deploy a Terminator
+
+A template file may be downloaded from https://github.com/aws/aws-node-termination-handler/releases/download/VERSION/terminator.yaml.tmpl. Edit the file with the required fields and desired configuration.
+
+Deploy the Terminator:
+```sh
+kubectl apply -f <FILENAME>
+```
 
 ## Metrics
 

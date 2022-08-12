@@ -4,8 +4,6 @@ metadata:
   name: ${CLUSTER_NAME}
   region: ${AWS_REGION}
   version: "1.22"
-  tags:
-    karpenter.sh/discovery: ${CLUSTER_NAME}
 managedNodeGroups:
   - instanceType: m5.large
     amiFamily: AmazonLinux2
