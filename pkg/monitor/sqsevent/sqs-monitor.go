@@ -353,7 +353,7 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	}
 
 	if m.CheckIfManaged {
-		if _, ok := nodeInfo.Tags[m.ManagedTag]; !ok { // austin: wait, the presence of this should be a good sign...how did this ever work?
+		if _, ok := nodeInfo.Tags[m.ManagedTag]; !ok {
 			nodeInfo.IsManaged = false
 		}
 	}

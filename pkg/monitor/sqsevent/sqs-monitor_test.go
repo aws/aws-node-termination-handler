@@ -902,11 +902,3 @@ func mockIsManagedFalse(asg *h.MockedASG) h.MockedASG {
 	}
 	return *asg
 }
-
-func mockIsManagedErr(asg *h.MockedASG) h.MockedASG {
-	if asg == nil {
-		asg = &h.MockedASG{}
-	}
-	asg.DescribeAutoScalingInstancesErr = fmt.Errorf("error")
-	return *asg
-}

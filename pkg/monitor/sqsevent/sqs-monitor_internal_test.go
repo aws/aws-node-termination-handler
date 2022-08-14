@@ -134,7 +134,7 @@ func TestGetNodeInfo_ASG(t *testing.T) {
 	h.Equals(t, true, nodeInfo.IsManaged)
 }
 
-func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) { // austin: may be root cause of failures
+func TestGetNodeInfo_ASG_ASGManaged(t *testing.T) {
 	asgName := "test-asg"
 	managedTag := "aws-nth/managed"
 	tags := map[string]string{managedTag: "", "aws:autoscaling:groupName": asgName}
