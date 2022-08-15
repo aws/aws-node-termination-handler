@@ -19,20 +19,16 @@ USAGE=$(cat << 'EOM'
   Example: build-docker-images -p "linux/amd64,linux/arm"
           Optional:
             -p          Platform pair list (os/architecture) [DEFAULT: linux/amd64]
-            -d          DIRECT: Set GOPROXY=direct to bypass go proxies
             -r          IMAGE REPO: set the docker image repo
             -v          VERSION: The application version of the docker image [DEFAULT: output of `make version`]
 EOM
 )
 
 # Process our input arguments
-while getopts "dp:r:v:" opt; do
+while getopts "p:r:v:" opt; do
   case ${opt} in
     p ) # Platform Pairs
         IFS=',' read -ra PLATFORMS <<< "$OPTARG"
-      ;;
-    d ) # GOPROXY=direct
-        GOPROXY="direct"
       ;;
     r ) # Image Repo
         IMAGE_REPO="$OPTARG"
