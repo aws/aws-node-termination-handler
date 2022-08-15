@@ -65,13 +65,13 @@ jobs:
       - run: |
           export PATH=${GOROOT}/bin:$PATH
           go version
-      
       - uses: actions/checkout@v2
       - name: Set up golangci-lint
         uses: golangci/golangci-lint-action@v2.5.2
         with:
           version: v1.45.2
           args: --timeout=5m
+          skip-cache: true
     
   buildLinux:
     name: Build Linux Binaries
