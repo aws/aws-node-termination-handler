@@ -54,7 +54,6 @@ if ! [[ -n $(docker container ls -a | grep "$container_name") ]]; then
   docker container create \
       --name "$container_name" \
       --volume "$project_root_dir:$work_dir" \
-      --env GOPROXY=direct \
       --env GO111MODULE=auto \
       --workdir "$work_dir" \
       --init \
