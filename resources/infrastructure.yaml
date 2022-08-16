@@ -6,6 +6,10 @@ Parameters:
   ClusterName:
     Description: EKS Cluster Name
     Type: String
+    Default: ""
+
+Conditions:
+  IncludeClusterName: !Not [!Equals [!Ref ClusterName, ""]]
 
 Resources:
   ServiceAccountPolicy:
@@ -14,7 +18,9 @@ Resources:
       by the AWS Node Termination Handler controller process to interact with AWS resources.
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub "${ClusterName}-serviceaccount"
+      ManagedPolicyName: !Sub
+        - "nth${s}-service-account"
+        - s: !If [IncludeClusterName, !Sub "-${ClusterName}", ""]
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
