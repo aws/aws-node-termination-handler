@@ -19,7 +19,7 @@ This project ensures that the Kubernetes control plane responds appropriately to
 
 ## Differences from v1
 
-The first major version of AWS Node Termination Handler (NTH) originally operated only as a daemon deployed to every desired node in the cluster (aka IMDS Mode); later the option to deploy only a single pod which read events from an SQS queue was added (aka Queue Processor Mode). Both heavily utilized Helm for configuration, and changing configuration meant updating the deployment.
+The first major version of AWS Node Termination Handler (NTH) originally operated as a daemonset deployed to every desired node in the cluster (aka IMDS Mode); later, we added the option to deploy a single pod which read events for the entire cluster from an SQS queue (aka Queue Processor Mode). Both heavily utilized Helm for configuration, and changing configuration meant updating the deployment.
 
 This second major version of NTH aims to refine the Queue Processor Mode. Only a single pod is deployed and configuration is done using a new custom resource called *Terminators*. A *Terminator* contains much of the configuration about where NTH should fetch events, what actions to take for a given event type, filter nodes to act upon, and webhook notifications. Multiple *Terminators* may be deployed, modified, or removed without needing to redeploy NTH itself.
 
@@ -109,7 +109,7 @@ aws cloudformation deploy \
 
 #### 3.2. Define and deploy a Terminator
 
-A template file may be downloaded from https://github.com/aws/aws-node-termination-handler/releases/download/VERSION/terminator.yaml.tmpl. Edit the file with the required fields and desired configuration.
+You may download a template file from https://github.com/aws/aws-node-termination-handler/releases/download/VERSION/terminator.yaml.tmpl. Edit the file with the required fields and desired configuration.
 
 Deploy the Terminator:
 ```sh
