@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
+	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
@@ -56,7 +57,10 @@ const (
 
 func main() {
 	// Zerolog uses json formatting by default, so change that to a human-readable format instead
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: timeFormat, NoColor: true})
+	log.Logger = log.Output(logging.RoutingLevelWriter{
+		Writer:    &zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: timeFormat, NoColor: true},
+		ErrWriter: &zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: timeFormat, NoColor: true},
+	})
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
