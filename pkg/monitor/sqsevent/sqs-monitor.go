@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -49,7 +48,7 @@ type SQSMonitor struct {
 	ASG              autoscalingiface.AutoScalingAPI
 	EC2              ec2iface.EC2API
 	CheckIfManaged   bool
-	ManagedAsgTag    string
+	ManagedTag       string
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
@@ -214,7 +213,7 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 			dropMessageSuggestionCount++
 
 		case m.CheckIfManaged && !eventWrapper.InterruptionEvent.IsManaged:
-			// This event isn't for an instance that is managed by this process
+			// This event is for an instance that is not managed by this process
 			log.Debug().Str("instance-id", eventWrapper.InterruptionEvent.InstanceID).Msg("dropping interruption event for unmanaged node")
 			dropMessageSuggestionCount++
 
@@ -354,20 +353,8 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	}
 
 	if m.CheckIfManaged {
-		if nodeInfo.AsgName == "" {
-			// If ASG tags are not propagated we might need to use the API
-			// to retrieve the ASG name
-			nodeInfo.AsgName, err = m.retrieveAutoScalingGroupName(nodeInfo.InstanceID)
-			if err != nil {
-				return nil, fmt.Errorf("unable to retrieve AutoScaling group: %w", err)
-			}
-		}
-		if nodeInfo.Tags[m.ManagedAsgTag] == "" {
-			// if ASG tags are not propagated we might have to check the ASG directly
-			nodeInfo.IsManaged, err = m.isASGManaged(nodeInfo.AsgName, nodeInfo.InstanceID)
-			if err != nil {
-				return nil, err
-			}
+		if _, ok := nodeInfo.Tags[m.ManagedTag]; !ok {
+			nodeInfo.IsManaged = false
 		}
 	}
 
@@ -375,56 +362,4 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	log.Debug().Msgf("Got node info from AWS: %s", infoJSON)
 
 	return nodeInfo, nil
-}
-
-// isASGManaged returns whether the autoscaling group should be managed by node termination handler
-func (m SQSMonitor) isASGManaged(asgName string, instanceID string) (bool, error) {
-	if asgName == "" {
-		return false, nil
-	}
-	asgFilter := autoscaling.Filter{Name: aws.String("auto-scaling-group"), Values: []*string{aws.String(asgName)}}
-	asgDescribeTagsInput := autoscaling.DescribeTagsInput{
-		Filters: []*autoscaling.Filter{&asgFilter},
-	}
-	isManaged := false
-	err := m.ASG.DescribeTagsPages(&asgDescribeTagsInput, func(resp *autoscaling.DescribeTagsOutput, next bool) bool {
-		for _, tag := range resp.Tags {
-			if *tag.Key == m.ManagedAsgTag {
-				isManaged = true
-				// breaks paging loop
-				return false
-			}
-		}
-		// continue paging loop
-		return true
-	})
-
-	log.Debug().
-		Str("instance_id", instanceID).
-		Str("tag_key", m.ManagedAsgTag).
-		Bool("is_managed", isManaged).
-		Msg("directly checked if instance's Auto Scaling Group is managed")
-	return isManaged, err
-}
-
-// retrieveAutoScalingGroupName returns the autoscaling group name for a given instanceID
-func (m SQSMonitor) retrieveAutoScalingGroupName(instanceID string) (string, error) {
-	asgDescribeInstanceInput := autoscaling.DescribeAutoScalingInstancesInput{
-		InstanceIds: []*string{&instanceID},
-		MaxRecords:  aws.Int64(50),
-	}
-	asgs, err := m.ASG.DescribeAutoScalingInstances(&asgDescribeInstanceInput)
-	if err != nil {
-		return "", err
-	}
-	if len(asgs.AutoScalingInstances) == 0 {
-		log.Debug().Str("instance_id", instanceID).Msg("Did not find an Auto Scaling Group for the given instance id")
-		return "", nil
-	}
-	asgName := asgs.AutoScalingInstances[0].AutoScalingGroupName
-	log.Debug().
-		Str("instance_id", instanceID).
-		Str("asg_name", *asgName).
-		Msg("performed API lookup of instance ASG")
-	return *asgName, nil
 }
