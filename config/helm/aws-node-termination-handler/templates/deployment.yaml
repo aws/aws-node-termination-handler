@@ -106,6 +106,8 @@ spec:
               value: {{ .Values.nodeTerminationGracePeriod | quote }}
             - name: EMIT_KUBERNETES_EVENTS
               value: {{ .Values.emitKubernetesEvents | quote }}
+            - name: COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS
+              value: {{ .Values.completeLifecycleActionDelaySeconds | quote }}
             {{- with .Values.kubernetesEventsExtraAnnotations }}
             - name: KUBERNETES_EVENTS_EXTRA_ANNOTATIONS
               value: {{ . | quote }}
