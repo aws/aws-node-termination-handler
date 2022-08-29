@@ -102,57 +102,59 @@ const (
 	awsRegionConfigKey                        = "AWS_REGION"
 	awsEndpointConfigKey                      = "AWS_ENDPOINT"
 	queueURLConfigKey                         = "QUEUE_URL"
+	completeLifecycleActionDelaySecondsKey    = "COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS"
 )
 
-//Config arguments set via CLI, environment variables, or defaults
+// Config arguments set via CLI, environment variables, or defaults
 type Config struct {
-	DryRun                           bool
-	NodeName                         string
-	PodName                          string
-	MetadataURL                      string
-	IgnoreDaemonSets                 bool
-	DeleteLocalData                  bool
-	KubernetesServiceHost            string
-	KubernetesServicePort            string
-	PodTerminationGracePeriod        int
-	NodeTerminationGracePeriod       int
-	WebhookURL                       string
-	WebhookHeaders                   string
-	WebhookTemplate                  string
-	WebhookTemplateFile              string
-	WebhookProxy                     string
-	EnableScheduledEventDraining     bool
-	EnableSpotInterruptionDraining   bool
-	EnableSQSTerminationDraining     bool
-	EnableRebalanceMonitoring        bool
-	EnableRebalanceDraining          bool
-	CheckASGTagBeforeDraining        bool
-	CheckTagBeforeDraining           bool
-	ManagedAsgTag                    string
-	ManagedTag                       string
-	MetadataTries                    int
-	CordonOnly                       bool
-	TaintNode                        bool
-	TaintEffect                      string
-	ExcludeFromLoadBalancers         bool
-	JsonLogging                      bool
-	LogLevel                         string
-	UptimeFromFile                   string
-	EnablePrometheus                 bool
-	PrometheusPort                   int
-	EnableProbes                     bool
-	ProbesPort                       int
-	ProbesEndpoint                   string
-	EmitKubernetesEvents             bool
-	KubernetesEventsExtraAnnotations string
-	AWSRegion                        string
-	AWSEndpoint                      string
-	QueueURL                         string
-	Workers                          int
-	UseProviderId                    bool
+	DryRun                              bool
+	NodeName                            string
+	PodName                             string
+	MetadataURL                         string
+	IgnoreDaemonSets                    bool
+	DeleteLocalData                     bool
+	KubernetesServiceHost               string
+	KubernetesServicePort               string
+	PodTerminationGracePeriod           int
+	NodeTerminationGracePeriod          int
+	WebhookURL                          string
+	WebhookHeaders                      string
+	WebhookTemplate                     string
+	WebhookTemplateFile                 string
+	WebhookProxy                        string
+	EnableScheduledEventDraining        bool
+	EnableSpotInterruptionDraining      bool
+	EnableSQSTerminationDraining        bool
+	EnableRebalanceMonitoring           bool
+	EnableRebalanceDraining             bool
+	CheckASGTagBeforeDraining           bool
+	CheckTagBeforeDraining              bool
+	ManagedAsgTag                       string
+	ManagedTag                          string
+	MetadataTries                       int
+	CordonOnly                          bool
+	TaintNode                           bool
+	TaintEffect                         string
+	ExcludeFromLoadBalancers            bool
+	JsonLogging                         bool
+	LogLevel                            string
+	UptimeFromFile                      string
+	EnablePrometheus                    bool
+	PrometheusPort                      int
+	EnableProbes                        bool
+	ProbesPort                          int
+	ProbesEndpoint                      string
+	EmitKubernetesEvents                bool
+	KubernetesEventsExtraAnnotations    string
+	AWSRegion                           string
+	AWSEndpoint                         string
+	QueueURL                            string
+	Workers                             int
+	UseProviderId                       bool
+	CompleteLifecycleActionDelaySeconds int
 }
 
-//ParseCliArgs parses cli arguments and uses environment variables as fallback values
+// ParseCliArgs parses cli arguments and uses environment variables as fallback values
 func ParseCliArgs() (config Config, err error) {
 	var gracePeriod int
 	defer func() {
@@ -208,6 +210,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
 	flag.BoolVar(&config.UseProviderId, "use-provider-id", getBoolEnv(useProviderIdConfigKey, useProviderIdDefault), "If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.")
+	flag.IntVar(&config.CompleteLifecycleActionDelaySeconds, "complete-lifecycle-action-delay-seconds", getIntEnv(completeLifecycleActionDelaySecondsKey, -1), "Delay completing the Autoscaling Lifecycle Action after a node has been drained.")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
