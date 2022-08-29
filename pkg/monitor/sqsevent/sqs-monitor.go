@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
@@ -41,14 +42,15 @@ const (
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
-	InterruptionChan chan<- monitor.InterruptionEvent
-	CancelChan       chan<- monitor.InterruptionEvent
-	QueueURL         string
-	SQS              sqsiface.SQSAPI
-	ASG              autoscalingiface.AutoScalingAPI
-	EC2              ec2iface.EC2API
-	CheckIfManaged   bool
-	ManagedTag       string
+	InterruptionChan             chan<- monitor.InterruptionEvent
+	CancelChan                   chan<- monitor.InterruptionEvent
+	QueueURL                     string
+	SQS                          sqsiface.SQSAPI
+	ASG                          autoscalingiface.AutoScalingAPI
+	EC2                          ec2iface.EC2API
+	CheckIfManaged               bool
+	ManagedTag                   string
+	CompleteLifecycleActionDelay time.Duration
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
