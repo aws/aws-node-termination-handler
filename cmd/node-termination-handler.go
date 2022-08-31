@@ -179,16 +179,17 @@ func main() {
 		}
 		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
 
+		completeLifecycleActionDelay := time.Duration(nthConfig.CompleteLifecycleActionDelaySeconds) * time.Second
 		sqsMonitor := sqsevent.SQSMonitor{
-			CheckIfManaged:               nthConfig.CheckTagBeforeDraining,
-			ManagedTag:                   nthConfig.ManagedTag,
-			QueueURL:                     nthConfig.QueueURL,
-			InterruptionChan:             interruptionChan,
-			CancelChan:                   cancelChan,
-			SQS:                          sqs.New(sess),
-			ASG:                          autoscaling.New(sess),
-			EC2:                          ec2.New(sess),
-			CompleteLifecycleActionDelay: time.Duration(nthConfig.CompleteLifecycleActionDelaySeconds) * time.Second,
+			CheckIfManaged:                nthConfig.CheckTagBeforeDraining,
+			ManagedTag:                    nthConfig.ManagedTag,
+			QueueURL:                      nthConfig.QueueURL,
+			InterruptionChan:              interruptionChan,
+			CancelChan:                    cancelChan,
+			SQS:                           sqs.New(sess),
+			ASG:                           autoscaling.New(sess),
+			EC2:                           ec2.New(sess),
+			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}

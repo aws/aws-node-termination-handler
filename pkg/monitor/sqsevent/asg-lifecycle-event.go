@@ -16,7 +16,6 @@ package sqsevent
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
@@ -92,9 +91,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
-		<-time.After(m.CompleteLifecycleActionDelay)
-
-		_, err := m.ASG.CompleteLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
+		_, err := m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
 			AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
 			LifecycleActionResult: aws.String("CONTINUE"),
 			LifecycleHookName:     &lifecycleDetail.LifecycleHookName,

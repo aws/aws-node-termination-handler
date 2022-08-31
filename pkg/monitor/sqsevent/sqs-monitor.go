@@ -17,11 +17,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -42,15 +42,15 @@ const (
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
 type SQSMonitor struct {
-	InterruptionChan             chan<- monitor.InterruptionEvent
-	CancelChan                   chan<- monitor.InterruptionEvent
-	QueueURL                     string
-	SQS                          sqsiface.SQSAPI
-	ASG                          autoscalingiface.AutoScalingAPI
-	EC2                          ec2iface.EC2API
-	CheckIfManaged               bool
-	ManagedTag                   string
-	CompleteLifecycleActionDelay time.Duration
+	InterruptionChan              chan<- monitor.InterruptionEvent
+	CancelChan                    chan<- monitor.InterruptionEvent
+	QueueURL                      string
+	SQS                           sqsiface.SQSAPI
+	ASG                           autoscalingiface.AutoScalingAPI
+	EC2                           ec2iface.EC2API
+	CheckIfManaged                bool
+	ManagedTag                    string
+	BeforeCompleteLifecycleAction func()
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
@@ -283,6 +283,14 @@ func (m SQSMonitor) deleteMessages(messages []*sqs.Message) []error {
 		log.Debug().Msgf("SQS Deleted Message: %s", message)
 	}
 	return errs
+}
+
+// completeLifecycleAction completes the lifecycle action after calling the "before" hook.
+func (m SQSMonitor) completeLifecycleAction(input *autoscaling.CompleteLifecycleActionInput) (*autoscaling.CompleteLifecycleActionOutput, error) {
+	if m.BeforeCompleteLifecycleAction != nil {
+		m.BeforeCompleteLifecycleAction()
+	}
+	return m.ASG.CompleteLifecycleAction(input)
 }
 
 // NodeInfo is relevant information about a single node

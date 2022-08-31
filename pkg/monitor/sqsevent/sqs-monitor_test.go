@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
@@ -364,16 +363,16 @@ func TestMonitor_DrainTasks_Delay(t *testing.T) {
 	}
 	drainChan := make(chan monitor.InterruptionEvent, 1)
 
-	expectedDelay := 2 * time.Second
+	hookCalled := false
 	sqsMonitor := sqsevent.SQSMonitor{
-		SQS:                          sqsMock,
-		EC2:                          ec2Mock,
-		ManagedTag:                   "aws-node-termination-handler/managed",
-		ASG:                          mockIsManagedTrue(&asgMock),
-		CheckIfManaged:               true,
-		QueueURL:                     "https://test-queue",
-		InterruptionChan:             drainChan,
-		CompleteLifecycleActionDelay: expectedDelay,
+		SQS:                           sqsMock,
+		EC2:                           ec2Mock,
+		ManagedTag:                    "aws-node-termination-handler/managed",
+		ASG:                           mockIsManagedTrue(&asgMock),
+		CheckIfManaged:                true,
+		QueueURL:                      "https://test-queue",
+		InterruptionChan:              drainChan,
+		BeforeCompleteLifecycleAction: func() { hookCalled = true },
 	}
 
 	err = sqsMonitor.Monitor()
@@ -385,17 +384,9 @@ func TestMonitor_DrainTasks_Delay(t *testing.T) {
 		h.Equals(st, result.NodeName, dnsNodeName)
 		h.Assert(st, result.PostDrainTask != nil, "PostDrainTask should have been set")
 		h.Assert(st, result.PreDrainTask != nil, "PreDrainTask should have been set")
-		startTime := time.Now()
 		err := result.PostDrainTask(result, node.Node{})
-		elapsed := time.Since(startTime)
 		h.Ok(st, err)
-		h.Assert(
-			st,
-			elapsed >= expectedDelay,
-			"PostDrainTask completed in %.2f seconds but should have delayed %.2f seconds",
-			elapsed.Seconds(),
-			expectedDelay.Seconds(),
-		)
+		h.Assert(st, hookCalled, "BeforeCompleteLifecycleAction hook not called")
 	})
 }
 
