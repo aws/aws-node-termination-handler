@@ -345,6 +345,51 @@ func TestMonitor_DrainTasks(t *testing.T) {
 	}
 }
 
+func TestMonitor_DrainTasks_Delay(t *testing.T) {
+	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	h.Ok(t, err)
+
+	sqsMock := h.MockedSQS{
+		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: []*sqs.Message{&msg}},
+		ReceiveMessageErr:  nil,
+		DeleteMessageResp:  sqs.DeleteMessageOutput{},
+	}
+	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
+	}
+	asgMock := h.MockedASG{
+		CompleteLifecycleActionResp: autoscaling.CompleteLifecycleActionOutput{},
+	}
+	drainChan := make(chan monitor.InterruptionEvent, 1)
+
+	hookCalled := false
+	sqsMonitor := sqsevent.SQSMonitor{
+		SQS:                           sqsMock,
+		EC2:                           ec2Mock,
+		ManagedTag:                    "aws-node-termination-handler/managed",
+		ASG:                           mockIsManagedTrue(&asgMock),
+		CheckIfManaged:                true,
+		QueueURL:                      "https://test-queue",
+		InterruptionChan:              drainChan,
+		BeforeCompleteLifecycleAction: func() { hookCalled = true },
+	}
+
+	err = sqsMonitor.Monitor()
+	h.Ok(t, err)
+
+	t.Run(asgLifecycleEvent.DetailType, func(st *testing.T) {
+		result := <-drainChan
+		h.Equals(st, sqsevent.SQSTerminateKind, result.Kind)
+		h.Equals(st, result.NodeName, dnsNodeName)
+		h.Assert(st, result.PostDrainTask != nil, "PostDrainTask should have been set")
+		h.Assert(st, result.PreDrainTask != nil, "PreDrainTask should have been set")
+		err := result.PostDrainTask(result, node.Node{})
+		h.Ok(st, err)
+		h.Assert(st, hookCalled, "BeforeCompleteLifecycleAction hook not called")
+	})
+}
+
 func TestMonitor_DrainTasks_Errors(t *testing.T) {
 	testEvents := []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, {}, rebalanceRecommendationEvent}
 	messages := make([]*sqs.Message, 0, len(testEvents))

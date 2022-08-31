@@ -91,7 +91,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
-		_, err := m.ASG.CompleteLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
+		_, err := m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
 			AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
 			LifecycleActionResult: aws.String("CONTINUE"),
 			LifecycleHookName:     &lifecycleDetail.LifecycleHookName,
