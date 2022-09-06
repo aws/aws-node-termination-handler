@@ -918,7 +918,8 @@ func getSQSMessageFromEvent(event sqsevent.EventBridgeEvent) (sqs.Message, error
 		return sqs.Message{}, err
 	}
 	eventStr := string(eventBytes)
-	return sqs.Message{Body: &eventStr}, nil
+	messageId := "d7de6634-f672-ce5c-d87e-ae0b1b5b2510"
+	return sqs.Message{Body: &eventStr, MessageId: &messageId}, nil
 }
 
 func mockIsManagedTrue(asg *h.MockedASG) h.MockedASG {
