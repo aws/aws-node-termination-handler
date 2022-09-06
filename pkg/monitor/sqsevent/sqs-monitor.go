@@ -241,7 +241,7 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 	}
 
 	if failedInterruptionEventsCount != 0 {
-		return fmt.Errorf("some interruption events for message Id %b could not be processed", message.MessageId)
+		return fmt.Errorf("some interruption events for message Id %s could not be processed", *message.MessageId)
 	}
 
 	return nil
