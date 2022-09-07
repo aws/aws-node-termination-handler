@@ -148,7 +148,7 @@ func TestMonitor_EventBridgeSuccess(t *testing.T) {
 			SQS:              sqsMock,
 			EC2:              ec2Mock,
 			ManagedTag:       "aws-node-termination-handler/managed",
-			ASG:              mockIsManagedTrue(nil),
+			ASG:              &h.MockedASG{},
 			CheckIfManaged:   true,
 			QueueURL:         "https://test-queue",
 			InterruptionChan: drainChan,
@@ -192,7 +192,6 @@ func TestMonitor_EventBridgeTestNotification(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedFalse(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -233,7 +232,7 @@ func TestMonitor_AsgDirectToSqsSuccess(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(nil),
+		ASG:              &h.MockedASG{},
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -279,7 +278,6 @@ func TestMonitor_AsgDirectToSqsTestNotification(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedFalse(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -323,7 +321,7 @@ func TestMonitor_DrainTasks(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(&asgMock),
+		ASG:              asgMock,
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -368,7 +366,7 @@ func TestMonitor_DrainTasks_Delay(t *testing.T) {
 		SQS:                           sqsMock,
 		EC2:                           ec2Mock,
 		ManagedTag:                    "aws-node-termination-handler/managed",
-		ASG:                           mockIsManagedTrue(&asgMock),
+		ASG:                           asgMock,
 		CheckIfManaged:                true,
 		QueueURL:                      "https://test-queue",
 		InterruptionChan:              drainChan,
@@ -417,7 +415,7 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(&asgMock),
+		ASG:              asgMock,
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -470,7 +468,7 @@ func TestMonitor_DrainTasksASGFailure(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(&asgMock),
+		ASG:              asgMock,
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -748,7 +746,6 @@ func TestMonitor_EC2NoDNSName(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -788,7 +785,6 @@ func TestMonitor_EC2NoDNSNameOnTerminatedInstance(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -826,7 +822,6 @@ func TestMonitor_SQSDeleteFailure(t *testing.T) {
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
 		ManagedTag:       "aws-node-termination-handler/managed",
-		ASG:              mockIsManagedTrue(nil),
 		CheckIfManaged:   true,
 		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
@@ -864,7 +859,6 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 		sqsMonitor := sqsevent.SQSMonitor{
 			SQS:              sqsMock,
 			EC2:              ec2Mock,
-			ASG:              mockIsManagedFalse(nil),
 			CheckIfManaged:   true,
 			QueueURL:         "https://test-queue",
 			InterruptionChan: drainChan,
@@ -920,31 +914,4 @@ func getSQSMessageFromEvent(event sqsevent.EventBridgeEvent) (sqs.Message, error
 	eventStr := string(eventBytes)
 	messageId := "d7de6634-f672-ce5c-d87e-ae0b1b5b2510"
 	return sqs.Message{Body: &eventStr, MessageId: &messageId}, nil
-}
-
-func mockIsManagedTrue(asg *h.MockedASG) h.MockedASG {
-	if asg == nil {
-		asg = &h.MockedASG{}
-	}
-	asg.DescribeAutoScalingInstancesResp = autoscaling.DescribeAutoScalingInstancesOutput{
-		AutoScalingInstances: []*autoscaling.InstanceDetails{
-			{AutoScalingGroupName: aws.String("test-asg")},
-		},
-	}
-	asg.DescribeTagsPagesResp = autoscaling.DescribeTagsOutput{
-		Tags: []*autoscaling.TagDescription{
-			{Key: aws.String("aws-node-termination-handler/managed")},
-		},
-	}
-	return *asg
-}
-
-func mockIsManagedFalse(asg *h.MockedASG) h.MockedASG {
-	if asg == nil {
-		asg = &h.MockedASG{}
-	}
-	asg.DescribeAutoScalingInstancesResp = autoscaling.DescribeAutoScalingInstancesOutput{
-		AutoScalingInstances: []*autoscaling.InstanceDetails{},
-	}
-	return *asg
 }
