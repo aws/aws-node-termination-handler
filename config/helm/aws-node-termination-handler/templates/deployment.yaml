@@ -82,8 +82,14 @@ spec:
               value: {{ .Values.enablePrometheusServer | quote }}
             - name: PROMETHEUS_SERVER_PORT
               value: {{ .Values.prometheusServerPort | quote }}
+            # [DEPRECATED] Use CHECK_TAG_BEFORE_DRAINING instead
+            - name: CHECK_ASG_TAG_BEFORE_DRAINING
+              value: {{ .Values.checkASGTagBeforeDraining | quote }}
             - name: CHECK_TAG_BEFORE_DRAINING
               value: {{ .Values.checkTagBeforeDraining | quote }}
+            # [DEPRECATED] Use MANAGED_TAG instead
+            - name: MANAGED_ASG_TAG
+              value: {{ .Values.managedAsgTag | quote }}
             - name: MANAGED_TAG
               value: {{ .Values.managedTag | quote }}
             - name: USE_PROVIDER_ID

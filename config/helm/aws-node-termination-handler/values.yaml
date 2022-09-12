@@ -173,8 +173,14 @@ queueURL: ""
 # The maximum amount of parallel event processors to handle concurrent events
 workers: 10
 
+# [DEPRECATED] Use checkTagBeforeDraining instead
+checkASGTagBeforeDraining: true
+
 # If true, check that the instance is tagged with "aws-node-termination-handler/managed" as the key before draining the node
 checkTagBeforeDraining: true
+
+# [DEPRECATED] Use managedTag instead
+managedAsgTag: "aws-node-termination-handler/managed"
 
 # The tag to ensure is on a node if checkTagBeforeDraining is true
 managedTag: "aws-node-termination-handler/managed"
