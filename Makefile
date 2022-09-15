@@ -13,6 +13,7 @@ KODATA = \
 	cmd/webhook/kodata/HEAD \
 	cmd/webhook/kodata/refs
 CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
+GITHUB_REPO_FULL_NAME = "aws/aws-node-termination-handler"
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -117,3 +118,14 @@ apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes clus
 .PHONY: delete
 delete:  ## Delete controller from current kubernetes cluster.
 	helm uninstall dev --namespace ${CLUSTER_NAMESPACE}
+
+##@ Release
+
+.PHONY: latest-release-tag
+latest-release-tag: ## Get tag of most recent release.
+	@git describe --tags --abbrev=0 v2
+
+.PHONY: repo-full-name
+repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.
+	@echo "$(GITHUB_REPO_FULL_NAME)"
+
