@@ -35,7 +35,7 @@ Your EKS cluster must have an IAM OIDC Provider. Follow the steps in [Create an 
 
 ##### 1.2.1. Create the IAM Policy
 
-Download the service account policy template for AWS CloudFormation at https://github.com/aws/aws-node-termination-handler/releases/download/v2.0.0-alpha/infrastructure.yaml
+Download the service account policy template for AWS CloudFormation at https://github.com/aws/aws-node-termination-handler/releases/download/v1.14.1/infrastructure.yaml
 
 Then create the IAM Policy by deploying the AWS CloudFormation stack:
 ```sh
@@ -96,7 +96,7 @@ NTH reads events from one or more SQS Queues. If you already have an SQS Queue a
 
 *Note:* Multiple Terminators may read from a single SQS Queue. A Terminator will only delete a message if a matching node was found in the cluster. The SQS Queue's visibility window setting can help to ensure that a message is delivered to only one Terminator at a time.
 
-You may create your own SQS Queue but an AWS CloudFormation template is available that will create an SQS Queue and commonly used rules for AWS EventBridge. Download from https://github.com/aws/aws-node-termination-handler/releases/download/v2.0.0-alpha/queue-infrastructure.yaml
+You may create your own SQS Queue but an AWS CloudFormation template is available that will create an SQS Queue and commonly used rules for AWS EventBridge. Download from https://github.com/aws/aws-node-termination-handler/releases/download/v1.14.1/queue-infrastructure.yaml
 
 ```sh
 aws cloudformation deploy \
@@ -109,7 +109,7 @@ aws cloudformation deploy \
 
 #### 3.2. Define and deploy a Terminator
 
-You may download a template file from https://github.com/aws/aws-node-termination-handler/releases/download/v2.0.0-alpha/terminator.yaml.tmpl. Edit the file with the required fields and desired configuration.
+You may download a template file from https://github.com/aws/aws-node-termination-handler/releases/download/v1.14.1/terminator.yaml.tmpl. Edit the file with the required fields and desired configuration.
 
 Deploy the Terminator:
 ```sh
