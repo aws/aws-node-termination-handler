@@ -5,6 +5,7 @@ CONTROLLER_GEN = $(BIN_DIR)controller-gen
 KO = $(BIN_DIR)/ko
 SETUP_ENVTEST = $(BIN_DIR)/setup-envtest
 GINKGO = $(BIN_DIR)/ginkgo
+GUM = $(BIN_DIR)/gum
 HELM_BASE_OPTS ?= --set aws.region=${AWS_REGION},serviceAccount.name=${SERVICE_ACCOUNT_NAME},serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${SERVICE_ACCOUNT_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 KODATA = \
@@ -13,6 +14,7 @@ KODATA = \
 	cmd/webhook/kodata/HEAD \
 	cmd/webhook/kodata/refs
 CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
+GITHUB_REPO_FULL_NAME = "aws/aws-node-termination-handler"
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -58,7 +60,10 @@ $(GINKGO):
 	GOBIN="$(BIN_DIR)" go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
 
 $(KO):
-	@./scripts/download-ko.sh "$(BIN_DIR)"
+	@$(PROJECT_DIR)/scripts/download-ko.sh "$(BIN_DIR)"
+
+$(GUM):
+	@$(PROJECT_DIR)/scripts/download-gum.sh "$(BIN_DIR)"
 
 $(SETUP_ENVTEST):
 	GOBIN="$(BIN_DIR)" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220217150738-f62a0f579d73
@@ -117,3 +122,22 @@ apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes clus
 .PHONY: delete
 delete:  ## Delete controller from current kubernetes cluster.
 	helm uninstall dev --namespace ${CLUSTER_NAMESPACE}
+
+##@ Release
+
+.PHONY: create-release-prep-pr
+create-release-prep-pr: $(GUM) ## Update version numbers in documents and open a PR.
+	$(PROJECT_DIR)/scripts/prepare-for-release.sh
+
+.PHONY: create-release-prep-pr-draft
+create-release-prep-pr-draft: $(GUM) ## Update version numbers in documents and open a draft PR.
+	$(PROJECT_DIR)/scripts/prepare-for-release.sh -d
+
+.PHONY: latest-release-tag
+latest-release-tag: ## Get tag of most recent release.
+	@git describe --tags --abbrev=0 v2
+
+.PHONY: repo-full-name
+repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.
+	@echo "$(GITHUB_REPO_FULL_NAME)"
+
