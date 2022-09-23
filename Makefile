@@ -127,11 +127,11 @@ delete:  ## Delete controller from current kubernetes cluster.
 
 .PHONY: create-release-prep-pr
 create-release-prep-pr: $(GUM) ## Update version numbers in documents and open a PR.
-	$(PROJECT_DIR)/scripts/prepare-for-release.sh
+	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/prepare-for-release.sh
 
 .PHONY: create-release-prep-pr-draft
 create-release-prep-pr-draft: $(GUM) ## Update version numbers in documents and open a draft PR.
-	$(PROJECT_DIR)/scripts/prepare-for-release.sh -d
+	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/prepare-for-release.sh -d
 
 .PHONY: latest-release-tag
 latest-release-tag: ## Get tag of most recent release.
