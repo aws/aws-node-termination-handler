@@ -42,10 +42,6 @@ version="0.6.0"
 os="$(go env GOHOSTOS)"
 arch="$(go env GOHOSTARCH)"
 
-#if [[ "${os}" == "darwin" ]]; then
-#    os="Darwin"
-#fi
-
 if [[ "${arch}" == "amd64" ]]; then
     arch="x86_64"
 elif [[ "${arch}" == "arm" ]]; then
