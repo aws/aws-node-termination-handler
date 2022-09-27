@@ -15,6 +15,8 @@ KODATA = \
 	cmd/webhook/kodata/refs
 CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
 GITHUB_REPO_FULL_NAME = "aws/aws-node-termination-handler"
+ECR_PUBLIC_REGISTRY ?= "public.ecr.aws/aws-ec2"
+ECR_PUBLIC_REPOSITORY_ROOT = "aws-node-termination-handler-2"
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -125,6 +127,10 @@ delete:  ## Delete controller from current kubernetes cluster.
 
 ##@ Release
 
+.PHONY: build-and-push-images
+build-and-push-images: $(KO) $(KODATA) ## Build controller and webhook images and push to ECR public repository.
+	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/build-and-push-images.sh -r "$(ECR_PUBLIC_REGISTRY)/$(ECR_PUBLIC_REPOSITORY_ROOT)"
+
 .PHONY: create-release-prep-pr
 create-release-prep-pr: $(GUM) ## Update version numbers in documents and open a PR.
 	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/prepare-for-release.sh
@@ -141,3 +147,5 @@ latest-release-tag: ## Get tag of most recent release.
 repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.
 	@echo "$(GITHUB_REPO_FULL_NAME)"
 
+.PHONY: version
+version: latest-release-tag ## Get the most recent release version.
