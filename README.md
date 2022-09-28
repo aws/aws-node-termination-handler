@@ -42,36 +42,41 @@ You can run the termination handler on any Kubernetes cluster running on AWS, in
 
 ## Major Features
 
-### Instance Metadata Service Processor
-- Monitors EC2 Metadata for Scheduled Maintenance Events
-- Monitors EC2 Metadata for Spot Instance Termination Notifications
-- Monitors EC2 Metadata for Rebalance Recommendation Notifications
+Both modes (IMDS and Queue Processor) monitor for events affecting your EC2 instances, but each supports different types of events. Both modes have the following:
+
 - Helm installation and event configuration support
 - Webhook feature to send shutdown or restart notification messages
-- Unit & Integration Tests
+- Unit & integration tests
+
+### Instance Metadata Service Processor
+Must be deployed as a Kubernetes **DaemonSet**.
+
+- Monitors EC2 Instance Metadata for:
+   - [Spot Instance Termination Notifications](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-instance-termination-notices.html)
+   - [Scheduled Events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html)
+   - [Instance Rebalance Recommendations](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/rebalance-recommendations.html)
 
 ### Queue Processor
-- Monitors an SQS Queue for:
-   - EC2 Spot Interruption Notifications
-   - EC2 Instance Rebalance Recommendation
-   - EC2 Auto-Scaling Group Termination Lifecycle Hooks to take care of ASG Scale-In, AZ-Rebalance, Unhealthy Instances, and more!
-   - EC2 Status Change Events
-   - EC2 Scheduled Change events from AWS Health
-- Helm installation and event configuration support
-- Webhook feature to send shutdown or restart notification messages
-- Unit & Integration Tests
+Must be deployed as a Kubernetes **Deployment**. Also requires some **additional infrastructure setup** (including SQS queue, EventBridge rules).
 
-## Which one should I use?
-|                Feature                | IMDS Processor | Queue Processor |
-| :-----------------------------------: | :------------: | :-------------: |
-|             K8s DaemonSet             |       ✅        |        ❌        |
-|            K8s Deployment             |       ❌        |        ✅        |
-|   Spot Instance Interruptions (ITN)   |       ✅        |        ✅        |
-|           Scheduled Events            |       ✅        |        ✅        |
-| EC2 Instance Rebalance Recommendation |       ✅        |        ✅        |
-|          ASG Lifecycle Hooks          |       ❌        |        ✅        |
-|          EC2 Status Changes           |       ❌        |        ✅        |
-|            Setup Required             |       ❌        |        ✅        |
+- Monitors an SQS Queue for:
+   - Spot Instance Termination Notifications
+   - Scheduled Events (via AWS Health)
+   - Instance Rebalance Recommendations
+   - ASG Termination Lifecycle Hooks to handle the following:
+     - [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html)
+     - [Availability Zone Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html)
+     - [Unhealthy Instances](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html), and more
+   - [Instance State Change events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instance-state-changes.html)
+
+### Which one should I use?
+|                    Feature                    | IMDS Processor | Queue Processor |
+| :-------------------------------------------: | :------------: | :-------------: |
+| Spot Instance Termination Notifications (ITN) |       ✅        |        ✅        |
+|               Scheduled Events                |       ✅        |        ✅        |
+|       Instance Rebalance Recommendation       |       ✅        |        ✅        |
+|        ASG Termination Lifecycle Hooks        |       ❌        |        ✅        |
+|         Instance State Change Events          |       ❌        |        ✅        |
 
 
 ## Installation and Configuration
@@ -425,7 +430,7 @@ For a full list of configuration options see our [Helm readme](https://github.co
 
 #### Kubectl Apply
 
-Queue Processor needs an **sqs queue url** to function; therefore, manifest changes are **REQUIRED** before using kubectl to directly add all of the above resources into your cluster.
+Queue Processor needs an **SQS queue URL** to function; therefore, manifest changes are **REQUIRED** before using kubectl to directly add all of the above resources into your cluster.
 
 Minimal Config:
 
