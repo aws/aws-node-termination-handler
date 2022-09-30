@@ -139,6 +139,10 @@ create-release-prep-pr: $(GUM) ## Update version numbers in documents and open a
 create-release-prep-pr-draft: $(GUM) ## Update version numbers in documents and open a draft PR.
 	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/prepare-for-release.sh -d
 
+.PHONY: upload-resources-to-github
+upload-resources-to-github: ## Upload contents of resources/ as part of the most recent published release.
+	@$(PROJECT_DIR)/scripts/upload-resources-to-github.sh
+
 .PHONY: latest-release-tag
 latest-release-tag: ## Get tag of most recent release.
 	@git describe --tags --abbrev=0 v2
