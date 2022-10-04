@@ -6,6 +6,7 @@ KO = $(BIN_DIR)/ko
 SETUP_ENVTEST = $(BIN_DIR)/setup-envtest
 GINKGO = $(BIN_DIR)/ginkgo
 GUM = $(BIN_DIR)/gum
+GH = $(BIN_DIR)/gh
 HELM_BASE_OPTS ?= --set aws.region=${AWS_REGION},serviceAccount.name=${SERVICE_ACCOUNT_NAME},serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${SERVICE_ACCOUNT_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 KODATA = \
@@ -66,6 +67,9 @@ $(KO):
 
 $(GUM):
 	@$(PROJECT_DIR)/scripts/download-gum.sh "$(BIN_DIR)"
+
+$(GH):
+	@$(PROJECT_DIR)/scripts/download-gh.sh "$(BIN_DIR)"
 
 $(SETUP_ENVTEST):
 	GOBIN="$(BIN_DIR)" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220217150738-f62a0f579d73
@@ -150,6 +154,10 @@ latest-release-tag: ## Get tag of most recent release.
 .PHONY: repo-full-name
 repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.
 	@echo "$(GITHUB_REPO_FULL_NAME)"
+
+.PHONY: ekscharts-sync-release
+ekscharts-sync-release: $(GH)
+	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/sync-to-aws-eks-charts.sh -n
 
 .PHONY: version
 version: latest-release-tag ## Get the most recent release version.
