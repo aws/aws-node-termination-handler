@@ -15,9 +15,10 @@ KODATA = \
 	cmd/webhook/kodata/HEAD \
 	cmd/webhook/kodata/refs
 CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
-GITHUB_REPO_FULL_NAME = "aws/aws-node-termination-handler"
-ECR_PUBLIC_REGISTRY ?= "public.ecr.aws/aws-ec2"
-ECR_PUBLIC_REPOSITORY_ROOT = "aws-node-termination-handler-2"
+GITHUB_REPO_FULL_NAME = aws/aws-node-termination-handler
+ECR_PUBLIC_REGION = us-east-1
+ECR_PUBLIC_REGISTRY ?= public.ecr.aws/aws-ec2
+ECR_PUBLIC_REPOSITORY_ROOT = aws-node-termination-handler-2
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -129,10 +130,14 @@ apply: $(KO) $(KODATA) ## Deploy the controller into the current kubernetes clus
 delete:  ## Delete controller from current kubernetes cluster.
 	helm uninstall dev --namespace ${CLUSTER_NAMESPACE}
 
+.PHONY: ecr-login
+ecr-login: ## Login to default AWS ECR repository.
+	@$(PROJECT_DIR)/scripts/docker-login-ecr.sh
+
 ##@ Release
 
 .PHONY: build-and-push-images
-build-and-push-images: $(KO) $(KODATA) ## Build controller and webhook images and push to ECR public repository.
+build-and-push-images: $(KO) $(KODATA) ecr-public-login ## Build controller and webhook images and push to ECR public repository.
 	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/build-and-push-images.sh -r "$(ECR_PUBLIC_REGISTRY)/$(ECR_PUBLIC_REPOSITORY_ROOT)"
 
 .PHONY: create-release-prep-pr
@@ -142,6 +147,10 @@ create-release-prep-pr: $(GUM) ## Update version numbers in documents and open a
 .PHONY: create-release-prep-pr-draft
 create-release-prep-pr-draft: $(GUM) ## Update version numbers in documents and open a draft PR.
 	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/prepare-for-release.sh -d
+
+.PHONY: ecr-public-login
+ecr-public-login: ## Login to the AWS ECR public repository.
+	@$(PROJECT_DIR)/scripts/docker-login-ecr.sh -g "$(ECR_PUBLIC_REGION)" -r "$(ECR_PUBLIC_REGISTRY)/$(ECR_PUBLIC_REPOSITORY_ROOT)"
 
 .PHONY: upload-resources-to-github
 upload-resources-to-github: ## Upload contents of resources/ as part of the most recent published release.
@@ -158,6 +167,10 @@ repo-full-name: ## Get the full name of the GitHub repository for Node Terminati
 .PHONY: ekscharts-sync-release
 ekscharts-sync-release: $(GH)
 	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/sync-to-aws-eks-charts.sh -n
+
+.PHONY: sync-readme-to-ecr-public
+sync-readme-to-ecr-public: ecr-public-login ## Upload the README.md to ECR public controller and webhook repositories.
+	@$(PROJECT_DIR)/scripts/sync-readme-to-ecr-public.sh -r "$(ECR_PUBLIC_REGISTRY)/$(ECR_PUBLIC_REPOSITORY_ROOT)"
 
 .PHONY: version
 version: latest-release-tag ## Get the most recent release version.
