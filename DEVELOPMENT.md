@@ -131,7 +131,7 @@ export SERVICE_ACCOUNT_ROLE_ARN=$(eksctl get iamserviceaccount \
 ```sh
 export KO_DOCKER_REPO=$(./scripts/get-cfn-stack-output.sh "${DEV_INFRASTRUCTURE_STACK_NAME}" RepositoryBaseURI)
 
-./scripts/docker-login-ecr.sh
+make ecr-login
 ```
 
 ## 6. Build and deploy controller to EKS cluster
