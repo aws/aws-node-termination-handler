@@ -158,7 +158,11 @@ upload-resources-to-github: ## Upload contents of resources/ as part of the most
 
 .PHONY: latest-release-tag
 latest-release-tag: ## Get tag of most recent release.
-	@git describe --tags --abbrev=0 v2
+	@git describe --tags --abbrev=0 `git rev-parse --abbrev-ref HEAD`
+
+.PHONY: previous-release-tag
+previous-release-tag: ## Get tag of second most recent release.
+	@git describe --tags --abbrev=0 `git rev-parse --abbrev-ref HEAD`^
 
 .PHONY: repo-full-name
 repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 repo_root_path="$(cd "$(dirname "$0")"; cd ..; pwd -P)"
+makefile_path="${repo_root_path}/Makefile"
 
 if ! command -v jq; then
     echo "command not found: jq" >&2
@@ -58,7 +59,10 @@ assert_not_empty version
 
 #################################################
 
-if ! (git --no-pager diff --name-only HEAD^ HEAD | grep 'README.md' >/dev/null); then
+latest_release_tag="$(make -s -f "${makefile_path}" latest-release-tag)"
+previous_release_tag="$(make -s -f "${makefile_path}" previous-release-tag)"
+
+if ! (git --no-pager diff --name-only "${previous_release_tag}" "${latest_release_tag}" | grep 'README.md' >/dev/null); then
     echo -e "⚠️ README.md did not change in the last commit. Not taking any action."
     exit 0
 fi
