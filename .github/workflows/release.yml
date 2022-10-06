@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v2.*"
+
+permissions:
+  contents: write # require for uploading releases
+
+env:
+  DEFAULT_GO_VERSION: ^1.18
+  GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
+  GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
+  WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ env.DEFAULT_GO_VERSION }}
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Release assets
+      run: make release
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    - name: Create eks-charts PR
+      run: make ekscharts-sync-release
+
+    - name: Sync README to ECR Public
+      run: make sync-readme-to-ecr-public
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
