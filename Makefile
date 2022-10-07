@@ -164,6 +164,9 @@ latest-release-tag: ## Get tag of most recent release.
 previous-release-tag: ## Get tag of second most recent release.
 	@git describe --tags --abbrev=0 `git rev-parse --abbrev-ref HEAD`^
 
+.PHONY: release
+release: build-and-push-images upload-resources-to-github ## Build and push images to ECR Public and upload resources to GitHub.
+
 .PHONY: repo-full-name
 repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.
 	@echo "$(GITHUB_REPO_FULL_NAME)"
