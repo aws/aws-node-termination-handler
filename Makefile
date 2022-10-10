@@ -188,13 +188,7 @@ sync-readme-to-ecr-public: ecr-public-login ## Upload the README.md to ECR publi
 version: latest-release-tag ## Get the most recent release version.
 
 .PHONY: third-party-licenses
-third-party-licenses: rm-third-party-licenses $(THIRD_PARTY_LICENSES) ## Save list of third party licenses.
-
-.PHONY: rm-third-party-licenses
-rm-third-party-licenses:
-	@rm -f $(THIRD_PARTY_LICENSES)
-
-$(THIRD_PARTY_LICENSES): $(GOLICENSES)
+third-party-licenses: $(GOLICENSES) ## Save list of third party licenses.
 	@$(GOLICENSES) report \
 		--template "$(PROJECT_DIR)/templates/third-party-licenses.tmpl" \
 		$(PROJECT_DIR)/cmd/controller \
