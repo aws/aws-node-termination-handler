@@ -2,7 +2,7 @@ apiVersion: v2
 name: aws-node-termination-handler-2
 description: A Helm chart for aws-node-termination-handler, an open-source component for gracefully handling termination events for node hosted in AWS.
 type: application
-version: 0.1.0
+version: "0.1.0"
 appVersion: "2.0.0-0.1"
 kubeVersion: ">=1.16-0"
 keywords:
