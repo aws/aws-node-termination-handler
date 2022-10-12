@@ -38,6 +38,7 @@ Your EKS cluster must have an IAM OIDC Provider. Follow the steps in [Create an 
 Download the service account policy template for AWS CloudFormation at https://github.com/aws/aws-node-termination-handler/releases/download/v2.0.0-alpha/infrastructure.yaml
 
 Then create the IAM Policy by deploying the AWS CloudFormation stack:
+
 ```sh
 aws cloudformation deploy \
   --template-file infrastructure.yaml \
@@ -50,6 +51,7 @@ aws cloudformation deploy \
 Use either the AWS CLI or AWS Console to lookup the ARN of the IAM Policy for the service account.
 
 Create the cluster service account using the following command:
+
 ```sh
 eksctl create iamserviceaccount \
   --cluster <CLUSTER NAME> \
@@ -64,6 +66,7 @@ eksctl create iamserviceaccount \
 ### 2. Deploy NTH
 
 Get the ARN of the service account role:
+
 ```sh
 eksctl get iamserviceaccount \
   --cluster <CLUSTER NAME> \
@@ -72,6 +75,7 @@ eksctl get iamserviceaccount \
 ```
 
 Add the AWS `eks-charts` helm repository and deploy the chart:
+
 ```sh
 helm repo add eks https://aws.github.io/eks-charts
 
