@@ -7,6 +7,7 @@ SETUP_ENVTEST = $(BIN_DIR)/setup-envtest
 GINKGO = $(BIN_DIR)/ginkgo
 GUM = $(BIN_DIR)/gum
 GH = $(BIN_DIR)/gh
+GOLICENSES = $(BIN_DIR)/go-licenses
 HELM_BASE_OPTS ?= --set aws.region=${AWS_REGION},serviceAccount.name=${SERVICE_ACCOUNT_NAME},serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${SERVICE_ACCOUNT_ROLE_ARN}
 GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 KODATA = \
@@ -15,6 +16,7 @@ KODATA = \
 	cmd/webhook/kodata/HEAD \
 	cmd/webhook/kodata/refs
 CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
+THIRD_PARTY_LICENSES = $(PROJECT_DIR)/THIRD_PARTY_LICENSES.md
 GITHUB_REPO_FULL_NAME = aws/aws-node-termination-handler
 ECR_PUBLIC_REGION = us-east-1
 ECR_PUBLIC_REGISTRY ?= public.ecr.aws/aws-ec2
@@ -71,6 +73,9 @@ $(GUM):
 
 $(GH):
 	@$(PROJECT_DIR)/scripts/download-gh.sh "$(BIN_DIR)"
+
+$(GOLICENSES):
+	GOBIN="$(BIN_DIR)" go install github.com/google/go-licenses@v1.4.0
 
 $(SETUP_ENVTEST):
 	GOBIN="$(BIN_DIR)" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220217150738-f62a0f579d73
@@ -181,3 +186,11 @@ sync-readme-to-ecr-public: ecr-public-login ## Upload the README.md to ECR publi
 
 .PHONY: version
 version: latest-release-tag ## Get the most recent release version.
+
+.PHONY: third-party-licenses
+third-party-licenses: $(GOLICENSES) ## Save list of third party licenses.
+	@$(GOLICENSES) report \
+		--template "$(PROJECT_DIR)/templates/third-party-licenses.tmpl" \
+		$(PROJECT_DIR)/cmd/controller \
+		$(PROJECT_DIR)/cmd/webhook \
+		$(PROJECT_DIR)/test > $(THIRD_PARTY_LICENSES)
