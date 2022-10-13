@@ -69,7 +69,7 @@ const (
 	// PodEvictReason is the event reason emitted for Pod evictions during node drain
 	PodEvictReason = "PodEviction"
 	// PodEvictMsg is the event message emitted for Pod evictions during node drain
-	PodEvictMsg = "Pod evicted due to node drain"
+	PodEvictMsgFmt = "Pod evicted due to node drain (node %s)"
 )
 
 var (
@@ -137,7 +137,7 @@ func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderIn
 				for k, v := range pod.GetLabels() {
 					annotations[k] = v
 				}
-				recorder.AnnotatedEventf(podRef, annotations, "Normal", PodEvictReason, PodEvictMsg)
+				recorder.AnnotatedEventf(podRef, annotations, corev1.EventTypeNormal, PodEvictReason, PodEvictMsgFmt, nodeName)
 			}
 		}
 	}
@@ -829,5 +829,5 @@ func filterPodForDeletion(podName string) func(pod corev1.Pod) drain.PodDeleteSt
 }
 
 type recorderInterface interface {
-	AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{})
+	AnnotatedEventf(object runtime.Object, annotations map[string]string, eventType, reason, messageFmt string, args ...interface{})
 }

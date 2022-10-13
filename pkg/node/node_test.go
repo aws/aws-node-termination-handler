@@ -63,7 +63,8 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	fakeRecorder := record.NewFakeRecorder(100)
+	fakeRecorder := record.NewFakeRecorder(10)
+	defer close(fakeRecorder.Events)
 
 	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
 
@@ -103,7 +104,7 @@ func TestNewFailure(t *testing.T) {
 }
 
 func TestDrainSuccess(t *testing.T) {
-	controllerBool := true
+	isOwnerController := true
 	client := fake.NewSimpleClientset()
 	_, err := client.CoreV1().Nodes().Create(
 		context.Background(),
@@ -112,6 +113,7 @@ func TestDrainSuccess(t *testing.T) {
 		},
 		metav1.CreateOptions{})
 	h.Ok(t, err)
+
 	_, err = client.CoreV1().Pods("default").Create(
 		context.Background(),
 		&v1.Pod{
@@ -122,7 +124,7 @@ func TestDrainSuccess(t *testing.T) {
 						APIVersion: "apps/v1",
 						Name:       "cool-app",
 						Kind:       "ReplicaSet",
-						Controller: &controllerBool,
+						Controller: &isOwnerController,
 					},
 				},
 			},
@@ -133,13 +135,12 @@ func TestDrainSuccess(t *testing.T) {
 		metav1.CreateOptions{})
 	h.Ok(t, err)
 
-	fakeRecorder := record.NewFakeRecorder(100)
+	fakeRecorder := record.NewFakeRecorder(10)
 
 	tNode := getNode(t, getDrainHelper(client))
 	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
-
-	h.Ok(t, err)
 	close(fakeRecorder.Events)
+	h.Ok(t, err)
 	expectedEventArrived := false
 	for event := range fakeRecorder.Events {
 		if strings.Contains(event, "Normal PodEviction Pod evicted due to node drain") {
@@ -150,11 +151,10 @@ func TestDrainSuccess(t *testing.T) {
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
-	fakeRecorder := record.NewFakeRecorder(100)
-
+	fakeRecorder := record.NewFakeRecorder(10)
+	defer close(fakeRecorder.Events)
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
-
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
