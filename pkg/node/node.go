@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -64,6 +65,13 @@ const (
 	maxTaintValueLength = 63
 )
 
+const (
+	// PodEvictReason is the event reason emitted for Pod evictions during node drain
+	PodEvictReason = "PodEviction"
+	// PodEvictMsg is the event message emitted for Pod evictions during node drain
+	PodEvictMsg = "Pod evicted due to node drain"
+)
+
 var (
 	maxRetryDeadline      time.Duration = 5 * time.Second
 	conflictRetryInterval time.Duration = 750 * time.Millisecond
@@ -95,7 +103,7 @@ func NewWithValues(nthConfig config.Config, drainHelper *drain.Helper, uptime up
 }
 
 // CordonAndDrain will cordon the node and evict pods based on the config
-func (n Node) CordonAndDrain(nodeName string, reason string) error {
+func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderInterface) error {
 	if n.nthConfig.DryRun {
 		log.Info().Str("node_name", nodeName).Str("reason", reason).Msg("Node would have been cordoned and drained, but dry-run flag was set.")
 		return nil
@@ -113,6 +121,25 @@ func (n Node) CordonAndDrain(nodeName string, reason string) error {
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
 		return err
+	}
+	// Emit events for all pods that will be evicted
+	if recorder != nil {
+		pods, err := n.fetchAllPods(nodeName)
+		if err == nil {
+			for _, pod := range pods.Items {
+				podRef := &corev1.ObjectReference{
+					Kind:      "Pod",
+					Name:      pod.Name,
+					Namespace: pod.Namespace,
+				}
+				annotations := make(map[string]string)
+				annotations["node"] = nodeName
+				for k, v := range pod.GetLabels() {
+					annotations[k] = v
+				}
+				recorder.AnnotatedEventf(podRef, annotations, "Normal", PodEvictReason, PodEvictMsg)
+			}
+		}
 	}
 	err = drain.RunNodeDrain(n.drainHelper, node.Name)
 	if err != nil {
@@ -799,4 +826,8 @@ func filterPodForDeletion(podName string) func(pod corev1.Pod) drain.PodDeleteSt
 		}
 		return drain.MakePodDeleteStatusOkay()
 	}
+}
+
+type recorderInterface interface {
+	AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{})
 }

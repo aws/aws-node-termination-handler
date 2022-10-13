@@ -16,6 +16,7 @@ package node_test
 import (
 	"context"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/drain"
 )
 
@@ -61,7 +63,10 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	err = tNode.CordonAndDrain(nodeName, "cordonReason")
+	fakeRecorder := record.NewFakeRecorder(100)
+
+	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
+
 	h.Ok(t, err)
 
 	err = tNode.Cordon(nodeName, "cordonReason")
@@ -98,6 +103,7 @@ func TestNewFailure(t *testing.T) {
 }
 
 func TestDrainSuccess(t *testing.T) {
+	controllerBool := true
 	client := fake.NewSimpleClientset()
 	_, err := client.CoreV1().Nodes().Create(
 		context.Background(),
@@ -106,14 +112,49 @@ func TestDrainSuccess(t *testing.T) {
 		},
 		metav1.CreateOptions{})
 	h.Ok(t, err)
-	tNode := getNode(t, getDrainHelper(client))
-	err = tNode.CordonAndDrain(nodeName, "cordonReason")
+	_, err = client.CoreV1().Pods("default").Create(
+		context.Background(),
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "cool-app-pod-",
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "apps/v1",
+						Name:       "cool-app",
+						Kind:       "ReplicaSet",
+						Controller: &controllerBool,
+					},
+				},
+			},
+			Spec: v1.PodSpec{
+				NodeName: nodeName,
+			},
+		},
+		metav1.CreateOptions{})
 	h.Ok(t, err)
+
+	fakeRecorder := record.NewFakeRecorder(100)
+
+	tNode := getNode(t, getDrainHelper(client))
+	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
+
+	h.Ok(t, err)
+	close(fakeRecorder.Events)
+	expectedEventArrived := false
+	for event := range fakeRecorder.Events {
+		if strings.Contains(event, "Normal PodEviction Pod evicted due to node drain") {
+			expectedEventArrived = true
+		}
+	}
+	h.Assert(t, expectedEventArrived, "PodEvicted event was not emitted")
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
+	fakeRecorder := record.NewFakeRecorder(100)
+
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
-	err := tNode.CordonAndDrain(nodeName, "cordonReason")
+	err := tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
+
 	h.Assert(t, true, "Failed to return error on CordonAndDrain failing to cordon node", err != nil)
 }
 
