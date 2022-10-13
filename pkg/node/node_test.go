@@ -116,6 +116,7 @@ func TestDrainSuccess(t *testing.T) {
 		},
 		metav1.CreateOptions{})
 	h.Ok(t, err)
+
 	_, err = client.CoreV1().Pods("default").Create(
 		context.Background(),
 		&v1.Pod{
