@@ -108,12 +108,6 @@ test: delete-test-coverage $(CODECOVERAGE_OUT)  ## Run tests.
 explore-test-coverage: $(CODECOVERAGE_OUT) ## Display test coverage report in default web browser.
 	go tool cover -html=$<
 
-##@ Build
-
-.PHONY: run
-run: ## Run a controller from your host.
-	go run ./main.go
-
 ##@ Deployment
 
 $(KODATA):

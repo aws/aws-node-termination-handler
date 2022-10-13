@@ -33,7 +33,7 @@ if [[ -z "${dir_path}" ]]; then
     exit 1
 fi
 
-if ! which wget >/dev/null ; then
+if ! command -v wget >/dev/null; then
     echo "error: wget not installed" 1>&2
     exit 1
 fi
