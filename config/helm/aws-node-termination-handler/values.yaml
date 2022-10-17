@@ -170,6 +170,9 @@ awsRegion: ""
 # Listens for messages on the specified SQS queue URL
 queueURL: ""
 
+# Proceed with lifecycle (PostDrainTasks) even if the terminated node isn't part of the cluster (issue #575)
+handleFailedInstances: false
+
 # The maximum amount of parallel event processors to handle concurrent events
 workers: 10
 

@@ -110,11 +110,12 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `priorityClassName`          | Name of the PriorityClass to use for the Deployment.                                                                                                                      | `system-cluster-critical`              |
 | `awsRegion`                  | If specified, use the AWS region for AWS API calls, else NTH will try to find the region through the `AWS_REGION` environment variable, IMDS, or the specified queue URL. | `""`                                   |
 | `queueURL`                   | Listens for messages on the specified SQS queue URL.                                                                                                                      | `""`                                   |
+| `handleFailedInstances`      | Proceed with lifecycle (PostDrainTasks) even if the terminated node isn't part of the cluster (issue #575)                                                                                                                   | `false`                                |
 | `workers`                    | The maximum amount of parallel event processors to handle concurrent events.                                                                                              | `10`                                   |
 | `checkTagBeforeDraining`     | If `true`, check that the instance is tagged with the `managedTag` before draining the node.                                                                              | `true`                                 |
 | `managedTag`                 | The node tag to check if `checkTagBeforeDraining` is `true`.                                                                                                              | `aws-node-termination-handler/managed` |
 | `checkASGTagBeforeDraining`  | [DEPRECATED](Use `checkTagBeforeDraining` instead) If `true`, check that the instance is tagged with the `managedAsgTag` before draining the node. If `false`, disables calls ASG API.                                                                          | `true`                                 |
-| `managedAsgTag`              | [DEPRECATED](Use `managedTag` instead) The node tag to check if `checkASGTagBeforeDraining` is `true`.     
+| `managedAsgTag`              | [DEPRECATED](Use `managedTag` instead) The node tag to check if `checkASGTagBeforeDraining` is `true`.
 | `useProviderId`              | If `true`, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.                                                               | `false`                                |
 
 ### IMDS Mode Configuration

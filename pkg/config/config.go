@@ -102,6 +102,8 @@ const (
 	awsRegionConfigKey                        = "AWS_REGION"
 	awsEndpointConfigKey                      = "AWS_ENDPOINT"
 	queueURLConfigKey                         = "QUEUE_URL"
+	handleFailedInstancesConfigKey            = "HANDLE_FAILED_INSTANCES"
+	handleFailedInstanceDefault               = false
 	completeLifecycleActionDelaySecondsKey    = "COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS"
 )
 
@@ -149,6 +151,7 @@ type Config struct {
 	AWSRegion                           string
 	AWSEndpoint                         string
 	QueueURL                            string
+	HandleFailedInstances               bool
 	Workers                             int
 	UseProviderId                       bool
 	CompleteLifecycleActionDelaySeconds int
@@ -208,6 +211,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.AWSRegion, "aws-region", getEnv(awsRegionConfigKey, ""), "If specified, use the AWS region for AWS API calls")
 	flag.StringVar(&config.AWSEndpoint, "aws-endpoint", getEnv(awsEndpointConfigKey, ""), "[testing] If specified, use the AWS endpoint to make API calls")
 	flag.StringVar(&config.QueueURL, "queue-url", getEnv(queueURLConfigKey, ""), "Listens for messages on the specified SQS queue URL")
+	flag.BoolVar(&config.HandleFailedInstances, "handle-failed-instances", getBoolEnv(handleFailedInstancesConfigKey, handleFailedInstanceDefault), "Proceed with lifecycle (PostDrainTasks) even if the terminated node isn't part of the cluster")
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
 	flag.BoolVar(&config.UseProviderId, "use-provider-id", getBoolEnv(useProviderIdConfigKey, useProviderIdDefault), "If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.")
 	flag.IntVar(&config.CompleteLifecycleActionDelaySeconds, "complete-lifecycle-action-delay-seconds", getIntEnv(completeLifecycleActionDelaySecondsKey, -1), "Delay completing the Autoscaling lifecycle action after a node has been drained.")
@@ -298,6 +302,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("aws_region", c.AWSRegion).
 		Str("aws_endpoint", c.AWSEndpoint).
 		Str("queue_url", c.QueueURL).
+		Bool("handle_failed_instances", c.HandleFailedInstances).
 		Bool("check_tag_before_draining", c.CheckTagBeforeDraining).
 		Str("ManagedTag", c.ManagedTag).
 		Bool("use_provider_id", c.UseProviderId).
