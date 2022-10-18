@@ -1,6 +1,6 @@
-<h1>AWS Node Termination Handler</h1>
+# AWS Node Termination Handler
 
-<h4>Gracefully handle EC2 instance shutdown within Kubernetes</h4>
+#### Gracefully handle EC2 instance shutdown within Kubernetes
 
 ## Project Summary
 
