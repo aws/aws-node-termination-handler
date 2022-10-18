@@ -12,7 +12,7 @@ fi
 
 version="$(make -s -f "${makefile_path}" version)"
 platforms="linux/amd64"
-image_repository="${KO_DOCKER_REPO}"
+image_repository="${KO_DOCKER_REPO:-}"
 goproxy="direct|https://proxy.golang.org"
 
 usage=$(cat << EOM

@@ -11,7 +11,7 @@ if ! command -v jq; then
 fi
 
 region="${AWS_REGION:-us-east-1}"
-repo_root="${KO_DOCKER_REPO}"
+repo_root="${KO_DOCKER_REPO:-}"
 version="$(make -s -f "${makefile_path}" version)"
 
 usage=$(cat << EOM
