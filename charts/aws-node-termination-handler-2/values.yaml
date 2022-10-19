@@ -138,33 +138,6 @@ serviceAccount:
     annotations: {}
         # "eks.amazonaws.com/role-arn": <Service Account ARN>
 
-terminator:
-    defaults:
-        drain:
-            # Terminate pods that do not have a controller.
-            force: true
-            # Duration to wait for each pod to terminate. If negative then the pod's grace period will be used.
-            gracePeriodSeconds: -1
-            # Do not terminate pods managed by a DaemonSet.
-            ignoreAllDaemonSets: true
-            # Terminate pods that have local data that will be deleted.
-            deleteEmptyDirData: true
-            # Duration to wait before giving up. If 0, then wait forever.
-            timeoutSeconds: 120
-        webhook:
-            # List of HTTP heads to include in webhook requests.
-            headers:
-                - name: Content-Type
-                  value: application/json
-            # Template used to generate webhook request body. The template may reference:
-            # * EventID
-            # * Kind
-            # * InstanceID
-            # * NodeName
-            # * StartTime
-            # See https://pkg.go.dev/text/template documentation for template format examples and explanation.
-            template: '{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Start Time: {{ .StartTime }}"}'
-
 webhook:
     # Environment variables.
     env: []

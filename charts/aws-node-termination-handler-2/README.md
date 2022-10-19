@@ -57,13 +57,6 @@ helm repo add eks https://aws.github.io/eks-charts/
 * `serviceAccount.annotations` - Annotation names and values to add to service account. Default: `{}`.
 * `serviceAccount.create` - Enable creation of service account. Helm release may fail if service account already exists. Default: `true`.
 * `serviceAccount.name` - Name of the service account. If `serviceAccount.create` is enabled then the default will be generated from the release name and chart name. If `serviceAccount.create` is disabled then the default is `"default"`.
-* `terminator.defaults.drain.force` - Default value of `Terminator`'s `spec.drain.force` property. Default: `true`.
-* `terminator.defaults.drain.gracePeriodSeconds` - Default value of `Terminator`'s `spec.drain.gracePeriodSeconds` property. Default: `-1`.
-* `terminator.defaults.drain.ignoreAllDaemonSets` - Default value of `Terminator`'s `spec.drain.ignoreAllDaemonSets` property. Default: `true`.
-* `terminator.defaults.drain.deleteEmptyDirData` - Default value of `Terminator`'s `spec.drain.deleteEmptyDirData` property. Default: `true`.
-* `terminator.defaults.drain.timeoutSeconds` - Default value of `Terminator`'s `spec.drain.timeoutSeconds` property. Default: `120`.
-* `terminator.defaults.webhook.headers` - Default value of `Terminator`'s `spec.webhook.headers` property. Default: `[{"name": "Content-Type", "value": "application/json"}]`.
-* `terminator.defaults.webhook.template` - Default value of `Terminator`'s `spec.webhook.template` property. Default: `'{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Start Time: {{ .StartTime }}"}'`.
 * `webhook.env` - List of environment variables to set in the webhook container. See [core/v1 Pod.spec.containers.env](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#container-v1-core) Default: `[]`.
 * `webhook.image` - Image repository for the webhook controller.
 * `webhook.logLevel` - Override the global logging level for the webhook container. Default: `""`.
