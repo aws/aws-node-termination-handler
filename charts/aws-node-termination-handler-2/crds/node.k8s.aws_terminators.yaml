@@ -64,33 +64,23 @@ spec:
                   force:
                     description: Enable termination of pods without a controller.
                     type: boolean
-                    {{- with .Values.terminator.defaults.drain.force }}
-                    default: {{ . }}
-                    {{- end }}
+                    default: true
                   gracePeriodSeconds:
-                    description: Wait time for pods to exit. If negative then the pod's configured gracetime will be used.
+                    description: Wait time for pods to terminate. If negative then the pod's configured gracetime will be used.
                     type: integer
-                    {{- with .Values.terminator.defaults.drain.gracePeriodSeconds }}
-                    default: {{ . }}
-                    {{- end }}
+                    default: -1
                   ignoreAllDaemonSets:
                     description: Enable ignoring pods managed by a DaemonSet.
                     type: boolean
-                    {{- with .Values.terminator.defaults.drain.ignoreAllDaemonSets }}
-                    default: {{ . }}
-                    {{- end }}
+                    default: true
                   deleteEmptyDirData:
                     description: Enable termination of pods with local data that will be deleted.
                     type: boolean
-                    {{- with .Values.terminator.defaults.drain.deleteEmptyDirData }}
-                    default: {{ . }}
-                    {{- end }}
+                    default: true
                   timeoutSeconds:
-                    description: Wait time before failing the action. If zero, wait forever.
+                    description: Wait time before failing the action. If zero, then wait forever.
                     type: integer
-                    {{- with .Values.terminator.defaults.drain.timeoutSeconds }}
-                    default: {{ . }}
-                    {{- end }}
+                    default: 120
               events:
                 description: Specify what action should be taken when a particular message type is received.
                 type: object
@@ -155,17 +145,16 @@ spec:
                       required:
                         - name
                         - value
-                    {{- with .Values.terminator.defaults.webhook.headers }}
                     default:
-                      {{- toYaml . | nindent 22 }}
-                    {{- end }}
+                      - name: "Content-Type"
+                        value: "application/json"
                   template:
-                    description: Used to generate the request payload.
+                    description: |
+                      Used to generate the request payload. Template used to generate webhook request body.
+                      The template may reference fields EventID, Kind, InstanceID, NodeName, and StartTime.
+                      See https://pkg.go.dev/text/template documentation for template format examples and explanation.
                     type: string
-                    {{- with .Values.terminator.defaults.webhook.template }}
-                    default: |
-                      {{ . }}
-                    {{- end }}
+                    default: '{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Start Time: {{ .StartTime }}"}'
           status:
             description: TerminatorStatus defines the observed state of Terminator
             type: object
