@@ -33,6 +33,9 @@ import (
 	"k8s.io/kubectl/pkg/drain"
 )
 
+// Size of the fakeRecorder buffer
+const recorderBufferSize = 10
+
 var nodeName = "NAME"
 
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
@@ -63,7 +66,7 @@ func TestDryRun(t *testing.T) {
 	tNode, err := node.New(config.Config{DryRun: true})
 	h.Ok(t, err)
 
-	fakeRecorder := record.NewFakeRecorder(10)
+	fakeRecorder := record.NewFakeRecorder(recorderBufferSize)
 	defer close(fakeRecorder.Events)
 
 	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
@@ -135,7 +138,7 @@ func TestDrainSuccess(t *testing.T) {
 		metav1.CreateOptions{})
 	h.Ok(t, err)
 
-	fakeRecorder := record.NewFakeRecorder(10)
+	fakeRecorder := record.NewFakeRecorder(recorderBufferSize)
 
 	tNode := getNode(t, getDrainHelper(client))
 	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
@@ -151,7 +154,7 @@ func TestDrainSuccess(t *testing.T) {
 }
 
 func TestDrainCordonNodeFailure(t *testing.T) {
-	fakeRecorder := record.NewFakeRecorder(10)
+	fakeRecorder := record.NewFakeRecorder(recorderBufferSize)
 	defer close(fakeRecorder.Events)
 	tNode := getNode(t, getDrainHelper(fake.NewSimpleClientset()))
 	err := tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
