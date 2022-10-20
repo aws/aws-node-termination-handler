@@ -196,13 +196,13 @@ func main() {
 
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
-			log.Info().Str("event_type", monitor.Kind()).Msg("Started monitoring for events")
+			log.Info().Str("monitor_type", monitor.Kind()).Msg("Started monitoring for events")
 			var previousErr error
 			var duplicateErrCount int
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
 				if err != nil {
-					log.Warn().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
+					log.Warn().Str("monitor_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
 					metrics.ErrorEventsInc(monitor.Kind())
 					recorder.Emit(nthConfig.NodeName, observability.Warning, observability.MonitorErrReason, observability.MonitorErrMsgFmt, monitor.Kind())
 					if previousErr != nil && err.Error() == previousErr.Error() {
@@ -242,6 +242,7 @@ func main() {
 					log.Info().
 						Str("event-id", event.EventID).
 						Str("kind", event.Kind).
+						Str("monitor", event.Monitor).
 						Str("node-name", event.NodeName).
 						Str("instance-id", event.InstanceID).
 						Str("provider-id", event.ProviderID).

@@ -18,10 +18,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -62,8 +59,9 @@ const (
 const (
 	scheduledEventReason          = "ScheduledEvent"
 	spotITNReason                 = "SpotInterruption"
-	sqsTerminateReason            = "SQSTermination"
 	rebalanceRecommendationReason = "RebalanceRecommendation"
+	stateChangeReason             = "StateChange"
+	asgLifecycleReason            = "ASGLifecycle"
 	unknownReason                 = "UnknownInterruption"
 )
 
@@ -143,14 +141,16 @@ func (r K8sEventRecorder) Emit(nodeName string, eventType, eventReason, eventMsg
 // GetReasonForKind returns a Kubernetes event reason for the given interruption event kind
 func GetReasonForKind(kind string) string {
 	switch kind {
-	case scheduledevent.ScheduledEventKind:
+	case monitor.ScheduledEventKind:
 		return scheduledEventReason
-	case spotitn.SpotITNKind:
+	case monitor.SpotITNKind:
 		return spotITNReason
-	case sqsevent.SQSTerminateKind:
-		return sqsTerminateReason
-	case rebalancerecommendation.RebalanceRecommendationKind:
+	case monitor.RebalanceRecommendationKind:
 		return rebalanceRecommendationReason
+	case monitor.StateChangeKind:
+		return stateChangeReason
+	case monitor.ASGLifecycleKind:
+		return asgLifecycleReason
 	default:
 		return unknownReason
 	}

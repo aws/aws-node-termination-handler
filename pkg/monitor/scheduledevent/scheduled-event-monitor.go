@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	// ScheduledEventKind is a const to define a scheduled event kind of interruption event
-	ScheduledEventKind           = "SCHEDULED_EVENT"
+	// ScheduledEventMonitorKind is a const to define this monitor kind
+	ScheduledEventMonitoKind     = "SCHEDULED_EVENT_MONITOR"
 	scheduledEventStateCompleted = "completed"
 	scheduledEventStateCanceled  = "canceled"
 	scheduledEventDateFormat     = "2 Jan 2006 15:04:05 GMT"
@@ -69,9 +69,9 @@ func (m ScheduledEventMonitor) Monitor() error {
 	return nil
 }
 
-// Kind denotes the kind of event that is processed
+// Kind denotes the kind of monitor
 func (m ScheduledEventMonitor) Kind() string {
-	return ScheduledEventKind
+	return ScheduledEventMonitoKind
 }
 
 // checkForScheduledEvents Checks EC2 instance metadata for a scheduled event requiring a node drain
@@ -101,7 +101,8 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.Interruption
 		}
 		events = append(events, monitor.InterruptionEvent{
 			EventID:      scheduledEvent.EventID,
-			Kind:         ScheduledEventKind,
+			Kind:         monitor.ScheduledEventKind,
+			Monitor:      ScheduledEventMonitoKind,
 			Description:  fmt.Sprintf("%s will occur between %s and %s because %s\n", scheduledEvent.Code, scheduledEvent.NotBefore, scheduledEvent.NotAfter, scheduledEvent.Description),
 			State:        scheduledEvent.State,
 			NodeName:     m.NodeName,

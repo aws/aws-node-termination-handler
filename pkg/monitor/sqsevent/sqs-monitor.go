@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	// SQSTerminateKind is a const to define an SQS termination kind of interruption event
-	SQSTerminateKind = "SQS_TERMINATE"
+	// SQSMonitorKind is a const to define this monitor kind
+	SQSMonitorKind = "SQS_MONITOR"
 	// ASGTagName is the name of the instance tag whose value is the AutoScaling group name
 	ASGTagName = "aws:autoscaling:groupName"
 )
@@ -71,9 +71,9 @@ func (s skip) Unwrap() error {
 	return s.err
 }
 
-// Kind denotes the kind of event that is processed
+// Kind denotes the kind of monitor
 func (m SQSMonitor) Kind() string {
-	return SQSTerminateKind
+	return SQSMonitorKind
 }
 
 // Monitor continuously monitors SQS for events and coordinates processing of the events
@@ -219,9 +219,9 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 			log.Debug().Str("instance-id", eventWrapper.InterruptionEvent.InstanceID).Msg("dropping interruption event for unmanaged node")
 			dropMessageSuggestionCount++
 
-		case eventWrapper.InterruptionEvent.Kind == SQSTerminateKind:
-			// Successfully processed SQS message into a SQSTerminateKind interruption event
-			log.Debug().Msgf("Sending %s interruption event to the interruption channel", SQSTerminateKind)
+		case eventWrapper.InterruptionEvent.Monitor == SQSMonitorKind:
+			// Successfully processed SQS message into a eventWrapper.InterruptionEvent.Kind interruption event
+			log.Debug().Msgf("Sending %s interruption event to the interruption channel", eventWrapper.InterruptionEvent.Kind)
 			m.InterruptionChan <- *eventWrapper.InterruptionEvent
 
 		default:
