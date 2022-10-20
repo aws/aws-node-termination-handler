@@ -50,5 +50,9 @@ echo "Downloading github.com/cli/cli@v${version} ..."
 
 mkdir -p "${dir_path}"
 cd "${dir_path}"
+archive_path="gh_${version}_${os}_${arch}/bin"
+gh_archive_path="${archive_path}/gh"
 wget https://github.com/cli/cli/releases/download/v${version}/gh_${version}_${os}_${arch}.tar.gz -O - | \
-    tar xzf - gh
+    tar xzf - "${gh_archive_path}"
+mv "${gh_archive_path}" .
+rmdir -p "${archive_path}"
