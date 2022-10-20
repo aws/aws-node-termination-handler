@@ -88,6 +88,8 @@ gh_client_config_dir="${HOME}/.config/gh"
 gh_client_config_path="${gh_client_config_dir}/config.yml"
 gh_client_config_backup_path="${gh_client_config_dir}/config.yml.backup"
 
+mkdir -p "${gh_client_config_dir}"
+
 restore_gh_config() {
     if [[ -f "${gh_client_config_backup_path}" ]]; then
         echo -e "🥑 Restore gh cli configuration"
@@ -95,11 +97,12 @@ restore_gh_config() {
     fi
 }
 
-trap restore_gh_config EXIT
 
-echo "Backing up existing configuration"
-mkdir -p "${gh_client_config_dir}"
-mv -f "${gh_client_config_path}" "${gh_client_config_backup_path}"
+if [[ -e "${gh_client_config_path}" ]]; then
+    echo "Backing up existing configuration"
+    mv -f "${gh_client_config_path}" "${gh_client_config_backup_path}"
+    trap restore_gh_config EXIT
+fi
 
 echo "Writing custom configuration"
 cat << EOF > "${gh_client_config_path}"
@@ -133,8 +136,8 @@ echo -e "🥑 Check whether chart is in sync"
 
 eks_charts_nth_path="${eks_charts_repo_path}/stable/${helm_chart_name}"
 if diff -x ".*" -r "${helm_chart_path}/" "${eks_charts_nth_path}/" &>/dev/null ; then
-  echo " ✅ Charts already in sync; no updates needed"
-  exit
+    echo " ✅ Charts already in sync; no updates needed"
+    exit
 fi
 
 echo -e "🚨 Charts are NOT in sync"
