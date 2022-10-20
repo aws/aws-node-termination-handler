@@ -153,13 +153,16 @@ cp -R "${helm_chart_path}/" "${eks_charts_nth_path}/"
 
 echo -e "🥑 Commit updates"
 
+git config --local user.name "ec2-bot 🤖"
+git config --local user.email "ec2-bot@users.noreply.github.com"
+
 helm_chart_version="$(cat "${helm_chart_path}/Chart.yaml" | grep "version:" | cut -d ' ' -f2 | tr -d '"')"
 pr_id="$(uuidgen | cut -d '-' -f1)"
 git_release_branch="${helm_chart_name}-${helm_chart_version}-${pr_id}"
 git checkout -b "${git_release_branch}"
 
 git add --all
-git commit --author="ec2-bot 🤖 <ec2-bot@users.noreply.github.com>" -m "${helm_chart_name}: ${helm_chart_version}"
+git commit -m "${helm_chart_name}: ${helm_chart_version}"
 git push -u origin "${git_release_branch}"
 
 #################################################
