@@ -80,7 +80,8 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("asg-lifecycle-term-%x", event.ID),
-		Kind:                 SQSTerminateKind,
+		Kind:                 monitor.ASGLifecycleKind,
+		Monitor:              SQSMonitorKind,
 		AutoScalingGroupName: lifecycleDetail.AutoScalingGroupName,
 		StartTime:            event.getTime(),
 		NodeName:             nodeInfo.Name,

@@ -19,10 +19,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	kErr "k8s.io/apimachinery/pkg/api/errors"
@@ -66,8 +63,10 @@ const (
 const (
 	scheduledEventReason          = "ScheduledEvent"
 	spotITNReason                 = "SpotInterruption"
-	sqsTerminateReason            = "SQSTermination"
+	sqsTerminationReason          = "SQSTermination"
 	rebalanceRecommendationReason = "RebalanceRecommendation"
+	stateChangeReason             = "StateChange"
+	asgLifecycleReason            = "ASGLifecycle"
 	unknownReason                 = "UnknownInterruption"
 )
 
@@ -165,19 +164,60 @@ func (r K8sEventRecorder) Emit(nodeName string, eventType, eventReason, eventMsg
 	}
 }
 
-// GetReasonForKind returns a Kubernetes event reason for the given interruption event kind
-func GetReasonForKind(kind string) string {
-	switch kind {
-	case scheduledevent.ScheduledEventKind:
+// getReasonForKindV1 returns a Kubernetes event reason for the given interruption event kind.
+// Compatible with log format version 1.
+func getReasonForKindV1(eventKind, monitorKind string) string {
+	// In v1 all events received from SQS were given the same reason.
+	if monitorKind == monitor.SQSTerminateKind {
+		return sqsTerminationReason
+	}
+
+	// However, events received from IMDS could be more specific.
+	switch eventKind {
+	case monitor.ScheduledEventKind:
 		return scheduledEventReason
-	case spotitn.SpotITNKind:
+	case monitor.SpotITNKind:
 		return spotITNReason
-	case sqsevent.SQSTerminateKind:
-		return sqsTerminateReason
-	case rebalancerecommendation.RebalanceRecommendationKind:
+	case monitor.RebalanceRecommendationKind:
 		return rebalanceRecommendationReason
 	default:
 		return unknownReason
+	}
+}
+
+// getReasonForKindV2 returns a Kubernetes event reason for the given interruption event kind.
+// Compatible with log format version 2.
+func getReasonForKindV2(eventKind, _ string) string {
+	// v2 added reasons for more event kinds for both IMDS and SQS events.
+	switch eventKind {
+	case monitor.ScheduledEventKind:
+		return scheduledEventReason
+	case monitor.SpotITNKind:
+		return spotITNReason
+	case monitor.RebalanceRecommendationKind:
+		return rebalanceRecommendationReason
+	case monitor.StateChangeKind:
+		return stateChangeReason
+	case monitor.ASGLifecycleKind:
+		return asgLifecycleReason
+	default:
+		return unknownReason
+	}
+}
+
+var GetReasonForKind func(kind, monitor string) string = getReasonForKindV1
+
+func SetReasonForKindVersion(version int) error {
+	switch version {
+	case 1:
+		GetReasonForKind = getReasonForKindV1
+		return nil
+	case 2:
+		GetReasonForKind = getReasonForKindV2
+		return nil
+	default:
+		GetReasonForKind = getReasonForKindV1
+		return fmt.Errorf("Unrecognized 'reason for kind' version: %d, using version 1", version)
 	}
 }
 

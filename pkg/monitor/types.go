@@ -20,6 +20,21 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
+const (
+	// SpotITNKind is a const to define a Spot ITN kind of interruption event
+	SpotITNKind = "SPOT_ITN"
+	// ScheduledEventKind is a const to define a scheduled event kind of interruption event
+	ScheduledEventKind = "SCHEDULED_EVENT"
+	// RebalanceRecommendationKind is a const to define a Rebalance Recommendation kind of interruption event
+	RebalanceRecommendationKind = "REBALANCE_RECOMMENDATION"
+	// StateChangeKind is a const to define an EC2 State Change kind of interruption event
+	StateChangeKind = "STATE_CHANGE"
+	// ASGLifecycleKind is a const to define an ASG Lifecycle kind of interruption event
+	ASGLifecycleKind = "ASG_LIFECYCLE"
+	// SQSTerminateKind is a const to define an SQS termination kind of interruption event
+	SQSTerminateKind = "SQS_TERMINATE"
+)
+
 // DrainTask defines a task to be run when draining a node
 type DrainTask func(InterruptionEvent, node.Node) error
 
@@ -27,6 +42,7 @@ type DrainTask func(InterruptionEvent, node.Node) error
 type InterruptionEvent struct {
 	EventID              string
 	Kind                 string
+	Monitor              string
 	Description          string
 	State                string
 	AutoScalingGroupName string

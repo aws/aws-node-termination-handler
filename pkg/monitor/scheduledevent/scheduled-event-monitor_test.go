@@ -75,7 +75,8 @@ func TestMonitor_Success(t *testing.T) {
 	go func() {
 		result := <-drainChan
 		h.Equals(t, scheduledEventId, result.EventID)
-		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, monitor.ScheduledEventKind, result.Kind)
+		h.Equals(t, scheduledevent.ScheduledEventMonitorKind, result.Monitor)
 		h.Equals(t, scheduledEventState, result.State)
 		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
@@ -130,7 +131,7 @@ func TestMonitor_CanceledEvent(t *testing.T) {
 	go func() {
 		result := <-cancelChan
 		h.Equals(t, scheduledEventId, result.EventID)
-		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, monitor.ScheduledEventKind, result.Kind)
 		h.Equals(t, state, result.State)
 		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())
@@ -257,7 +258,7 @@ func TestMonitor_EndTimeParseFail(t *testing.T) {
 	go func() {
 		result := <-drainChan
 		h.Equals(t, scheduledEventId, result.EventID)
-		h.Equals(t, scheduledevent.ScheduledEventKind, result.Kind)
+		h.Equals(t, monitor.ScheduledEventKind, result.Kind)
 		h.Equals(t, scheduledEventState, result.State)
 		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventStartTimeFmt, result.EndTime.String())

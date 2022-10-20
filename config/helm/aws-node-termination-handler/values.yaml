@@ -66,6 +66,9 @@ probes:
 # Set the log level
 logLevel: info
 
+# Set the log format version
+logFormatVersion: 1
+
 # Log messages in JSON format
 jsonLogging: false
 

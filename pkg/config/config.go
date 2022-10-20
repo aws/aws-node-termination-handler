@@ -79,6 +79,10 @@ const (
 	jsonLoggingDefault                      = false
 	logLevelConfigKey                       = "LOG_LEVEL"
 	logLevelDefault                         = "INFO"
+	logFormatVersionKey                     = "LOG_FORMAT_VERSION"
+	logFormatVersionDefault                 = 1
+	MinSupportedLogFormatVersion            = 1
+	MaxSupportedLogFormatVersion            = 2
 	uptimeFromFileConfigKey                 = "UPTIME_FROM_FILE"
 	uptimeFromFileDefault                   = ""
 	workersConfigKey                        = "WORKERS"
@@ -138,6 +142,7 @@ type Config struct {
 	ExcludeFromLoadBalancers            bool
 	JsonLogging                         bool
 	LogLevel                            string
+	LogFormatVersion                    int
 	UptimeFromFile                      string
 	EnablePrometheus                    bool
 	PrometheusPort                      int
@@ -197,6 +202,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.ExcludeFromLoadBalancers, "exclude-from-load-balancers", getBoolEnv(excludeFromLoadBalancers, false), "If true, nodes will be marked for exclusion from load balancers when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
+	flag.IntVar(&config.LogFormatVersion, "log-format-version", getIntEnv(logFormatVersionKey, logFormatVersionDefault), "Sets the log format version.")
 	flag.StringVar(&config.UptimeFromFile, "uptime-from-file", getEnv(uptimeFromFileConfigKey, uptimeFromFileDefault), "If specified, read system uptime from the file path (useful for testing).")
 	flag.BoolVar(&config.EnablePrometheus, "enable-prometheus-server", getBoolEnv(enablePrometheusConfigKey, enablePrometheusDefault), "If true, a http server is used for exposing prometheus metrics in /metrics endpoint.")
 	flag.IntVar(&config.PrometheusPort, "prometheus-server-port", getIntEnv(prometheusPortConfigKey, prometheusPortDefault), "The port for running the prometheus http server.")
@@ -240,6 +246,15 @@ func ParseCliArgs() (config Config, err error) {
 	case "error":
 	default:
 		return config, fmt.Errorf("invalid log-level passed: %s  Should be one of: info, debug, error", config.LogLevel)
+	}
+
+	if config.LogFormatVersion < MinSupportedLogFormatVersion {
+		log.Warn().Msgf("Log format version %d is not supported, using format version %d", config.LogFormatVersion, MinSupportedLogFormatVersion)
+		config.LogFormatVersion = MinSupportedLogFormatVersion
+	}
+	if config.LogFormatVersion > MaxSupportedLogFormatVersion {
+		log.Warn().Msgf("Log format version %d is not supported, using format version %d", config.LogFormatVersion, MaxSupportedLogFormatVersion)
+		config.LogFormatVersion = MaxSupportedLogFormatVersion
 	}
 
 	if config.NodeName == "" {
