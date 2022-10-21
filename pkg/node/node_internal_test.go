@@ -15,7 +15,6 @@ package node
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
@@ -86,7 +85,7 @@ func TestUncordonIfRebootedFileReadError(t *testing.T) {
 
 func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 	d1 := []byte("350735.47 234388.90")
-	err := ioutil.WriteFile(testFile, d1, 0644)
+	err := os.WriteFile(testFile, d1, 0644)
 	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
@@ -110,7 +109,7 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 
 func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 	d1 := []byte("0 234388.90")
-	err := ioutil.WriteFile(testFile, d1, 0644)
+	err := os.WriteFile(testFile, d1, 0644)
 	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
@@ -134,7 +133,7 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 
 func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 	d1 := []byte("0 234388.90")
-	err := ioutil.WriteFile(testFile, d1, 0644)
+	err := os.WriteFile(testFile, d1, 0644)
 	h.Ok(t, err)
 
 	client := fake.NewSimpleClientset()
