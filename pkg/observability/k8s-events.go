@@ -14,6 +14,7 @@
 package observability
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,7 +23,10 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
+	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
+	kErr "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -70,7 +74,9 @@ const (
 // K8sEventRecorder wraps a Kubernetes event recorder with some extra information
 type K8sEventRecorder struct {
 	annotations map[string]string
+	clientSet   *kubernetes.Clientset
 	enabled     bool
+	sqsMode     bool
 	record.EventRecorder
 }
 
@@ -81,8 +87,8 @@ func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetad
 	}
 
 	annotations := make(map[string]string)
+	annotations["account-id"] = nodeMetadata.AccountId
 	if !sqsMode {
-		annotations["account-id"] = nodeMetadata.AccountId
 		annotations["availability-zone"] = nodeMetadata.AvailabilityZone
 		annotations["instance-id"] = nodeMetadata.InstanceID
 		annotations["instance-life-cycle"] = nodeMetadata.InstanceLifeCycle
@@ -117,7 +123,9 @@ func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetad
 
 	return K8sEventRecorder{
 		annotations: annotations,
+		clientSet:   clientSet,
 		enabled:     true,
+		sqsMode:     sqsMode,
 		EventRecorder: broadcaster.NewRecorder(
 			scheme.Scheme,
 			corev1.EventSource{
@@ -131,12 +139,29 @@ func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetad
 // Emit a Kubernetes event for the given node and with the given event type, reason and message
 func (r K8sEventRecorder) Emit(nodeName string, eventType, eventReason, eventMsgFmt string, eventMsgArgs ...interface{}) {
 	if r.enabled {
-		node := &corev1.ObjectReference{
-			Kind:      "Node",
-			Name:      nodeName,
-			Namespace: "default",
+		var node *corev1.Node
+		var annotations map[string]string
+		if r.sqsMode {
+			var err error
+			node, err = r.clientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			if err != nil {
+				if kErr.IsNotFound(err) {
+					return
+				}
+				log.Err(err).Msg("Emitting Kubernetes event failed")
+				return
+			}
+			annotations = generateNodeAnnotations(node, r.annotations)
+		} else {
+			node = &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      nodeName,
+					Namespace: "default",
+				},
+			}
+			annotations = r.annotations
 		}
-		r.AnnotatedEventf(node, r.annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...)
+		r.AnnotatedEventf(node, annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...)
 	}
 }
 
@@ -167,4 +192,36 @@ func parseExtraAnnotations(annotations map[string]string, extraAnnotationsStr st
 		annotations[keyValue[0]] = keyValue[1]
 	}
 	return annotations, nil
+}
+
+// Generate annotations for an event occurred on the given node
+func generateNodeAnnotations(node *corev1.Node, annotations map[string]string) map[string]string {
+	nodeAnnotations := make(map[string]string)
+	for k, v := range annotations {
+		nodeAnnotations[k] = v
+	}
+	nodeAnnotations["availability-zone"] = node.Labels["topology.kubernetes.io/zone"]
+	nodeAnnotations["instance-id"] = node.Spec.ProviderID[strings.LastIndex(node.Spec.ProviderID, "/")+1:]
+	nodeAnnotations["instance-type"] = node.Labels["node.kubernetes.io/instance-type"]
+	nodeAnnotations["local-hostname"] = node.Name
+	for _, address := range node.Status.Addresses {
+		// If there's more than one address of the same type, use the first one
+		switch address.Type {
+		case corev1.NodeInternalIP:
+			if _, exist := annotations["local-ipv4"]; !exist {
+				nodeAnnotations["local-ipv4"] = address.Address
+			}
+		case corev1.NodeExternalDNS:
+			if _, exist := annotations["public-hostname"]; !exist {
+				nodeAnnotations["public-hostname"] = address.Address
+			}
+		case corev1.NodeExternalIP:
+			if _, exist := annotations["public-ipv4"]; !exist {
+				nodeAnnotations["public-ipv4"] = address.Address
+			}
+		}
+	}
+	nodeAnnotations["region"] = node.Labels["topology.kubernetes.io/region"]
+
+	return nodeAnnotations
 }
