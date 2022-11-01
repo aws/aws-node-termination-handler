@@ -26,6 +26,9 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v2
+      with:
+        ref: v2  # repo branch
+        fetch-depth: 0  # fetch all history
 
     - name: Release assets
       run: make release
