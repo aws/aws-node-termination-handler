@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root_path="$(cd "$(dirname "$0")"; cd ..; pwd -P)"
 makefile_path="${repo_root_path}/Makefile"
 
-if ! command -v jq; then
+if ! command -v jq >/dev/null; then
     echo "command not found: jq" >&2
     exit 1
 fi
