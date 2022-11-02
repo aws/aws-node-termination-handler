@@ -76,7 +76,7 @@ func TestMonitor_Success(t *testing.T) {
 		result := <-drainChan
 		h.Equals(t, scheduledEventId, result.EventID)
 		h.Equals(t, monitor.ScheduledEventKind, result.Kind)
-		h.Equals(t, scheduledevent.ScheduledEventMonitoKind, result.Monitor)
+		h.Equals(t, scheduledevent.ScheduledEventMonitorKind, result.Monitor)
 		h.Equals(t, scheduledEventState, result.State)
 		h.TimeWithinRange(t, result.StartTime, oneSecondAgo(), time.Now())
 		h.Equals(t, expScheduledEventEndTimeFmt, result.EndTime.String())

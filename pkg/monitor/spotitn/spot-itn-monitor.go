@@ -23,8 +23,8 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
-// SpotITNMonitoKind is a const to define this monitor kind
-const SpotITNMonitoKind = "SPOT_ITN_MONITOR"
+// SpotITNMonitorKind is a const to define this monitor kind
+const SpotITNMonitorKind = "SPOT_ITN_MONITOR"
 
 // SpotInterruptionMonitor is a struct definition which facilitates monitoring of spot ITNs from IMDS
 type SpotInterruptionMonitor struct {
@@ -58,7 +58,7 @@ func (m SpotInterruptionMonitor) Monitor() error {
 
 // Kind denotes the kind of monitor
 func (m SpotInterruptionMonitor) Kind() string {
-	return SpotITNMonitoKind
+	return SpotITNMonitorKind
 }
 
 // checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
@@ -87,7 +87,7 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.Inte
 	return &monitor.InterruptionEvent{
 		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
 		Kind:         monitor.SpotITNKind,
-		Monitor:      SpotITNMonitoKind,
+		Monitor:      SpotITNMonitorKind,
 		StartTime:    interruptionTime,
 		NodeName:     nodeName,
 		Description:  fmt.Sprintf("Spot ITN received. Instance will be interrupted at %s \n", instanceAction.Time),
