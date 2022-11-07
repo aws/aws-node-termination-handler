@@ -285,21 +285,20 @@ $ aws autoscaling create-or-update-tags \
   --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
 ```
 
-To tag an EC2 instance:
+To tag an individual EC2 instance:
 ```
 aws ec2 create-tags \
     --resources i-1234567890abcdef0 \
     --tags 'Key="aws-node-termination-handler/managed",Value='
 ```
 
-This functionality is helpful in accounts where there are ASGs that do not run kubernetes nodes or you do not want aws-node-termination-handler to manage their termination lifecycle.
-However, if your account is dedicated to ASGs for your kubernetes cluster, then you can turn off the ASG tag check by setting the flag `--check-tag-before-draining=false` or environment variable `CHECK_TAG_BEFORE_DRAINING=false`.
+Tagging your EC2 instances in this way is helpful if you only want aws-node-termination-handler to manage the lifecycle of instances in certain ASGs. For example, if your account also has other ASGs that do not contain Kubernetes nodes, this tagging mechanism will ensure that NTH does not manage the lifecycle of any instances in those non-Kubernetes ASGs.
+
+However, if the only ASGs in your account are for your Kubernetes cluster, then you can turn off the tag check by setting the flag `--check-tag-before-draining=false` or environment variable `CHECK_TAG_BEFORE_DRAINING=false`.
 
 You can also control what resources NTH manages by adding the resource ARNs to your Amazon EventBridge rules.
 
-Take a look at the docs on how to create rules that only manage certain ASGs [here](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html).
-
-See all the different events docs [here](https://docs.aws.amazon.com/eventbridge/latest/userguide/event-types.html#auto-scaling-event-types).
+Take a look at the docs on how to [create rules that only manage certain ASGs](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html), and read about all the [supported ASG events](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-event-reference.html).
 
 #### 4. Create Amazon EventBridge Rules
 
