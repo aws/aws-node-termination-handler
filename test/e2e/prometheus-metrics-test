@@ -15,12 +15,15 @@ set -euo pipefail
 echo "Starting Spot Interruption Test for Node Termination Handler with Prometheus server enabled"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+PROMETHEUS_HELM_VERSION="41.7.4"
 
 common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
-retry 5 helm install prometheus-operator "$SCRIPTPATH/../../config/helm/kube-prometheus-stack/" --set prometheusOperator.admissionWebhooks.enabled="false" --set grafana.enabled="false" --set nodeExporter.enabled="false" --set kubeStateMetrics.enabled="false"
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+retry 5 helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --version ${PROMETHEUS_HELM_VERSION} --set prometheusOperator.admissionWebhooks.enabled="false" --set grafana.enabled="false" --set nodeExporter.enabled="false" --set kubeStateMetrics.enabled="false"
 
 anth_helm_args=(
   upgrade
