@@ -14,20 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
+package reconciler
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-type (
-	DescribeEC2InstancesFunc = func(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
-
-	EC2Client DescribeEC2InstancesFunc
-)
-
-func (e EC2Client) DescribeInstancesWithContext(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...request.Option) (*ec2.DescribeInstancesOutput, error) {
-	return e(ctx, input, options...)
+func TestAppIntegration(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "App Integration Suite")
 }

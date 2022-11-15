@@ -9,7 +9,7 @@ GUM = $(BIN_DIR)/gum
 GH = $(BIN_DIR)/gh
 GOLICENSES = $(BIN_DIR)/go-licenses
 HELM_BASE_OPTS ?= --set aws.region=${AWS_REGION},serviceAccount.name=${SERVICE_ACCOUNT_NAME},serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${SERVICE_ACCOUNT_ROLE_ARN}
-GINKGO_BASE_OPTS ?= --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
+GINKGO_BASE_OPTS ?= -r --coverpkg $(shell head -n 1 $(PROJECT_DIR)/go.mod | cut -s -d ' ' -f 2)/pkg/...
 KODATA = \
 	cmd/controller/kodata/HEAD \
 	cmd/controller/kodata/refs \
