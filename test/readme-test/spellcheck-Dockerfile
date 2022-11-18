@@ -1,4 +1,4 @@
-FROM golang:1.16
+FROM golang:1.19
 
 RUN go install github.com/client9/misspell/cmd/misspell@v0.3.4
 
