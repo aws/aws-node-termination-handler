@@ -61,7 +61,8 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 	}
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("spot-itn-event-%x", event.ID),
-		Kind:                 SQSTerminateKind,
+		Kind:                 monitor.SpotITNKind,
+		Monitor:              SQSMonitorKind,
 		AutoScalingGroupName: nodeInfo.AsgName,
 		StartTime:            event.getTime(),
 		NodeName:             nodeInfo.Name,

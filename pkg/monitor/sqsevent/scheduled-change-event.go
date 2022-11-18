@@ -95,7 +95,8 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 		// Begin drain immediately for scheduled change events to avoid disruptions in cases such as degraded hardware
 		interruptionEvent := monitor.InterruptionEvent{
 			EventID:              fmt.Sprintf("aws-health-scheduled-change-event-%x", event.ID),
-			Kind:                 SQSTerminateKind,
+			Kind:                 monitor.ScheduledEventKind,
+			Monitor:              SQSMonitorKind,
 			AutoScalingGroupName: nodeInfo.AsgName,
 			StartTime:            time.Now(),
 			NodeName:             nodeInfo.Name,

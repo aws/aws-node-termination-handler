@@ -83,6 +83,14 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	}
 
+	log.Info().Msgf("Using log format version %d", nthConfig.LogFormatVersion)
+	if err = logging.SetFormatVersion(nthConfig.LogFormatVersion); err != nil {
+		log.Warn().Err(err).Send()
+	}
+	if err = observability.SetReasonForKindVersion(nthConfig.LogFormatVersion); err != nil {
+		log.Warn().Err(err).Send()
+	}
+
 	err = webhook.ValidateWebhookConfig(nthConfig)
 	if err != nil {
 		nthConfig.Print()
@@ -196,13 +204,13 @@ func main() {
 
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
-			log.Info().Str("event_type", monitor.Kind()).Msg("Started monitoring for events")
+			logging.VersionedMsgs.MonitoringStarted(monitor.Kind())
 			var previousErr error
 			var duplicateErrCount int
 			for range time.Tick(time.Second * 2) {
 				err := monitor.Monitor()
 				if err != nil {
-					log.Warn().Str("event_type", monitor.Kind()).Err(err).Msg("There was a problem monitoring for events")
+					logging.VersionedMsgs.ProblemMonitoringForEvents(monitor.Kind(), err)
 					metrics.ErrorEventsInc(monitor.Kind())
 					recorder.Emit(nthConfig.NodeName, observability.Warning, observability.MonitorErrReason, observability.MonitorErrMsgFmt, monitor.Kind())
 					if previousErr != nil && err.Error() == previousErr.Error() {
@@ -239,16 +247,10 @@ func main() {
 			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
 				select {
 				case interruptionEventStore.Workers <- 1:
-					log.Info().
-						Str("event-id", event.EventID).
-						Str("kind", event.Kind).
-						Str("node-name", event.NodeName).
-						Str("instance-id", event.InstanceID).
-						Str("provider-id", event.ProviderID).
-						Msg("Requesting instance drain")
+					logging.VersionedMsgs.RequestingInstanceDrain(event)
 					event.InProgress = true
 					wg.Add(1)
-					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind), event.Description)
+					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind, event.Monitor), event.Description)
 					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")

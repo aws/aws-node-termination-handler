@@ -121,13 +121,15 @@ var rebalanceRecommendationEvent = sqsevent.EventBridgeEvent{
 	}`),
 }
 
-func TestKind(t *testing.T) {
-	h.Assert(t, sqsevent.SQSMonitor{}.Kind() == sqsevent.SQSTerminateKind, "SQSMonitor kind should return the kind constant for the event")
+func TestMonitorKind(t *testing.T) {
+	h.Assert(t, sqsevent.SQSMonitor{}.Kind() == sqsevent.SQSMonitorKind, "SQSMonitor kind should return the kind constant for the monitor")
 }
 
 func TestMonitor_EventBridgeSuccess(t *testing.T) {
 	spotItnEventNoTime := spotItnEvent
 	spotItnEventNoTime.Time = ""
+	i := 0
+	expectedResultKinds := []string{monitor.SpotITNKind, monitor.ASGLifecycleKind, monitor.SpotITNKind, monitor.RebalanceRecommendationKind}
 	for _, event := range []sqsevent.EventBridgeEvent{spotItnEvent, asgLifecycleEvent, spotItnEventNoTime, rebalanceRecommendationEvent} {
 		msg, err := getSQSMessageFromEvent(event)
 		h.Ok(t, err)
@@ -159,7 +161,8 @@ func TestMonitor_EventBridgeSuccess(t *testing.T) {
 
 		select {
 		case result := <-drainChan:
-			h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+			h.Equals(t, expectedResultKinds[i], result.Kind)
+			h.Equals(t, sqsevent.SQSMonitorKind, result.Monitor)
 			h.Equals(t, result.NodeName, dnsNodeName)
 			h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 			h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
@@ -168,7 +171,7 @@ func TestMonitor_EventBridgeSuccess(t *testing.T) {
 		default:
 			h.Ok(t, fmt.Errorf("Expected an event to be generated"))
 		}
-
+		i++
 	}
 }
 
@@ -243,7 +246,8 @@ func TestMonitor_AsgDirectToSqsSuccess(t *testing.T) {
 
 	select {
 	case result := <-drainChan:
-		h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+		h.Equals(t, monitor.ASGLifecycleKind, result.Kind)
+		h.Equals(t, sqsevent.SQSMonitorKind, result.Monitor)
 		h.Equals(t, result.NodeName, dnsNodeName)
 		h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 		h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
@@ -330,16 +334,20 @@ func TestMonitor_DrainTasks(t *testing.T) {
 	err := sqsMonitor.Monitor()
 	h.Ok(t, err)
 
+	i := 0
+	expectedResultKinds := []string{monitor.SpotITNKind, monitor.ASGLifecycleKind, monitor.RebalanceRecommendationKind}
 	for _, event := range testEvents {
 		t.Run(event.DetailType, func(st *testing.T) {
 			result := <-drainChan
-			h.Equals(st, sqsevent.SQSTerminateKind, result.Kind)
+			h.Equals(st, expectedResultKinds[i], result.Kind)
+			h.Equals(st, sqsevent.SQSMonitorKind, result.Monitor)
 			h.Equals(st, result.NodeName, dnsNodeName)
 			h.Assert(st, result.PostDrainTask != nil, "PostDrainTask should have been set")
 			h.Assert(st, result.PreDrainTask != nil, "PreDrainTask should have been set")
 			err := result.PostDrainTask(result, node.Node{})
 			h.Ok(st, err)
 		})
+		i++
 	}
 }
 
@@ -378,7 +386,8 @@ func TestMonitor_DrainTasks_Delay(t *testing.T) {
 
 	t.Run(asgLifecycleEvent.DetailType, func(st *testing.T) {
 		result := <-drainChan
-		h.Equals(st, sqsevent.SQSTerminateKind, result.Kind)
+		h.Equals(st, monitor.ASGLifecycleKind, result.Kind)
+		h.Equals(st, sqsevent.SQSMonitorKind, result.Monitor)
 		h.Equals(st, result.NodeName, dnsNodeName)
 		h.Assert(st, result.PostDrainTask != nil, "PostDrainTask should have been set")
 		h.Assert(st, result.PreDrainTask != nil, "PreDrainTask should have been set")
@@ -425,12 +434,15 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 	h.Ok(t, err)
 
 	count := 0
+	i := 0
+	expectedResultKinds := []string{monitor.SpotITNKind, monitor.ASGLifecycleKind, monitor.RebalanceRecommendationKind}
 	done := false
 	for !done {
 		select {
 		case result := <-drainChan:
 			count++
-			h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+			h.Equals(t, expectedResultKinds[i], result.Kind)
+			h.Equals(t, sqsevent.SQSMonitorKind, result.Monitor)
 			h.Equals(t, result.NodeName, dnsNodeName)
 			h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 			h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
@@ -439,6 +451,7 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 		default:
 			done = true
 		}
+		i++
 	}
 	h.Equals(t, count, 3)
 }
@@ -479,7 +492,8 @@ func TestMonitor_DrainTasksASGFailure(t *testing.T) {
 
 	select {
 	case result := <-drainChan:
-		h.Equals(t, sqsevent.SQSTerminateKind, result.Kind)
+		h.Equals(t, monitor.ASGLifecycleKind, result.Kind)
+		h.Equals(t, sqsevent.SQSMonitorKind, result.Monitor)
 		h.Equals(t, result.NodeName, dnsNodeName)
 		h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 		h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")

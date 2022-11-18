@@ -67,7 +67,8 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event *EventBridgeEvent, m
 	}
 	interruptionEvent := monitor.InterruptionEvent{
 		EventID:              fmt.Sprintf("ec2-state-change-event-%x", event.ID),
-		Kind:                 SQSTerminateKind,
+		Kind:                 monitor.StateChangeKind,
+		Monitor:              SQSMonitorKind,
 		StartTime:            event.getTime(),
 		NodeName:             nodeInfo.Name,
 		IsManaged:            nodeInfo.IsManaged,

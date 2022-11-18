@@ -57,7 +57,8 @@ func TestMonitor_Success(t *testing.T) {
 
 	go func() {
 		result := <-drainChan
-		h.Equals(t, spotitn.SpotITNKind, result.Kind)
+		h.Equals(t, monitor.SpotITNKind, result.Kind)
+		h.Equals(t, spotitn.SpotITNMonitorKind, result.Monitor)
 		h.Equals(t, expFormattedTime, result.StartTime.String())
 		h.Assert(t, strings.Contains(result.Description, startTime),
 			"Expected description to contain: "+startTime+" but is actually: "+result.Description)

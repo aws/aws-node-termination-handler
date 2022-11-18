@@ -23,10 +23,8 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
-const (
-	// RebalanceRecommendationKind is a const to define a Rebalance Recommendation kind of event
-	RebalanceRecommendationKind = "REBALANCE_RECOMMENDATION"
-)
+// RebalanceRecommentadionMonitorKind is a const to define this monitor kind
+const RebalanceRecommendationMonitorKind = "REBALANCE_RECOMMENDATION_MONITOR"
 
 // RebalanceRecommendationMonitor is a struct definition which facilitates monitoring of rebalance recommendations from IMDS
 type RebalanceRecommendationMonitor struct {
@@ -50,15 +48,15 @@ func (m RebalanceRecommendationMonitor) Monitor() error {
 	if err != nil {
 		return err
 	}
-	if interruptionEvent != nil && interruptionEvent.Kind == RebalanceRecommendationKind {
+	if interruptionEvent != nil && interruptionEvent.Kind == monitor.RebalanceRecommendationKind {
 		m.InterruptionChan <- *interruptionEvent
 	}
 	return nil
 }
 
-// Kind denotes the kind of event that is processed
+// Kind denotes the kind of monitor
 func (m RebalanceRecommendationMonitor) Kind() string {
-	return RebalanceRecommendationKind
+	return RebalanceRecommendationMonitorKind
 }
 
 // checkForRebalanceRecommendation Checks EC2 instance metadata for a rebalance recommendation
@@ -86,7 +84,8 @@ func (m RebalanceRecommendationMonitor) checkForRebalanceRecommendation() (*moni
 
 	return &monitor.InterruptionEvent{
 		EventID:      fmt.Sprintf("rebalance-recommendation-%x", hash.Sum(nil)),
-		Kind:         RebalanceRecommendationKind,
+		Kind:         monitor.RebalanceRecommendationKind,
+		Monitor:      RebalanceRecommendationMonitorKind,
 		StartTime:    noticeTime,
 		NodeName:     nodeName,
 		Description:  fmt.Sprintf("Rebalance recommendation received. Instance will be cordoned at %s \n", rebalanceRecommendation.NoticeTime),
