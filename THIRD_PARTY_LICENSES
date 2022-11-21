@@ -912,6 +912,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ------
+** github.com/aws/aws-node-termination-handler ---
 ** github.com/Masterminds/goutils; v1.1.1 ---
 ** github.com/go-openapi/jsonpointer; v0.19.3 ---
 ** github.com/go-openapi/jsonreference; v0.19.3 ---
