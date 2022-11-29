@@ -30,13 +30,15 @@ localstack_helm_args=(
     --install
     --namespace default
     "$CLUSTER_NAME-localstack"
-    "$SCRIPTPATH/../../config/helm/localstack/"
+    localstack-repo/localstack
+    --version 0.5.0
     --set nodeSelector."${NTH_CONTROL_LABEL}"
-    --set defaultRegion="${AWS_REGION}"
     --wait
 )
 
 set -x
+helm repo add localstack-repo https://helm.localstack.cloud
+helm repo update
 helm "${localstack_helm_args[@]}"
 set +x
 
