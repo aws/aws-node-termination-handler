@@ -34,6 +34,7 @@ localstack_helm_args=(
     --version 0.5.0
     --set nodeSelector."${NTH_CONTROL_LABEL}"
     --wait
+    --debug
 )
 
 set -x
