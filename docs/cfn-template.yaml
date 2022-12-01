@@ -37,6 +37,11 @@ Resources:
           - aws.health
         detail-type:
           - AWS Health Event
+        detail:
+          source:
+            - EC2
+          eventTypeCategory:
+            - scheduledChange
       Targets:
         - Id: 1
           Arn: !GetAtt Queue.Arn
