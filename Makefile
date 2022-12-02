@@ -185,6 +185,4 @@ version: latest-release-tag ## Get the most recent release version.
 third-party-licenses: $(GOLICENSES) ## Save list of third party licenses.
 	@$(GOLICENSES) report \
 		--template "$(PROJECT_DIR)/templates/third-party-licenses.tmpl" \
-		$(PROJECT_DIR)/cmd/controller \
-		$(PROJECT_DIR)/cmd/webhook \
-		$(PROJECT_DIR)/test > $(THIRD_PARTY_LICENSES)
+		$(PROJECT_DIR)/... > $(THIRD_PARTY_LICENSES)
