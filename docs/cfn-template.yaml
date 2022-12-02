@@ -38,7 +38,7 @@ Resources:
         detail-type:
           - AWS Health Event
         detail:
-          source:
+          service:
             - EC2
           eventTypeCategory:
             - scheduledChange
