@@ -580,7 +580,7 @@ func TestGetNodeMetadata(t *testing.T) {
 
 	// Use URL from our local test server
 	imds := ec2metadata.New(server.URL, 1)
-	nodeMetadata := imds.GetNodeMetadata()
+	nodeMetadata := imds.GetNodeMetadata(false)
 
 	h.Assert(t, nodeMetadata.InstanceID == `metadata`, `Missing required NodeMetadata field InstanceID`)
 	h.Assert(t, nodeMetadata.InstanceType == `metadata`, `Missing required NodeMetadata field InstanceType`)
