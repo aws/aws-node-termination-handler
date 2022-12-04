@@ -118,7 +118,7 @@ func main() {
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
-	nodeMetadata := imds.GetNodeMetadata(!imdsDisabled)
+	nodeMetadata := imds.GetNodeMetadata(imdsDisabled)
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region
