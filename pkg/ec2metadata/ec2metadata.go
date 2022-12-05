@@ -326,42 +326,31 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 
 // GetNodeMetadata attempts to gather additional ec2 instance information from the metadata service
 func (e *Service) GetNodeMetadata(imdsDisabled bool) NodeMetadata {
-	var metadata NodeMetadata
-        if (!imdsDisabled) {
-            identityDoc, err := e.GetMetadataInfo(IdentityDocPath)
-            if err != nil {
-	        log.Err(err).Msg("Unable to fetch metadata from IMDS")
-	        return metadata
-            }
-            err = json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
-            if err != nil {
-                log.Warn().Msg("Unable to fetch instance identity document from ec2 metadata")
-                metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
-                metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
-	        metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
-	        metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
-		if len(metadata.AvailabilityZone) > 1 {
-		        metadata.Region = metadata.AvailabilityZone[0 : len(metadata.AvailabilityZone)-1]
+	metadata := NodeMetadata{}
+	if !imdsDisabled {
+		identityDoc, err := e.GetMetadataInfo(IdentityDocPath)
+		if err != nil {
+			log.Err(err).Msg("Unable to fetch metadata from IMDS")
+			return metadata
 		}
-	    }
-            metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle)
-	    metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
-	    metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
-	    metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
+		err = json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
+		if err != nil {
+			log.Warn().Msg("Unable to fetch instance identity document from ec2 metadata")
+			metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
+			metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
+			metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
+			metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
+			if len(metadata.AvailabilityZone) > 1 {
+				metadata.Region = metadata.AvailabilityZone[0 : len(metadata.AvailabilityZone)-1]
+			}
+		}
+		metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle)
+		metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
+		metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
+		metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
 
-	    log.Info().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
-        } else {
-            metadata.AccountId         = ""
-	    metadata.InstanceID        = ""
-	    metadata.InstanceLifeCycle = ""
-	    metadata.InstanceType      = ""
-	    metadata.PublicHostname    = ""
-	    metadata.PublicIP          = ""
-	    metadata.LocalHostname     = ""
-	    metadata.LocalIP           = ""
-	    metadata.AvailabilityZone  = ""
-	    metadata.Region            = ""
-        }
+		log.Info().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
+	}
 
 	return metadata
 }
