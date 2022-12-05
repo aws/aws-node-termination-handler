@@ -56,11 +56,12 @@ import (
 	terminatoradapter "github.com/aws/aws-node-termination-handler/pkg/terminator/adapter"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 
-	"github.com/aws/aws-sdk-go/aws"
-	awsrequest "github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 type (
@@ -77,9 +78,9 @@ type (
 		ASGLifecycleActions map[EC2InstanceID]State
 		// Maps an EC2 instance id to the corresponding reservation for a node
 		// in the cluster.
-		EC2Reservations map[EC2InstanceID]*ec2.Reservation
+		EC2Reservations map[EC2InstanceID]ec2types.Reservation
 		// Maps a queue URL to a list of messages waiting to be fetched.
-		SQSQueues map[SQSQueueURL][]*sqs.Message
+		SQSQueues map[SQSQueueURL][]sqstypes.Message
 
 		// Output variables
 		// These variables may be modified during reconciliation and should be
@@ -157,7 +158,7 @@ func NewInfrastructure() *Infrastructure {
 	infra.TerminatorNamespaceName = types.NamespacedName{Namespace: "test", Name: "foo"}
 	infra.Request = reconcile.Request{NamespacedName: infra.TerminatorNamespaceName}
 
-	infra.SQSQueues = map[SQSQueueURL][]*sqs.Message{QueueURL: {}}
+	infra.SQSQueues = map[SQSQueueURL][]sqstypes.Message{QueueURL: {}}
 	infra.Terminators = map[types.NamespacedName]*v1alpha1.Terminator{
 		// For convenience create a terminator that points to the sqs queue.
 		infra.TerminatorNamespaceName: {
@@ -169,7 +170,7 @@ func NewInfrastructure() *Infrastructure {
 		},
 	}
 	infra.Nodes = map[types.NamespacedName]*v1.Node{}
-	infra.EC2Reservations = map[EC2InstanceID]*ec2.Reservation{}
+	infra.EC2Reservations = map[EC2InstanceID]ec2types.Reservation{}
 	infra.CordonedNodes = map[NodeName]bool{}
 	infra.DrainedNodes = map[NodeName]bool{}
 
@@ -185,28 +186,25 @@ func NewInfrastructure() *Infrastructure {
 
 	// 2. Setup stub clients.
 
-	infra.DescribeEC2InstancesFunc = func(ctx aws.Context, input *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+	infra.DescribeEC2InstancesFunc = func(ctx context.Context, input *ec2.DescribeInstancesInput, _ ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 
 		output := ec2.DescribeInstancesOutput{}
 		for _, instanceID := range input.InstanceIds {
-			if instanceID == nil {
-				continue
-			}
-			if reservation, found := infra.EC2Reservations[*instanceID]; found {
+			if reservation, found := infra.EC2Reservations[instanceID]; found {
 				output.Reservations = append(output.Reservations, reservation)
 			}
 		}
 		return &output, nil
 	}
 
-	ec2Client := EC2Client(func(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+	ec2Client := EC2Client(func(ctx context.Context, input *ec2.DescribeInstancesInput, options ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 		return infra.DescribeEC2InstancesFunc(ctx, input, options...)
 	})
 
-	infra.CompleteASGLifecycleActionFunc = func(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+	infra.CompleteASGLifecycleActionFunc = func(ctx context.Context, input *autoscaling.CompleteLifecycleActionInput, _ ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -218,11 +216,11 @@ func NewInfrastructure() *Infrastructure {
 		return &autoscaling.CompleteLifecycleActionOutput{}, nil
 	}
 
-	asgClient := ASGClient(func(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, options ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+	asgClient := ASGClient(func(ctx context.Context, input *autoscaling.CompleteLifecycleActionInput, options ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error) {
 		return infra.CompleteASGLifecycleActionFunc(ctx, input, options...)
 	})
 
-	infra.ReceiveSQSMessageFunc = func(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+	infra.ReceiveSQSMessageFunc = func(ctx context.Context, input *sqs.ReceiveMessageInput, options ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -231,10 +229,10 @@ func NewInfrastructure() *Infrastructure {
 		messages, found := infra.SQSQueues[*input.QueueUrl]
 		Expect(found).To(BeTrue(), "SQS queue does not exist: %q", *input.QueueUrl)
 
-		return &sqs.ReceiveMessageOutput{Messages: append([]*sqs.Message{}, messages...)}, nil
+		return &sqs.ReceiveMessageOutput{Messages: append([]sqstypes.Message{}, messages...)}, nil
 	}
 
-	infra.DeleteSQSMessageFunc = func(ctx aws.Context, input *sqs.DeleteMessageInput, options ...awsrequest.Option) (*sqs.DeleteMessageOutput, error) {
+	infra.DeleteSQSMessageFunc = func(ctx context.Context, input *sqs.DeleteMessageInput, options ...func(*sqs.Options)) (*sqs.DeleteMessageOutput, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -243,7 +241,7 @@ func NewInfrastructure() *Infrastructure {
 		queue, found := infra.SQSQueues[*input.QueueUrl]
 		Expect(found).To(BeTrue(), "SQS queue does not exist: %q", *input.QueueUrl)
 
-		updatedQueue := make([]*sqs.Message, 0, len(queue))
+		updatedQueue := make([]sqstypes.Message, 0, len(queue))
 		for i, m := range queue {
 			if m.ReceiptHandle == input.ReceiptHandle {
 				updatedQueue = append(updatedQueue, queue[:i]...)
@@ -257,10 +255,10 @@ func NewInfrastructure() *Infrastructure {
 	}
 
 	sqsClient := SQSClient{
-		ReceiveSQSMessageFunc: func(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+		ReceiveSQSMessageFunc: func(ctx context.Context, input *sqs.ReceiveMessageInput, options ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {
 			return infra.ReceiveSQSMessageFunc(ctx, input, options...)
 		},
-		DeleteSQSMessageFunc: func(ctx aws.Context, input *sqs.DeleteMessageInput, options ...awsrequest.Option) (*sqs.DeleteMessageOutput, error) {
+		DeleteSQSMessageFunc: func(ctx context.Context, input *sqs.DeleteMessageInput, options ...func(*sqs.Options)) (*sqs.DeleteMessageOutput, error) {
 			return infra.DeleteSQSMessageFunc(ctx, input, options...)
 		},
 	}
@@ -374,8 +372,8 @@ func (m *Infrastructure) ResizeCluster(newNodeCount uint) {
 
 		instanceID := fmt.Sprintf("instance-%d", currNodeCount)
 		m.InstanceIDs = append(m.InstanceIDs, instanceID)
-		m.EC2Reservations[instanceID] = &ec2.Reservation{
-			Instances: []*ec2.Instance{
+		m.EC2Reservations[instanceID] = ec2types.Reservation{
+			Instances: []ec2types.Instance{
 				{PrivateDnsName: aws.String(nodeName)},
 			},
 		}

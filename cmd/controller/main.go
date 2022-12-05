@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
@@ -59,13 +58,10 @@ import (
 	terminatoradapter "github.com/aws/aws-node-termination-handler/pkg/terminator/adapter"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	awscfg "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"github.com/go-logr/zapr"
 	//+kubebuilder:scaffold:imports
@@ -91,12 +87,12 @@ func init() {
 
 func main() {
 	options := parseOptions()
-	config := ctrl.GetConfigOrDie()
-	config.UserAgent = "aws-node-termination-handler"
-	ctx, startInformers := knativeinjection.EnableInjectionOrDie(signals.NewContext(), config)
+	ctrlConfig := ctrl.GetConfigOrDie()
+	ctrlConfig.UserAgent = "aws-node-termination-handler"
+	ctx, startInformers := knativeinjection.EnableInjectionOrDie(signals.NewContext(), ctrlConfig)
 	logger, atomicLevel := sharedmain.SetupLoggerOrDie(ctx, componentName)
 	ctx = logging.WithLogger(ctx, logger)
-	clientSet := kubernetes.NewForConfigOrDie(config)
+	clientSet := kubernetes.NewForConfigOrDie(ctrlConfig)
 	cmw := informer.NewInformedWatcher(clientSet, system.Namespace())
 
 	ctrl.SetLogger(zapr.NewLogger(logger.Desugar()))
@@ -108,7 +104,7 @@ func main() {
 	}
 	startInformers()
 
-	mgr, err := ctrl.NewManager(config, ctrl.Options{
+	mgr, err := ctrl.NewManager(ctrlConfig, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     options.MetricsAddress,
 		Port:                   9443,
@@ -128,19 +124,19 @@ func main() {
 	}
 	kubeClient := mgr.GetClient()
 
-	awsSession, err := newAWSSession(options.AWSRegion)
+	awsConfig, err := awscfg.LoadDefaultConfig(ctx, awscfg.WithRegion(options.AWSRegion))
 	if err != nil {
-		logger.With("error", err).Fatal("failed to initialize AWS session")
+		logger.With("error", err).Fatal("failed to load AWS configuration")
 	}
-	sqsClient := sqs.New(awsSession)
+	sqsClient := sqs.NewFromConfig(awsConfig)
 	if sqsClient == nil {
 		logger.Fatal("failed to create SQS client")
 	}
-	asgClient := autoscaling.New(awsSession)
+	asgClient := autoscaling.NewFromConfig(awsConfig)
 	if asgClient == nil {
 		logger.Fatal("failed to create ASG client")
 	}
-	ec2Client := ec2.New(awsSession)
+	ec2Client := ec2.NewFromConfig(awsConfig)
 	if ec2Client == nil {
 		logger.Fatal("failed to create EC2 client")
 	}
@@ -210,34 +206,6 @@ func parseOptions() Options {
 	flag.Parse()
 
 	return options
-}
-
-func newAWSSession(awsRegion string) (*session.Session, error) {
-	config := aws.NewConfig().
-		WithRegion(awsRegion).
-		WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
-	sess, err := session.NewSessionWithOptions(session.Options{
-		Config:            *config,
-		SharedConfigState: session.SharedConfigEnable,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AWS session: %w", err)
-	}
-
-	if sess.Config.Region == nil || *sess.Config.Region == "" {
-		awsRegion, err := ec2metadata.New(sess).Region()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get AWS region: %w", err)
-		}
-		sess.Config.Region = aws.String(awsRegion)
-	}
-
-	_, err = sess.Config.Credentials.Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS session credentials: %w", err)
-	}
-
-	return sess, nil
 }
 
 func indexNodeName(ctx context.Context, indexer client.FieldIndexer) error {

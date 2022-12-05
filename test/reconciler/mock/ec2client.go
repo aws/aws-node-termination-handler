@@ -17,17 +17,17 @@ limitations under the License.
 package mock
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
 type (
-	DescribeEC2InstancesFunc = func(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
+	DescribeEC2InstancesFunc = func(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 
 	EC2Client DescribeEC2InstancesFunc
 )
 
-func (e EC2Client) DescribeInstancesWithContext(ctx aws.Context, input *ec2.DescribeInstancesInput, options ...request.Option) (*ec2.DescribeInstancesOutput, error) {
+func (e EC2Client) DescribeInstances(ctx context.Context, input *ec2.DescribeInstancesInput, options ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 	return e(ctx, input, options...)
 }

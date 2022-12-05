@@ -21,15 +21,14 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 type (
 	SQSClient interface {
-		ReceiveMessageWithContext(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
-		DeleteMessageWithContext(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
+		ReceiveMessage(context.Context, *sqs.ReceiveMessageInput, ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error)
+		DeleteMessage(context.Context, *sqs.DeleteMessageInput, ...func(*sqs.Options)) (*sqs.DeleteMessageOutput, error)
 	}
 
 	Client struct {
@@ -37,10 +36,10 @@ type (
 	}
 )
 
-func (c Client) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessageInput) ([]*sqs.Message, error) {
+func (c Client) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessageInput) ([]sqstypes.Message, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("sqsClient.getMessages"))
 
-	result, err := c.ReceiveMessageWithContext(ctx, params)
+	result, err := c.ReceiveMessage(ctx, params)
 	if err != nil {
 		logging.FromContext(ctx).
 			With("error", err).
@@ -54,7 +53,7 @@ func (c Client) GetSQSMessages(ctx context.Context, params *sqs.ReceiveMessageIn
 func (c Client) DeleteSQSMessage(ctx context.Context, params *sqs.DeleteMessageInput) error {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("sqsClient.deleteMessage"))
 
-	_, err := c.DeleteMessageWithContext(ctx, params)
+	_, err := c.DeleteMessage(ctx, params)
 	if err != nil {
 		logging.FromContext(ctx).
 			With("error", err).

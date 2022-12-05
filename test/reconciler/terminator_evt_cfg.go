@@ -26,8 +26,8 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 var _ = Describe("Reconciliation", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.AutoScalingTermination = "Cordon"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.autoscaling",
@@ -102,7 +102,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.AutoScalingTermination = "NoAction"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.autoscaling",
@@ -148,7 +148,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.AutoScalingTermination = "Cordon"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.autoscaling",
@@ -197,7 +197,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.AutoScalingTermination = "NoAction"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.autoscaling",
@@ -243,7 +243,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.RebalanceRecommendation = "Cordon"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -280,7 +280,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.RebalanceRecommendation = "NoAction"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -314,7 +314,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.ScheduledChange = "Cordon"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.health",
@@ -362,7 +362,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.ScheduledChange = "NoAction"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.health",
@@ -401,7 +401,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.SpotInterruption = "Cordon"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -443,7 +443,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.SpotInterruption = "NoAction"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -477,7 +477,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.StateChange = "Cordon"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -515,7 +515,7 @@ var _ = Describe("Reconciliation", func() {
 				terminator := infra.Terminators[infra.TerminatorNamespaceName]
 				terminator.Spec.Events.StateChange = "NoAction"
 
-				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+				infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",

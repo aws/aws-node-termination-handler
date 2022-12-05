@@ -17,11 +17,11 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 )
 
 type ASGLifecycleActionCompleter interface {
-	CompleteLifecycleActionWithContext(aws.Context, *autoscaling.CompleteLifecycleActionInput, ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error)
+	CompleteLifecycleAction(context.Context, *autoscaling.CompleteLifecycleActionInput, ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error)
 }

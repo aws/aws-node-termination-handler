@@ -25,8 +25,8 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 var _ = Describe("Reconciliation", func() {
@@ -42,7 +42,7 @@ var _ = Describe("Reconciliation", func() {
 			infra.ResizeCluster(12)
 
 			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL],
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-1"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.autoscaling",
@@ -54,7 +54,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[1])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-2"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.autoscaling",
@@ -66,7 +66,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[2])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-3"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -77,7 +77,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[3])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-4"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.health",
@@ -93,7 +93,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[4], infra.InstanceIDs[5])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-5"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -104,7 +104,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[6])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-6"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -116,7 +116,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[7])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-7"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -128,7 +128,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[8])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-8"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",
@@ -140,7 +140,7 @@ var _ = Describe("Reconciliation", func() {
 						}
 					}`, infra.InstanceIDs[9])),
 				},
-				&sqs.Message{
+				sqstypes.Message{
 					ReceiptHandle: aws.String("msg-9"),
 					Body: aws.String(fmt.Sprintf(`{
 						"source": "aws.ec2",

@@ -17,30 +17,26 @@ limitations under the License.
 package sqs
 
 import (
-	awssqs "github.com/aws/aws-sdk-go/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
 	"go.uber.org/zap/zapcore"
 )
 
 type messageMarshaler struct {
-	*awssqs.Message
+	sqstypes.Message
 }
 
-func NewMessageMarshaler(msg *awssqs.Message) zapcore.ObjectMarshaler {
+func NewMessageMarshaler(msg sqstypes.Message) zapcore.ObjectMarshaler {
 	return messageMarshaler{Message: msg}
 }
 
 func (s messageMarshaler) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if s.Message == nil {
-		return nil
-	}
-
 	if s.MessageId != nil {
 		enc.AddString("messageId", *s.MessageId)
 	}
 	enc.AddObject("attributes", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for key, value := range s.Attributes {
-			enc.AddString(key, *value)
+			enc.AddString(key, value)
 		}
 		return nil
 	}))
