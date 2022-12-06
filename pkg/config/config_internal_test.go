@@ -15,7 +15,6 @@ package config
 
 import (
 	"flag"
-	"os"
 	"strconv"
 	"testing"
 
@@ -37,7 +36,7 @@ func TestGetEnv(t *testing.T) {
 	var successVal = "success"
 	var failVal = "failure"
 
-	os.Setenv(key, successVal)
+	t.Setenv(key, successVal)
 
 	result := getEnv(key+"bla", failVal)
 	h.Equals(t, failVal, result)
@@ -51,7 +50,7 @@ func TestGetIntEnv(t *testing.T) {
 	var successVal = 1
 	var failVal = 0
 
-	os.Setenv(key, strconv.Itoa(successVal))
+	t.Setenv(key, strconv.Itoa(successVal))
 
 	result := getIntEnv(key+"bla", failVal)
 	h.Equals(t, failVal, result)
@@ -64,7 +63,7 @@ func TestGetIntEnv(t *testing.T) {
 			t.Errorf("getIntEnv did not panic")
 		}
 	}()
-	os.Setenv(key, "hi")
+	t.Setenv(key, "hi")
 	getIntEnv(key, 0)
 }
 
@@ -73,7 +72,7 @@ func TestGetBoolEnv(t *testing.T) {
 	var successVal = true
 	var failVal = false
 
-	os.Setenv(key, strconv.FormatBool(successVal))
+	t.Setenv(key, strconv.FormatBool(successVal))
 
 	result := getBoolEnv(key+"bla", failVal)
 	h.Equals(t, failVal, result)
@@ -86,7 +85,7 @@ func TestGetBoolEnv(t *testing.T) {
 			t.Errorf("getBoolEnv did not panic")
 		}
 	}()
-	os.Setenv(key, "hi")
+	t.Setenv(key, "hi")
 	getBoolEnv(key, false)
 }
 
@@ -99,7 +98,7 @@ func TestIsConfigProvided(t *testing.T) {
 	result = isConfigProvided(cliArgName, envVarName)
 	h.Equals(t, true, result)
 
-	os.Setenv(envVarName, value)
+	t.Setenv(envVarName, value)
 	result = isConfigProvided(cliArgName, envVarName)
 	h.Equals(t, true, result)
 }
