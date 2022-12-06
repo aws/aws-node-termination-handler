@@ -95,7 +95,7 @@ The `enableSqsTerminationDraining` must be set to false for these configuration 
 The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events. All events when operating in Queue Processor mode are Cordoned and Drained unless the `cordon-only` flag is set to true.
 
 
-The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queue Processor Mode is enabled, IMDS mode cannot be active. NTH cannot respond to queue events AND monitor IMDS paths. Queue Processor Mode still queries for node information on startup, but this information is not required for normal operation, so it is safe to disable IMDS for the NTH pod.
+The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queue Processor Mode is enabled, IMDS mode will be disabled, even if you explicitly enabled any of the IMDS configuration keys. NTH cannot respond to queue events AND monitor IMDS paths. In this case, it is safe to disable IMDS for the NTH pod.
 
 <details opened>
 <summary>AWS Node Termination Handler - IMDS Processor</summary>

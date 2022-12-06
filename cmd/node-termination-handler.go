@@ -113,11 +113,12 @@ func main() {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate probes service,")
 	}
+        imdsDisabled := nthConfig.EnableSQSTerminationDraining
 
 	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
-	nodeMetadata := imds.GetNodeMetadata()
+	nodeMetadata := imds.GetNodeMetadata(imdsDisabled)
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region
@@ -163,17 +164,19 @@ func main() {
 	defer close(cancelChan)
 
 	monitoringFns := map[string]monitor.Monitor{}
-	if nthConfig.EnableSpotInterruptionDraining {
-		imdsSpotMonitor := spotitn.NewSpotInterruptionMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
-		monitoringFns[spotITN] = imdsSpotMonitor
-	}
-	if nthConfig.EnableScheduledEventDraining {
-		imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
-		monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
-	}
-	if nthConfig.EnableRebalanceMonitoring || nthConfig.EnableRebalanceDraining {
-		imdsRebalanceMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, interruptionChan, nthConfig.NodeName)
-		monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
+        if !imdsDisabled {
+	        if nthConfig.EnableSpotInterruptionDraining {
+		        imdsSpotMonitor := spotitn.NewSpotInterruptionMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+		        monitoringFns[spotITN] = imdsSpotMonitor
+	        }
+	        if nthConfig.EnableScheduledEventDraining {
+		        imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+		        monitoringFns[scheduledMaintenance] = imdsScheduledEventMonitor
+	        }
+	        if nthConfig.EnableRebalanceMonitoring || nthConfig.EnableRebalanceDraining {
+		        imdsRebalanceMonitor := rebalancerecommendation.NewRebalanceRecommendationMonitor(imds, interruptionChan, nthConfig.NodeName)
+		        monitoringFns[rebalanceRecommendation] = imdsRebalanceMonitor
+                }
 	}
 	if nthConfig.EnableSQSTerminationDraining {
 		cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
