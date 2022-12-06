@@ -268,7 +268,7 @@ metadataTries: 3
 # enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received
 enableSpotInterruptionDraining: true
 
-# enableScheduledEventDraining [EXPERIMENTAL] If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
+# enableScheduledEventDraining If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event
 enableScheduledEventDraining: false
 
 # enableRebalanceMonitoring If true, cordon nodes when the rebalance recommendation notice is received
