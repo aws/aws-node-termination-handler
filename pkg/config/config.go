@@ -49,7 +49,7 @@ const (
 	webhookTemplateFileConfigKey            = "WEBHOOK_TEMPLATE_FILE"
 	webhookTemplateDefault                  = `{"text":"[NTH][Instance Interruption] EventID: {{ .EventID }} - Kind: {{ .Kind }} - Instance: {{ .InstanceID }} - Node: {{ .NodeName }} - Description: {{ .Description }} - Start Time: {{ .StartTime }}"}`
 	enableScheduledEventDrainingConfigKey   = "ENABLE_SCHEDULED_EVENT_DRAINING"
-	enableScheduledEventDrainingDefault     = false
+	enableScheduledEventDrainingDefault     = true
 	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
 	enableSpotInterruptionDrainingDefault   = true
 	enableSQSTerminationDrainingConfigKey   = "ENABLE_SQS_TERMINATION_DRAINING"
