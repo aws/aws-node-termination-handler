@@ -17,6 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
 	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,9 +27,7 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	awsrequest "github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 var _ = Describe("Reconciliation", func() {
@@ -42,7 +41,7 @@ var _ = Describe("Reconciliation", func() {
 
 		BeforeEach(func() {
 			infra = mock.NewInfrastructure()
-			infra.ReceiveSQSMessageFunc = func(_ aws.Context, _ *sqs.ReceiveMessageInput, _ ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+			infra.ReceiveSQSMessageFunc = func(_ context.Context, _ *sqs.ReceiveMessageInput, _ ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {
 				return nil, errors.New(errMsg)
 			}
 

@@ -17,6 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,10 +25,9 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	awsrequest "github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 var _ = Describe("Reconciliation", func() {
@@ -47,7 +47,7 @@ var _ = Describe("Reconciliation", func() {
 			infra = mock.NewInfrastructure()
 			infra.ResizeCluster(3)
 
-			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -64,7 +64,7 @@ var _ = Describe("Reconciliation", func() {
 			})
 
 			defaultCompleteASGLifecycleActionFunc := infra.CompleteASGLifecycleActionFunc
-			infra.CompleteASGLifecycleActionFunc = func(ctx aws.Context, in *autoscaling.CompleteLifecycleActionInput, options ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+			infra.CompleteASGLifecycleActionFunc = func(ctx context.Context, in *autoscaling.CompleteLifecycleActionInput, options ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error) {
 				input = in
 				return defaultCompleteASGLifecycleActionFunc(ctx, in, options...)
 			}

@@ -17,6 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,10 +27,10 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	awsrequest "github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 var _ = Describe("Reconciliation", func() {
@@ -44,7 +45,7 @@ var _ = Describe("Reconciliation", func() {
 			infra = mock.NewInfrastructure()
 			infra.ResizeCluster(3)
 
-			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.ec2",
@@ -56,11 +57,11 @@ var _ = Describe("Reconciliation", func() {
 				}`, infra.InstanceIDs[1])),
 			})
 
-			infra.DescribeEC2InstancesFunc = func(_ aws.Context, _ *ec2.DescribeInstancesInput, _ ...awsrequest.Option) (*ec2.DescribeInstancesOutput, error) {
+			infra.DescribeEC2InstancesFunc = func(_ context.Context, _ *ec2.DescribeInstancesInput, _ ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 				return &ec2.DescribeInstancesOutput{
-					Reservations: []*ec2.Reservation{
+					Reservations: []ec2types.Reservation{
 						{
-							Instances: []*ec2.Instance{
+							Instances: []ec2types.Instance{
 								{PrivateDnsName: aws.String("")},
 							},
 						},

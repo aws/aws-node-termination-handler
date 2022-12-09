@@ -17,7 +17,7 @@ limitations under the License.
 package sqs
 
 import (
-	awssqs "github.com/aws/aws-sdk-go/service/sqs"
+	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"go.uber.org/zap/zapcore"
 )
@@ -41,28 +41,18 @@ func (r receiveMessageInputMarshaler) MarshalLogObject(enc zapcore.ObjectEncoder
 	if r.ReceiveRequestAttemptId != nil {
 		enc.AddString("receiveAttemptId", *r.ReceiveRequestAttemptId)
 	}
-	if r.VisibilityTimeout != nil {
-		enc.AddInt64("visibilityTimeout", *r.VisibilityTimeout)
-	}
-	if r.WaitTimeSeconds != nil {
-		enc.AddInt64("waitTimeSeconds", *r.WaitTimeSeconds)
-	}
-	if r.MaxNumberOfMessages != nil {
-		enc.AddInt64("maxNumberOfMessages", *r.MaxNumberOfMessages)
-	}
+	enc.AddInt32("visibilityTimeout", r.VisibilityTimeout)
+	enc.AddInt32("waitTimeSeconds", r.WaitTimeSeconds)
+	enc.AddInt32("maxNumberOfMessages", r.MaxNumberOfMessages)
 	enc.AddArray("attributeNames", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 		for _, attr := range r.AttributeNames {
-			if attr != nil {
-				enc.AppendString(*attr)
-			}
+			enc.AppendString(string(attr))
 		}
 		return nil
 	}))
 	enc.AddArray("messageAttributeNames", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 		for _, attr := range r.MessageAttributeNames {
-			if attr != nil {
-				enc.AppendString(*attr)
-			}
+			enc.AppendString(attr)
 		}
 		return nil
 	}))

@@ -22,15 +22,15 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/event"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
-	"github.com/aws/aws-sdk-go/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 type EventParser struct {
 	event.Parser
 }
 
-func (e EventParser) Parse(ctx context.Context, msg *sqs.Message) terminator.Event {
-	if msg == nil || msg.Body == nil {
+func (e EventParser) Parse(ctx context.Context, msg sqstypes.Message) terminator.Event {
+	if msg.Body == nil {
 		return e.Parser.Parse(ctx, "")
 	}
 	return e.Parser.Parse(ctx, *msg.Body)

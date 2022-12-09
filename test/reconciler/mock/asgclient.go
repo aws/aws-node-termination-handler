@@ -17,17 +17,17 @@ limitations under the License.
 package mock
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 )
 
 type (
-	CompleteASGLifecycleActionFunc = func(aws.Context, *autoscaling.CompleteLifecycleActionInput, ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error)
+	CompleteASGLifecycleActionFunc = func(context.Context, *autoscaling.CompleteLifecycleActionInput, ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error)
 
 	ASGClient CompleteASGLifecycleActionFunc
 )
 
-func (a ASGClient) CompleteLifecycleActionWithContext(ctx aws.Context, input *autoscaling.CompleteLifecycleActionInput, options ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
+func (a ASGClient) CompleteLifecycleAction(ctx context.Context, input *autoscaling.CompleteLifecycleActionInput, options ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error) {
 	return a(ctx, input, options...)
 }

@@ -17,20 +17,21 @@ limitations under the License.
 package reconciler
 
 import (
-	"errors"
+	"context"
 	"fmt"
+	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	awsrequest "github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 var _ = Describe("Reconciliation", func() {
@@ -46,7 +47,7 @@ var _ = Describe("Reconciliation", func() {
 			infra = mock.NewInfrastructure()
 			infra.ResizeCluster(3)
 
-			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], &sqs.Message{
+			infra.SQSQueues[mock.QueueURL] = append(infra.SQSQueues[mock.QueueURL], sqstypes.Message{
 				ReceiptHandle: aws.String("msg-1"),
 				Body: aws.String(fmt.Sprintf(`{
 					"source": "aws.autoscaling",
@@ -59,8 +60,22 @@ var _ = Describe("Reconciliation", func() {
 				}`, infra.InstanceIDs[1])),
 			})
 
-			infra.CompleteASGLifecycleActionFunc = func(_ aws.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...awsrequest.Option) (*autoscaling.CompleteLifecycleActionOutput, error) {
-				return nil, awserr.NewRequestFailure(awserr.New("", errMsg, errors.New(errMsg)), 404, "")
+			infra.CompleteASGLifecycleActionFunc = func(_ context.Context, _ *autoscaling.CompleteLifecycleActionInput, _ ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error) {
+				return nil, &awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								Status:     "404 Not Found",
+								StatusCode: 404,
+								Proto:      "HTTP/1.0",
+								ProtoMajor: 1,
+								ProtoMinor: 0,
+							},
+						},
+						Err: fmt.Errorf(errMsg),
+					},
+					RequestID: "mock_request_id",
+				}
 			}
 
 			result, err = infra.Reconcile()

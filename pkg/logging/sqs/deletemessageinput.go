@@ -17,24 +17,20 @@ limitations under the License.
 package sqs
 
 import (
-	awssqs "github.com/aws/aws-sdk-go/service/sqs"
+	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"go.uber.org/zap/zapcore"
 )
 
 type deleteMessageInputMarshaler struct {
-	*awssqs.DeleteMessageInput
+	awssqs.DeleteMessageInput
 }
 
-func NewDeleteMessageInputMarshaler(input *awssqs.DeleteMessageInput) zapcore.ObjectMarshaler {
+func NewDeleteMessageInputMarshaler(input awssqs.DeleteMessageInput) zapcore.ObjectMarshaler {
 	return deleteMessageInputMarshaler{DeleteMessageInput: input}
 }
 
 func (d deleteMessageInputMarshaler) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if d.DeleteMessageInput == nil {
-		return nil
-	}
-
 	if d.QueueUrl != nil {
 		enc.AddString("queueUrl", *d.QueueUrl)
 	}

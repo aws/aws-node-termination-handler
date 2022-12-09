@@ -17,26 +17,27 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/aws/aws-node-termination-handler/test/reconciler/mock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	awsrequest "github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 var _ = Describe("Reconciliation", func() {
 	When("getting messages from a terminator's SQS queue", func() {
 		const (
-			maxNumberOfMessages      = int64(10)
-			visibilityTimeoutSeconds = int64(20)
-			waitTimeSeconds          = int64(20)
+			maxNumberOfMessages      = int32(10)
+			visibilityTimeoutSeconds = int32(20)
+			waitTimeSeconds          = int32(20)
 		)
 		var (
-			attributeNames        = []string{sqs.MessageSystemAttributeNameSentTimestamp}
-			messageAttributeNames = []string{sqs.QueueAttributeNameAll}
+			attributeNames        = []sqstypes.QueueAttributeName{sqstypes.QueueAttributeNameAll}
+			messageAttributeNames = []string{string(sqstypes.MessageSystemAttributeNameSentTimestamp)}
 			input                 *sqs.ReceiveMessageInput
 			infra                 *mock.Infrastructure
 		)
@@ -49,7 +50,7 @@ var _ = Describe("Reconciliation", func() {
 			terminator.Spec.SQS.QueueURL = mock.QueueURL
 
 			defaultReceiveSQSMessageFunc := infra.ReceiveSQSMessageFunc
-			infra.ReceiveSQSMessageFunc = func(ctx aws.Context, in *sqs.ReceiveMessageInput, options ...awsrequest.Option) (*sqs.ReceiveMessageOutput, error) {
+			infra.ReceiveSQSMessageFunc = func(ctx context.Context, in *sqs.ReceiveMessageInput, options ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {
 				input = in
 				return defaultReceiveSQSMessageFunc(ctx, in, options...)
 			}
@@ -62,24 +63,24 @@ var _ = Describe("Reconciliation", func() {
 
 			for i, attrName := range input.AttributeNames {
 				Expect(attrName).ToNot(BeNil())
-				Expect(*attrName).To(Equal(attributeNames[i]))
+				Expect(attrName).To(Equal(attributeNames[i]))
 			}
 			for i, attrName := range input.MessageAttributeNames {
 				Expect(attrName).ToNot(BeNil())
-				Expect(*attrName).To(Equal(messageAttributeNames[i]))
+				Expect(attrName).To(Equal(messageAttributeNames[i]))
 			}
 
 			Expect(input.MaxNumberOfMessages).ToNot(BeNil())
-			Expect(*input.MaxNumberOfMessages).To(Equal(maxNumberOfMessages))
+			Expect(input.MaxNumberOfMessages).To(Equal(maxNumberOfMessages))
 
 			Expect(input.QueueUrl).ToNot(BeNil())
 			Expect(*input.QueueUrl).To(Equal(mock.QueueURL))
 
 			Expect(input.VisibilityTimeout).ToNot(BeNil())
-			Expect(*input.VisibilityTimeout).To(Equal(visibilityTimeoutSeconds))
+			Expect(input.VisibilityTimeout).To(Equal(visibilityTimeoutSeconds))
 
 			Expect(input.WaitTimeSeconds).ToNot(BeNil())
-			Expect(*input.WaitTimeSeconds).To(Equal(waitTimeSeconds))
+			Expect(input.WaitTimeSeconds).To(Equal(waitTimeSeconds))
 		})
 	})
 })

@@ -23,13 +23,14 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/terminator"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 type (
 	SQSMessageClient interface {
-		GetSQSMessages(context.Context, *sqs.ReceiveMessageInput) ([]*sqs.Message, error)
+		GetSQSMessages(context.Context, *sqs.ReceiveMessageInput) ([]sqstypes.Message, error)
 		DeleteSQSMessage(context.Context, *sqs.DeleteMessageInput) error
 	}
 
@@ -46,16 +47,12 @@ type (
 
 func (s SQSMessageClientBuilder) NewSQSClient(terminator *v1alpha1.Terminator) (terminator.SQSClient, error) {
 	receiveMessageInput := sqs.ReceiveMessageInput{
-		QueueUrl:            aws.String(terminator.Spec.SQS.QueueURL),
-		MaxNumberOfMessages: aws.Int64(10),
-		VisibilityTimeout:   aws.Int64(20), // Seconds
-		WaitTimeSeconds:     aws.Int64(20), // Seconds, maximum for long polling
-		AttributeNames: []*string{
-			aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
-		},
-		MessageAttributeNames: []*string{
-			aws.String(sqs.QueueAttributeNameAll),
-		},
+		QueueUrl:              aws.String(terminator.Spec.SQS.QueueURL),
+		MaxNumberOfMessages:   10,
+		VisibilityTimeout:     20, // Seconds
+		WaitTimeSeconds:       20, // Seconds, maximum for long polling
+		AttributeNames:        []sqstypes.QueueAttributeName{sqstypes.QueueAttributeNameAll},
+		MessageAttributeNames: []string{string(sqstypes.MessageSystemAttributeNameSentTimestamp)},
 	}
 
 	deleteMessageInput := sqs.DeleteMessageInput{
@@ -69,7 +66,7 @@ func (s SQSMessageClientBuilder) NewSQSClient(terminator *v1alpha1.Terminator) (
 	}, nil
 }
 
-func (s sqsMessageClient) GetSQSMessages(ctx context.Context) ([]*sqs.Message, error) {
+func (s sqsMessageClient) GetSQSMessages(ctx context.Context) ([]sqstypes.Message, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).
 		With("params", logging.NewReceiveMessageInputMarshaler(&s.ReceiveMessageInput)),
 	)
@@ -77,11 +74,11 @@ func (s sqsMessageClient) GetSQSMessages(ctx context.Context) ([]*sqs.Message, e
 	return s.SQSMessageClient.GetSQSMessages(ctx, &s.ReceiveMessageInput)
 }
 
-func (s sqsMessageClient) DeleteSQSMessage(ctx context.Context, msg *sqs.Message) error {
+func (s sqsMessageClient) DeleteSQSMessage(ctx context.Context, msg *sqstypes.Message) error {
 	s.DeleteMessageInput.ReceiptHandle = msg.ReceiptHandle
 
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).
-		With("params", logging.NewDeleteMessageInputMarshaler(&s.DeleteMessageInput)),
+		With("params", logging.NewDeleteMessageInputMarshaler(s.DeleteMessageInput)),
 	)
 
 	return s.SQSMessageClient.DeleteSQSMessage(ctx, &s.DeleteMessageInput)

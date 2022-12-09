@@ -20,15 +20,14 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 )
 
 type (
 	ASGLifecycleActionCompleter interface {
-		CompleteLifecycleActionWithContext(aws.Context, *autoscaling.CompleteLifecycleActionInput, ...request.Option) (*autoscaling.CompleteLifecycleActionOutput, error)
+		CompleteLifecycleAction(context.Context, *autoscaling.CompleteLifecycleActionInput, ...func(*autoscaling.Options)) (*autoscaling.CompleteLifecycleActionOutput, error)
 	}
 
 	Input struct {
@@ -40,16 +39,15 @@ type (
 )
 
 func Complete(ctx context.Context, completer ASGLifecycleActionCompleter, input Input) (bool, error) {
-	if _, err := completer.CompleteLifecycleActionWithContext(ctx, &autoscaling.CompleteLifecycleActionInput{
+	if _, err := completer.CompleteLifecycleAction(ctx, &autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  aws.String(input.AutoScalingGroupName),
 		LifecycleActionResult: aws.String("CONTINUE"),
 		LifecycleHookName:     aws.String(input.LifecycleHookName),
 		LifecycleActionToken:  aws.String(input.LifecycleActionToken),
 		InstanceId:            aws.String(input.EC2InstanceID),
 	}); err != nil {
-		var f awserr.RequestFailure
-		return errors.As(err, &f) && f.StatusCode() != 400, err
+		e := &awshttp.ResponseError{}
+		return errors.As(err, &e) && e.HTTPStatusCode() != 400, err
 	}
-
 	return false, nil
 }

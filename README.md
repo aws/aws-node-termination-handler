@@ -87,7 +87,8 @@ helm upgrade \
   --create-namespace \
   --set aws.region=<AWS REGION> \
   --set serviceAccount.name="nth-service-account" \
-  --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=<SERVICE ACCOUNT ROLE ARN>
+  --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=<SERVICE ACCOUNT ROLE ARN> \
+  --set-string serviceAccount.annotations.eks\\.amazonaws\\.com/sts-regional-endpoints=true
 ```
 
 For a full list of inputs see the Helm chart `README.md`.

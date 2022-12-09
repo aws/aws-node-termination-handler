@@ -17,14 +17,14 @@ limitations under the License.
 package mock
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 type (
-	ReceiveSQSMessageFunc = func(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
-	DeleteSQSMessageFunc  = func(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
+	ReceiveSQSMessageFunc = func(context.Context, *sqs.ReceiveMessageInput, ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error)
+	DeleteSQSMessageFunc  = func(context.Context, *sqs.DeleteMessageInput, ...func(*sqs.Options)) (*sqs.DeleteMessageOutput, error)
 
 	SQSClient struct {
 		ReceiveSQSMessageFunc
@@ -32,10 +32,10 @@ type (
 	}
 )
 
-func (s SQSClient) ReceiveMessageWithContext(ctx aws.Context, input *sqs.ReceiveMessageInput, options ...request.Option) (*sqs.ReceiveMessageOutput, error) {
+func (s SQSClient) ReceiveMessage(ctx context.Context, input *sqs.ReceiveMessageInput, options ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {
 	return s.ReceiveSQSMessageFunc(ctx, input, options...)
 }
 
-func (s SQSClient) DeleteMessageWithContext(ctx aws.Context, input *sqs.DeleteMessageInput, options ...request.Option) (*sqs.DeleteMessageOutput, error) {
+func (s SQSClient) DeleteMessage(ctx context.Context, input *sqs.DeleteMessageInput, options ...func(*sqs.Options)) (*sqs.DeleteMessageOutput, error) {
 	return s.DeleteSQSMessageFunc(ctx, input, options...)
 }

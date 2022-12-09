@@ -25,7 +25,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 
-	"github.com/aws/aws-sdk-go/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -73,8 +73,8 @@ type (
 	}
 
 	SQSClient interface {
-		GetSQSMessages(context.Context) ([]*sqs.Message, error)
-		DeleteSQSMessage(context.Context, *sqs.Message) error
+		GetSQSMessages(context.Context) ([]sqstypes.Message, error)
+		DeleteSQSMessage(context.Context, *sqstypes.Message) error
 	}
 
 	SQSClientBuilder interface {
@@ -82,7 +82,7 @@ type (
 	}
 
 	SQSMessageParser interface {
-		Parse(context.Context, *sqs.Message) Event
+		Parse(context.Context, sqstypes.Message) Event
 	}
 
 	WebhookClient interface {
@@ -151,7 +151,7 @@ func (r Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (recon
 	return reconcile.Result{RequeueAfter: r.RequeueInterval}, nil
 }
 
-func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, terminator *v1alpha1.Terminator, nodeGetter NodeGetter, cordondrainer CordonDrainer, sqsClient SQSClient, webhookRequest webhook.Request) (err error) {
+func (r Reconciler) handleMessage(ctx context.Context, msg sqstypes.Message, terminator *v1alpha1.Terminator, nodeGetter NodeGetter, cordondrainer CordonDrainer, sqsClient SQSClient, webhookRequest webhook.Request) (err error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).With("sqsMessage", logging.NewMessageMarshaler(msg)))
 
 	evt := r.Parse(ctx, msg)
@@ -181,7 +181,7 @@ func (r Reconciler) handleMessage(ctx context.Context, msg *sqs.Message, termina
 		return err
 	}
 
-	return multierr.Append(err, sqsClient.DeleteSQSMessage(ctx, msg))
+	return multierr.Append(err, sqsClient.DeleteSQSMessage(ctx, &msg))
 }
 
 func (r Reconciler) handleInstance(ctx context.Context, ec2InstanceID string, evtAction v1alpha1.Action, nodeGetter NodeGetter, cordondrainer CordonDrainer, webhookRequest webhook.Request) (bool, error) {

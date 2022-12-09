@@ -22,14 +22,12 @@ import (
 
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
 type (
 	EC2InstancesDescriber interface {
-		DescribeInstancesWithContext(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
+		DescribeInstances(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 	}
 
 	Getter struct {
@@ -40,8 +38,8 @@ type (
 func (g Getter) GetNodeName(ctx context.Context, instanceID string) (string, error) {
 	ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("nodeName"))
 
-	result, err := g.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(instanceID)},
+	result, err := g.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: []string{instanceID},
 	})
 	if err != nil {
 		logging.FromContext(ctx).
