@@ -27,7 +27,6 @@ import (
 const (
 	source             = "aws.autoscaling"
 	detailType         = "EC2 Instance-terminate Lifecycle Action"
-	version            = "1"
 	acceptedTransition = "autoscaling:EC2_INSTANCE_TERMINATING"
 )
 
@@ -48,7 +47,7 @@ func (p Parser) Parse(ctx context.Context, str string) terminator.Event {
 		return nil
 	}
 
-	if evt.Source != source || evt.DetailType != detailType || evt.Version != version {
+	if evt.Source != source || evt.DetailType != detailType {
 		return nil
 	}
 

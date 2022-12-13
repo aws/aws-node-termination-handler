@@ -27,7 +27,6 @@ import (
 const (
 	source     = "aws.ec2"
 	detailType = "EC2 Spot Instance Interruption Warning"
-	version    = "1"
 )
 
 type Parser struct{}
@@ -43,7 +42,7 @@ func (Parser) Parse(ctx context.Context, str string) terminator.Event {
 		return nil
 	}
 
-	if evt.Source != source || evt.DetailType != detailType || evt.Version != version {
+	if evt.Source != source || evt.DetailType != detailType {
 		return nil
 	}
 

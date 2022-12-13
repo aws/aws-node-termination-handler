@@ -27,7 +27,6 @@ import (
 const (
 	source                    = "aws.health"
 	detailType                = "AWS Health Event"
-	version                   = "1"
 	acceptedService           = "EC2"
 	acceptedEventTypeCategory = "scheduledChange"
 )
@@ -45,7 +44,7 @@ func (Parser) Parse(ctx context.Context, str string) terminator.Event {
 		return nil
 	}
 
-	if evt.Source != source || evt.DetailType != detailType || evt.Version != version {
+	if evt.Source != source || evt.DetailType != detailType {
 		return nil
 	}
 
