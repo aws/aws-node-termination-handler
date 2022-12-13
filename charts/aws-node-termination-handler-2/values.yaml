@@ -13,7 +13,7 @@ controller:
     # .   value: eu-west-1
 
     # Image to deploy.
-    image: "public.ecr.aws/aws-ec2/aws-node-termination-handler-2/controller:v2.0.0-alpha"
+    image: "public.ecr.aws/aws-ec2/aws-node-termination-handler-2/controller:v2.0.0-beta"
 
     # Override global logging level.
     logLevel: ""
@@ -146,7 +146,7 @@ webhook:
     # .   value: eu-west-1
 
     # Image to deploy.
-    image: "public.ecr.aws/aws-ec2/aws-node-termination-handler-2/webhook:v2.0.0-alpha"
+    image: "public.ecr.aws/aws-ec2/aws-node-termination-handler-2/webhook:v2.0.0-beta"
 
     # Override global logging level.
     logLevel: ""
