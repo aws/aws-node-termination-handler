@@ -39,9 +39,6 @@ Resources:
           - aws.autoscaling
         detail-type:
           - EC2 Instance-terminate Lifecycle Action
-        version:
-          - "1"
-          - "2"
         detail:
           LifecycleTransition:
             - "autoscaling:EC2_INSTANCE_TERMINATING"
@@ -60,8 +57,6 @@ Resources:
           - aws.ec2
         detail-type:
           - EC2 Instance Rebalance Recommendation
-        version:
-          - "0"
       State: ENABLED
       Targets:
         - Id: !GetAtt Queue.QueueName
@@ -77,8 +72,6 @@ Resources:
           - aws.health
         detail-type:
           - AWS Health Event
-        version:
-          - "1"
         detail:
           source:
             - EC2
@@ -99,8 +92,6 @@ Resources:
           - aws.ec2
         detail-type:
           - EC2 Spot Instance Interruption Warning
-        version:
-          - "1"
       State: ENABLED
       Targets:
         - Id: !GetAtt Queue.QueueName
@@ -116,8 +107,6 @@ Resources:
           - aws.ec2
         detail-type:
           - EC2 Instance State-change Notification
-        version:
-          - "1"
         detail:
           state:
             - stopping
