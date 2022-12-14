@@ -2,8 +2,8 @@ apiVersion: v2
 name: aws-node-termination-handler
 description: A Helm chart for the AWS Node Termination Handler.
 type: application
-version: 0.20.1
-appVersion: 1.18.1
+version: 0.20.2
+appVersion: 1.18.2
 kubeVersion: ">= 1.16-0"
 keywords:
   - aws
