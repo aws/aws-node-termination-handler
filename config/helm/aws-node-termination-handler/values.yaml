@@ -259,7 +259,7 @@ daemonsetTolerations:
 linuxTolerations: []
 windowsTolerations: []
 
-# If the probes server is running for the Daemonset. Only used in IMDS mode.
+# If the probes server is running.
 enableProbesServer: false
 
 # Total number of times to try making the metadata request before failing.
