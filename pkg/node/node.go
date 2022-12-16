@@ -821,7 +821,7 @@ func getUptimeFunc(uptimeFile string) uptime.UptimeFuncType {
 
 func filterPodForDeletion(podName, podNamespace string) func(pod corev1.Pod) drain.PodDeleteStatus {
 	return func(pod corev1.Pod) drain.PodDeleteStatus {
-		if pod.Name == podName && pod.Namespace == podNamespace {
+		if pod.Name == podName && (pod.Namespace == podNamespace || podNamespace == "") {
 			return drain.MakePodDeleteStatusSkip()
 		}
 		return drain.MakePodDeleteStatusOkay()
