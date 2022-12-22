@@ -144,7 +144,7 @@ func main() {
 
 	nthConfig.Print()
 
-	if nthConfig.EnableScheduledEventDraining {
+	if !imdsDisabled && nthConfig.EnableScheduledEventDraining {
 		stopCh := make(chan struct{})
 		go func() {
 			time.Sleep(8 * time.Second)
