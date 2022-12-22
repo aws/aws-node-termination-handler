@@ -115,10 +115,15 @@ func main() {
 	}
 	imdsDisabled := nthConfig.EnableSQSTerminationDraining
 
-	imds := ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
-
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
-	nodeMetadata := imds.GetNodeMetadata(imdsDisabled)
+	var imds *ec2metadata.Service
+	var nodeMetadata ec2metadata.NodeMetadata
+
+	if !imdsDisabled {
+		imds = ec2metadata.New(nthConfig.MetadataURL, nthConfig.MetadataTries)
+		nodeMetadata = imds.GetNodeMetadata()
+	}
+
 	// Populate the aws region if available from node metadata and not already explicitly configured
 	if nthConfig.AWSRegion == "" && nodeMetadata.Region != "" {
 		nthConfig.AWSRegion = nodeMetadata.Region

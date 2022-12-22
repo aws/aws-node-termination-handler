@@ -580,7 +580,7 @@ func TestGetNodeMetadata(t *testing.T) {
 
 	// Use URL from our local test server
 	imds := ec2metadata.New(server.URL, 1)
-	nodeMetadata := imds.GetNodeMetadata(false)
+	nodeMetadata := imds.GetNodeMetadata()
 
 	h.Assert(t, nodeMetadata.AccountId == "", `AccountId should be empty string (only present in SQS events)`)
 	h.Assert(t, nodeMetadata.InstanceID == `metadata`, `Missing required NodeMetadata field InstanceID`)
@@ -592,26 +592,4 @@ func TestGetNodeMetadata(t *testing.T) {
 	h.Assert(t, nodeMetadata.PublicIP == `metadata`, `Missing required NodeMetadata field PublicIP`)
 	h.Assert(t, nodeMetadata.AvailabilityZone == `metadata`, `Missing required NodeMetadata field AvailabilityZone`)
 	h.Assert(t, nodeMetadata.Region == `metadat`, `Region should equal AvailabilityZone with the final character truncated`)
-}
-
-func TestGetNodeMetadataWithIMDSDisabled(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		h.Ok(t, fmt.Errorf("IMDS was called when using Queue Processor mode"))
-	}))
-	defer server.Close()
-
-	// Use URL from our local test server that throws errors when called
-	imds := ec2metadata.New(server.URL, 1)
-	nodeMetadata := imds.GetNodeMetadata(true)
-
-	h.Assert(t, nodeMetadata.AccountId == "", "AccountId should be empty string")
-	h.Assert(t, nodeMetadata.InstanceID == "", "InstanceID should be empty string")
-	h.Assert(t, nodeMetadata.InstanceLifeCycle == "", "InstanceLifeCycle should be empty string")
-	h.Assert(t, nodeMetadata.InstanceType == "", "InstanceType should be empty string")
-	h.Assert(t, nodeMetadata.PublicHostname == "", "PublicHostname should be empty string")
-	h.Assert(t, nodeMetadata.PublicIP == "", "PublicIP should be empty string")
-	h.Assert(t, nodeMetadata.LocalHostname == "", "LocalHostname should be empty string")
-	h.Assert(t, nodeMetadata.LocalIP == "", "LocalIP should be empty string")
-	h.Assert(t, nodeMetadata.AvailabilityZone == "", "AvailabilityZone should be empty string")
-	h.Assert(t, nodeMetadata.Region == "", "Region should be empty string")
 }
