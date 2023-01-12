@@ -73,7 +73,7 @@ anth_helm_args=(
   --set awsSecretAccessKey=bar
   --set awsRegion="${AWS_REGION}"
   --set awsEndpoint="http://localstack.default"
-  --set checkASGTagBeforeDraining=false
+  --set checkTagBeforeDraining=false
   --set enableSqsTerminationDraining=true
   --set "queueURL=${queue_url}"
   --wait
