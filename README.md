@@ -30,7 +30,7 @@
 
 ## Project Summary
 
-This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), [ASG AZ Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html#AutoScalingBehavior.InstanceUsage), and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down.
+This project ensures that the Kubernetes control plane responds appropriately to events that can cause your EC2 instance to become unavailable, such as [EC2 maintenance events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html), [EC2 Spot interruptions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html#as-lifecycle-scale-in), ASG AZ Rebalance, and EC2 Instance Termination via the API or Console.  If not handled, your application code may not stop gracefully, take longer to recover full availability, or accidentally schedule work to nodes that are going down.
 
 The aws-node-termination-handler (NTH) can operate in two different modes: Instance Metadata Service (IMDS) or the Queue Processor.
 
@@ -65,7 +65,7 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
    - Instance Rebalance Recommendations
    - ASG Termination Lifecycle Hooks to handle the following:
      - [ASG Scale-In](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html)
-     - [Availability Zone Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html)
+     - [Availability Zone Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-instance-termination.html#:~:text=are%20replaced%20first.-,Availability%20Zone%20rebalancing,-Amazon%20EC2%20Auto)
      - [Unhealthy Instances](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html), and more
    - [Instance State Change events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instance-state-changes.html)
 
@@ -75,6 +75,7 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 | Spot Instance Termination Notifications (ITN) |       ✅        |        ✅        |
 |               Scheduled Events                |       ✅        |        ✅        |
 |       Instance Rebalance Recommendation       |       ✅        |        ✅        |
+|        AZ Rebalance Recommendation            |       ❌        |        ✅        |
 |        ASG Termination Lifecycle Hooks        |       ❌        |        ✅        |
 |         Instance State Change Events          |       ❌        |        ✅        |
 
@@ -89,6 +90,8 @@ IMDS Processor Mode allows for a fine-grained configuration of IMDS paths that a
  - `enableScheduledEventDraining`
 
 By default, IMDS mode will only Cordon in response to a Rebalance Recommendation event (all other events are Cordoned and Drained). Cordon is the default for a rebalance event because it's not known if an ASG is being utilized and if that ASG is configured to replace the instance on a rebalance event. If you are using an ASG w/ rebalance recommendations enabled, then you can set the `enableRebalanceDraining` flag to true to perform a Cordon and Drain when a rebalance event is received.
+
+Rebalance Recommendation is an early indicator to notify the Spot Instances that they can be interrupted soon. Node Termination Handler supports AZ Rebalance Recommendation only in Queue Processor mode using ASG Lifecycle Hooks. For AZ rebalances the instances are just terminated, using Lifecycle Hooks and EventBridge rule for `EC2 Instance-terminate Lifecycle Action` we can handle OD Instances.
 
 The `enableSqsTerminationDraining` must be set to false for these configuration values to be considered.
 
