@@ -611,7 +611,7 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	listOptions := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
 	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
 	if err != nil || len(matchingNodes.Items) == 0 {
-		log.Err(err).Msgf("Error when trying to list Nodes w/ label, falling back to direct Get lookup of node")
+		log.Warn().Msgf("Unable to list Nodes w/ label, falling back to direct Get lookup of node")
 		return n.drainHelper.Client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	}
 	return &matchingNodes.Items[0], nil
