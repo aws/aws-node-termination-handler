@@ -9,6 +9,10 @@ OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 
 # shellcheck disable=SC2034
+K8_1_25="kindest/node:v1.25.3@sha256:f1de3b0670462f43280114eccceab8bf1b9576d2afe0582f8f74529da6fd0365"
+# shellcheck disable=SC2034
+K8_1_24="kindest/node:v1.24.7@sha256:5c015142d9b60a0f6c45573f809957076514e38ec973565e2b2fe828b91597f5"
+# shellcheck disable=SC2034
 K8_1_23="kindest/node:v1.23.5@sha256:1a72748086bc24ed6163de1d1e33cc0e2eb5a1eb5ebffdb15b53c3bcd5376a6f"
 # shellcheck disable=SC2034
 K8_1_22="kindest/node:v1.22.2@sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f"
@@ -23,8 +27,8 @@ K8_1_18="kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f
 
 K8_VERSION="$K8_1_20"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-KIND_VERSION="0.11.1"
-HELM_VERSION="3.7.1"
+KIND_VERSION="0.17.0"
+HELM_VERSION="3.10.0"
 
 echoerr() { echo "$@" 1>&2; }
 
