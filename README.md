@@ -113,7 +113,7 @@ When using Kubernetes [Pod Security Admission](https://kubernetes.io/docs/concep
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.18.3/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.19.0/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
@@ -440,7 +440,7 @@ Queue Processor needs an **SQS queue URL** to function; therefore, manifest chan
 Minimal Config:
 
 ```
-curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.18.3/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
+curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.19.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
 <open all-resources-queue-processor.yaml and update QUEUE_URL value>
 kubectl apply -f ./all-resources-queue-processor.yaml
 ```
