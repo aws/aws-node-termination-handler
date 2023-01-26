@@ -94,7 +94,6 @@ The `enableSqsTerminationDraining` must be set to false for these configuration 
 
 The Queue Processor Mode does not allow for fine-grained configuration of which events are handled through helm configuration keys. Instead, you can modify your Amazon EventBridge rules to not send certain types of events to the SQS Queue so that NTH does not process those events. All events when operating in Queue Processor mode are Cordoned and Drained unless the `cordon-only` flag is set to true.
 
-
 The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queue Processor Mode is enabled, IMDS mode will be disabled, even if you explicitly enabled any of the IMDS configuration keys. NTH cannot respond to queue events AND monitor IMDS paths. In this case, it is safe to disable IMDS for the NTH pod.
 
 <details opened>
@@ -105,6 +104,9 @@ The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queu
 
 The termination handler DaemonSet installs into your cluster a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
 
+#### Pod Security Admission
+
+When using Kubernetes [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/) it is recommended to assign the `[privileged](https://kubernetes.io/docs/concepts/security/pod-security-standards/#privileged)` level.
 
 #### Kubectl Apply
 
@@ -375,6 +377,10 @@ IAM Policy for aws-node-termination-handler Deployment:
 ```
 
 ### Installation
+
+#### Pod Security Admission
+
+When using Kubernetes [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/) it is recommended to assign the `[baseline](https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline)` level.
 
 #### Helm
 

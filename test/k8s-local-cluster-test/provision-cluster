@@ -7,7 +7,12 @@ TEST_ID=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 CLUSTER_NAME_BASE=$(uuidgen | cut -d'-' -f1 | tr '[:upper:]' '[:lower:]')
 OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
+use_psp=false
 
+# shellcheck disable=SC2034
+K8_1_25="kindest/node:v1.25.3@sha256:f1de3b0670462f43280114eccceab8bf1b9576d2afe0582f8f74529da6fd0365"
+# shellcheck disable=SC2034
+K8_1_24="kindest/node:v1.24.7@sha256:5c015142d9b60a0f6c45573f809957076514e38ec973565e2b2fe828b91597f5"
 # shellcheck disable=SC2034
 K8_1_23="kindest/node:v1.23.5@sha256:1a72748086bc24ed6163de1d1e33cc0e2eb5a1eb5ebffdb15b53c3bcd5376a6f"
 # shellcheck disable=SC2034
@@ -23,8 +28,8 @@ K8_1_18="kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f
 
 K8_VERSION="$K8_1_20"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-KIND_VERSION="0.11.1"
-HELM_VERSION="3.7.1"
+KIND_VERSION="0.17.0"
+HELM_VERSION="3.10.0"
 
 echoerr() { echo "$@" 1>&2; }
 
@@ -55,7 +60,12 @@ while getopts "b:i:v:k:o" opt; do
         echoerr "👉 Test Run: $TEST_ID 👈"
       ;;
     v ) # K8s version to provision
-        OPTARG="K8_`echo $OPTARG | sed 's/\./\_/g'`"
+        maj_ver=`echo $OPTARG | cut -d '.' -f 1`
+        min_ver=`echo $OPTARG | cut -d '.' -f 2`
+        if [[ $maj_ver -eq 1 && $min_ver -lt 25 ]]; then
+          use_psp=true
+        fi
+        OPTARG="K8_${maj_ver}_${min_ver}"
         if [ ! -z ${OPTARG+x} ]; then
             K8_VERSION=${!OPTARG}
         else
@@ -124,12 +134,19 @@ fi
 # Disable spinners and color in kind output
 export TERM=dumb
 echoerr "🥑 Creating k8s cluster using \"kind\""
+if [[ "$use_psp" = false ]]; then
+  no_psp_kind_config_file="${TMP_DIR}/`basename $KIND_CONFIG_FILE`"
+  cat $KIND_CONFIG_FILE | sed 's/,PodSecurityPolicy//' > "${no_psp_kind_config_file}"
+  KIND_CONFIG_FILE="${no_psp_kind_config_file}"
+fi
 retry 3 kind create cluster --name "$CLUSTER_NAME" --image $K8_VERSION --config "$KIND_CONFIG_FILE" --kubeconfig $TMP_DIR/kubeconfig 1>&2
 
 echo "$CLUSTER_NAME" > "$TMP_DIR/clustername"
 echoerr "👍 Created k8s cluster using \"kind\""
 
-kubectl apply -f "$SCRIPTPATH/psp-default.yaml" --context "kind-$CLUSTER_NAME" --kubeconfig "$TMP_DIR/kubeconfig" 1>&2
-kubectl apply -f "$SCRIPTPATH/psp-privileged.yaml" --context "kind-$CLUSTER_NAME" --kubeconfig "$TMP_DIR/kubeconfig" 1>&2
+if [[ "$use_psp" = true ]]; then
+  kubectl apply -f "$SCRIPTPATH/psp-default.yaml" --context "kind-$CLUSTER_NAME" --kubeconfig "$TMP_DIR/kubeconfig" 1>&2
+  kubectl apply -f "$SCRIPTPATH/psp-privileged.yaml" --context "kind-$CLUSTER_NAME" --kubeconfig "$TMP_DIR/kubeconfig" 1>&2
+fi
 
 echo "$TMP_DIR"
