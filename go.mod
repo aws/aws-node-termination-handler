@@ -11,7 +11,7 @@ require (
 	go.opentelemetry.io/otel/exporters/metric/prometheus v0.20.0
 	go.opentelemetry.io/otel/metric v0.20.0
 	go.uber.org/multierr v1.7.0
-	golang.org/x/sys v0.2.0
+	golang.org/x/sys v0.4.0
 	k8s.io/api v0.21.1
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.1
