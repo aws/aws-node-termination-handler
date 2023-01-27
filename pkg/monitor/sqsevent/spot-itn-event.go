@@ -29,7 +29,7 @@ import (
 	"id": "1e5527d7-bb36-4607-3370-4164db56a40e",
 	"detail-type": "EC2 Spot Instance Interruption Warning",
 	"source": "aws.ec2",
-	"account": "123456789012",
+	"account": "<account_number>",
 	"time": "1970-01-01T00:00:00Z",
 	"region": "us-east-1",
 	"resources": [
@@ -69,7 +69,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           spotInterruptionDetail.InstanceID,
 		ProviderID:           nodeInfo.ProviderID,
-		Description:          fmt.Sprintf("Spot Interruption event received. Instance %s will be interrupted at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
+		Description:          fmt.Sprintf("Spot Interruption notice for instance %s was sent at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		errs := m.deleteMessages([]*sqs.Message{message})
