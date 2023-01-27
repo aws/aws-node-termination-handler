@@ -309,6 +309,10 @@ Take a look at the docs on how to [create rules that only manage certain ASGs](h
 
 You may skip this step if sending events from ASG to SQS directly.
 
+If we use ASG with capacity-rebalance enabled on ASG, then we do not need Spot and Rebalance events enabled with EventBridge. ASG will send a termination lifecycle hook for spot interrruptions while it's launching a new instance and for Rebalance events ASG will send a termination lifecycle hook after it brings a new node in the ASG.
+
+If we use ASG without capacity-rebalance enabled, then spot interruptions will cause a termination lifecycle hook after the interruption occurs but not while launching the new instance.
+
 Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation (template [here](docs/cfn-template.yaml)) or Terraform:
 
 ```
