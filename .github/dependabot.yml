@@ -1,6 +1,13 @@
 version: 2
 updates:
-  - package-ecosystem: "gomod" 
+  - package-ecosystem: "gomod"
+    allow:
+      - dependency-name: "github.com/aws/aws-sdk-go"
+      - dependency-name: "k8s.io/*"
+        dependency-type: "direct"
     directory: "/" 
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Chicago"
