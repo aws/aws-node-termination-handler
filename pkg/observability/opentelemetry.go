@@ -20,10 +20,15 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/metric/prometheus"
-	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/exporters/prometheus"
+	api "go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 var (
@@ -38,44 +43,33 @@ var (
 // Metrics represents the stats for observability
 type Metrics struct {
 	enabled            bool
-	meter              metric.Meter
-	actionsCounter     metric.Int64Counter
-	errorEventsCounter metric.Int64Counter
+	meter              api.Meter
+	actionsCounter     instrument.Int64Counter
+	errorEventsCounter instrument.Int64Counter
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
 func InitMetrics(enabled bool, port int) (Metrics, error) {
-	if !enabled {
-		return Metrics{}, nil
-	}
-
-	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{})
+	exporter, err := prometheus.New()
 	if err != nil {
-		return Metrics{}, err
+		return Metrics{}, fmt.Errorf("failed to create Prometheus exporter: %w", err)
 	}
-
-	metrics, err := registerMetricsWith(exporter.MeterProvider())
+	provider := metric.NewMeterProvider(metric.WithReader(exporter))
+	metrics, err := registerMetricsWith(provider)
 	if err != nil {
-		return Metrics{}, err
+		return Metrics{}, fmt.Errorf("failed to register metrics with Prometheus provider: %w", err)
 	}
+	metrics.enabled = enabled
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
-	if err := runtime.Start(
-		runtime.WithMeterProvider(exporter.MeterProvider()),
+	if err = runtime.Start(
+		runtime.WithMeterProvider(provider),
 		runtime.WithMinimumReadMemStatsInterval(1*time.Second)); err != nil {
-		return Metrics{}, err
+		return Metrics{}, fmt.Errorf("failed to start Go runtime metrics collection: %w", err)
 	}
 
-	// Starts HTTP server exposing the prometheus `/metrics` path
-	go func() {
-		log.Info().Msgf("Starting to serve handler /metrics, port %d", port)
-		http.HandleFunc("/metrics", exporter.ServeHTTP)
-		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-		if err != nil {
-			log.Err(err).Msg("Failed to listen and serve http server")
-		}
-	}()
+	go serveMetrics(port)
 
 	return metrics, nil
 }
@@ -104,23 +98,32 @@ func (m Metrics) NodeActionsInc(action, nodeName string, eventID string, err err
 	m.actionsCounter.Add(context.Background(), 1, labels...)
 }
 
-func registerMetricsWith(provider metric.MeterProvider) (Metrics, error) {
+func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
-	actionsCounter, err := meter.NewInt64Counter("actions.node", metric.WithDescription("Number of actions per node"))
+	name := "actions.node"
+	actionsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions per node"))
 	if err != nil {
-		return Metrics{}, err
+		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
 
-	errorEventsCounter, err := meter.NewInt64Counter("events.error", metric.WithDescription("Number of errors in events processing"))
+	name = "events.error"
+	errorEventsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of errors in events processing"))
 	if err != nil {
-		return Metrics{}, err
+		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
 
 	return Metrics{
-		enabled:            true,
 		meter:              meter,
 		errorEventsCounter: errorEventsCounter,
 		actionsCounter:     actionsCounter,
 	}, nil
+}
+
+func serveMetrics(port int) {
+	log.Info().Msgf("Starting to serve handler /metrics, port %d", port)
+	http.Handle("/metrics", promhttp.Handler())
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+		log.Err(err).Msg("Failed to listen and serve http server")
+	}
 }

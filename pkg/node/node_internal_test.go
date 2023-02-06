@@ -42,6 +42,7 @@ func getUptimeFromFile(filepath string) uptime.UptimeFuncType {
 
 func getTestDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
+		Ctx:                 context.TODO(),
 		Client:              client,
 		Force:               true,
 		GracePeriodSeconds:  -1,
