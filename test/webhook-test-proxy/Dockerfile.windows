@@ -18,5 +18,5 @@ ENTRYPOINT ["webhook-test-proxy"]
 FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 WORKDIR /
 COPY --from=builder /webhook-test-proxy .
-COPY THIRD_PARTY_LICENSES .
+COPY THIRD_PARTY_LICENSES.md .
 ENTRYPOINT ["/webhook-test-proxy"]
