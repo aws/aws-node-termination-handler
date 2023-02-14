@@ -40,6 +40,7 @@ var nodeName = "NAME"
 
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
 	return &drain.Helper{
+		Ctx:                 context.TODO(),
 		Client:              client,
 		Force:               true,
 		GracePeriodSeconds:  -1,
@@ -140,7 +141,9 @@ func TestDrainSuccess(t *testing.T) {
 
 	fakeRecorder := record.NewFakeRecorder(recorderBufferSize)
 
-	tNode := getNode(t, getDrainHelper(client))
+	drainHelper := getDrainHelper(client)
+	drainHelper.DisableEviction = true
+	tNode := getNode(t, drainHelper)
 	err = tNode.CordonAndDrain(nodeName, "cordonReason", fakeRecorder)
 	close(fakeRecorder.Events)
 	h.Ok(t, err)

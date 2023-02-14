@@ -160,7 +160,7 @@ func (r K8sEventRecorder) Emit(nodeName string, eventType, eventReason, eventMsg
 			}
 			annotations = r.annotations
 		}
-		r.AnnotatedEventf(node, annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...)
+		r.AnnotatedEventf(node, annotations, eventType, eventReason, eventMsgFmt, eventMsgArgs...) //nolint:all
 	}
 }
 
