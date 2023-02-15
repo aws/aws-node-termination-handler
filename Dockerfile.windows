@@ -26,6 +26,6 @@ FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 WORKDIR /
 COPY --from=builder /windows/system32/netapi32.dll /windows/system32/
 COPY --from=builder /node-termination-handler/build/node-termination-handler .
-COPY THIRD_PARTY_LICENSES .
+COPY THIRD_PARTY_LICENSES.md .
 ENTRYPOINT ["/node-termination-handler"]
 

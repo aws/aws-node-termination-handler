@@ -24,5 +24,5 @@ FROM scratch
 WORKDIR /
 COPY --from=builder /webhook-test-proxy .
 COPY --from=amazonlinux /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/
-COPY THIRD_PARTY_LICENSES .
+COPY THIRD_PARTY_LICENSES.md .
 ENTRYPOINT ["/webhook-test-proxy"]
