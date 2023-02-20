@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/aws/aws-sdk-go v1.44.200
+	github.com/aws/aws-sdk-go v1.44.204
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/zerolog v1.29.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.39.0
