@@ -108,6 +108,7 @@ const (
 	awsEndpointConfigKey                      = "AWS_ENDPOINT"
 	queueURLConfigKey                         = "QUEUE_URL"
 	completeLifecycleActionDelaySecondsKey    = "COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS"
+	deleteSqsMsgIfNodeNotFoundKey             = "DELETE_SQS_MSG_IF_NODE_NOT_FOUND"
 )
 
 // Config arguments set via CLI, environment variables, or defaults
@@ -159,6 +160,7 @@ type Config struct {
 	Workers                             int
 	UseProviderId                       bool
 	CompleteLifecycleActionDelaySeconds int
+	DeleteSqsMsgIfNodeNotFound          bool
 }
 
 // ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -220,6 +222,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.Workers, "workers", getIntEnv(workersConfigKey, workersDefault), "The amount of parallel event processors.")
 	flag.BoolVar(&config.UseProviderId, "use-provider-id", getBoolEnv(useProviderIdConfigKey, useProviderIdDefault), "If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.")
 	flag.IntVar(&config.CompleteLifecycleActionDelaySeconds, "complete-lifecycle-action-delay-seconds", getIntEnv(completeLifecycleActionDelaySecondsKey, -1), "Delay completing the Autoscaling lifecycle action after a node has been drained.")
+	flag.BoolVar(&config.DeleteSqsMsgIfNodeNotFound, "delete-sqs-msg-if-node-not-found", getBoolEnv(deleteSqsMsgIfNodeNotFoundKey, false), "If true, delete SQS Messages from the SQS Queue if the targeted node(s) are not found.")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
@@ -299,6 +302,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("enable_scheduled_event_draining", c.EnableScheduledEventDraining).
 		Bool("enable_spot_interruption_draining", c.EnableSpotInterruptionDraining).
 		Bool("enable_sqs_termination_draining", c.EnableSQSTerminationDraining).
+		Bool("delete_sqs_msg_if_node_not_found", c.DeleteSqsMsgIfNodeNotFound).
 		Bool("enable_rebalance_monitoring", c.EnableRebalanceMonitoring).
 		Bool("enable_rebalance_draining", c.EnableRebalanceDraining).
 		Int("metadata_tries", c.MetadataTries).
@@ -346,6 +350,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tenable-scheduled-event-draining: %t,\n"+
 			"\tenable-spot-interruption-draining: %t,\n"+
 			"\tenable-sqs-termination-draining: %t,\n"+
+			"\tdelete-sqs-msg-if-node-not-found: %t,\n"+
 			"\tenable-rebalance-monitoring: %t,\n"+
 			"\tenable-rebalance-draining: %t,\n"+
 			"\tmetadata-tries: %d,\n"+
@@ -384,6 +389,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.EnableScheduledEventDraining,
 		c.EnableSpotInterruptionDraining,
 		c.EnableSQSTerminationDraining,
+		c.DeleteSqsMsgIfNodeNotFound,
 		c.EnableRebalanceMonitoring,
 		c.EnableRebalanceDraining,
 		c.MetadataTries,

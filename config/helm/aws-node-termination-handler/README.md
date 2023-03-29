@@ -156,6 +156,7 @@ The configuration in this table applies to AWS Node Termination Handler in IMDS 
 | `enableScheduledEventDraining`   | If `true`, drain nodes before the maintenance window starts for an EC2 instance scheduled event. Only used in IMDS mode.                                                                                                                                      | `true`                 |
 | `enableRebalanceMonitoring`      | If `true`, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set `enableRebalanceDraining`. Only used in IMDS mode.                                                      | `false`                |
 | `enableRebalanceDraining`        | If `true`, drain nodes when the rebalance recommendation notice is received. Only used in IMDS mode.                                                                                                                                                          | `false`                |
+| `deleteSqsMsgIfNodeNotFound`     | If `true`, delete the SQS Message from the SQS Queue if the targeted node is not found. Only used in Queue Processor mode.                                       | `false`                |
 
 ### Testing Configuration
 

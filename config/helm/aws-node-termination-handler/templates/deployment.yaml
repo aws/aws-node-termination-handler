@@ -164,6 +164,8 @@ spec:
             {{- end }}
             - name: QUEUE_URL
               value: {{ .Values.queueURL | quote }}
+            - name: DELETE_SQS_MSG_IF_NODE_NOT_FOUND
+              value: {{ .Values.deleteSqsMsgIfNodeNotFound | quote }}
             - name: WORKERS
               value: {{ .Values.workers | quote }}
             {{- with .Values.extraEnv }}
