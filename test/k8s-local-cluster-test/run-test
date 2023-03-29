@@ -228,10 +228,18 @@ export KUBECONFIG="$TMP_DIR/kubeconfig"
 trap "exit_and_fail" INT TERM ERR
 trap "clean_up" EXIT
 
+cat << EOF >$TMP_DIR/env
+export KUBECONFIG=$TMP_DIR/kubeconfig
+echo "Updated KUBECONFIG=$KUBECONFIG"
+
+export PATH=$TMP_DIR:\$PATH
+echo "Updated PATH=$PATH"
+
+EOF
+
 echo "======================================================================================================"
 echo "To poke around your test manually:"
-echo "export KUBECONFIG=$TMP_DIR/kubeconfig"
-echo "export PATH=$TMP_DIR:\$PATH"
+echo ". $TMP_DIR/env"
 echo "kubectl get pods -A"
 echo "======================================================================================================"
 

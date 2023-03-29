@@ -333,6 +333,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, wg *sync.WaitGroup) {
 	defer wg.Done()
+	nodeFound := true
 	nodeName := drainEvent.NodeName
 
 	if nthConfig.UseProviderId {
@@ -348,6 +349,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	nodeLabels, err := node.GetNodeLabels(nodeName)
 	if err != nil {
 		log.Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
+		nodeFound = false
 	}
 	drainEvent.NodeLabels = nodeLabels
 	if drainEvent.PreDrainTask != nil {
@@ -376,15 +378,14 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 
 	if err != nil {
 		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
-		<-interruptionEventStore.Workers
 	} else {
 		interruptionEventStore.MarkAllAsProcessed(nodeName)
-		if drainEvent.PostDrainTask != nil {
-			runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
-		}
-		<-interruptionEventStore.Workers
 	}
 
+	if (err == nil || (!nodeFound && nthConfig.DeleteSqsMsgIfNodeNotFound)) && drainEvent.PostDrainTask != nil {
+		runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
+	}
+	<-interruptionEventStore.Workers
 }
 
 func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
