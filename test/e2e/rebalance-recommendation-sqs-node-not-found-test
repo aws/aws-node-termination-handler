@@ -47,7 +47,6 @@ localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="st
 echo "🥑 Using localstack pod ${localstack_pod}"
 
 run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "awslocal ec2 run-instances --private-ip-address 192.168.0.4 --region ${AWS_REGION}")
-private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
 instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
 echo "🥑 Created awslocal EC2 instance (${instance_id}) not backed by a node"
 
@@ -151,12 +150,10 @@ echo "✅ Sent Rebalance Recommendation to SQS queue: ${queue_url}"
 
 GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
 
-test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $CHECK_CYCLES); do
     if [[ $(kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
         kubectl exec -i "${localstack_pod}" -- bash -c "${GET_ATTRS_SQS_CMD}"
         echo "✅ Verified the message was deleted from the queue after processing!"
-        message_deleted=1
         echo "✅ Rebalance Recommendation SQS Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
