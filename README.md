@@ -123,22 +123,25 @@ For a full list of releases and associated artifacts see our [releases page](htt
 
 #### Helm
 
-The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
+The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/). The chart for this project is hosted in [helm/aws-node-termination-handler](https://gallery.ecr.aws/aws-ec2/helm/aws-node-termination-handler)
 
-To get started you need to add the eks-charts repo to helm
+To get started you need to authenticate your helm client
 
 ```
-helm repo add eks https://aws.github.io/eks-charts
+aws ecr-public get-login-password \
+  --region us-east-1 | helm registry login \
+  --username AWS \
+  --password-stdin public.ecr.aws
 ```
 
-Once that is complete you can install the termination handler. We've provided some sample setup options below.
+Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace chart-version with the version you want to install.
 
 Zero Config:
 
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 Enabling Features:
@@ -149,7 +152,7 @@ helm upgrade --install aws-node-termination-handler \
   --set enableSpotInterruptionDraining="true" \
   --set enableRebalanceMonitoring="true" \
   --set enableScheduledEventDraining="false" \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 The `enable*` configuration flags above enable or disable IMDS monitoring paths.
@@ -160,7 +163,7 @@ Running Only On Specific Nodes:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set nodeSelector.lifecycle=spot \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 Webhook Configuration:
@@ -169,7 +172,7 @@ Webhook Configuration:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 Alternatively, pass Webhook URL as a Secret:
@@ -183,10 +186,10 @@ kubectl create secret -n kube-system generic webhooksecret --from-literal=$WEBHO
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set webhookURLSecretName=webhooksecret \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/tree/main/config/helm/aws-node-termination-handler#readme).
 
 </details>
 
@@ -391,15 +394,18 @@ When using Kubernetes [Pod Security Admission](https://kubernetes.io/docs/concep
 
 #### Helm
 
-The easiest and most commonly used method to configure the termination handler is via [helm](https://helm.sh/).  The chart for this project is hosted in the [eks-charts](https://github.com/aws/eks-charts) repository.
+The easiest way to configure the various options of the termination handler is via [helm](https://helm.sh/). The chart for this project is hosted in [helm/aws-node-termination-handler](https://gallery.ecr.aws/aws-ec2/helm/aws-node-termination-handler)
 
-To get started you need to add the eks-charts repo to helm
+To get started you need to authenticate your helm client
 
 ```
-helm repo add eks https://aws.github.io/eks-charts
+aws ecr-public get-login-password \
+     --region us-east-1 | helm registry login \
+     --username AWS \
+     --password-stdin public.ecr.aws
 ```
 
-Once that is complete you can install the termination handler. We've provided some sample setup options below.
+Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace chart-version with the version you want to install.
 
 Minimal Config:
 
@@ -408,7 +414,7 @@ helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set enableSqsTerminationDraining=true \
   --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 Webhook Configuration:
@@ -419,7 +425,7 @@ helm upgrade --install aws-node-termination-handler \
   --set enableSqsTerminationDraining=true \
   --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 Alternatively, pass Webhook URL as a Secret:
@@ -435,7 +441,7 @@ helm upgrade --install aws-node-termination-handler \
   --set enableSqsTerminationDraining=true \
   --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURLSecretName=webhooksecret \
-  eks/aws-node-termination-handler
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
 ```
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).

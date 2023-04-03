@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+BUILD_DIR=$SCRIPTPATH/../build/
+export PATH="${BUILD_DIR}:${PATH}"
+
+if [[ -z "${ECR_REGISTRY}" ]]; then
+    echo "The env var ECR_REGISTRY must be set"
+    exit 1
+fi
+
+function exit_and_fail() {
+    echo "❌ Failed to login to ECR Public Repo!"
+}
+
+trap exit_and_fail INT TERM ERR
+
+export HELM_EXPERIMENTAL_OCI=1
+helm registry login --username AWS --password="$(aws ecr-public get-login-password --region us-east-1)" "${ECR_REGISTRY}"

@@ -3,7 +3,7 @@
 # Script to:
 ## 1) create and checkout a new branch with the latest tag name
 ## 2) update NTH versions
-## 3) commit release prep changes to new branch
+## 3) commit release changes to new branch
 ## 4) create a PR from the new branch to upstream/main
 
 set -euo pipefail
@@ -26,25 +26,25 @@ CHART_VALUES=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler/values.yam
 FILES=("$REPO_README" "$CHART" "$CHART_VALUES")
 FILES_CHANGED=()
 
-# release prep
+# release
 LATEST_TAG="v$LATEST_VERSION"
 NEW_BRANCH="pr/$LATEST_TAG-release"
-COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release prep 🤖🥑"
-RELEASE_PREP=true
+COMMIT_MESSAGE="🥑🤖 $LATEST_TAG release 🤖🥑"
+RELEASE=true
 
 # PR details
 DEFAULT_REPO_FULL_NAME=$(make -s -f $MAKEFILE_PATH repo-full-name)
 PR_BASE=main  # target
-PR_TITLE="🥑🤖 $LATEST_TAG release prep"
+PR_TITLE="🥑🤖 $LATEST_TAG release "
 PR_BODY="🥑🤖 Auto-generated PR for $LATEST_TAG release. Updating release versions in repo."
-PR_LABEL_1="release-prep"
+PR_LABEL_1="release"
 PR_LABEL_2="🤖 auto-generated🤖"
 EC2_BOT_USER="ec2-bot 🤖"
 EC2_BOT_EMAIL="ec2-bot@users.noreply.github.com"
 EC2_BOT_SET=false
 
 HELP=$(cat << 'EOM'
-  Update repo with the new release version and create a pr from a new release prep branch.
+  Update repo with the new release version and create a pr from a new release branch.
   This script prompts the user with complete details about the PR before pushing the new local branch to remote and creating the PR.
   The new release version is the latest local git tag.
   Note: The local tag creation for a new release is separated from this script. A new tag must be created before this script is run which is automated when this script is run via make targets. 
@@ -164,7 +164,7 @@ create_release_branch() {
 }
 
 update_versions() {
-    # update release version for release prep
+    # update release version for release
     echo -e "🥑 Attempting to update NTH release version in preparation for a new release."
     UPDATED_CHART_VERSION=$(increment_chart $CURR_CHART_VERSION)
 
@@ -204,7 +204,7 @@ commit_changes() {
     EC2_BOT_SET=true
     git add "${FILES_CHANGED[@]}"
     git commit -m "$COMMIT_MESSAGE"
-    echo -e "✅✅✅ ${BOLD}Committed release prep changes to new branch $NEW_BRANCH with commit message '$COMMIT_MESSAGE'\n\n${RESET_FMT}"
+    echo -e "✅✅✅ ${BOLD}Committed release changes to new branch $NEW_BRANCH with commit message '$COMMIT_MESSAGE'\n\n${RESET_FMT}"
 }
 
 confirm_with_user_and_create_pr(){
@@ -224,9 +224,9 @@ confirm_with_user_and_create_pr(){
 EOM
 
     # gh actions cannot respond to prompts
-    if [[ $RELEASE_PREP == true ]]; then
+    if [[ $RELEASE == true ]]; then
       while true; do
-          echo -e "🥑${BOLD}Do you wish to create the release prep PR? Enter y/n"
+          echo -e "🥑${BOLD}Do you wish to create the release PR? Enter y/n"
           read -p "" yn
           case $yn in
               [Yy]* ) create_pr; break;;
@@ -262,7 +262,7 @@ create_pr() {
     fi
 
     if [[ $? == 0 ]]; then
-        echo -e "✅✅✅✅ ${BOLD}Created $LATEST_TAG release prep PR\n${RESET_FMT}"
+        echo -e "✅✅✅✅ ${BOLD}Created $LATEST_TAG release PR\n${RESET_FMT}"
     else
         echo -e "❌ ${RED}PR creation failed.${RESET_FMT}❌"
         exit 1
@@ -332,7 +332,7 @@ main() {
 
     determine_increment $PREVIOUS_VERSION $LATEST_VERSION
 
-    echo -e "🥑 Attempting to create a release prep branch and PR with release version updates.\n   Previous version: $PREVIOUS_VERSION ---> Latest version: $LATEST_VERSION"
+    echo -e "🥑 Attempting to create a release branch and PR with release version updates.\n   Previous version: $PREVIOUS_VERSION ---> Latest version: $LATEST_VERSION"
     create_release_branch
     update_versions
     commit_changes
