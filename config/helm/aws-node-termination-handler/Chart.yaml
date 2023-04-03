@@ -11,11 +11,10 @@ keywords:
   - ec2
   - node-termination
   - spot
-home: https://github.com/aws/eks-charts
+home: https://github.com/aws/aws-node-termination-handler/
 icon: https://raw.githubusercontent.com/aws/eks-charts/master/docs/logo/aws.png
 sources:
   - https://github.com/aws/aws-node-termination-handler/
-  - https://github.com/aws/eks-charts/
 maintainers:
   - name: Brandon Wagner
     url: https://github.com/bwagner5

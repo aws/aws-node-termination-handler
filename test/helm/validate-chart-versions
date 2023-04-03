@@ -2,13 +2,6 @@
 set -euo pipefail
 
 NTH_HELM_DIR=config/helm/aws-node-termination-handler
-CHARTS_REPO="aws/eks-charts"
-CHARTS_REPO_NAME=$(echo ${CHARTS_REPO} | cut -d'/' -f2)
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-BUILD_DIR="${SCRIPTPATH}/../build"
-SYNC_DIR="${BUILD_DIR}/eks-charts-sync"
-FORK_DIR="${SYNC_DIR}/${CHARTS_REPO_NAME}"
-STABLE="${FORK_DIR}/stable"
 
 function version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 
@@ -20,21 +13,13 @@ if [[ -z $HELM_FILES_CHANGED ]]; then
   exit $EXIT_CODE
 fi
 
-echo "📝 Helm chart changes detected! Checking for updated Chart versions since the last eks-charts release"
+echo "📝 Helm chart changes detected! Checking for updated Chart versions since the last release"
 LATEST_COMMIT_HASH=$(git rev-parse HEAD)
 LATEST_COMMIT_CHART_VERSION=$(git --no-pager show "$LATEST_COMMIT_HASH":"$NTH_HELM_DIR"/Chart.yaml | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
 
-rm -rf "${SYNC_DIR}"
-mkdir -p "${SYNC_DIR}"
-
-cd "${SYNC_DIR}"
-gh repo fork $CHARTS_REPO --clone --remote
-cd "${FORK_DIR}"
-
 TAG=$(git describe HEAD --tags | grep -Eo "^v[0-9]+(\.[0-9]+)*")
 LAST_RELEASE_HASH=$(git rev-list -1 "$TAG")
-cd "${STABLE}"
-LAST_RELEASE_CHART_VERSION=$(git --no-pager show "$LAST_RELEASE_HASH":stable/aws-node-termination-handler/Chart.yaml | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
+LAST_RELEASE_CHART_VERSION=$(git --no-pager show "$LAST_RELEASE_HASH":"$NTH_HELM_DIR"/Chart.yaml | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
 if [[ $LAST_RELEASE_CHART_VERSION == "$LATEST_COMMIT_CHART_VERSION" ]]; then
   echo "❌ This commit's NTH Chart has the same Chart version as the latest release $LATEST_COMMIT_CHART_VERSION -- please increment Chart version in NTH"
   EXIT_CODE=1
@@ -42,7 +27,7 @@ elif [[ $(version $LATEST_COMMIT_CHART_VERSION) -lt $(version $LAST_RELEASE_CHAR
   echo "❌ This commit's NTH Chart version $LATEST_COMMIT_CHART_VERSION is BEHIND the latest release's chart version $LAST_RELEASE_CHART_VERSION -- please increment Chart version in NTH"
   EXIT_CODE=1
 else
-  echo "✅ This commit's NTH Chart has a different version since the last eks-charts release ($LAST_RELEASE_CHART_VERSION -> $LATEST_COMMIT_CHART_VERSION)"
+  echo "✅ This commit's NTH Chart has a different version since the last release ($LAST_RELEASE_CHART_VERSION -> $LATEST_COMMIT_CHART_VERSION)"
 fi
 
 exit $EXIT_CODE
