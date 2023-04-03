@@ -60,13 +60,13 @@ push-docker-images-windows:
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
 
 push-helm-charts:
-    ${MAKEFILE_PATH}/scripts/push-helm-charts -r ${ECR_REPO_CHART} -v ${LATEST_COMMIT_CHART_VERSION} -h ${ECR_REGISTRY}
+	${MAKEFILE_PATH}/scripts/push-helm-charts -r ${ECR_REPO_CHART} -v ${LATEST_COMMIT_CHART_VERSION} -h ${ECR_REGISTRY}
 
 version:
 	@echo ${VERSION}
 
 chart-version:
-    @echo ${LATEST_COMMIT_CHART_VERSION}
+	@echo ${LATEST_COMMIT_CHART_VERSION}
 
 latest-release-tag:
 	@echo ${LATEST_RELEASE_TAG}
@@ -136,8 +136,8 @@ sync-readme-to-ecr-public:
 	${MAKEFILE_PATH}/scripts/sync-readme-to-ecr-public
 
 sync-catalog-information-for-helm-chart:
-    @ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/helm-login
-    ${MAKEFILE_PATH}/scripts/sync-catalog-information-for-helm-chart
+	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/helm-login
+	${MAKEFILE_PATH}/scripts/sync-catalog-information-for-helm-chart
 
 unit-test:
 	go test -bench=. ${MAKEFILE_PATH}/... -v -coverprofile=coverage.txt -covermode=atomic -outputdir=${BUILD_DIR_PATH}
@@ -178,10 +178,10 @@ create-local-release-tag-patch:
 	${MAKEFILE_PATH}/scripts/create-local-tag-for-release -p
 
 create-release-pr:
-    ${MAKEFILE_PATH}/scripts/prepare-for-release
+	${MAKEFILE_PATH}/scripts/prepare-for-release
 
 create-release-pr-draft:
-    ${MAKEFILE_PATH}/scripts/prepare-for-release -d
+	${MAKEFILE_PATH}/scripts/prepare-for-release -d
 
 release-major: create-local-release-tag-major create-release-pr
 
