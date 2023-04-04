@@ -183,13 +183,13 @@ create-release-pr:
 create-release-pr-draft:
 	${MAKEFILE_PATH}/scripts/prepare-for-release -d
 
-release-major: create-local-release-tag-major create-release-pr
+release-prep-major: create-local-release-tag-major create-release-pr
 
-release-minor: create-local-release-tag-minor create-release-pr
+release-prep-minor: create-local-release-tag-minor create-release-pr
 
-release-patch: create-local-release-tag-patch create-release-pr
+release-prep-patch: create-local-release-tag-patch create-release-pr
 
-release-custom: # Run make NEW_VERSION=v1.2.3 release-prep-custom to prep for a custom release version
+release-prep-custom: # Run make NEW_VERSION=v1.2.3 release-prep-custom to prep for a custom release version
 ifdef NEW_VERSION
-	$(shell echo "${MAKEFILE_PATH}/scripts/create-local-tag-for-release -v $(NEW_VERSION) && echo && make create-release-prep-pr")
+	$(shell echo "${MAKEFILE_PATH}/scripts/create-local-tag-for-release -v $(NEW_VERSION) && echo && make create-release-pr")
 endif
