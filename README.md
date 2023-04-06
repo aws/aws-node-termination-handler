@@ -134,14 +134,14 @@ aws ecr-public get-login-password \
   --password-stdin public.ecr.aws
 ```
 
-Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace chart-version with the version you want to install.
+Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace CHART_VERSION with the version you want to install.
 
 Zero Config:
 
 ```sh
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 Enabling Features:
@@ -152,7 +152,7 @@ helm upgrade --install aws-node-termination-handler \
   --set enableSpotInterruptionDraining="true" \
   --set enableRebalanceMonitoring="true" \
   --set enableScheduledEventDraining="false" \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 The `enable*` configuration flags above enable or disable IMDS monitoring paths.
@@ -163,7 +163,7 @@ Running Only On Specific Nodes:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set nodeSelector.lifecycle=spot \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 Webhook Configuration:
@@ -172,7 +172,7 @@ Webhook Configuration:
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 Alternatively, pass Webhook URL as a Secret:
@@ -186,10 +186,10 @@ kubectl create secret -n kube-system generic webhooksecret --from-literal=$WEBHO
 helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set webhookURLSecretName=webhooksecret \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/tree/main/config/helm/aws-node-termination-handler#readme).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.19.0/config/helm/aws-node-termination-handler#readme).
 
 </details>
 
@@ -405,7 +405,7 @@ aws ecr-public get-login-password \
      --password-stdin public.ecr.aws
 ```
 
-Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace chart-version with the version you want to install.
+Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace CHART_VERSION with the version you want to install.
 
 Minimal Config:
 
@@ -414,7 +414,7 @@ helm upgrade --install aws-node-termination-handler \
   --namespace kube-system \
   --set enableSqsTerminationDraining=true \
   --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 Webhook Configuration:
@@ -425,7 +425,7 @@ helm upgrade --install aws-node-termination-handler \
   --set enableSqsTerminationDraining=true \
   --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURL=https://hooks.slack.com/services/YOUR/SLACK/URL \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 Alternatively, pass Webhook URL as a Secret:
@@ -441,10 +441,10 @@ helm upgrade --install aws-node-termination-handler \
   --set enableSqsTerminationDraining=true \
   --set queueURL=https://sqs.us-east-1.amazonaws.com/0123456789/my-term-queue \
   --set webhookURLSecretName=webhooksecret \
-  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/eks-charts/tree/master/stable/aws-node-termination-handler).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.19.0/config/helm/aws-node-termination-handler#readme).
 
 #### Kubectl Apply
 

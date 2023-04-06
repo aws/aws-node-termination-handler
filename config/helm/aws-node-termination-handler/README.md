@@ -16,16 +16,16 @@ aws ecr-public get-login-password \
      --password-stdin public.ecr.aws
 ```
 
-Once the helm registry login succeeds, use the following command to install the chart with the release name `aws-node-termination-handler` and the default configuration to the `kube-system` namespace. In the below command, add the chart version that you want to install.
+Once the helm registry login succeeds, use the following command to install the chart with the release name `aws-node-termination-handler` and the default configuration to the `kube-system` namespace. In the below command, add the CHART_VERSION that you want to install.
 
 ```shell
-helm upgrade --install --namespace kube-system aws-node-termination-handler oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version
+helm upgrade --install --namespace kube-system aws-node-termination-handler oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
 To install the chart on an EKS cluster where the AWS Node Termination Handler is already installed, you can run the following command.
 
 ```shell
-helm upgrade --install --namespace kube-system aws-node-termination-handler oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version chart-version --recreate-pods --force
+helm upgrade --install --namespace kube-system aws-node-termination-handler oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION --recreate-pods --force
 ```
 
 If you receive an error similar to the one below simply rerun the above command.

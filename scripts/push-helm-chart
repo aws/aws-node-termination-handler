@@ -13,8 +13,8 @@ USAGE=$(cat << 'EOM'
   Pushes helm charts
           Optional:
             -h          HELM CHART REGISTRY: set the helm chart registry
-            -v          CHART_VERSION: The chart version [DEFAULT: output of `make chart_version`]
-            -r          HELM CHART REPO: Set the helm chart repo
+            -v          CHART VERSION: The chart version [DEFAULT: output of `make chart-version`]
+            -r          HELM CHART REPOSITORY: Set the helm chart repository
 EOM
 )
 
@@ -39,15 +39,13 @@ done
 
 CHART_EXISTS=$(aws ecr-public describe-images --repository-name "helm/$HELM_CHART_REPOSITORY" --region us-east-1 --query "imageDetails[?contains(imageTags, '$CHART_VERSION')].imageTags[]" --output text)
 
-if [[ -z "$CHART_EXISTS" ]]; then
-    echo "chart with version $CHART_VERSION not found in repository, pushing new chart..."
-    #Package the chart
-    helm package $HELM_CHART_PATH --destination $REPO_ROOT_PATH/build
-    #Authenticating helm client
-    #shell-check source=$REPO_ROOT_PATH
-    . scripts/helm-login
-    #Pushing helm chart
-    helm push $REPO_ROOT_PATH/build/$HELM_CHART_REPOSITORY-$CHART_VERSION.tgz oci://$ECR_REGISTRY/helm
-else
+if [[ -n "$CHART_EXISTS" ]]; then
     echo "chart with version $CHART_VERSION already exists in the repository, skipping pushing of chart..."
+    exit 0
 fi
+
+echo "chart with version $CHART_VERSION not found in repository, pushing new chart..."
+#Package the chart
+helm package $HELM_CHART_PATH --destination $REPO_ROOT_PATH/build
+#Pushing helm chart
+helm push $REPO_ROOT_PATH/build/$HELM_CHART_REPOSITORY-$CHART_VERSION.tgz oci://$ECR_REGISTRY/helm

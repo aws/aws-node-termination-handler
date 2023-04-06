@@ -1,7 +1,7 @@
 VERSION = $(shell git describe --tags --always --dirty)
 LATEST_RELEASE_TAG=$(shell git describe --tags --abbrev=0)
 LATEST_COMMIT_HASH=$(shell git rev-parse HEAD)
-LATEST_COMMIT_CHART_VERSION=$(shell git --no-pager show ${LATEST_COMMIT_HASH}:config/helm/aws-node-termination-handler/Chart.yaml | grep 'version:' | xargs | cut -d' ' -f2 | tr -d '[:space:]')
+LATEST_COMMIT_CHART_VERSION=$(shell git --no-pager show ${LATEST_COMMIT_HASH}:config/helm/aws-node-termination-handler/Chart.yaml | grep 'version:' | cut -d' ' -f2 | tr -d '[:space:]')
 PREVIOUS_RELEASE_TAG=$(shell git describe --abbrev=0 --tags `git rev-list --tags --skip=1  --max-count=1`)
 REPO_FULL_NAME=aws/aws-node-termination-handler
 ECR_REGISTRY ?= public.ecr.aws/aws-ec2
@@ -59,8 +59,9 @@ push-docker-images-windows:
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
 
-push-helm-charts:
-	${MAKEFILE_PATH}/scripts/push-helm-charts -r ${ECR_REPO_CHART} -v ${LATEST_COMMIT_CHART_VERSION} -h ${ECR_REGISTRY}
+push-helm-chart:
+	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/helm-login
+	${MAKEFILE_PATH}/scripts/push-helm-chart -r ${ECR_REPO_CHART} -v ${LATEST_COMMIT_CHART_VERSION} -h ${ECR_REGISTRY}
 
 version:
 	@echo ${VERSION}
