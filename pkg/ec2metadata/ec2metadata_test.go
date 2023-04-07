@@ -15,7 +15,7 @@ package ec2metadata_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,7 +46,7 @@ func TestRequestV1(t *testing.T) {
 	defer resp.Body.Close()
 	h.Equals(t, http.StatusOK, resp.StatusCode)
 
-	responseData, err := ioutil.ReadAll(resp.Body)
+	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Error("Unable to parse response.")
 	}
@@ -80,7 +80,7 @@ func TestRequestV2(t *testing.T) {
 	defer resp.Body.Close()
 	h.Equals(t, http.StatusOK, resp.StatusCode)
 
-	responseData, err := ioutil.ReadAll(resp.Body)
+	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Error("Unable to parse response.")
 	}

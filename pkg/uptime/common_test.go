@@ -14,7 +14,6 @@
 package uptime
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -25,7 +24,7 @@ const testFile = "test.out"
 
 func TestUptimeFromFileSuccess(t *testing.T) {
 	d1 := []byte("350735.47 234388.90")
-	err := ioutil.WriteFile(testFile, d1, 0644)
+	err := os.WriteFile(testFile, d1, 0644)
 	h.Ok(t, err)
 
 	value, err := UptimeFromFile(testFile)
@@ -41,7 +40,7 @@ func TestUptimeFromFileReadFail(t *testing.T) {
 
 func TestUptimeFromFileBadData(t *testing.T) {
 	d1 := []byte("Something not time")
-	err := ioutil.WriteFile(testFile, d1, 0644)
+	err := os.WriteFile(testFile, d1, 0644)
 	h.Ok(t, err)
 
 	_, err = UptimeFromFile(testFile)

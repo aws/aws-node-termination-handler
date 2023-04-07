@@ -16,7 +16,7 @@ package ec2metadata
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -202,7 +202,7 @@ func (e *Service) GetMetadataInfo(path string) (info string, err error) {
 	}
 	if resp != nil {
 		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return "", fmt.Errorf("Unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
 		}
@@ -284,7 +284,7 @@ func (e *Service) getV2Token() (string, int, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", -1, fmt.Errorf("Received an http status code %d", resp.StatusCode)
 	}
-	token, err := ioutil.ReadAll(resp.Body)
+	token, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", -1, fmt.Errorf("Unable to read token response from IMDSv2: %w", err)
 	}
