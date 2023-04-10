@@ -9,7 +9,7 @@ CHART_VERSION=$(make -s -f $MAKE_FILE_PATH chart-version)
 HELM_CHART_PATH=$REPO_ROOT_PATH/config/helm/aws-node-termination-handler
 
 USAGE=$(cat << 'EOM'
-  Usage: push-helm-charts
+  Usage: push-helm-chart
   Pushes helm charts
           Optional:
             -h          HELM CHART REGISTRY: set the helm chart registry
