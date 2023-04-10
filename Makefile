@@ -124,6 +124,7 @@ upload-resources-to-github-windows:
 
 generate-k8s-yaml:
 	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
+	${MAKEFILE_PATH}/scripts/generate-k8s-yaml -k "1.25.0" -s "_k8s-1-25"
 
 sync-readme-to-ecr-public:
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login

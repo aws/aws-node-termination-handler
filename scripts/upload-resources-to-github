@@ -9,9 +9,13 @@ VERSION=$(make -s -f $SCRIPTPATH/../Makefile version)
 BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
 BINARY_DIR=$SCRIPTPATH/../build/bin
 INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources.tar
+INDV_K8S_1_25_RESOURCES=$BUILD_DIR/individual-resources_k8s-1-25.tar
 AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
+AGG_RESOURCES_K8S_1_25_YAML=$BUILD_DIR/all-resources_k8s-1-25.yaml
 QP_INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources-queue-processor.tar
+QP_INDV_K8S_1_25_RESOURCES=$BUILD_DIR/individual-resources-queue-processor_k8s-1-25.tar
 QP_AGG_RESOURCES_YAML=$BUILD_DIR/all-resources-queue-processor.yaml
+QP_AGG_RESOURCES_K8S_1_25_YAML=$BUILD_DIR/all-resources-queue-processor_k8s-1-25.yaml
 BINARIES_ONLY="false"
 
 USAGE=$(cat << 'EOM'
@@ -68,7 +72,16 @@ gather_assets_to_upload() {
       resources+=("$binary")
     done
     if [ $BINARIES_ONLY != "true" ]; then
-      resources+=("$INDV_K8S_RESOURCES" "$AGG_RESOURCES_YAML" "$QP_INDV_K8S_RESOURCES" "$QP_AGG_RESOURCES_YAML")
+      resources+=(
+        "$INDV_K8S_RESOURCES"
+        "$INDV_K8S_1_25_RESOURCES"
+        "$AGG_RESOURCES_YAML"
+        "$AGG_RESOURCES_K8S_1_25_YAML"
+        "$QP_INDV_K8S_RESOURCES"
+        "$QP_INDV_K8S_1_25_RESOURCES"
+        "$QP_AGG_RESOURCES_YAML"
+        "$QP_AGG_RESOURCES_K8S_1_25_YAML"
+      )
     fi
     echo "${resources[@]}"
 }
