@@ -17,7 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -88,7 +88,7 @@ func TestPostSuccess(t *testing.T) {
 		h.Equals(t, req.Header.Get("Content-type"), headerMap["Content-type"])
 
 		// Test request body
-		requestBody, err := ioutil.ReadAll(req.Body)
+		requestBody, err := io.ReadAll(req.Body)
 		if err != nil {
 			t.Error("Unable to read request body.")
 		}

@@ -17,9 +17,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"text/template"
 	"time"
 
@@ -41,7 +41,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 	var webhookTemplateContent string
 
 	if nthConfig.WebhookTemplateFile != "" {
-		content, err := ioutil.ReadFile(nthConfig.WebhookTemplateFile)
+		content, err := os.ReadFile(nthConfig.WebhookTemplateFile)
 		if err != nil {
 			log.Err(err).
 				Str("webhook_template_file", nthConfig.WebhookTemplateFile).
@@ -131,7 +131,7 @@ func ValidateWebhookConfig(nthConfig config.Config) error {
 	var webhookTemplateContent string
 
 	if nthConfig.WebhookTemplateFile != "" {
-		content, err := ioutil.ReadFile(nthConfig.WebhookTemplateFile)
+		content, err := os.ReadFile(nthConfig.WebhookTemplateFile)
 		if err != nil {
 			return fmt.Errorf("Webhook Error: Could not read template file %w", err)
 		}

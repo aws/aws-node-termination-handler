@@ -15,7 +15,7 @@ package uptime
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -26,7 +26,7 @@ type UptimeFuncType func() (int64, error)
 // UptimeFromFile reads system uptime information from filepath and returns
 // the number of seconds since last system boot.
 func UptimeFromFile(filepath string) (int64, error) {
-	data, err := ioutil.ReadFile(filepath)
+	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return 0, fmt.Errorf("Not able to read %s: %w", filepath, err)
 	}

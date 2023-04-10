@@ -16,7 +16,7 @@ package ec2metadata
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -35,7 +35,7 @@ func TestRetry(t *testing.T) {
 		requestCount++
 		return &http.Response{
 			StatusCode: 400,
-			Body:       ioutil.NopCloser(bytes.NewBufferString(`OK`)),
+			Body:       io.NopCloser(bytes.NewBufferString(`OK`)),
 			Header:     make(http.Header),
 		}, errors.New(errorMsg)
 	}
