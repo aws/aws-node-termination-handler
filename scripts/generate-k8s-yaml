@@ -12,7 +12,7 @@ NAMESPACE="kube-system"
 K8S_VERSION="1.24.0"
 SUFFIX=""
 
-USAGE=$(cat << 'EOM'
+USAGE=$(cat << EOM
   Usage: generate-k8s-yaml  [-n <K8s_NAMESPACE>]
   Generates the kubernetes yaml resource files from the helm chart
   and places them into the build dir.
