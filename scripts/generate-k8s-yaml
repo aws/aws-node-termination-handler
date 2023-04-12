@@ -19,7 +19,7 @@ USAGE=$(cat << EOM
   Example: generate-k8s-yaml -n kube-system
           Optional:
             -n NAMESPACE    Kubernetes namespace
-            -k VERSION      Kubernetes version (default is ${K8S_VERSION})
+            -k VERSION      Target Kubernetes version (default is ${K8S_VERSION})
             -s SUFFIX       String appended to generated file and directory names
             -v              Enable verbose output
 EOM
@@ -57,20 +57,23 @@ QP_TAR_RESOURCES_FILE=${BUILD_DIR}/individual-resources-queue-processor${SUFFIX}
 QP_AGG_RESOURCES_YAML=${BUILD_DIR}/all-resources-queue-processor${SUFFIX}.yaml
 mkdir -p $QP_INDV_RESOURCES_DIR
 
-curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $BUILD_DIR
-mv $BUILD_DIR/$PLATFORM-amd64/helm $BUILD_DIR/.
-rm -rf $BUILD_DIR/$PLATFORM-amd64
-chmod +x $BUILD_DIR/helm
+HELM=$BUILD_DIR/helm
+if [[ ! -e $HELM ]]; then
+  curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $BUILD_DIR
+  mv $BUILD_DIR/$PLATFORM-amd64/helm $BUILD_DIR/.
+  rm -rf $BUILD_DIR/$PLATFORM-amd64
+  chmod +x $HELM
+fi
 
 ## IMDS Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --kube-version ${K8S_VERSION} \
     --set targetNodeOs="linux windows" \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $AGG_RESOURCES_YAML
 
 ## Queue Processor Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --kube-version ${K8S_VERSION} \
     --set enableSqsTerminationDraining="true" \
@@ -86,7 +89,7 @@ cat $QP_AGG_RESOURCES_YAML | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Hel
 mv $BUILD_DIR/helm_annotations_removed.yaml $QP_AGG_RESOURCES_YAML
 
 # IMDS Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --kube-version ${K8S_VERSION} \
     --set targetNodeOs="linux windows" \
@@ -94,7 +97,7 @@ $BUILD_DIR/helm template aws-node-termination-handler \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/
 
 # Queue Processor Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
     --kube-version ${K8S_VERSION} \
     --set enableSqsTerminationDraining="true" \
