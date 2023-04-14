@@ -1,0 +1,5 @@
+{
+    "description": "Helm Charts for AWS Node Termination Handler",
+    "aboutText": "# Helm Chart for Node Termination Handler\n\n AWS NTH gracefully handles EC2 instance shutdown within Kubernetes.\n\nThis repository contains helm-charts for Node Termination Handler.\n\nFor more information on this project, see the project repo at [AWS Node Termination Handler](https://github.com/aws/aws-node-termination-handler)",
+    "usageText": "# We can install AWS NTH using the helm chart from this repository.\n\nWe need to authenticate our helm client to ECR registry and install NTH chart using helm chart URI, detailed information on how to install helm chart can be found here [HelmChart ReadMe](https://github.com/aws/aws-node-termination-handler/tree/main/config/helm/aws-node-termination-handler#readme)"
+}

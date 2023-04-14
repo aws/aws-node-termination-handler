@@ -55,7 +55,6 @@ HELP=$(cat << 'EOM'
     -d      create a draft pr
     -r      target repo full name for the pr (default: aws/aws-node-termination-handler)
     -h      help
-
   Examples:
     prepare-for-release -d                                          update release version in repo and create a draft pr against aws/aws-node-termination-handler
     prepare-for-release -r username/aws-node-termination-handler    update release version in repo and create a pr against username/aws-node-termination-handler
