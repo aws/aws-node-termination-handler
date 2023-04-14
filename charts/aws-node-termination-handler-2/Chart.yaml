@@ -13,7 +13,6 @@ keywords:
   - node
   - node-termination
   - spot
-home: https://github.com/aws/eks-charts
+home: https://github.com/aws/aws-node-termination-handler
 sources:
   - https://github.com/aws/aws-node-termination-handler
-  - https://github.com/aws/eks-charts

@@ -8,10 +8,25 @@ AWS Node Termination Handler Helm chart for Kubernetes. For more information on 
 
 ## Installing the Chart
 
-Before you can install the chart you will need to add the `eks` repo to [Helm](https://helm.sh/).
+Before you can install the chart you will need to authenticate your Helm client.
 
 ```shell
-helm repo add eks https://aws.github.io/eks-charts/
+aws ecr-public get-login-password \
+     --region us-east-1 | helm registry login \
+     --username AWS \
+     --password-stdin public.ecr.aws
+```
+
+Once the helm registry login succeeds, use the following command to install the chart with the release name `aws-node-termination-handler-2` and the default configuration to the `kube-system` namespace. In the below command, add the CHART_VERSION that you want to install.
+
+```shell
+helm upgrade --install --namespace kube-system aws-node-termination-handler oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler-2 --version $CHART_VERSION
+```
+
+To uninstall the `aws-node-termination-handler` chart installation from the `kube-system` namespace run the following command.
+
+```shell
+helm uninstall --namespace kube-system aws-node-termination-handler
 ```
 
 ### Configuration

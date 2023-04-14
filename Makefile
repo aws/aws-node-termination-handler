@@ -18,6 +18,8 @@ KODATA = \
 	cmd/webhook/kodata/refs
 CODECOVERAGE_OUT = $(PROJECT_DIR)/coverprofile.out
 THIRD_PARTY_LICENSES = $(PROJECT_DIR)/THIRD_PARTY_LICENSES.md
+LATEST_COMMIT_HASH=$(shell git rev-parse HEAD)
+LATEST_COMMIT_CHART_VERSION=$(shell git --no-pager show ${LATEST_COMMIT_HASH}:charts/aws-node-termination-handler-2/Chart.yaml | grep 'version:' | cut -d' ' -f2 | tr -d '[:space:]')
 GITHUB_REPO_FULL_NAME = aws/aws-node-termination-handler
 ECR_PUBLIC_REGION = us-east-1
 ECR_PUBLIC_REGISTRY ?= public.ecr.aws/aws-ec2
@@ -164,16 +166,28 @@ latest-release-tag: ## Get tag of most recent release.
 previous-release-tag: ## Get tag of second most recent release.
 	@git describe --tags --abbrev=0 `git rev-parse --abbrev-ref HEAD`^
 
+.PHONY: chart-version
+chart-version: 
+	@echo $(LATEST_COMMIT_CHART_VERSION)
+
+.PHONY: helm-login
+helm-login:
+	@$(PROJECT_DIR)/scripts/helm-login-ecr.sh -g "$(ECR_PUBLIC_REGION)" -r "$(ECR_PUBLIC_REGISTRY)"
+
+.PHONY: push-helm-chart
+push-helm-chart: helm-login
+	@$(PROJECT_DIR)/scripts/push-helm-chart.sh -r "$(ECR_PUBLIC_REPOSITORY_ROOT)" -v "$(LATEST_COMMIT_CHART_VERSION)" -h "$(ECR_PUBLIC_REGISTRY)"
+
+.PHONY: sync-catalog-information-for-helm-chart
+sync-catalog-information-for-helm-chart: helm-login
+	@$(PROJECT_DIR)/scripts/sync-catalog-information-for-helm-chart.sh
+
 .PHONY: release
 release: build-and-push-images upload-resources-to-github ## Build and push images to ECR Public and upload resources to GitHub.
 
 .PHONY: repo-full-name
 repo-full-name: ## Get the full name of the GitHub repository for Node Termination Handler.
 	@echo "$(GITHUB_REPO_FULL_NAME)"
-
-.PHONY: ekscharts-sync-release
-ekscharts-sync-release: $(GH)
-	@PATH="$(BIN_DIR):$(PATH)" $(PROJECT_DIR)/scripts/sync-to-aws-eks-charts.sh -n
 
 .PHONY: sync-readme-to-ecr-public
 sync-readme-to-ecr-public: ecr-public-login ## Upload the README.md to ECR public controller and webhook repositories.
