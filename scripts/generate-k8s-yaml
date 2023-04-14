@@ -2,40 +2,40 @@
 set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-
-PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
-HELM_VERSION="3.7.1"
-NAMESPACE="kube-system"
-
 MAKEFILEPATH=$SCRIPTPATH/../Makefile
 VERSION=$(make -s -f $MAKEFILEPATH version)
 BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
 
-INDV_RESOURCES_DIR=$BUILD_DIR/individual-resources
-TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources.tar
-AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
-mkdir -p $INDV_RESOURCES_DIR
+PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
+HELM_VERSION="3.7.1"
+NAMESPACE="kube-system"
+K8S_VERSION="1.24.0"
+SUFFIX=""
 
-QP_INDV_RESOURCES_DIR=$BUILD_DIR/individual-resources-queue-processor
-QP_TAR_RESOURCES_FILE=$BUILD_DIR/individual-resources-queue-processor.tar
-QP_AGG_RESOURCES_YAML=$BUILD_DIR/all-resources-queue-processor.yaml
-mkdir -p $QP_INDV_RESOURCES_DIR
-
-USAGE=$(cat << 'EOM'
+USAGE=$(cat << EOM
   Usage: generate-k8s-yaml  [-n <K8s_NAMESPACE>]
   Generates the kubernetes yaml resource files from the helm chart
   and places them into the build dir.
   Example: generate-k8s-yaml -n kube-system
           Optional:
-            -n          Kubernetes namespace
+            -n NAMESPACE    Kubernetes namespace
+            -k VERSION      Target Kubernetes version (default is ${K8S_VERSION})
+            -s SUFFIX       String appended to generated file and directory names
+            -v              Enable verbose output
 EOM
 )
 
 # Process our input arguments
-while getopts "vn:" opt; do
+while getopts "n:k:s:v" opt; do
   case ${opt} in
     n ) # K8s namespace
         NAMESPACE=$OPTARG
+      ;;
+    k ) # K8s version
+        K8S_VERSION=$OPTARG
+      ;;
+    s ) # Suffix
+        SUFFIX=$OPTARG
       ;;
     v ) # Verbose
         set -x
@@ -47,20 +47,35 @@ while getopts "vn:" opt; do
   esac
 done
 
-curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $BUILD_DIR
-mv $BUILD_DIR/$PLATFORM-amd64/helm $BUILD_DIR/.
-rm -rf $BUILD_DIR/$PLATFORM-amd64
-chmod +x $BUILD_DIR/helm
+INDV_RESOURCES_DIR=${BUILD_DIR}/individual-resources${SUFFIX}
+TAR_RESOURCES_FILE=${BUILD_DIR}/individual-resources${SUFFIX}.tar
+AGG_RESOURCES_YAML=${BUILD_DIR}/all-resources${SUFFIX}.yaml
+mkdir -p $INDV_RESOURCES_DIR
+
+QP_INDV_RESOURCES_DIR=${BUILD_DIR}/individual-resources-queue-processor${SUFFIX}
+QP_TAR_RESOURCES_FILE=${BUILD_DIR}/individual-resources-queue-processor${SUFFIX}.tar
+QP_AGG_RESOURCES_YAML=${BUILD_DIR}/all-resources-queue-processor${SUFFIX}.yaml
+mkdir -p $QP_INDV_RESOURCES_DIR
+
+HELM=$BUILD_DIR/helm
+if [[ ! -e $HELM ]]; then
+  curl -L https://get.helm.sh/helm-v$HELM_VERSION-$PLATFORM-amd64.tar.gz | tar zxf - -C $BUILD_DIR
+  mv $BUILD_DIR/$PLATFORM-amd64/helm $BUILD_DIR/.
+  rm -rf $BUILD_DIR/$PLATFORM-amd64
+  chmod +x $HELM
+fi
 
 ## IMDS Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
+    --kube-version ${K8S_VERSION} \
     --set targetNodeOs="linux windows" \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $AGG_RESOURCES_YAML
 
 ## Queue Processor Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
+    --kube-version ${K8S_VERSION} \
     --set enableSqsTerminationDraining="true" \
     --set enableProbesServer="true" \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/ > $QP_AGG_RESOURCES_YAML
@@ -74,15 +89,17 @@ cat $QP_AGG_RESOURCES_YAML | grep -v 'helm.sh\|app.kubernetes.io/managed-by: Hel
 mv $BUILD_DIR/helm_annotations_removed.yaml $QP_AGG_RESOURCES_YAML
 
 # IMDS Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
+    --kube-version ${K8S_VERSION} \
     --set targetNodeOs="linux windows" \
     --output-dir $INDV_RESOURCES_DIR/ \
     $SCRIPTPATH/../config/helm/aws-node-termination-handler/
 
 # Queue Processor Mode
-$BUILD_DIR/helm template aws-node-termination-handler \
+$HELM template aws-node-termination-handler \
     --namespace $NAMESPACE \
+    --kube-version ${K8S_VERSION} \
     --set enableSqsTerminationDraining="true" \
     --set enableProbesServer="true" \
     --output-dir $QP_INDV_RESOURCES_DIR/ \

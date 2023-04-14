@@ -8,11 +8,8 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 VERSION=$(make -s -f $SCRIPTPATH/../Makefile version)
 BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
 BINARY_DIR=$SCRIPTPATH/../build/bin
-INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources.tar
-AGG_RESOURCES_YAML=$BUILD_DIR/all-resources.yaml
-QP_INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources-queue-processor.tar
-QP_AGG_RESOURCES_YAML=$BUILD_DIR/all-resources-queue-processor.yaml
 BINARIES_ONLY="false"
+SUFFIX=""
 
 USAGE=$(cat << 'EOM'
   Usage: upload-resources-to-github  [-b]
@@ -21,14 +18,18 @@ USAGE=$(cat << 'EOM'
   Example: upload-resources-to-github -b
           Optional:
             -b          Upload binaries only [DEFAULT: upload all the assets]
+            -s SUFFIX   String appended to resource file names
 EOM
 )
 
 # Process our input arguments
-while getopts "b" opt; do
+while getopts "bs:" opt; do
   case ${opt} in
     b ) # Binaries only
         BINARIES_ONLY="true"
+      ;;
+    s) # Suffix
+        SUFFIX=$OPTARG
       ;;
     \? )
         echo "$USAGE" 1>&2
@@ -36,6 +37,11 @@ while getopts "b" opt; do
       ;;
   esac
 done
+
+INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources${SUFFIX}.tar
+AGG_RESOURCES_YAML=$BUILD_DIR/all-resources${SUFFIX}.yaml
+QP_INDV_K8S_RESOURCES=$BUILD_DIR/individual-resources-queue-processor${SUFFIX}.tar
+QP_AGG_RESOURCES_YAML=$BUILD_DIR/all-resources-queue-processor${SUFFIX}.yaml
 
 RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
     https://api.github.com/repos/aws/aws-node-termination-handler/releases | \
