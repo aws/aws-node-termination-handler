@@ -13,6 +13,6 @@ keywords:
   - node
   - node-termination
   - spot
-home: https://github.com/aws/aws-node-termination-handler
+home: https://github.com/aws/aws-node-termination-handler/tree/v2
 sources:
   - https://github.com/aws/aws-node-termination-handler

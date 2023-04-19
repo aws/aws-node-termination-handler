@@ -23,7 +23,7 @@ Once the helm registry login succeeds, use the following command to install the 
 helm upgrade --install --namespace kube-system aws-node-termination-handler oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler-2 --version $CHART_VERSION
 ```
 
-To uninstall the `aws-node-termination-handler` chart installation from the `kube-system` namespace run the following command.
+To uninstall the `aws-node-termination-handler-2` chart from the `kube-system` namespace run the following command.
 
 ```shell
 helm uninstall --namespace kube-system aws-node-termination-handler
