@@ -74,21 +74,29 @@ eksctl get iamserviceaccount \
   --name "nth-service-account"
 ```
 
-Add the AWS `eks-charts` helm repository and deploy the chart:
+The chart for this project is hosted in [helm/aws-node-termination-handler-2](https://gallery.ecr.aws/aws-ec2/helm/aws-node-termination-handler-2)
 
-```sh
-helm repo add eks https://aws.github.io/eks-charts
+To get started you need to authenticate your helm client
 
+```
+aws ecr-public get-login-password \
+  --region us-east-1 | helm registry login \
+  --username AWS \
+  --password-stdin public.ecr.aws
+```
+Once that is complete you can install the termination handler. We've provided some sample setup options below. Make sure to replace CHART_VERSION with the version you want to install.
+
+```
 helm upgrade \
   --install \
   nth \
-  eks/aws-node-termination-handler-2 \
   --namespace <NAMESPACE> \
   --create-namespace \
   --set aws.region=<AWS REGION> \
   --set serviceAccount.name="nth-service-account" \
   --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=<SERVICE ACCOUNT ROLE ARN> \
-  --set-string serviceAccount.annotations.eks\\.amazonaws\\.com/sts-regional-endpoints=true
+  --set-string serviceAccount.annotations.eks\\.amazonaws\\.com/sts-regional-endpoints=true \
+  oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler-2 --version $CHART_VERSION
 ```
 
 For a full list of inputs see the Helm chart `README.md`.
