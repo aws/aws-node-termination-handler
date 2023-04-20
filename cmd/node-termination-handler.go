@@ -151,7 +151,7 @@ func main() {
 			stopCh <- struct{}{}
 		}()
 		//will retry 4 times with an interval of 2 seconds.
-		err = wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+		err = wait.PollWithContextCancel(2*time.Second, func() (done bool, err error) {
 			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 			if err != nil {
 				log.Warn().Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
