@@ -10,6 +10,8 @@ KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 use_psp=false
 
 # shellcheck disable=SC2034
+K8_1_26="kindest/node:v1.26.3@sha256:94eb63275ad6305210041cdb5aca87c8562cc50fa152dbec3fef8c58479db4ff"
+# shellcheck disable=SC2034
 K8_1_25="kindest/node:v1.25.3@sha256:f1de3b0670462f43280114eccceab8bf1b9576d2afe0582f8f74529da6fd0365"
 # shellcheck disable=SC2034
 K8_1_24="kindest/node:v1.24.7@sha256:5c015142d9b60a0f6c45573f809957076514e38ec973565e2b2fe828b91597f5"
@@ -17,16 +19,8 @@ K8_1_24="kindest/node:v1.24.7@sha256:5c015142d9b60a0f6c45573f809957076514e38ec97
 K8_1_23="kindest/node:v1.23.5@sha256:1a72748086bc24ed6163de1d1e33cc0e2eb5a1eb5ebffdb15b53c3bcd5376a6f"
 # shellcheck disable=SC2034
 K8_1_22="kindest/node:v1.22.2@sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f"
-# shellcheck disable=SC2034
-K8_1_21="kindest/node:v1.21.2@sha256:9d07ff05e4afefbba983fac311807b3c17a5f36e7061f6cb7e2ba756255b2be4"
-# shellcheck disable=SC2034
-K8_1_20="kindest/node:v1.20.70@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9"
-# shellcheck disable=SC2034
-K8_1_19="kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729"
-# shellcheck disable=SC2034
-K8_1_18="kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c"
 
-K8_VERSION="$K8_1_20"
+K8_VERSION="$K8_1_22"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
 KIND_VERSION="0.17.0"
 HELM_VERSION="3.10.0"
