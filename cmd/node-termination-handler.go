@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -145,22 +146,19 @@ func main() {
 	nthConfig.Print()
 
 	if !imdsDisabled && nthConfig.EnableScheduledEventDraining {
-		stopCh := make(chan struct{})
-		go func() {
-			time.Sleep(8 * time.Second)
-			stopCh <- struct{}{}
-		}()
 		//will retry 4 times with an interval of 2 seconds.
-		err = wait.PollImmediateUntil(2*time.Second, func() (done bool, err error) {
+		pollCtx, cancelPollCtx := context.WithTimeout(context.Background(), 8*time.Second)
+		err = wait.PollUntilContextCancel(pollCtx, 2*time.Second, true, func(context.Context) (done bool, err error) {
 			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 			if err != nil {
 				log.Warn().Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
 			}
 			return false, nil
-		}, stopCh)
+		})
 		if err != nil {
 			log.Warn().Err(err).Msgf("All retries failed, unable to complete the uncordon after reboot workflow")
 		}
+		cancelPollCtx()
 	}
 
 	interruptionChan := make(chan monitor.InterruptionEvent)
