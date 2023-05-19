@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 	"os"
 	"os/signal"
 	"strings"
@@ -50,6 +51,7 @@ import (
 const (
 	scheduledMaintenance    = "Scheduled Maintenance"
 	spotITN                 = "Spot ITN"
+	asgLifecycle            = "ASG Lifecycle"
 	rebalanceRecommendation = "Rebalance Recommendation"
 	sqsEvents               = "SQS Event"
 	timeFormat              = "2006/01/02 15:04:05"
@@ -171,6 +173,10 @@ func main() {
 		if nthConfig.EnableSpotInterruptionDraining {
 			imdsSpotMonitor := spotitn.NewSpotInterruptionMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
 			monitoringFns[spotITN] = imdsSpotMonitor
+		}
+		if nthConfig.EnableASGLifecycleDraining {
+			asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+			monitoringFns[asgLifecycle] = asgLifecycleMonitor
 		}
 		if nthConfig.EnableScheduledEventDraining {
 			imdsScheduledEventMonitor := scheduledevent.NewScheduledEventMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)

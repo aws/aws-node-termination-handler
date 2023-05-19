@@ -36,6 +36,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	t.Setenv("DRY_RUN", "true")
 	t.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
 	t.Setenv("ENABLE_SPOT_INTERRUPTION_DRAINING", "false")
+	t.Setenv("ENABLE_ASG_LIFECYCLE_DRAINING", "false")
 	t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "false")
 	t.Setenv("ENABLE_REBALANCE_MONITORING", "true")
 	t.Setenv("ENABLE_REBALANCE_DRAINING", "true")
@@ -61,6 +62,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
+	h.Equals(t, false, nthConfig.EnableASGLifecycleDraining)
 	h.Equals(t, false, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, true, nthConfig.EnableRebalanceMonitoring)
 	h.Equals(t, true, nthConfig.EnableRebalanceDraining)
@@ -96,6 +98,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--dry-run=true",
 		"--enable-scheduled-event-draining=true",
 		"--enable-spot-interruption-draining=false",
+		"--enable-asg-lifecycle-draining=false",
 		"--enable-sqs-termination-draining=false",
 		"--enable-rebalance-monitoring=true",
 		"--enable-rebalance-draining=true",
@@ -121,6 +124,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
+	h.Equals(t, false, nthConfig.EnableASGLifecycleDraining)
 	h.Equals(t, false, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, true, nthConfig.EnableRebalanceMonitoring)
 	h.Equals(t, true, nthConfig.EnableRebalanceDraining)
@@ -151,6 +155,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	t.Setenv("DRY_RUN", "false")
 	t.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "false")
 	t.Setenv("ENABLE_SPOT_INTERRUPTION_DRAINING", "true")
+	t.Setenv("ENABLE_ASG_LIFECYCLE_DRAINING", "true")
 	t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "false")
 	t.Setenv("ENABLE_REBALANCE_MONITORING", "true")
 	t.Setenv("ENABLE_REBALANCE_DRAINING", "true")
@@ -174,6 +179,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--dry-run=true",
 		"--enable-scheduled-event-draining=true",
 		"--enable-spot-interruption-draining=false",
+		"--enable-asg-lifecycle-draining=false",
 		"--enable-sqs-termination-draining=true",
 		"--enable-rebalance-monitoring=false",
 		"--enable-rebalance-draining=false",
@@ -201,6 +207,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, true, nthConfig.DryRun)
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
+	h.Equals(t, false, nthConfig.EnableASGLifecycleDraining)
 	h.Equals(t, true, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, false, nthConfig.EnableRebalanceMonitoring)
 	h.Equals(t, false, nthConfig.EnableRebalanceDraining)

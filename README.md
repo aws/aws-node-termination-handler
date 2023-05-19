@@ -75,8 +75,8 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 | Spot Instance Termination Notifications (ITN) |       ✅        |        ✅        |
 |               Scheduled Events                |       ✅        |        ✅        |
 |       Instance Rebalance Recommendation       |       ✅        |        ✅        |
+|        ASG Termination Lifecycle Hooks        |       ✅        |        ✅        |
 |        AZ Rebalance Recommendation            |       ❌        |        ✅        |
-|        ASG Termination Lifecycle Hooks        |       ❌        |        ✅        |
 |         Instance State Change Events          |       ❌        |        ✅        |
 
 
