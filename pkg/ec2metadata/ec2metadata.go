@@ -199,7 +199,7 @@ func (e *Service) GetRebalanceRecommendationEvent() (rebalanceRec *RebalanceReco
 // if the lifecycle hook is not present on the ASG
 func (e *Service) GetASGTargetLifecycleState() (state string, err error) {
 	resp, err := e.Request(ASGTargetLifecycleStatePath)
-	// 404s are normal when querying for the 'autoscaling/target-lifecycle-state' path and there is no lifecycle hook
+	// 404s should not happen, but there can be a case if the instance is brand new and the field is not populated yet
 	if resp != nil && resp.StatusCode == 404 {
 		return "", nil
 	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
