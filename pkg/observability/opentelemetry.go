@@ -106,13 +106,14 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
+	actionsCounter.Add(context.Background(), 0)
 
 	name = "events.error"
 	errorEventsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of errors in events processing"))
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
-
+	errorEventsCounter.Add(context.Background(), 0)
 	return Metrics{
 		meter:              meter,
 		errorEventsCounter: errorEventsCounter,
