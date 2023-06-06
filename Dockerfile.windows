@@ -1,7 +1,7 @@
 ARG WINDOWS_VERSION=1809
 
 # Build the manager binary
-FROM --platform=windows/amd64 golang:1.19 as builder
+FROM --platform=windows/amd64 golang:1.20 as builder
 
 ## GOLANG env
 ENV GO111MODULE="on" CGO_ENABLED="0" GOOS="windows" GOARCH="amd64"
