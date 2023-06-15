@@ -42,18 +42,18 @@ jobs:
 
     - name: Unit Tests
       run: make unit-test
-    
+
     - name: Lints
       run: make spellcheck shellcheck helm-lint
 
     - name: License Check
       run: make license-test
-      env: 
+      env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Generate K8s YAML
       run: make generate-k8s-yaml
-  
+
   golangci:
     # this action needs to run in its own job per setup
     name: Lint Eastwood
@@ -137,7 +137,12 @@ jobs:
         key: gocache
 
     - name: Build Windows Binaries
-      run: choco install make && choco install zip && RefreshEnv.cmd && make build-binaries-windows
+      run: |
+        $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
+        Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+        refreshenv
+
+        choco install make && choco install zip && make build-binaries-windows
 
   buildWindowsDocker:
     name: Build Windows Docker Images
@@ -161,7 +166,12 @@ jobs:
         key: gocache
 
     - name: Build Windows Docker Images
-      run: choco install make && RefreshEnv.cmd && make build-docker-images-windows
+      run: |
+        $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
+        Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+        refreshenv
+
+        choco install make && make build-docker-images-windows
 
   e2e:
     name: E2E Tests
