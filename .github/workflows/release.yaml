@@ -47,7 +47,12 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Release Windows Assets
-      run: choco install make && choco install zip && RefreshEnv.cmd && make release-windows
+      run: |
+        $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
+        Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+        refreshenv
+
+        choco install make && choco install zip && make release-windows
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
