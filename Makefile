@@ -126,7 +126,7 @@ build-binaries-windows:
 
 upload-resources-to-github:
 	${MAKEFILE_PATH}/scripts/upload-resources-to-github
-	${MAKEFILE_PATH}/scripts/upload-resources-to-github -s ${K8S_1_25_ASSET_SUFFIX}
+	${MAKEFILE_PATH}/scripts/upload-resources-to-github -k -s ${K8S_1_25_ASSET_SUFFIX}
 
 upload-resources-to-github-windows:
 	${MAKEFILE_PATH}/scripts/upload-resources-to-github -b
