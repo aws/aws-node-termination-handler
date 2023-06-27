@@ -4,6 +4,7 @@ Resources:
     Type: 'AWS::SQS::Queue'
     Properties:
       MessageRetentionPeriod: 300
+      SqsManagedSseEnabled: true
   QueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
     Properties:

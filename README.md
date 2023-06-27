@@ -241,7 +241,8 @@ $ echo "$QUEUE_POLICY" | jq .
 $ cat << EOF > /tmp/queue-attributes.json
 {
   "MessageRetentionPeriod": "300",
-  "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g' | tr -d -s '\n' " ")"
+  "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g' | tr -d -s '\n' " ")",
+  "SqsManagedSseEnabled": true
 }
 EOF
 
