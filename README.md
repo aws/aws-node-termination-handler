@@ -216,7 +216,7 @@ Here is the AWS CLI command to create an SQS queue to hold termination events fr
 
 ```
 ## Queue Policy
-$ QUEUE_POLICY=$(cat <<EOF
+QUEUE_POLICY=$(cat <<EOF
 {
     "Version": "2012-10-17",
     "Id": "MyQueuePolicy",
@@ -235,18 +235,18 @@ EOF
 )
 
 ## make sure the queue policy is valid JSON
-$ echo "$QUEUE_POLICY" | jq .
+echo "$QUEUE_POLICY" | jq .
 
 ## Save queue attributes to a temp file
-$ cat << EOF > /tmp/queue-attributes.json
+cat << EOF > /tmp/queue-attributes.json
 {
   "MessageRetentionPeriod": "300",
   "Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g' | tr -d -s '\n' " ")",
-  "SqsManagedSseEnabled": true
+  "SqsManagedSseEnabled": "true"
 }
 EOF
 
-$ aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
+aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
 ```
 
 If you are sending Lifecycle termination events from ASG directly to SQS, instead of through EventBridge, then you will also need to create an IAM service role to give Amazon EC2 Auto Scaling access to your SQS queue. Please follow [these linked instructions to create the IAM service role: link.](https://docs.aws.amazon.com/autoscaling/ec2/userguide/configuring-lifecycle-hook-notifications.html#sqs-notifications)
@@ -262,7 +262,7 @@ There are some caveats when using [server side encryption with SQS](https://docs
 Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
 ```
-$ aws autoscaling put-lifecycle-hook \
+aws autoscaling put-lifecycle-hook \
   --lifecycle-hook-name=my-k8s-term-hook \
   --auto-scaling-group-name=my-k8s-asg \
   --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
@@ -273,7 +273,7 @@ $ aws autoscaling put-lifecycle-hook \
 If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
 
 ```
-$ aws autoscaling put-lifecycle-hook \
+aws autoscaling put-lifecycle-hook \
   --lifecycle-hook-name=my-k8s-term-hook \
   --auto-scaling-group-name=my-k8s-asg \
   --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
@@ -290,7 +290,7 @@ The value of the key does not matter.
 
 To tag ASGs and propagate the tags to your instances (recommended):
 ```
-$ aws autoscaling create-or-update-tags \
+aws autoscaling create-or-update-tags \
   --tags ResourceId=my-auto-scaling-group,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
 ```
 
@@ -320,39 +320,39 @@ If we use ASG without capacity-rebalance enabled, then spot interruptions will c
 Here are AWS CLI commands to create Amazon EventBridge rules so that ASG termination events, Spot Interruptions, Instance state changes, Rebalance Recommendations, and AWS Health Scheduled Changes are sent to the SQS queue created in the previous step. This should really be configured via your favorite infrastructure-as-code tool like CloudFormation (template [here](docs/cfn-template.yaml)) or Terraform:
 
 ```
-$ aws events put-rule \
+aws events put-rule \
   --name MyK8sASGTermRule \
   --event-pattern "{\"source\":[\"aws.autoscaling\"],\"detail-type\":[\"EC2 Instance-terminate Lifecycle Action\"]}"
 
-$ aws events put-targets --rule MyK8sASGTermRule \
+aws events put-targets --rule MyK8sASGTermRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 
-$ aws events put-rule \
+aws events put-rule \
   --name MyK8sSpotTermRule \
   --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Spot Instance Interruption Warning\"]}"
 
-$ aws events put-targets --rule MyK8sSpotTermRule \
+aws events put-targets --rule MyK8sSpotTermRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 
-$ aws events put-rule \
+aws events put-rule \
   --name MyK8sRebalanceRule \
   --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance Rebalance Recommendation\"]}"
 
-$ aws events put-targets --rule MyK8sRebalanceRule \
+aws events put-targets --rule MyK8sRebalanceRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 
-$ aws events put-rule \
+aws events put-rule \
   --name MyK8sInstanceStateChangeRule \
   --event-pattern "{\"source\": [\"aws.ec2\"],\"detail-type\": [\"EC2 Instance State-change Notification\"]}"
 
-$ aws events put-targets --rule MyK8sInstanceStateChangeRule \
+aws events put-targets --rule MyK8sInstanceStateChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 
-$ aws events put-rule \
+aws events put-rule \
   --name MyK8sScheduledChangeRule \
   --event-pattern "{\"source\": [\"aws.health\"],\"detail-type\": [\"AWS Health Event\"],\"detail\": {\"service\": [\"EC2\"],\"eventTypeCategory\": [\"scheduledChange\"]}}"
 
-$ aws events put-targets --rule MyK8sScheduledChangeRule \
+aws events put-targets --rule MyK8sScheduledChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 

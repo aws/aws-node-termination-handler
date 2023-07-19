@@ -19,15 +19,15 @@ make build-docker-images
 
 Under the hood, this passes each architecture as the `--platform` argument to `docker buildx build`, like this:
 ```
-$ docker buildx create --use
-$ docker buildx build --load --platform "linux/amd64" -t ${USER}/aws-node-termination-handler-amd64:v1.0.0 .
-$ docker buildx build --load --platform "linux/arm64" -t ${USER}/aws-node-termination-handler-arm64:v1.0.0 .
+docker buildx create --use
+docker buildx build --load --platform "linux/amd64" -t ${USER}/aws-node-termination-handler-amd64:v1.0.0 .
+docker buildx build --load --platform "linux/arm64" -t ${USER}/aws-node-termination-handler-arm64:v1.0.0 .
 ```
 
 To push a multi-arch image, you can use the helper tool [manifest-tool](https://github.com/estesp/manifest-tool).
 
 ```
-$ cat << EOF > manifest.yaml
+cat << EOF > manifest.yaml
 image: ${USER}/aws-node-termination-handler:v1.0.0
 manifests:
   -
@@ -41,7 +41,7 @@ manifests:
       architecture: arm64
       os: linux
 EOF
-$ manifest-tool push from-spec manifest.yaml
+manifest-tool push from-spec manifest.yaml
 ```
 
 ### Building for Windows
