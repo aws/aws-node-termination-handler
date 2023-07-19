@@ -27,7 +27,7 @@ docker buildx build --load --platform "linux/arm64" -t ${USER}/aws-node-terminat
 To push a multi-arch image, you can use the helper tool [manifest-tool](https://github.com/estesp/manifest-tool).
 
 ```
-$ cat << EOF > manifest.yaml
+cat << EOF > manifest.yaml
 image: ${USER}/aws-node-termination-handler:v1.0.0
 manifests:
   -
@@ -41,7 +41,7 @@ manifests:
       architecture: arm64
       os: linux
 EOF
-$ manifest-tool push from-spec manifest.yaml
+manifest-tool push from-spec manifest.yaml
 ```
 
 ### Building for Windows
