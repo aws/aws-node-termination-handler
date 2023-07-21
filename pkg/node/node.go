@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -606,9 +605,17 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	if n.nthConfig.DryRun {
 		return node, nil
 	}
-
-	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/hostname=": nodeName}}
-	listOptions := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	shortNodeName := strings.Split(nodeName, ".")[0]
+	labelSelector := metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "kubernetes.io/hostname",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{nodeName, shortNodeName},
+			},
+		},
+	}
+	listOptions := metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)}
 	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
 	if err != nil || len(matchingNodes.Items) == 0 {
 		log.Warn().Msgf("Unable to list Nodes w/ label, falling back to direct Get lookup of node")
