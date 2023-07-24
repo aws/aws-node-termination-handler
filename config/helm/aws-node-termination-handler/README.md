@@ -119,7 +119,7 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `checkASGTagBeforeDraining`  | [DEPRECATED](Use `checkTagBeforeDraining` instead) If `true`, check that the instance is tagged with the `managedAsgTag` before draining the node. If `false`, disables calls ASG API.                                                                          | `true`                                 |
 | `managedAsgTag`              | [DEPRECATED](Use `managedTag` instead) The node tag to check if `checkASGTagBeforeDraining` is `true`.     
 | `useProviderId`              | If `true`, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.                                                               | `false`                                |
-
+| `topologySpreadConstraints`  | [Topology Spread Constraints](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) for pod scheduling. Useful with a highly available deployment to reduce the risk of running multiple replicas on the same Node      | `[]`                                   |
 ### IMDS Mode Configuration
 
 The configuration in this table applies to AWS Node Termination Handler in IMDS mode.
