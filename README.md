@@ -79,6 +79,17 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 |        ASG Termination Lifecycle Hooks        |       ❌        |        ✅        |
 |         Instance State Change Events          |       ❌        |        ✅        |
 
+### Kubernetes Compatibility
+
+|  NTH Release  | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 | K8s v1.22 | K8s v1.21 | 
+| :-----------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | 
+|    v1.20.0    |     ✅    |    ✅     |    ✅     |    ✅     |    ✅     |    ❌    |
+|    v1.19.0    |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    |
+|    v1.18.3    |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    |
+|    v1.18.2    |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    | 
+|    v1.18.1    |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    |   
+|    v1.18.0    |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    |
+
 
 ## Installation and Configuration
 
