@@ -10,6 +10,8 @@ KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 use_psp=false
 
 # shellcheck disable=SC2034
+k8_1_27="kindest/node:v1.27.3@sha256:9dd3392d79af1b084671b05bcf65b21de476256ad1dcc853d9f3b10b4ac52dde"
+# shellcheck disable=SC2034
 K8_1_26="kindest/node:v1.26.3@sha256:94eb63275ad6305210041cdb5aca87c8562cc50fa152dbec3fef8c58479db4ff"
 # shellcheck disable=SC2034
 K8_1_25="kindest/node:v1.25.3@sha256:f1de3b0670462f43280114eccceab8bf1b9576d2afe0582f8f74529da6fd0365"
@@ -17,10 +19,8 @@ K8_1_25="kindest/node:v1.25.3@sha256:f1de3b0670462f43280114eccceab8bf1b9576d2afe
 K8_1_24="kindest/node:v1.24.7@sha256:5c015142d9b60a0f6c45573f809957076514e38ec973565e2b2fe828b91597f5"
 # shellcheck disable=SC2034
 K8_1_23="kindest/node:v1.23.5@sha256:1a72748086bc24ed6163de1d1e33cc0e2eb5a1eb5ebffdb15b53c3bcd5376a6f"
-# shellcheck disable=SC2034
-K8_1_22="kindest/node:v1.22.2@sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f"
 
-K8_VERSION="$K8_1_22"
+K8_VERSION="$K8_1_23"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
 KIND_VERSION="0.17.0"
 HELM_VERSION="3.10.0"
