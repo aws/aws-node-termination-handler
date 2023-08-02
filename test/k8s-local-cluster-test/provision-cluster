@@ -10,7 +10,7 @@ KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 use_psp=false
 
 # shellcheck disable=SC2034
-k8_1_27="kindest/node:v1.27.3@sha256:9dd3392d79af1b084671b05bcf65b21de476256ad1dcc853d9f3b10b4ac52dde"
+K8_1_27="kindest/node:v1.27.3@sha256:9dd3392d79af1b084671b05bcf65b21de476256ad1dcc853d9f3b10b4ac52dde"
 # shellcheck disable=SC2034
 K8_1_26="kindest/node:v1.26.3@sha256:94eb63275ad6305210041cdb5aca87c8562cc50fa152dbec3fef8c58479db4ff"
 # shellcheck disable=SC2034
