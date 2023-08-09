@@ -447,6 +447,12 @@ helm upgrade --install aws-node-termination-handler \
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.20.0/config/helm/aws-node-termination-handler#readme).
 
+#### Replica Usage
+- Using a **single** replica can delay message processing as only one message is processed at a time.
+- Using **multiple** replicas allows for the simultaneous processing of messages.
+  - Replicas may attempt to process the same message. This is avoided by the `visibilityTimeout`, however, draining a Node may take longer than the set visibilityTimeout, default of 20s. Increasing the visibilityTimeout to coincide with the maximum drainage time can mitigate this issue.
+    - `visibilityTimeout` can be increased up to 12 hours. An increase can lead to other replicas waiting longer to process the message upon failure. This can result in the Node not being cordoned or drained.
+
 #### Kubectl Apply
 
 Queue Processor needs an **SQS queue URL** to function; therefore, manifest changes are **REQUIRED** before using kubectl to directly add all of the above resources into your cluster.
