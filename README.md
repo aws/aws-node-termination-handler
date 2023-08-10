@@ -447,11 +447,22 @@ helm upgrade --install aws-node-termination-handler \
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.20.0/config/helm/aws-node-termination-handler#readme).
 
-#### Replica Usage
-- Using a **single** replica can delay message processing as only one message is processed at a time.
-- Using **multiple** replicas allows for the simultaneous processing of messages.
-  - Replicas may attempt to process the same message. This is avoided by the `visibilityTimeout`, however, draining a Node may take longer than the set visibilityTimeout, default of 20s. Increasing the visibilityTimeout to coincide with the maximum drainage time can mitigate this issue.
-    - `visibilityTimeout` can be increased up to 12 hours. An increase can lead to other replicas waiting longer to process the message upon failure. This can result in the Node not being cordoned or drained.
+#### Single vs Multiple Replicas
+**Single** replica usage, by default, can process up to 10 messages at a time. Provides less throughput than **multiple** replica usage, but uses less resources.
+
+Example use cases for using a single replica:
+- Working with a relitively small (not large) cluster.
+- Node drainage that doesn't take significant time.
+- Limitted resources (memory or monetary) for allocation of NTH Pods on a cluster.
+
+**Multiple** replica usage allows for increased throughput and increased availability.
+
+Example use cases for using multiple replicas:
+- Working with a large scale cluster that can make use of the larger throughput from more NTH instances.
+- Node drainage that takes a significant time. Additional replicas increase throughput allowing for other messages to be processed.
+- A Node running an NTH instance is terminated, leaving downtime until K8s deploys another Pod to take its place. Replicas provide  mitigation with increased availabilty, allowing for NTH to still be operational.
+
+With **multiple** replicas, drainage times longer than the set visibility timeout of 20s may result in multiple NTH instances processing the same message. This will still result in a successful cordon/drainage, but will waste resources.
 
 #### Kubectl Apply
 
