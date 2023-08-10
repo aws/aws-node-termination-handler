@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -645,7 +644,7 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		AdditionalFilters:   []drain.PodFilter{filterPodForDeletion(nthConfig.PodName, nthConfig.PodNamespace)},
 		DeleteEmptyDirData:  nthConfig.DeleteLocalData,
 		Timeout:             time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second,
-		Out:                 zerolog.New(os.Stdout).With().Timestamp().Logger(),
+		Out:                 log.Logger,
 		ErrOut:              log.Logger,
 	}
 
