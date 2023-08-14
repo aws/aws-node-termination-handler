@@ -111,7 +111,7 @@ Create the name of the service account to use
 The image to use
 */}}
 {{- define "aws-node-termination-handler.image" -}}
-{{- printf "%s:%s" .Values.image.repository (default (printf "v%s" .Chart.AppVersion) .Values.image.tag) }}
+{{- printf "%s/%s:%s" .Values.image.registry .Values.image.repository (default (printf "v%s" .Chart.AppVersion) .Values.image.tag) }}
 {{- end }}
 
 {{/* Get PodDisruptionBudget API Version */}}
