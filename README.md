@@ -447,22 +447,21 @@ helm upgrade --install aws-node-termination-handler \
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.20.0/config/helm/aws-node-termination-handler#readme).
 
-#### Single vs Multiple Replicas
-**Single** replica usage, by default, can process up to 10 messages at a time. Provides less throughput than **multiple** replica usage, but uses less resources.
+#### Single Instance vs Multiple Replicas
 
-Example use cases for using a single replica:
-- Working with a relatively small (not large) cluster.
-- Node drainage that doesn't take significant time.
-- Limited resources (memory or monetary) for allocation of NTH Pods on a cluster.
+The Helm chart, by default, will deploy a single instance of Amazon Node Termination Handler. With minimal usage of resources this still provides good responsiveness in processing SQS messages.
 
-**Multiple** replica usage allows for increased throughput and increased availability.
+**When should multiple instances of Amazon Node Termination Handler be used?**
 
-Example use cases for using multiple replicas:
-- Working with a large scale cluster that can make use of the larger throughput from more NTH instances.
-- Node drainage that takes a significant time. Additional replicas increase throughput, allowing for other messages to be processed.
-- A Node running an NTH instance is terminated, leaving downtime until K8s deploys another Pod to take its place. Replicas provide  mitigation with increased availability, allowing for NTH to still be operational.
+* Responsiveness: The deployment of multiple Amazon Node Termination Handler instances will increase the throughput of processing SQS messages. This can aide in Amazon Node Termination Handler not responding to events as quickly as needed -- potentially because of a large number of concurrent events or drained Pods taking a long time to terminate.
 
-With **multiple** replicas, drainage times longer than the set visibility timeout of 20s may result in multiple NTH instances processing the same message. This will still result in a successful cordon/drainage, but will waste resources.
+* Availability: The deployment of multiple Amazon Node Termination Handler instances will provide mitigation in the case that Amazon Node Termination Handler itself is drained. The replica Amazon Node Termination Handlers will process SQS messages, avoiding a delay until the Deployment can start another instance. 
+
+**Notes**
+
+* Running multiple instances of Amazon Node Termination Handler will not load balance responding to events. Each instance will greedily consume and respond to events.
+* Logs from multiple instances of Amazon Node Termination Handler are not aggregated.
+* Multiple instances of Amazon Node Termination Handler will respond to the same event, if the event takes longer than 20s to process. This will not result in any errors, with the first responce having any affect.
 
 #### Kubectl Apply
 
