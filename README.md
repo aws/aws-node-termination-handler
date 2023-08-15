@@ -449,11 +449,11 @@ For a full list of configuration options see our [Helm readme](https://github.co
 
 #### Single Instance vs Multiple Replicas
 
-The Helm chart, by default, will deploy a single instance of Amazon Node Termination Handler. With minimal usage of resources this still provides good responsiveness in processing SQS messages.
+The Helm chart, by default, will deploy a single instance of Amazon Node Termination Handler. With minimal usage of resources, this still provides good responsiveness in processing SQS messages.
 
 **When should multiple instances of Amazon Node Termination Handler be used?**
 
-* Responsiveness: The deployment of multiple Amazon Node Termination Handler instances will increase the throughput of processing SQS messages. This can aide in Amazon Node Termination Handler not responding to events as quickly as needed -- potentially because of a large number of concurrent events or drained Pods taking a long time to terminate.
+* Responsiveness: The deployment of multiple Amazon Node Termination Handler instances will increase the throughput of processing SQS messages. This can aid in Amazon Node Termination Handler not responding to events as quickly as needed -- potentially because of numerous concurrent events or drained Pods taking a long time to terminate.
 
 * Availability: The deployment of multiple Amazon Node Termination Handler instances will provide mitigation in the case that Amazon Node Termination Handler itself is drained. The replica Amazon Node Termination Handlers will process SQS messages, avoiding a delay until the Deployment can start another instance. 
 
@@ -461,7 +461,7 @@ The Helm chart, by default, will deploy a single instance of Amazon Node Termina
 
 * Running multiple instances of Amazon Node Termination Handler will not load balance responding to events. Each instance will greedily consume and respond to events.
 * Logs from multiple instances of Amazon Node Termination Handler are not aggregated.
-* Multiple instances of Amazon Node Termination Handler will respond to the same event, if the event takes longer than 20s to process. This will not result in any errors, with the first responce having any affect.
+* Multiple instances of Amazon Node Termination Handler will respond to the same event, if the event takes longer than 20s to process. This will not result in any errors, with the first response having any effect.
 
 #### Kubectl Apply
 
