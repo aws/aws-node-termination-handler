@@ -458,6 +458,22 @@ helm upgrade --install aws-node-termination-handler \
 
 For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.20.0/config/helm/aws-node-termination-handler#readme).
 
+#### Single Instance vs Multiple Replicas
+
+The Helm chart, by default, will deploy a single instance of Amazon Node Termination Handler. With the minimizing of resource usage, a single instance still provides good responsiveness in processing SQS messages.
+
+**When should multiple instances of Amazon Node Termination Handler be used?**
+
+* Responsiveness: Amazon Node Termination Handler may be taking longer than desired to process certain events, potentially in processing numerous concurrent events or taking too long to drain Pods. The deployment of multiple Amazon Node Termination Handler instances may help.
+
+* Availability: The deployment of multiple Amazon Node Termination Handler instances provides mitigation in the case that Amazon Node Termination Handler itself is drained. Replica Amazon Node Termination Handlers will process SQS messages, avoiding a delay until the Deployment can start another instance. 
+
+**Notes**
+
+* Running multiple instances of Amazon Node Termination Handler will not load balance responding to events. Each instance will greedily consume and respond to events.
+* Logs from multiple instances of Amazon Node Termination Handler are not aggregated.
+* Multiple instances of Amazon Node Termination Handler may respond to the same event, if it takes longer than 20s to process. This is not an error case, only the first response will have an affect.
+
 #### Kubectl Apply
 
 Queue Processor needs an **SQS queue URL** to function; therefore, manifest changes are **REQUIRED** before using kubectl to directly add all of the above resources into your cluster.
