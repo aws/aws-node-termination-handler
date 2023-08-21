@@ -175,6 +175,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	case "aws.autoscaling":
 		if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_LAUNCHING" {
 			err = m.asgCompleteLaunchLifecycle(eventBridgeEvent)
+			interruptionEvent = nil
 		} else if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_TERMINATING" {
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 		}
