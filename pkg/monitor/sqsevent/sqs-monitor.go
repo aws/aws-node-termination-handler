@@ -161,44 +161,8 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	eventBridgeEvent.DetailType = lifecycleEvent.LifecycleTransition
 	eventBridgeEvent.Detail, err = json.Marshal(lifecycleEvent)
 
-	log.Debug().Msg("processing lifecycle termination event from ASG")
+	log.Debug().Msg("processing lifecycle event from ASG")
 	return eventBridgeEvent, err
-}
-
-// Receives and processes SQS messages to check for ASG lifecycle hook informing of an EC2 instance launch
-func (m SQSMonitor) newASGInstanceLifeCycleReceived() (bool, error) {
-	newInstanceCreated := false
-	messages, err := m.receiveQueueMessages(m.QueueURL)
-	if err != nil {
-		log.Err(err).Msg("Error receiveing SQS queue messages.")
-		return false, err
-	}
-
-	failedEventBridgeEvents := 0
-	for _, message := range messages {
-		eventBridgeEvent, err := m.processSQSMessage(message)
-		if err != nil {
-			var s skip
-			if errors.As(err, &s) {
-				log.Warn().Err(s).Msg("skip processing SQS message")
-			} else {
-				log.Err(err).Msg("error processing SQS message")
-			}
-			continue
-		}
-
-		if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_LAUNCHING" {
-			log.Info().Msg("New EC2 instance created by ASG")
-			newInstanceCreated = true
-			break
-		}
-	}
-
-	if len(messages) > 0 && failedEventBridgeEvents == len(messages) {
-		err = fmt.Errorf("none of the waiting queue events could be processed")
-	}
-
-	return newInstanceCreated, err
 }
 
 // processEventBridgeEvent processes an EventBridge event and returns interruption event wrappers
@@ -209,15 +173,11 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 
 	switch eventBridgeEvent.Source {
 	case "aws.autoscaling":
-		newInstanceCreated, err := m.newASGInstanceLifeCycleReceived()
-		for !newInstanceCreated {
-			if err != nil {
-				log.Err(err)
-				break
-			}
-			newInstanceCreated, err = m.newASGInstanceLifeCycleReceived()
+		if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_LAUNCHING" {
+			err = m.asgCompleteLaunchLifecycle(eventBridgeEvent)
+		} else if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_TERMINATING" {
+			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 		}
-		interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 		return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 
 	case "aws.ec2":
