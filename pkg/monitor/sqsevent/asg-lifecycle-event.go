@@ -14,8 +14,10 @@
 package sqsevent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
@@ -24,6 +26,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog/log"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 /* Example SQS ASG Lifecycle Termination Event Message:
@@ -92,13 +98,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
-		_, err := m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
-			AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
-			LifecycleActionResult: aws.String("CONTINUE"),
-			LifecycleHookName:     &lifecycleDetail.LifecycleHookName,
-			LifecycleActionToken:  &lifecycleDetail.LifecycleActionToken,
-			InstanceId:            &lifecycleDetail.EC2InstanceID,
-		})
+		_, err := m.continueLifecycleAction(lifecycleDetail)
 		if err != nil {
 			if aerr, ok := err.(awserr.RequestFailure); ok && aerr.StatusCode() != 400 {
 				return err
@@ -123,4 +123,82 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	return &interruptionEvent, nil
+}
+
+func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*autoscaling.CompleteLifecycleActionOutput, error) {
+	return m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
+		AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
+		LifecycleActionResult: aws.String("CONTINUE"),
+		LifecycleHookName:     &lifecycleDetail.LifecycleHookName,
+		LifecycleActionToken:  &lifecycleDetail.LifecycleActionToken,
+		InstanceId:            &lifecycleDetail.EC2InstanceID,
+	})
+}
+
+func (m SQSMonitor) asgCompleteLaunchLifecycle(event *EventBridgeEvent) error {
+	lifecycleDetail := &LifecycleDetail{}
+	err := json.Unmarshal(event.Detail, lifecycleDetail)
+	if err != nil {
+		return err
+	}
+
+	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
+		return skip{fmt.Errorf("message is an ASG test notification")}
+	}
+
+	if m.isNodeReady(lifecycleDetail) {
+		_, err = m.continueLifecycleAction(lifecycleDetail)
+	} else {
+		err = skip{fmt.Errorf("New ASG instance has not connected to cluster")}
+	}
+	return err
+}
+
+// If the Node, new EC2 instance, is ready in the K8s cluster
+func (m SQSMonitor) isNodeReady(lifecycleDetail *LifecycleDetail) bool {
+	nodes, err := m.getNodes()
+	if err != nil {
+		return false
+	}
+
+	for _, node := range nodes.Items {
+		instanceID := m.getInstanceID(node)
+		if instanceID != lifecycleDetail.EC2InstanceID {
+			break
+		}
+
+		conditions := node.Status.Conditions
+		for _, condition := range conditions {
+			if condition.Type == "Ready" && condition.Status == "True" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Gets Nodes connected to K8s cluster
+func (m SQSMonitor) getNodes() (*v1.NodeList, error) {
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		return nil, err
+	}
+	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return nodes, err
+}
+
+// Gets EC2 InstanceID from ProviderID, format: aws:///$az/$instanceid
+func (m SQSMonitor) getInstanceID(node v1.Node) string {
+	providerID := node.Spec.ProviderID
+	providerIDSplit := strings.Split(providerID, "/")
+	instanceID := providerIDSplit[len(providerID)-1]
+	return instanceID
 }
