@@ -158,7 +158,6 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	eventBridgeEvent.Source = "aws.autoscaling"
 	eventBridgeEvent.Time = lifecycleEvent.Time
 	eventBridgeEvent.ID = lifecycleEvent.RequestID
-	eventBridgeEvent.DetailType = lifecycleEvent.LifecycleTransition
 	eventBridgeEvent.Detail, err = json.Marshal(lifecycleEvent)
 
 	log.Debug().Msg("processing lifecycle event from ASG")
@@ -169,14 +168,15 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
 	interruptionEventWrappers := []InterruptionEventWrapper{}
 	interruptionEvent := &monitor.InterruptionEvent{}
-	var err error
+	lifecycleEvent := LifecycleDetail{}
+	err := json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
 
 	switch eventBridgeEvent.Source {
 	case "aws.autoscaling":
-		if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_LAUNCHING" {
+		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
 			err = m.asgCompleteLaunchLifecycle(eventBridgeEvent)
 			interruptionEvent = nil
-		} else if eventBridgeEvent.DetailType == "autoscaling:EC2_INSTANCE_TERMINATING" {
+		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 		}
 		return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})

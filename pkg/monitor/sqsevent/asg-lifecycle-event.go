@@ -125,6 +125,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	return &interruptionEvent, nil
 }
 
+// Continues the lifecycle hook thereby indicating a successful action occured
 func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*autoscaling.CompleteLifecycleActionOutput, error) {
 	return m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
@@ -135,36 +136,38 @@ func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*
 	})
 }
 
+// Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
 func (m SQSMonitor) asgCompleteLaunchLifecycle(event *EventBridgeEvent) error {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshing ASG lifecycle event: %w", err)
 	}
 
 	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
 		return skip{fmt.Errorf("message is an ASG test notification")}
 	}
 
-	if m.isNodeReady(lifecycleDetail) {
+	if isNodeReady(lifecycleDetail) {
 		_, err = m.continueLifecycleAction(lifecycleDetail)
 	} else {
-		err = skip{fmt.Errorf("New ASG instance has not connected to cluster")}
+		err = skip{fmt.Errorf("new ASG instance has not connected to cluster")}
 	}
 	return err
 }
 
 // If the Node, new EC2 instance, is ready in the K8s cluster
-func (m SQSMonitor) isNodeReady(lifecycleDetail *LifecycleDetail) bool {
-	nodes, err := m.getNodes()
+func isNodeReady(lifecycleDetail *LifecycleDetail) bool {
+	nodes, err := getNodes()
 	if err != nil {
+		log.Err(fmt.Errorf("getting nodes from cluster: %w", err))
 		return false
 	}
 
 	for _, node := range nodes.Items {
-		instanceID := m.getInstanceID(node)
+		instanceID := getInstanceID(node)
 		if instanceID != lifecycleDetail.EC2InstanceID {
-			break
+			continue
 		}
 
 		conditions := node.Status.Conditions
@@ -173,30 +176,32 @@ func (m SQSMonitor) isNodeReady(lifecycleDetail *LifecycleDetail) bool {
 				return true
 			}
 		}
+		log.Error().Msg(fmt.Sprintf("ec2 instance, %s, found, but not ready in cluster", instanceID))
 	}
+	log.Error().Msg(fmt.Sprintf("ec2 instance, %s, not found in cluster", lifecycleDetail.EC2InstanceID))
 	return false
 }
 
 // Gets Nodes connected to K8s cluster
-func (m SQSMonitor) getNodes() (*v1.NodeList, error) {
+func getNodes() (*v1.NodeList, error) {
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retreiving cluster config: %w", err)
 	}
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating new clientset with config: %w", err)
 	}
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retreiving nodes from cluster: %w", err)
 	}
 	return nodes, err
 }
 
 // Gets EC2 InstanceID from ProviderID, format: aws:///$az/$instanceid
-func (m SQSMonitor) getInstanceID(node v1.Node) string {
+func getInstanceID(node v1.Node) string {
 	providerID := node.Spec.ProviderID
 	providerIDSplit := strings.Split(providerID, "/")
 	instanceID := providerIDSplit[len(providerID)-1]
