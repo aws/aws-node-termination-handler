@@ -375,11 +375,13 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	if err != nil {
 		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 	} else {
+		interruptionEventStore.RWMutex.RLock()
 		isEventProcessed := interruptionEventStore.IsEventProcessed(drainEvent.EventID)
 		if nthConfig.WebhookURL != "" && nodeFound && !isAlreadyUnschedulable && !isEventProcessed {
 			webhook.Post(nodeMetadata, drainEvent, nthConfig)
 		}
 		interruptionEventStore.MarkAllAsProcessed(nodeName)
+		interruptionEventStore.RWMutex.RUnlock()
 	}
 
 	if (err == nil || (!nodeFound && nthConfig.DeleteSqsMsgIfNodeNotFound)) && drainEvent.PostDrainTask != nil {
