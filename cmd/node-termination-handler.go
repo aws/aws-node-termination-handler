@@ -364,6 +364,8 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
 	}
 
+	isAlreadyUnschedulable, _ := node.IsUnschedulable(nodeName)
+
 	if nthConfig.CordonOnly || (!nthConfig.EnableSQSTerminationDraining && drainEvent.IsRebalanceRecommendation() && !nthConfig.EnableRebalanceDraining) {
 		err = cordonNode(node, nodeName, drainEvent, metrics, recorder)
 	} else {
@@ -373,7 +375,8 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	if err != nil {
 		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 	} else {
-		if nthConfig.WebhookURL != "" && !interruptionEventStore.IsEventProcessed(drainEvent.EventID) {
+		isEventProcessed := interruptionEventStore.IsEventProcessed(drainEvent.EventID)
+		if nthConfig.WebhookURL != "" && nodeFound && !isAlreadyUnschedulable && !isEventProcessed {
 			webhook.Post(nodeMetadata, drainEvent, nthConfig)
 		}
 		interruptionEventStore.MarkAllAsProcessed(nodeName)
