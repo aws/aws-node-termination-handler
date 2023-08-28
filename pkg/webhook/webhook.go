@@ -44,9 +44,6 @@ type PostDecorator func(additionalInfo ec2metadata.NodeMetadata, event *monitor.
 
 func SinglePost(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthConfig config.Config, postFn PostDecorator) PostDecorator {
 	return func(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthConfig config.Config) {
-		m.Lock()
-		defer m.Unlock()
-
 		if previousEvent, ok := instanceEventMap[event.InstanceID]; !ok || (previousEvent.Kind == monitor.RebalanceRecommendationKind && event.Kind == monitor.SpotITNKind) {
 			postFn(additionalInfo, event, nthConfig)
 			instanceEventMap[event.InstanceID] = event
