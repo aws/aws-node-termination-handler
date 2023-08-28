@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"text/template"
 	"time"
 
@@ -34,6 +35,23 @@ type combinedDrainData struct {
 	ec2metadata.NodeMetadata
 	monitor.InterruptionEvent
 	InstanceID string
+}
+
+var instanceEventMap = make(map[string]*monitor.InterruptionEvent)
+var m sync.RWMutex
+
+type PostDecorator func(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthConfig config.Config)
+
+func SinglePost(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthConfig config.Config, postFn PostDecorator) PostDecorator {
+	return func(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEvent, nthConfig config.Config) {
+		m.Lock()
+		defer m.Unlock()
+
+		if previousEvent, ok := instanceEventMap[event.InstanceID]; !ok || (previousEvent.Kind == monitor.RebalanceRecommendationKind && event.Kind == monitor.SpotITNKind) {
+			postFn(additionalInfo, event, nthConfig)
+			instanceEventMap[event.InstanceID] = event
+		}
+	}
 }
 
 // Post makes a http post to send drain event data to webhook url
