@@ -204,12 +204,3 @@ func (s *Store) logPeriodically() {
 		Msg("event store statistics")
 	s.callsSinceLastLog = 0
 }
-
-func (s *Store) IsEventProcessed(eventID string) bool {
-	for id, event := range s.interruptionEventStore {
-		if id == eventID {
-			return event.NodeProcessed
-		}
-	}
-	return true
-}

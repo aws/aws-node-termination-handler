@@ -370,7 +370,9 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 		err = cordonAndDrainNode(node, nodeName, drainEvent, metrics, recorder, nthConfig.EnableSQSTerminationDraining)
 	}
 
-	webhook.SinglePost(nodeMetadata, drainEvent, nthConfig, webhook.Post)
+	if nthConfig.WebhookURL != "" {
+		webhook.SinglePost(webhook.Post)(nodeMetadata, drainEvent, nthConfig)
+	}
 
 	if err != nil {
 		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
