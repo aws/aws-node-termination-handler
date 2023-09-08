@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog/log"
@@ -55,6 +54,10 @@ import (
 */
 
 const TEST_NOTIFICATION = "autoscaling:TEST_NOTIFICATION"
+
+type LifecycleDetailMessage struct {
+	Message interface{} `json:"Message"`
+}
 
 // LifecycleDetail provides the ASG lifecycle event details
 type LifecycleDetail struct {
@@ -98,15 +101,6 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
-		_, err := m.continueLifecycleAction(lifecycleDetail)
-		if err != nil {
-			if aerr, ok := err.(awserr.RequestFailure); ok && aerr.StatusCode() != 400 {
-				return err
-			}
-		}
-		log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
-			lifecycleDetail.LifecycleHookName,
-			lifecycleDetail.EC2InstanceID)
 		errs := m.deleteMessages([]*sqs.Message{message})
 		if errs != nil {
 			return errs[0]
@@ -125,6 +119,17 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	return &interruptionEvent, nil
 }
 
+func (m SQSMonitor) logAndDeleteLifecycle(lifecycleDetail *LifecycleDetail, message *sqs.Message) error {
+	log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
+		lifecycleDetail.LifecycleHookName,
+		lifecycleDetail.EC2InstanceID)
+	errs := m.deleteMessages([]*sqs.Message{message})
+	if errs != nil {
+		return errs[0]
+	}
+	return nil
+}
+
 // Continues the lifecycle hook thereby indicating a successful action occured
 func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*autoscaling.CompleteLifecycleActionOutput, error) {
 	return m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
@@ -137,22 +142,28 @@ func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*
 }
 
 // Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
-func (m SQSMonitor) asgCompleteLaunchLifecycle(event *EventBridgeEvent) error {
+func (m SQSMonitor) asgCompleteLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) error {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
-		return fmt.Errorf("unmarshing ASG lifecycle event: %w", err)
+		return fmt.Errorf("unmarshaling ASG lifecycle event: %w", err)
 	}
 
 	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
-		return skip{fmt.Errorf("message is an ASG test notification")}
+		return ignore{skip{fmt.Errorf("message is an ASG test notification")}}
 	}
 
-	if isNodeReady(lifecycleDetail) {
-		_, err = m.continueLifecycleAction(lifecycleDetail)
-	} else {
-		err = skip{fmt.Errorf("new ASG instance has not connected to cluster")}
+	if !isNodeReady(lifecycleDetail) {
+		return ignore{skip{fmt.Errorf("new ASG instance has not connected to cluster")}}
 	}
+
+	_, err = m.continueLifecycleAction(lifecycleDetail)
+
+	if err != nil {
+		return ignore{skip{fmt.Errorf("completing ASG launch lifecyle: %w", err)}}
+	}
+
+	err = m.logAndDeleteLifecycle(lifecycleDetail, message)
 	return err
 }
 
@@ -204,6 +215,6 @@ func getNodes() (*v1.NodeList, error) {
 func getInstanceID(node v1.Node) string {
 	providerID := node.Spec.ProviderID
 	providerIDSplit := strings.Split(providerID, "/")
-	instanceID := providerIDSplit[len(providerID)-1]
+	instanceID := providerIDSplit[len(providerIDSplit)-1]
 	return instanceID
 }

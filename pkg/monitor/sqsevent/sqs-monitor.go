@@ -72,6 +72,18 @@ func (s skip) Unwrap() error {
 	return s.err
 }
 
+type ignore struct {
+	err error
+}
+
+func (i ignore) Error() string {
+	return i.err.Error()
+}
+
+func (i ignore) Unwrap() error {
+	return i.err
+}
+
 // Kind denotes the kind of monitor
 func (m SQSMonitor) Kind() string {
 	return SQSMonitorKind
@@ -133,8 +145,10 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 // processLifecycleEventFromASG checks for a Lifecycle event from ASG to SQS, and wraps it in an EventBridgeEvent
 func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
 	eventBridgeEvent := EventBridgeEvent{}
+	lifecycleEventMessage := LifecycleDetailMessage{}
 	lifecycleEvent := LifecycleDetail{}
-	err := json.Unmarshal([]byte(*message.Body), &lifecycleEvent)
+	err := json.Unmarshal([]byte(*message.Body), &lifecycleEventMessage)
+	err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 
 	switch {
 	case err != nil:
@@ -174,7 +188,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	switch eventBridgeEvent.Source {
 	case "aws.autoscaling":
 		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
-			err = m.asgCompleteLaunchLifecycle(eventBridgeEvent)
+			err = m.asgCompleteLaunchLifecycle(eventBridgeEvent, message)
 			interruptionEvent = nil
 		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
@@ -206,9 +220,13 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0
 	var skipErr skip
+	var ignoreErr ignore
 
 	for _, eventWrapper := range interruptionEventWrappers {
 		switch {
+		case errors.As(eventWrapper.Err, &ignoreErr):
+			log.Warn().Err(ignoreErr).Msg("ASG launch cycle not continued")
+
 		case errors.As(eventWrapper.Err, &skipErr):
 			log.Warn().Err(skipErr).Msg("dropping event")
 			dropMessageSuggestionCount++
