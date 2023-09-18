@@ -14,8 +14,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v0.35.0
 	go.uber.org/multierr v1.11.0
 	golang.org/x/sys v0.10.0
-	k8s.io/api v0.28.1
-	k8s.io/apimachinery v0.28.1
+	k8s.io/api v0.28.2
+	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.1
 	k8s.io/kubectl v0.28.1
 )
