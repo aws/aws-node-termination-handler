@@ -1,0 +1,15 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: nth-eks-cluster-test
+  region: us-west-2
+managedNodeGroups:
+  - name: nth-eks-cluster-test-spot-ng
+    instanceType: t3.medium
+    amiFamily: AmazonLinux2
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 2
+    spot: true
+iam:
+  withOIDC: true
