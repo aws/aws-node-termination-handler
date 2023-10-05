@@ -7,6 +7,7 @@ CLUSTER_NAME="nth-eks-cluster-test"
 node_group_name="nth-eks-cluster-test-spot-ng"
 sqs_queue_name="nth-sqs-test"
 sns_topic_name="nth-sns-test"
+node_policy_name="nth-test-node-policy"
 auto_scaling_role_name="AWSServiceRoleForAutoScaling_nth-test"
 auto_scaling_policy_arn="arn:aws:iam::aws:policy/aws-service-role/AutoScalingServiceRolePolicy"
 fis_role_name="nth-test-fis-role"
@@ -17,9 +18,10 @@ NODE_GROUP_CONFIG_FILE="$SCRIPTPATH/../eks-cluster-test/node_group-spec.yaml"
 account_id=$(aws sts get-caller-identity | jq -r '.Account')
 nth_label="Use-Case=NTH"
 
+##### JSON FILES #####
 
-## Queue Policy
-QUEUE_POLICY=$(cat <<EOF
+### SQS ###
+sqs_queue_policy=$(cat <<EOF
 {
     "Version": "2012-10-17",
     "Id": "MyQueuePolicy",
@@ -37,148 +39,43 @@ QUEUE_POLICY=$(cat <<EOF
 EOF
 )
 
-function create_queue {
-    cat << EOF > /tmp/queue-attributes.json
+cat << EOF > /tmp/sqs-subscription-policy.json
+{
+    "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"MyQueuePolicy\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"sqs.amazonaws.com\"]},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:${REGION}:${account_id}:${sqs_queue_name}\"},{\"Sid\":\"topic-subscription-arn:aws:sns:${REGION}:${account_id}:${sns_topic_name}\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"SQS:SendMessage\",\"Resource\":\"arn:aws:sqs:${REGION}:${account_id}:${sqs_queue_name}\",\"Condition\":{\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:sns:${REGION}:${account_id}:${sns_topic_name}\"}}}]}"
+}
+EOF
+
+cat << EOF > /tmp/queue-attributes.json
 {
 "MessageRetentionPeriod": "300",
-"Policy": "$(echo $QUEUE_POLICY | sed 's/\"/\\"/g' | tr -d -s '\n' " ")",
+"Policy": "$(echo $sqs_queue_policy | sed 's/\"/\\"/g' | tr -d -s '\n' " ")",
 "SqsManagedSseEnabled": "true"
 }
 EOF
 
-queue_url=$(aws sqs create-queue --queue-name "${sqs_queue_name}" --attributes file:///tmp/queue-attributes.json | jq -r .QueueUrl)
+### NODEGROUP ###
+cat << EOF > /tmp/nth-nodegroup-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:CompleteLifecycleAction",
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:DescribeTags",
+                "ec2:DescribeInstances",
+                "sqs:DeleteMessage",
+                "sqs:ReceiveMessage"
+            ],
+            "Resource": "*"
+        }
+    ]
 }
+EOF
 
-function provision_sqs_queue {
-    queue_exists=$(aws sqs list-queues --queue-name-prefix $sqs_queue_name)
-    if [[ -z $queue_exists ]]; then
-        echo "🥑 Provisioning SQS Queue"
-        create_queue
-    else 
-        echo "🥑 $sqs_queue_name already exists; continuing with test run"
-        queue_url=$(aws sqs list-queues --queue-name-prefix $sqs_queue_name | jq -r '.QueueUrls | .[0]')
-    fi
-    
-    echo "Queue URL: $queue_url"
-    sqs_arn=$(aws sqs get-queue-attributes --queue-url=$queue_url --attribute-names=QueueArn | jq -r .Attributes.QueueArn)
-}
-
-function provision_sns_topic {
-    topic_exists=$(aws sns list-topics | grep "$sns_topic_name" || :)
-    if [[ -z $topic_exists ]]; then
-        echo "🥑 Provisioning SNS Topic"
-        sns_arn=$(aws sns create-topic --name $sns_topic_name | jq -r .TopicArn)
-    else 
-        echo "🥑 $sns_topic_name already exists; continuing with test run"
-        sns_arn=$(aws sns list-topics | jq -r '.Topics | .[] | .TopicArn' | grep "nth-sns-test")
-    fi
-    echo "SNS ARN: $sns_arn"
-}
-
-function subscribe_sqs_to_sns {
-    num_subscriptions=$(aws sns list-subscriptions-by-topic --topic-arn $sns_arn | jq '.Subscriptions | length')
-    if [[ $num_subscriptions -eq 0 ]]; then
-        echo "🥑 Subscribing $sns_topic_name to $sqs_queue_name"
-        aws sns subscribe --topic-arn $sns_arn --protocol sqs --notification-endpoint $sqs_arn
-    else 
-        echo "🥑 $sns_topic_name already subscribed to $sqs_queue_name; continuing with test run"
-    fi
-}
-
-function install_helm {
-    anth_helm_args=(
-        upgrade
-        --install
-        --namespace kube-system
-        "$CLUSTER_NAME-acth"
-        "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-        --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
-        --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
-        --set image.pullPolicy="Always"
-        --set nodeSelector."${nth_label}"
-        --set tolerations[0].operator=Exists
-        --set awsAccessKeyID=foo
-        --set awsSecretAccessKey=bar
-        --set awsRegion="${REGION}"
-        --set checkTagBeforeDraining=false
-        --set enableSqsTerminationDraining=true
-        --set queueURL="${queue_url}"
-        --wait
-    )
-
-    set -x
-    helm "${anth_helm_args[@]}"
-    set +x
-
-    sleep 15
-}
-
-function provision_node_group {
-    node_group_exists=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name $node_group_name || :)
-    if [[ -z $node_group_exists ]]; then
-        echo "🥑 Provisioning Spot Node Group"
-    else 
-        echo "🥑 Re-initializing $node_group_name for testing purposes"
-        eksctl delete nodegroup -f $NODE_GROUP_CONFIG_FILE --approve
-        echo ""
-
-        node_group_exists=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name $node_group_name || :)
-        echo -n "Node group Deleting."
-        while [[ -n $node_group_exists ]]; do
-            echo -n "."
-            node_group_exists=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name $node_group_name || :)
-            sleep 10
-        done
-        echo ""
-        sleep 20
-        # asg_name=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name=$node_group_name --output=json | jq -r '.[0].AutoScalingGroupName')
-    fi
-
-    eksctl create nodegroup --config-file=$NODE_GROUP_CONFIG_FILE
-    update_ASG
-
-    instance_ids=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $asg_name | jq -r '.AutoScalingGroups | .[0].Instances | .[].InstanceId')
-    instance_data=$(aws ec2 describe-instances --instance-ids $instance_ids | jq -r '[.Reservations | .[] | .Instances | .[].InstanceId, .[].PrivateDnsName]')
-
-    nth_node_id=$(jq -r '.[0]' <<< $instance_data)
-    nth_node_ip=$(jq -r '.[1]' <<< $instance_data)
-    termination_node_id=$(jq -r '.[2]' <<< $instance_data)
-    termination_node_ip=$(jq -r '.[3]' <<< $instance_data)
-
-    kubectl label nodes $nth_node_ip $nth_label
-}
-
-function update_ASG {
-    asg_name=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name=$node_group_name --output=json | jq -r '.[0].AutoScalingGroupName')
-    echo "Auto Scaling Group: $asg_name"
-
-    echo "🥑 Setting Capacity Rebalance"
-    aws autoscaling update-auto-scaling-group --auto-scaling-group-name $asg_name --capacity-rebalance
-    echo "🥑 Tagging ASG"
-    aws autoscaling create-or-update-tags --tags ResourceId=$asg_name,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
-
-    create_auto_scaling_role
-    echo "🥑 Creating Lifecycle Hooks"
-    aws autoscaling put-lifecycle-hook --lifecycle-hook-name "Launch-LC-Hook" --auto-scaling-group-name $asg_name --lifecycle-transition="autoscaling:EC2_INSTANCE_LAUNCHING" --heartbeat-timeout=180 --notification-target-arn=$sns_arn --role-arn=$auto_scaling_role_arn --default-result="ABANDON"     
-    aws autoscaling put-lifecycle-hook --lifecycle-hook-name "Terminate-LC-Hook" --auto-scaling-group-name $asg_name --lifecycle-transition="autoscaling:EC2_INSTANCE_TERMINATING" --heartbeat-timeout=180 --notification-target-arn=$sns_arn --role-arn=$auto_scaling_role_arn --default-result="CONTINUE"
-}
-
-function create_auto_scaling_role {
-    auto_scaling_role_exists=$(aws iam get-role --role-name=$auto_scaling_role_name | grep "$auto_scaling_role_name" || :)
-    if [[ -z $auto_scaling_role_exists ]]; then
-        echo "🥑 Creating Auto Scaling Role"
-        auto_scaling_role_arn=$(aws iam create-service-linked-role --aws-service-name autoscaling.amazonaws.com --custom-suffix "nth-test" | jq -r '.Role.Arn')
-        sleep 10
-    else
-        echo "🥑 $auto_scaling_role_name already exists; continuing with test run"
-        auto_scaling_role_arn=$(aws iam get-role --role-name=$auto_scaling_role_name | jq -r '.Role.Arn')
-    fi
-}
-
-function create_FIS_role {
-    fis_role_exists=$(aws iam get-role --role-name $fis_role_name | grep "$fis_role_name" || :)
-    if [[ -z $fis_role_exists ]]; then
-        cat << EOF > /tmp/fis-role-trust-policy.json
+### FIS ###
+cat << EOF > /tmp/fis-role-trust-policy.json
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -194,21 +91,9 @@ function create_FIS_role {
     ]
 }
 EOF
-        echo "🥑 Creating FIS Role"
-        fis_role_arn=$(aws iam create-role --role-name $fis_role_name --assume-role-policy-document file:///tmp/fis-role-trust-policy.json | jq -r '.Role.Arn')
-        aws iam attach-role-policy --role-name $fis_role_name --policy-arn $fis_policy_arn
-        sleep 10
-    else
-        echo "🥑 $fis_role_name already exists; continuing with test run"
-        fis_role_arn=$(aws iam get-role --role-name=$fis_role_name | jq -r '.Role.Arn')
-    fi
-}
 
-function create_experiment_template {
-    experiment_exists=$(aws fis list-experiment-templates | grep "$fis_template_name" || :)
-    if [[ -z $experiment_exists ]]; then
-        create_FIS_role
-        cat << EOF > /tmp/fis-experiment-template.json
+function create_FIS_Template_JSON {
+cat << EOF > /tmp/fis-experiment-template.json
 {
     "description": "Test Spot Instance interruptions",
     "targets": {
@@ -250,19 +135,189 @@ function create_experiment_template {
     }
 }
 EOF
+}
+
+
+##### SETUP #####
+
+### SQS ###
+function provision_sqs_queue {
+    queue_exists=$(aws sqs list-queues --queue-name-prefix $sqs_queue_name)
+    if [[ -z $queue_exists ]]; then
+        echo "🥑 Provisioning SQS Queue"
+        queue_url=$(aws sqs create-queue --queue-name "${sqs_queue_name}" --attributes file:///tmp/queue-attributes.json | jq -r .QueueUrl)
+    else 
+        echo "🥑 $sqs_queue_name already exists; continuing with test run"
+        queue_url=$(aws sqs list-queues --queue-name-prefix $sqs_queue_name | jq -r '.QueueUrls | .[0]')
+    fi
+    sqs_arn=$(aws sqs get-queue-attributes --queue-url=$queue_url --attribute-names=QueueArn | jq -r .Attributes.QueueArn)
+    aws sqs set-queue-attributes --queue-url $queue_url --attributes file:///tmp/sqs-subscription-policy.json
+}
+
+### SNS ###
+function provision_sns_topic {
+    topic_exists=$(aws sns list-topics | grep "$sns_topic_name" || :)
+    if [[ -z $topic_exists ]]; then
+        echo "🥑 Provisioning SNS Topic"
+        sns_arn=$(aws sns create-topic --name $sns_topic_name | jq -r .TopicArn)
+    else 
+        echo "🥑 $sns_topic_name already exists; continuing with test run"
+        sns_arn=$(aws sns list-topics | jq -r '.Topics | .[].TopicArn' | grep "$sns_topic_name")
+    fi
+}
+
+function subscribe_sqs_to_sns {
+    num_subscriptions=$(aws sns list-subscriptions-by-topic --topic-arn $sns_arn | jq '.Subscriptions | length')
+    if [[ $num_subscriptions -eq 0 ]]; then
+        echo "🥑 Subscribing $sns_topic_name to $sqs_queue_name"
+        subscription_arn=$(aws sns subscribe --topic-arn $sns_arn --protocol sqs --notification-endpoint $sqs_arn | jq -r .SubscriptionArn)
+    else 
+        echo "🥑 $sns_topic_name already subscribed to $sqs_queue_name; continuing with test run"
+        subscription_arn=$(aws sns list-subscriptions-by-topic --topic-arn $sns_arn | jq -r '.Subscriptions | .[0].SubscriptionArn')
+    fi
+}
+
+### NODEGROUP ###
+function provision_node_group {
+    create_node_policy
+    node_group_exists=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name $node_group_name || :)
+    if [[ -n $node_group_exists ]]; then
+        get_node_role_name
+        delete_node_group
+        echo ""
+
+        node_group_exists=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name $node_group_name || :)
+        echo -n "Node group Deleting."
+        while [[ -n $node_group_exists ]]; do
+            echo -n "."
+            node_group_exists=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name $node_group_name || :)
+            sleep 10
+        done
+        echo ""
+        sleep 20
+    fi
+
+    echo "🥑 Provisioning Spot Node Group"
+    eksctl create nodegroup --config-file=$NODE_GROUP_CONFIG_FILE
+
+    echo "🥑 Attaching Node policy to Node role"
+    get_node_role_name
+    aws iam attach-role-policy --role-name $node_role_name --policy-arn $node_policy_arn
+
+    update_ASG
+    set_node_data
+    kubectl label nodes $nth_node_ip $nth_label
+}
+
+function create_node_policy {
+    node_policy_exists=$(aws iam list-policies | grep "$node_policy_name" || :)
+    if [[ -z $node_policy_exists ]]; then
+        echo "🥑 Creating Node policy"
+        node_policy_arn=$(aws iam create-policy --policy-name $node_policy_name --policy-document file:///tmp/nth-nodegroup-policy.json | jq -r .Policy.Arn)
+    else 
+        echo "🥑 $node_policy_name already exists; continuing with test run"
+        node_policy_arn=$(aws iam list-policies | jq -r --arg policy_name $node_policy_name '.Policies | .[] | select(.PolicyName | contains($policy_name)) | .Arn')
+    fi
+
+    sleep 10
+}
+
+function get_node_role_name {
+    node_role_arn=$(aws eks describe-nodegroup --cluster-name $CLUSTER_NAME --nodegroup-name $node_group_name | jq -r .nodegroup.nodeRole)
+    split_node_role_arn=($(tr '/' ' ' <<< $node_role_arn))
+    node_role_name=${split_node_role_arn[1]}
+}
+
+function set_node_data {
+    instance_ids=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $asg_name | jq -r '.AutoScalingGroups | .[0].Instances | .[].InstanceId')
+    instance_data=$(aws ec2 describe-instances --instance-ids $instance_ids | jq -r '[.Reservations | .[].Instances | .[].InstanceId, .[].PrivateDnsName]')
+
+    nth_node_id=$(jq -r '.[0]' <<< $instance_data)
+    nth_node_ip=$(jq -r '.[1]' <<< $instance_data)
+    termination_node_id=$(jq -r '.[2]' <<< $instance_data)
+    termination_node_ip=$(jq -r '.[3]' <<< $instance_data)
+}
+
+function update_ASG {
+    asg_name=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name=$node_group_name --output=json | jq -r '.[0].AutoScalingGroupName')
+
+    echo "🥑 Setting Capacity Rebalance"
+    aws autoscaling update-auto-scaling-group --auto-scaling-group-name $asg_name --capacity-rebalance
+    echo "🥑 Tagging ASG"
+    aws autoscaling create-or-update-tags --tags ResourceId=$asg_name,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
+
+    create_auto_scaling_role
+    echo "🥑 Creating Lifecycle Hooks"
+    aws autoscaling put-lifecycle-hook --lifecycle-hook-name "Launch-LC-Hook" --auto-scaling-group-name $asg_name --lifecycle-transition="autoscaling:EC2_INSTANCE_LAUNCHING" --heartbeat-timeout=180 --notification-target-arn=$sns_arn --role-arn=$auto_scaling_role_arn --default-result="ABANDON"     
+    aws autoscaling put-lifecycle-hook --lifecycle-hook-name "Terminate-LC-Hook" --auto-scaling-group-name $asg_name --lifecycle-transition="autoscaling:EC2_INSTANCE_TERMINATING" --heartbeat-timeout=180 --notification-target-arn=$sns_arn --role-arn=$auto_scaling_role_arn --default-result="CONTINUE"
+}
+
+function create_auto_scaling_role {
+    auto_scaling_role_exists=$(aws iam get-role --role-name=$auto_scaling_role_name | grep "$auto_scaling_role_name" || :)
+    if [[ -z $auto_scaling_role_exists ]]; then
+        echo "🥑 Creating Auto Scaling Role"
+        auto_scaling_role_arn=$(aws iam create-service-linked-role --aws-service-name autoscaling.amazonaws.com --custom-suffix "nth-test" | jq -r '.Role.Arn')
+        sleep 10
+    else
+        echo "🥑 $auto_scaling_role_name already exists; continuing with test run"
+        auto_scaling_role_arn=$(aws iam get-role --role-name=$auto_scaling_role_name | jq -r '.Role.Arn')
+    fi
+}
+
+### HELM ###
+function install_helm {
+
+    anth_helm_args=(
+        upgrade
+        --install
+        --namespace kube-system
+        "$CLUSTER_NAME-acth"
+        "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+        --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+        --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+        --set image.pullPolicy="Always"
+        --set nodeSelector."${nth_label}"
+        --set tolerations[0].operator=Exists
+        --set awsAccessKeyID=$(aws --profile default configure get aws_access_key_id)
+        --set awsSecretAccessKey=$(aws --profile default configure get aws_secret_access_key)
+        --set awsRegion="${REGION}"
+        --set checkTagBeforeDraining=false
+        --set enableSqsTerminationDraining=true
+        --set queueURL="${queue_url}"
+        --wait
+    )
+
+    set -x
+    helm "${anth_helm_args[@]}"
+    set +x
+
+    sleep 15
+}
+
+### FIS ###
+function create_FIS_role {
+    fis_role_exists=$(aws iam get-role --role-name $fis_role_name | grep "$fis_role_name" || :)
+    if [[ -z $fis_role_exists ]]; then
+        echo "🥑 Creating FIS Role"
+        fis_role_arn=$(aws iam create-role --role-name $fis_role_name --assume-role-policy-document file:///tmp/fis-role-trust-policy.json | jq -r '.Role.Arn')
+        aws iam attach-role-policy --role-name $fis_role_name --policy-arn $fis_policy_arn
+        sleep 10
+    else
+        echo "🥑 $fis_role_name already exists; continuing with test run"
+        fis_role_arn=$(aws iam get-role --role-name=$fis_role_name | jq -r '.Role.Arn')
+    fi
+}
+
+function create_experiment_template {
+    experiment_exists=$(aws fis list-experiment-templates | grep "$fis_template_name" || :)
+    if [[ -z $experiment_exists ]]; then
+        create_FIS_Template_JSON
         echo "🥑 Creating experiment template"
         template_id=$(aws fis create-experiment-template --cli-input-json file:///tmp/fis-experiment-template.json | jq -r .experimentTemplate.id)
-        echo "Template_ID: $template_id"
     else
         template_id=$(aws fis list-experiment-templates | jq -r --arg template_name $fis_template_name '.experimentTemplates | .[] | select(.tags | has("Name")) | select(.tags.Name | contains($template_name)) | .id')
         echo "🥑 $fis_template_name already exists; continuing with test run"
     fi
-}
-
-function start_FIS_experiment {
-    create_experiment_template
-    echo "🥑 Starting Experiment"
-    experiment_start_time=$(aws fis start-experiment --experiment-template-id $template_id | jq -r '.experiment.startTime')
 }
 
 function create_tags {
@@ -272,6 +327,16 @@ function create_tags {
     aws ec2 create-tags --resources "${termination_node_id}" --tags Key=Name,Value=interruptMe
 }
 
+function start_FIS_experiment {
+    create_tags
+    create_FIS_role
+    create_experiment_template
+    echo "🥑 Starting Experiment"
+    experiment_start_time=$(aws fis start-experiment --experiment-template-id $template_id | jq -r '.experiment.startTime')
+}
+
+
+##### TESTING #####
 function is_new_instance {
     is_new_instance=""
     if [[ $instance_ids =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
@@ -304,20 +369,21 @@ function get_launch_activity {
 }
 
 function test_launch_lifecycle {
+    aws sqs receive-message --queue-url $queue_url
     echo -n "🥑 Waiting for launch hook completion."
     while [[ true ]]; do
-        activity_status=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name $asg_name --activity-ids $launch_activity | jq -r '.Activities | .[] | .StatusCode')
-        if [[ $activity_status == "Success" ]]; then
+        activity_status=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name $asg_name --activity-ids $launch_activity | jq -r '.Activities | .[].StatusCode')
+        if [[ $activity_status == "Successful" ]]; then
             echo ""
             echo "✅ Launch Lifecycle Successfully Completed ✅"
-            # exit 0
+            exit_policy="exit 0"
             break
         fi
 
         if [[ $activity_status == "Cancelled" ]]; then
             echo ""
             echo "❌ Launch Lifecycle Failed ❌"
-            # exit 1
+            exit_policy="exit 1"
             break
         fi
         echo -n "."
@@ -325,31 +391,56 @@ function test_launch_lifecycle {
     done
 }
 
+
+##### CLEAN UP #####
 function clean_up {
     echo "====================================================================================================="
     echo "🧹  Cleaning up SQS, SNS, NodeGroup, IAM, FIS  🧹"
     echo "====================================================================================================="
-    helm uninstall nth-eks-cluster-test-acth -n kube-system
-    eksctl delete nodegroup -f $NODE_GROUP_CONFIG_FILE --approve
+    echo "🥑 Uninstalling NTH helm chart"
+    helm uninstall "$CLUSTER_NAME-acth" -n kube-system
+    delete_node_group
+    echo "🥑 Unsubscribing SNS from SQS"
+    aws sns unsubscribe --subscription-arn $subscription_arn
+    echo "🥑 Deleting SQS queue"
     aws sqs delete-queue --queue-url $queue_url
+    echo "🥑 Deleting SNS topic"
     aws sns delete-topic --topic-arn $sns_arn
+    echo "🥑 Deleting FIS experiment template"
     deletedTemplate=$(aws fis delete-experiment-template --id $template_id --no-paginate)
+    echo "🥑 Detaching FIS role policy"
     aws iam detach-role-policy --role-name $fis_role_name --policy-arn $fis_policy_arn
+    echo "🥑 Deleting FIS role"
     aws iam delete-role --role-name $fis_role_name
+    echo "🥑 Deleting autoscaling role"
     aws iam delete-service-linked-role --role-name $auto_scaling_role_name
+    echo "🥑 Deleting Node role policy"
+    aws iam delete-policy --policy-arn $node_policy_arn
+}
+
+function delete_node_group {
+    echo "Node Role Name: $node_role_name"
+    node_policy_exists=$(aws iam list-attached-role-policies --role-name $node_role_name | grep "$node_policy_name" || :)
+    echo $node_policy_exists
+    if [[ -n $node_policy_exists ]]; then
+        echo "🥑 Detaching NTH Node Group policy"
+        aws iam detach-role-policy --role-name $node_role_name --policy-arn $node_policy_arn
+    fi
+    echo "🥑 Deleting NTH Node Group"
+    eksctl delete nodegroup -f $NODE_GROUP_CONFIG_FILE --approve
 }
 
 function main {
     provision_sqs_queue
-    provision_sns_topic
+    provision_sns_topic    
     subscribe_sqs_to_sns
     provision_node_group
     install_helm
-    create_tags
     start_FIS_experiment
     get_launch_activity
     test_launch_lifecycle
+    trap "clean_up" EXIT
+    eval $exit_policy
 }
 
 main
-trap "clean_up" EXIT
