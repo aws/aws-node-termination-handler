@@ -60,6 +60,7 @@ type InterruptionEventWrapper struct {
 	Err               error
 }
 
+// Used to skip processing an error, but acknowledge an error occured during a termination event
 type skip struct {
 	err error
 }
@@ -72,6 +73,7 @@ func (s skip) Unwrap() error {
 	return s.err
 }
 
+// Used to completely ignore an error. Used when processing a non-terminating event
 type ignore struct {
 	err error
 }
@@ -148,6 +150,10 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	lifecycleEventMessage := LifecycleDetailMessage{}
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(*message.Body), &lifecycleEventMessage)
+	if err != nil {
+		log.Err(err).Msg("processing JSON message of lifecycle event from ASG")
+		return eventBridgeEvent, err
+	}
 	err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 
 	switch {
@@ -182,13 +188,14 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, message *sqs.Message) []InterruptionEventWrapper {
 	interruptionEventWrappers := []InterruptionEventWrapper{}
 	interruptionEvent := &monitor.InterruptionEvent{}
-	lifecycleEvent := LifecycleDetail{}
-	err := json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
+	var err error
 
 	switch eventBridgeEvent.Source {
 	case "aws.autoscaling":
+		lifecycleEvent := LifecycleDetail{}
+		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
 		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
-			err = m.asgCompleteLaunchLifecycle(eventBridgeEvent, message)
+			err = m.continueAsgLaunchLifecycle(eventBridgeEvent, message)
 			interruptionEvent = nil
 		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)

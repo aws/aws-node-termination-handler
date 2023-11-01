@@ -101,11 +101,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
-		errs := m.deleteMessages([]*sqs.Message{message})
-		if errs != nil {
-			return errs[0]
-		}
-		return nil
+		return m.deleteMessage(message)
 	}
 
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
@@ -119,10 +115,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	return &interruptionEvent, nil
 }
 
-func (m SQSMonitor) logAndDeleteLifecycle(lifecycleDetail *LifecycleDetail, message *sqs.Message) error {
-	log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
-		lifecycleDetail.LifecycleHookName,
-		lifecycleDetail.EC2InstanceID)
+func (m SQSMonitor) deleteMessage(message *sqs.Message) error {
 	errs := m.deleteMessages([]*sqs.Message{message})
 	if errs != nil {
 		return errs[0]
@@ -142,7 +135,7 @@ func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*
 }
 
 // Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
-func (m SQSMonitor) asgCompleteLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) error {
+func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) error {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
@@ -158,12 +151,14 @@ func (m SQSMonitor) asgCompleteLaunchLifecycle(event *EventBridgeEvent, message 
 	}
 
 	_, err = m.continueLifecycleAction(lifecycleDetail)
-
 	if err != nil {
-		return ignore{skip{fmt.Errorf("completing ASG launch lifecyle: %w", err)}}
+		return ignore{skip{fmt.Errorf("continuing ASG launch lifecyle: %w", err)}}
 	}
 
-	err = m.logAndDeleteLifecycle(lifecycleDetail, message)
+	log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
+		lifecycleDetail.LifecycleHookName,
+		lifecycleDetail.EC2InstanceID)
+	err = m.deleteMessage(message)
 	return err
 }
 

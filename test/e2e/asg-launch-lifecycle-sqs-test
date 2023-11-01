@@ -338,12 +338,11 @@ function start_FIS_experiment {
 
 ##### TESTING #####
 function is_new_instance {
-    is_new_instance=""
+    is_new_instance=true
     if [[ $instance_ids =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
         is_new_instance=false
-    else 
-        is_new_instance=""
     fi
+    echo $is_new_instance
 }
 
 function get_launch_activity {
@@ -358,8 +357,7 @@ function get_launch_activity {
             description=$(jq -r .[$((++i))] <<< $activities_details)
             status=$(jq -r .[$((i+=2))] <<< $activities_details)
             activity_instance=${description##*:}
-            is_new_instance $activity_instance
-            if [[ $description =~ .*"Launching".* && -z $is_new_instance ]]; then
+            if [[ $description =~ .*"Launching".* && is_new_instance $activity_instance ]]; then
                 launch_activity=$id
                 echo "🥑 Launch Activity found for instance $activity_instance"
                 break
