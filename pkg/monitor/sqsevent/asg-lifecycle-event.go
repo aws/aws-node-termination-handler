@@ -28,7 +28,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 /* Example SQS ASG Lifecycle Termination Event Message:
@@ -146,7 +145,7 @@ func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message 
 		return ignore{skip{fmt.Errorf("message is an ASG test notification")}}
 	}
 
-	if !isNodeReady(lifecycleDetail) {
+	if !isNodeReady(lifecycleDetail, m.K8sClientset) {
 		return ignore{skip{fmt.Errorf("new ASG instance has not connected to cluster")}}
 	}
 
@@ -163,8 +162,8 @@ func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message 
 }
 
 // If the Node, new EC2 instance, is ready in the K8s cluster
-func isNodeReady(lifecycleDetail *LifecycleDetail) bool {
-	nodes, err := getNodes()
+func isNodeReady(lifecycleDetail *LifecycleDetail, clientset *kubernetes.Clientset) bool {
+	nodes, err := getNodes(clientset)
 	if err != nil {
 		log.Err(fmt.Errorf("getting nodes from cluster: %w", err))
 		return false
@@ -189,16 +188,7 @@ func isNodeReady(lifecycleDetail *LifecycleDetail) bool {
 }
 
 // Gets Nodes connected to K8s cluster
-func getNodes() (*v1.NodeList, error) {
-	clusterConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("retreiving cluster config: %w", err)
-	}
-	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(clusterConfig)
-	if err != nil {
-		return nil, fmt.Errorf("creating new clientset with config: %w", err)
-	}
+func getNodes(clientset *kubernetes.Clientset) (*v1.NodeList, error) {
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("retreiving nodes from cluster: %w", err)

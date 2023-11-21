@@ -45,6 +45,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -97,7 +99,16 @@ func main() {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Webhook validation failed,")
 	}
-	node, err := node.New(nthConfig)
+
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msgf("retreiving cluster config: %v", err)
+	}
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("creating new clientset with config: %v", err)
+	}
+	node, err := node.New(nthConfig, clientset)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
@@ -137,7 +148,7 @@ func main() {
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
 
-	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nthConfig.EnableSQSTerminationDraining, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations)
+	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nthConfig.EnableSQSTerminationDraining, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations, clientset)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to create Kubernetes event recorder,")
@@ -204,6 +215,7 @@ func main() {
 			ASG:                           autoscaling.New(sess),
 			EC2:                           ec2.New(sess),
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
+			K8sClientset:                  clientset,
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}

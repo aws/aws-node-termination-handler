@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/rs/zerolog/log"
 
@@ -52,6 +53,7 @@ type SQSMonitor struct {
 	CheckIfManaged                bool
 	ManagedTag                    string
 	BeforeCompleteLifecycleAction func()
+	K8sClientset                  *kubernetes.Clientset
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
