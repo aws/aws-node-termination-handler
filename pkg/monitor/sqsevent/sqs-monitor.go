@@ -144,17 +144,26 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	return &event, err
 }
 
+func messageToLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
+	lifecycleEventMessage := LifecycleDetailMessage{}
+	lifecycleEvent := LifecycleDetail{}
+	err := json.Unmarshal([]byte(*messageBody), &lifecycleEventMessage)
+	if err != nil {
+		// log.Err(err).Msg("processing JSON message of lifecycle event from ASG")
+		return lifecycleEvent, err
+	}
+	if lifecycleEventMessage.Message != nil {
+		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
+	} else {
+		err = json.Unmarshal([]byte(fmt.Sprintf("%v", *messageBody)), &lifecycleEvent)
+	}
+	return lifecycleEvent, err
+}
+
 // processLifecycleEventFromASG checks for a Lifecycle event from ASG to SQS, and wraps it in an EventBridgeEvent
 func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
 	eventBridgeEvent := EventBridgeEvent{}
-	lifecycleEventMessage := LifecycleDetailMessage{}
-	lifecycleEvent := LifecycleDetail{}
-	err := json.Unmarshal([]byte(*message.Body), &lifecycleEventMessage)
-	if err != nil {
-		log.Err(err).Msg("processing JSON message of lifecycle event from ASG")
-		return eventBridgeEvent, err
-	}
-	err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
+	lifecycleEvent, err := messageToLifecycleEvent(message.Body)
 
 	switch {
 	case err != nil:
