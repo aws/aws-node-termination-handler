@@ -43,7 +43,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -215,7 +219,6 @@ func main() {
 			ASG:                           autoscaling.New(sess),
 			EC2:                           ec2.New(sess),
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
-			K8sClientset:                  clientset,
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}
@@ -269,7 +272,7 @@ func main() {
 					event.InProgress = true
 					wg.Add(1)
 					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind, event.Monitor), event.Description)
-					go drainOrCordonIfNecessary(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, &wg)
+					go processInterruptionEventFunctions(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, clientset, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
 					break EventLoop
@@ -341,20 +344,38 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 	}
 }
 
-func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, wg *sync.WaitGroup) {
+func processInterruptionEventFunctions(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, clientset *kubernetes.Clientset, wg *sync.WaitGroup) {
 	defer wg.Done()
-	nodeFound := true
-	nodeName := drainEvent.NodeName
+	processASGLaunchLifecycleEvent(interruptionEventStore, drainEvent, node, nthConfig, nodeMetadata, metrics, recorder, clientset)
+	drainOrCordonIfNecessary(interruptionEventStore, drainEvent, node, nthConfig, nodeMetadata, metrics, recorder)
+	<-interruptionEventStore.Workers
+}
 
-	if nthConfig.UseProviderId {
-		newNodeName, err := node.GetNodeNameFromProviderID(drainEvent.ProviderID)
-
-		if err != nil {
-			log.Err(err).Msgf("Unable to get node name for node with ProviderID '%s' using original AWS event node name ", drainEvent.ProviderID)
-		} else {
-			nodeName = newNodeName
-		}
+func processASGLaunchLifecycleEvent(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, clientset *kubernetes.Clientset) {
+	if drainEvent.Kind != monitor.ASGLaunchLifecycleKind {
+		return
 	}
+
+	if !isNodeReady(drainEvent.InstanceID, clientset) {
+		log.Error().Msgf("new ASG instance, %s, has not connected to cluster", drainEvent.InstanceID)
+		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
+		return
+	}
+
+	nodeName := getNodeName(drainEvent, node, nthConfig)
+
+	if drainEvent.PostDrainTask != nil {
+		runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
+	}
+}
+
+func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
+	if drainEvent.Kind == monitor.ASGLaunchLifecycleKind {
+		return
+	}
+
+	nodeFound := true
+	nodeName := getNodeName(drainEvent, node, nthConfig)
 
 	nodeLabels, err := node.GetNodeLabels(nodeName)
 	if err != nil {
@@ -395,7 +416,99 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	if (err == nil || (!nodeFound && nthConfig.DeleteSqsMsgIfNodeNotFound)) && drainEvent.PostDrainTask != nil {
 		runPostDrainTask(node, nodeName, drainEvent, metrics, recorder)
 	}
-	<-interruptionEventStore.Workers
+}
+
+func getNodeName(drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config) string {
+	nodeName := drainEvent.NodeName
+	if nthConfig.UseProviderId {
+		newNodeName, err := node.GetNodeNameFromProviderID(drainEvent.ProviderID)
+
+		if err != nil {
+			log.Err(err).Msgf("Unable to get node name for node with ProviderID '%s' using original AWS event node name ", drainEvent.ProviderID)
+		} else {
+			nodeName = newNodeName
+		}
+	}
+	return nodeName
+}
+
+func isNodeReady(instanceID string, clientset *kubernetes.Clientset) bool {
+	nodes, err := getNodesWithInstanceID(instanceID, clientset)
+	if err != nil {
+		log.Err(fmt.Errorf("getting nodes with instance ID: %w", err))
+		return false
+	}
+
+	if len(nodes) == 0 {
+		log.Error().Msg(fmt.Sprintf("ec2 instance, %s, not found in cluster", instanceID))
+		return false
+	}
+
+	for _, node := range nodes {
+		conditions := node.Status.Conditions
+		for _, condition := range conditions {
+			if condition.Type != "Ready" {
+				continue
+			}
+			if condition.Status != "True" {
+				log.Error().Msg(fmt.Sprintf("ec2 instance, %s, found, but not ready in cluster", instanceID))
+				return false
+			}
+		}
+	}
+	log.Info().Msgf("new ASG instance, %s, is found and ready in cluster", instanceID)
+	return true
+}
+
+// Gets Nodes connected to K8s cluster
+func getNodesWithInstanceID(instanceID string, clientset *kubernetes.Clientset) ([]v1.Node, error) {
+	nodes, err := getNodesWithInstanceFromLabel(instanceID, clientset)
+	if err != nil {
+		return nil, err
+	}
+	if len(nodes) != 0 {
+		return nodes, nil
+	}
+
+	nodes, err = getNodesWithInstanceFromProviderID(instanceID, clientset)
+	if err != nil {
+		return nil, err
+	}
+	return nodes, nil
+}
+
+func getNodesWithInstanceFromLabel(instanceID string, clientset *kubernetes.Clientset) ([]v1.Node, error) {
+	instanceIDReq, err := labels.NewRequirement("alpha.eksctl.io/instance-id", selection.Equals, []string{instanceID})
+	if err != nil {
+		return nil, fmt.Errorf("bad label requirement: %w", err)
+	}
+	selector := labels.NewSelector().Add(*instanceIDReq)
+	options := metav1.ListOptions{LabelSelector: selector.String()}
+	return getNodes(options, clientset)
+}
+
+func getNodesWithInstanceFromProviderID(instanceID string, clientset *kubernetes.Clientset) ([]v1.Node, error) {
+	nodes, err := getNodes(metav1.ListOptions{}, clientset)
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredNodes []v1.Node
+	for _, node := range nodes {
+		if !strings.Contains(node.Spec.ProviderID, instanceID) {
+			continue
+		}
+		filteredNodes = append(filteredNodes, node)
+	}
+	return filteredNodes, nil
+}
+
+func getNodes(options metav1.ListOptions, clientset *kubernetes.Clientset) ([]v1.Node, error) {
+	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), options)
+	if err != nil {
+		return nil, fmt.Errorf("retreiving nodes from cluster: %w", err)
+	}
+	return nodes.Items, err
 }
 
 func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {

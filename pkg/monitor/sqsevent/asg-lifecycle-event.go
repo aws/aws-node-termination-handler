@@ -14,10 +14,8 @@
 package sqsevent
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
@@ -25,9 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog/log"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 /* Example SQS ASG Lifecycle Termination Event Message:
@@ -134,72 +129,45 @@ func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*
 }
 
 // Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
-func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) error {
+func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
-		return fmt.Errorf("unmarshaling ASG lifecycle event: %w", err)
+		return nil, fmt.Errorf("unmarshaling ASG lifecycle event: %w", err)
 	}
 
 	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
-		return ignore{skip{fmt.Errorf("message is an ASG test notification")}}
+		return nil, ignore{skip{fmt.Errorf("message is an ASG test notification")}}
 	}
 
-	if !isNodeReady(lifecycleDetail, m.K8sClientset) {
-		return ignore{skip{fmt.Errorf("new ASG instance has not connected to cluster")}}
-	}
-
-	_, err = m.continueLifecycleAction(lifecycleDetail)
+	nodeInfo, err := m.getNodeInfo(lifecycleDetail.EC2InstanceID)
 	if err != nil {
-		return ignore{skip{fmt.Errorf("continuing ASG launch lifecyle: %w", err)}}
+		return nil, err
 	}
 
-	log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
-		lifecycleDetail.LifecycleHookName,
-		lifecycleDetail.EC2InstanceID)
-	err = m.deleteMessage(message)
-	return err
-}
-
-// If the Node, new EC2 instance, is ready in the K8s cluster
-func isNodeReady(lifecycleDetail *LifecycleDetail, clientset *kubernetes.Clientset) bool {
-	nodes, err := getNodes(clientset)
-	if err != nil {
-		log.Err(fmt.Errorf("getting nodes from cluster: %w", err))
-		return false
+	interruptionEvent := monitor.InterruptionEvent{
+		EventID:              fmt.Sprintf("asg-lifecycle-term-%x", event.ID),
+		Kind:                 monitor.ASGLaunchLifecycleKind,
+		Monitor:              SQSMonitorKind,
+		AutoScalingGroupName: lifecycleDetail.AutoScalingGroupName,
+		StartTime:            event.getTime(),
+		NodeName:             nodeInfo.Name,
+		IsManaged:            nodeInfo.IsManaged,
+		InstanceID:           lifecycleDetail.EC2InstanceID,
+		ProviderID:           nodeInfo.ProviderID,
+		Description:          fmt.Sprintf("ASG Lifecycle Launch event received. Instance will be interrupted at %s \n", event.getTime()),
 	}
 
-	for _, node := range nodes.Items {
-		instanceID := getInstanceID(node)
-		if instanceID != lifecycleDetail.EC2InstanceID {
-			continue
+	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
+		_, err = m.continueLifecycleAction(lifecycleDetail)
+		if err != nil {
+			return fmt.Errorf("continuing ASG launch lifecyle: %w", err)
 		}
-
-		conditions := node.Status.Conditions
-		for _, condition := range conditions {
-			if condition.Type == "Ready" && condition.Status == "True" {
-				return true
-			}
-		}
-		log.Error().Msg(fmt.Sprintf("ec2 instance, %s, found, but not ready in cluster", instanceID))
+		log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
+			lifecycleDetail.LifecycleHookName,
+			lifecycleDetail.EC2InstanceID)
+		return m.deleteMessage(message)
 	}
-	log.Error().Msg(fmt.Sprintf("ec2 instance, %s, not found in cluster", lifecycleDetail.EC2InstanceID))
-	return false
-}
 
-// Gets Nodes connected to K8s cluster
-func getNodes(clientset *kubernetes.Clientset) (*v1.NodeList, error) {
-	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("retreiving nodes from cluster: %w", err)
-	}
-	return nodes, err
-}
-
-// Gets EC2 InstanceID from ProviderID, format: aws:///$az/$instanceid
-func getInstanceID(node v1.Node) string {
-	providerID := node.Spec.ProviderID
-	providerIDSplit := strings.Split(providerID, "/")
-	instanceID := providerIDSplit[len(providerIDSplit)-1]
-	return instanceID
+	return &interruptionEvent, err
 }
