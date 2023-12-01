@@ -275,16 +275,16 @@ kubectl label node "${CLUSTER_NAME}-worker" "$(echo $NTH_WORKER_LABEL | tr -d '\
 kubectl taint node "${CLUSTER_NAME}-worker2" CriticalAddonsOnly=true:NoSchedule --overwrite
 
 function is_denylisted {
-    is_denylisted=false
+    is_denied="false"
     if [[ $SCRIPT_DENYLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
-        is_denylisted=true
+        is_denied="true"
     fi
-    return $is_denylisted
 }
 
 i=0
 for assert_script in $ASSERTION_SCRIPTS; do
-  if[[ $(is_denylisted $assert_script) ]]; then continue; fi
+  is_denylisted $assert_script
+  if[[ $is_denied == "true" ]]; then continue; fi
 
   reset_cluster
   START_FOR_QUERYING=$(date -u +"%Y-%m-%dT%TZ")

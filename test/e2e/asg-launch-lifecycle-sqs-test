@@ -338,11 +338,10 @@ function start_FIS_experiment {
 
 ##### TESTING #####
 function is_new_instance {
-    is_new_instance=true
+    is_new="true"
     if [[ $instance_ids =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
-        is_new_instance=false
+        is_new="false"
     fi
-    echo $is_new_instance
 }
 
 function get_launch_activity {
@@ -357,7 +356,8 @@ function get_launch_activity {
             description=$(jq -r .[$((++i))] <<< $activities_details)
             status=$(jq -r .[$((i+=2))] <<< $activities_details)
             activity_instance=${description##*:}
-            if [[ $description =~ .*"Launching".* && is_new_instance $activity_instance ]]; then
+            is_new_instance $activity_instance
+            if [[ $description =~ .*"Launching".* && $is_new == "true" ]]; then
                 launch_activity=$id
                 echo "🥑 Launch Activity found for instance $activity_instance"
                 break
@@ -395,6 +395,8 @@ function clean_up {
     echo "====================================================================================================="
     echo "🧹  Cleaning up SQS, SNS, NodeGroup, IAM, FIS  🧹"
     echo "====================================================================================================="
+    pod_id=$(get_nth_worker_pod || :)
+    kubectl logs $pod_id --namespace kube-system || :
     echo "🥑 Uninstalling NTH helm chart"
     helm uninstall "$CLUSTER_NAME-acth" -n kube-system
     delete_node_group
