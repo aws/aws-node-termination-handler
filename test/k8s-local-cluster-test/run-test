@@ -23,8 +23,7 @@ AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v
 WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local"}
 
 ASSERTION_SCRIPTS=$(find "$SCRIPTPATH/../e2e" -type f | sort)
-
-SCRIPT_BLACKLIST=(
+SCRIPT_DENYLIST=(
     "$SCRIPTPATH/../e2e/asg-launch-lifecycle-sqs-test"
 )
 
@@ -275,17 +274,17 @@ kubectl label node "${CLUSTER_NAME}-worker" "$(echo $NTH_WORKER_LABEL | tr -d '\
 ## Mark worker2 only for Critical Add-Ons like dns
 kubectl taint node "${CLUSTER_NAME}-worker2" CriticalAddonsOnly=true:NoSchedule --overwrite
 
-function is_blacklisted {
-    is_blacklisted=false
-    if [[ $SCRIPT_BLACKLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
-        is_blacklisted=true
+function is_denylisted {
+    is_denylisted=false
+    if [[ $SCRIPT_DENYLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
+        is_denylisted=true
     fi
-    return $is_blacklisted
+    return $is_denylisted
 }
 
 i=0
 for assert_script in $ASSERTION_SCRIPTS; do
-  if[[ is_blacklisted $assert_script ]]; then continue; fi
+  if[[ $(is_denylisted $assert_script) ]]; then continue; fi
 
   reset_cluster
   START_FOR_QUERYING=$(date -u +"%Y-%m-%dT%TZ")
