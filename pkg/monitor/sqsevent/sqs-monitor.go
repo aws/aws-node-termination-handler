@@ -73,20 +73,6 @@ func (s skip) Unwrap() error {
 	return s.err
 }
 
-// TODO REMOVE
-// Used to completely ignore an error. Used when processing a non-terminating event
-type ignore struct {
-	err error
-}
-
-func (i ignore) Error() string {
-	return i.err.Error()
-}
-
-func (i ignore) Unwrap() error {
-	return i.err
-}
-
 // Kind denotes the kind of monitor
 func (m SQSMonitor) Kind() string {
 	return SQSMonitorKind
@@ -145,15 +131,14 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	return &event, err
 }
 
-// TODO Rename to parseLifecycleEvent, rename messageBody to message RENAME
-func messageToLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
+func parseLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 	lifecycleEventMessage := LifecycleDetailMessage{}
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(*messageBody), &lifecycleEventMessage)
 	if err != nil {
 		return lifecycleEvent, err
 	}
-	//TODO add comment about why Sprintf is needed COMMENT
+	// TODO add comment about why Sprintf is needed COMMENT
 	if lifecycleEventMessage.Message != nil {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 	} else {
@@ -166,8 +151,8 @@ func messageToLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
 	log.Debug().Msg("processing lifecycle event from ASG")
 	eventBridgeEvent := EventBridgeEvent{}
-	//TODO nil-check the pointer and pass in a string instead of a pointer LOGIC
-	lifecycleEvent, err := messageToLifecycleEvent(message.Body)
+	// TODO nil-check the pointer and pass in a string instead of a pointer LOGIC
+	lifecycleEvent, err := parseLifecycleEvent(message.Body)
 
 	switch {
 	case err != nil:
@@ -199,13 +184,13 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	var err error
 
 	switch eventBridgeEvent.Source {
-	//TODO add comment for other cases
+	// TODO add comment for other cases
 	case "aws.autoscaling":
 		lifecycleEvent := LifecycleDetail{}
 		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
-		//TODO handle err != nil
+		// TODO handle err != nil
 		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
-			interruptionEvent, err = m.continueAsgLaunchLifecycle(eventBridgeEvent, message)
+			interruptionEvent, err = m.createAsgInstanceLaunchEvent(eventBridgeEvent, message)
 		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 		}
@@ -236,13 +221,9 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0
 	var skipErr skip
-	var ignoreErr ignore
 
 	for _, eventWrapper := range interruptionEventWrappers {
 		switch {
-		case errors.As(eventWrapper.Err, &ignoreErr):
-			log.Warn().Err(ignoreErr).Msg("ASG launch cycle not continued")
-
 		case errors.As(eventWrapper.Err, &skipErr):
 			log.Warn().Err(skipErr).Msg("dropping event")
 			dropMessageSuggestionCount++

@@ -272,7 +272,7 @@ func main() {
 					event.InProgress = true
 					wg.Add(1)
 					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind, event.Monitor), event.Description)
-					go processInterruptionEventFunctions(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, clientset, &wg)
+					go processInterruptionEvent(interruptionEventStore, event, *node, nthConfig, nodeMetadata, metrics, recorder, clientset, &wg)
 				default:
 					log.Warn().Msg("all workers busy, waiting")
 					break EventLoop
@@ -344,8 +344,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 	}
 }
 
-// TODO rename to processInterruptionEvent RENAME
-func processInterruptionEventFunctions(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, clientset *kubernetes.Clientset, wg *sync.WaitGroup) {
+func processInterruptionEvent(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, clientset *kubernetes.Clientset, wg *sync.WaitGroup) {
 	defer wg.Done()
 	processASGLaunchLifecycleEvent(interruptionEventStore, drainEvent, node, nthConfig, nodeMetadata, metrics, recorder, clientset)
 	drainOrCordonIfNecessary(interruptionEventStore, drainEvent, node, nthConfig, nodeMetadata, metrics, recorder)
@@ -373,7 +372,7 @@ func processASGLaunchLifecycleEvent(interruptionEventStore *interruptioneventsto
 }
 
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
-	//TODO Use allow list instead of denylist LOGIC
+	// TODO Use allow list instead of denylist LOGIC
 	if drainEvent.Kind == monitor.ASGLaunchLifecycleKind {
 		return
 	}
@@ -452,7 +451,7 @@ func isNodeReady(instanceID string, clientset *kubernetes.Clientset) bool {
 	for _, node := range nodes {
 		conditions := node.Status.Conditions
 		for _, condition := range conditions {
-			//TODO combine if statements LOGIC
+			// TODO combine if statements LOGIC
 			if condition.Type != "Ready" {
 				continue
 			}
@@ -482,38 +481,33 @@ func getNodesWithInstanceID(instanceID string, clientset *kubernetes.Clientset) 
 }
 
 func getNodesWithInstanceFromLabel(instanceID string, clientset *kubernetes.Clientset) ([]v1.Node, error) {
-	instanceIDReq, err := labels.NewRequirement("alpha.eksctl.io/instance-id", selection.Equals, []string{instanceID})
+	instanceIDLabel := "alpha.eksctl.io/instance-id"
+	instanceIDReq, err := labels.NewRequirement(instanceIDLabel, selection.Equals, []string{instanceID})
 	if err != nil {
 		return nil, fmt.Errorf("bad label requirement: %w", err)
 	}
 	selector := labels.NewSelector().Add(*instanceIDReq)
-	options := metav1.ListOptions{LabelSelector: selector.String()}
-	return getNodes(options, clientset)
+	nodeList, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return nil, fmt.Errorf("retreiving nodes with label, %s, from cluster: %w", instanceIDLabel, err)
+	}
+	return nodeList.Items, nil
 }
 
 func getNodesWithInstanceFromProviderID(instanceID string, clientset *kubernetes.Clientset) ([]v1.Node, error) {
-	nodes, err := getNodes(metav1.ListOptions{}, clientset)
+	nodeList, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retreiving all nodes from cluster: %w", err)
 	}
 
 	var filteredNodes []v1.Node
-	for _, node := range nodes {
+	for _, node := range nodeList.Items {
 		if !strings.Contains(node.Spec.ProviderID, instanceID) {
 			continue
 		}
 		filteredNodes = append(filteredNodes, node)
 	}
 	return filteredNodes, nil
-}
-
-// TODO Remove method
-func getNodes(options metav1.ListOptions, clientset *kubernetes.Clientset) ([]v1.Node, error) {
-	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), options)
-	if err != nil {
-		return nil, fmt.Errorf("retreiving nodes from cluster: %w", err)
-	}
-	return nodes.Items, err
 }
 
 func runPreDrainTask(node node.Node, nodeName string, drainEvent *monitor.InterruptionEvent, metrics observability.Metrics, recorder observability.K8sEventRecorder) {

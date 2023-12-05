@@ -128,9 +128,8 @@ func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*
 	})
 }
 
-// TODO Rename to createAsgInstanceLaunchEvent RENAME
 // Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
-func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+func (m SQSMonitor) createAsgInstanceLaunchEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
 	if message == nil || event == nil {
 		return nil, fmt.Errorf("event message is nil for ASG Instance Launch Event creation")
 	}
@@ -142,7 +141,7 @@ func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message 
 	}
 
 	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
-		return nil, ignore{skip{fmt.Errorf("message is an ASG test notification")}}
+		return nil, skip{fmt.Errorf("message is an ASG test notification")}
 	}
 
 	nodeInfo, err := m.getNodeInfo(lifecycleDetail.EC2InstanceID)
