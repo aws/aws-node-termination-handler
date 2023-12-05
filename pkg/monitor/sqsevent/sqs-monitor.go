@@ -138,7 +138,7 @@ func parseLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 	if err != nil {
 		return lifecycleEvent, err
 	}
-	// TODO add comment about why Sprintf is needed COMMENT
+	// Converts escaped JSON object to string, to lifecycle event
 	if lifecycleEventMessage.Message != nil {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 	} else {
@@ -151,7 +151,10 @@ func parseLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
 	log.Debug().Msg("processing lifecycle event from ASG")
 	eventBridgeEvent := EventBridgeEvent{}
-	// TODO nil-check the pointer and pass in a string instead of a pointer LOGIC
+
+	if message == nil {
+		return eventBridgeEvent, fmt.Errorf("ASG event message is nil")
+	}
 	lifecycleEvent, err := parseLifecycleEvent(message.Body)
 
 	switch {
@@ -183,12 +186,18 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	interruptionEvent := &monitor.InterruptionEvent{}
 	var err error
 
+	if message == nil || eventBridgeEvent == nil {
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("event message is nil")})
+	}
+
 	switch eventBridgeEvent.Source {
-	// TODO add comment for other cases
+	// LifecycleTransitions other than LAUNCHING or TERMINATING will result in the interruptionEvent being uninitialized
 	case "aws.autoscaling":
 		lifecycleEvent := LifecycleDetail{}
 		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
-		// TODO handle err != nil
+		if err != nil {
+			interruptionEvent, err = nil, fmt.Errorf("unmarshaling message, %s, from ASG lifecycle event: %w", *message.MessageId, err)
+		}
 		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
 			interruptionEvent, err = m.createAsgInstanceLaunchEvent(eventBridgeEvent, message)
 		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {

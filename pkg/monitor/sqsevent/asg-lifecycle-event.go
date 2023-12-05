@@ -137,7 +137,7 @@ func (m SQSMonitor) createAsgInstanceLaunchEvent(event *EventBridgeEvent, messag
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshaling message, %s, from ASG lifecycle event: %w", *message.MessageId, err)
+		return nil, fmt.Errorf("unmarshaling message, %s, from ASG launch lifecycle event: %w", *message.MessageId, err)
 	}
 
 	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {

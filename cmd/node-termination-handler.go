@@ -357,8 +357,9 @@ func processASGLaunchLifecycleEvent(interruptionEventStore *interruptioneventsto
 		return
 	}
 
-	if !isNodeReady(drainEvent.InstanceID, clientset) {
-		log.Error().Str("instanceID", drainEvent.InstanceID).Msg("EC2 instance is not found and ready in cluster")
+	isNodeReady, err := isNodeReady(drainEvent.InstanceID, clientset)
+	if err != nil || !isNodeReady {
+		log.Error().Err(err).Str("instanceID", drainEvent.InstanceID).Msg("EC2 instance is not found and ready in cluster")
 		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 		return
 	}
@@ -436,16 +437,14 @@ func getNodeName(drainEvent *monitor.InterruptionEvent, node node.Node, nthConfi
 	return nodeName
 }
 
-// TODO make method return error
-func isNodeReady(instanceID string, clientset *kubernetes.Clientset) bool {
+func isNodeReady(instanceID string, clientset *kubernetes.Clientset) (bool, error) {
 	nodes, err := getNodesWithInstanceID(instanceID, clientset)
 	if err != nil {
-		log.Err(fmt.Errorf("getting nodes with instance ID: %w", err))
-		return false
+		return false, fmt.Errorf("getting nodes with instance ID: %w", err)
 	}
 
 	if len(nodes) == 0 {
-		return false
+		return false, fmt.Errorf("EC2 instance, %s, not found in cluster", instanceID)
 	}
 
 	for _, node := range nodes {
@@ -456,11 +455,11 @@ func isNodeReady(instanceID string, clientset *kubernetes.Clientset) bool {
 				continue
 			}
 			if condition.Status != "True" {
-				return false
+				return false, fmt.Errorf("ec2 instance, %s, found, but not ready in cluster", instanceID)
 			}
 		}
 	}
-	return true
+	return true, nil
 }
 
 // Gets Nodes connected to K8s cluster
