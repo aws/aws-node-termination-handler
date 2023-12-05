@@ -73,6 +73,7 @@ func (s skip) Unwrap() error {
 	return s.err
 }
 
+// TODO REMOVE
 // Used to completely ignore an error. Used when processing a non-terminating event
 type ignore struct {
 	err error
@@ -144,14 +145,15 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	return &event, err
 }
 
+// TODO Rename to parseLifecycleEvent, rename messageBody to message RENAME
 func messageToLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 	lifecycleEventMessage := LifecycleDetailMessage{}
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(*messageBody), &lifecycleEventMessage)
 	if err != nil {
-		// log.Err(err).Msg("processing JSON message of lifecycle event from ASG")
 		return lifecycleEvent, err
 	}
+	//TODO add comment about why Sprintf is needed COMMENT
 	if lifecycleEventMessage.Message != nil {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 	} else {
@@ -162,13 +164,14 @@ func messageToLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 
 // processLifecycleEventFromASG checks for a Lifecycle event from ASG to SQS, and wraps it in an EventBridgeEvent
 func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
+	log.Debug().Msg("processing lifecycle event from ASG")
 	eventBridgeEvent := EventBridgeEvent{}
+	//TODO nil-check the pointer and pass in a string instead of a pointer LOGIC
 	lifecycleEvent, err := messageToLifecycleEvent(message.Body)
 
 	switch {
 	case err != nil:
-		log.Err(err).Msg("only lifecycle events from ASG to SQS are supported outside EventBridge")
-		return eventBridgeEvent, err
+		return eventBridgeEvent, fmt.Errorf("parsing lifecycle event messsage from ASG: %w", err)
 
 	case lifecycleEvent.Event == TEST_NOTIFICATION || lifecycleEvent.LifecycleTransition == TEST_NOTIFICATION:
 		err := fmt.Errorf("message is a test notification")
@@ -179,17 +182,13 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 
 	case lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" &&
 		lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_LAUNCHING":
-		log.Err(err).Msg("only lifecycle termination events from ASG to SQS are supported outside EventBridge")
-		err = fmt.Errorf("unsupported message type (%s)", message.String())
-		return eventBridgeEvent, err
+		return eventBridgeEvent, fmt.Errorf("unsupported message type (%s) while parsing lifecycle event messsage from ASG", message.String())
 	}
 
 	eventBridgeEvent.Source = "aws.autoscaling"
 	eventBridgeEvent.Time = lifecycleEvent.Time
 	eventBridgeEvent.ID = lifecycleEvent.RequestID
 	eventBridgeEvent.Detail, err = json.Marshal(lifecycleEvent)
-
-	log.Debug().Msg("processing lifecycle event from ASG")
 	return eventBridgeEvent, err
 }
 
@@ -200,9 +199,11 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	var err error
 
 	switch eventBridgeEvent.Source {
+	//TODO add comment for other cases
 	case "aws.autoscaling":
 		lifecycleEvent := LifecycleDetail{}
 		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
+		//TODO handle err != nil
 		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
 			interruptionEvent, err = m.continueAsgLaunchLifecycle(eventBridgeEvent, message)
 		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {

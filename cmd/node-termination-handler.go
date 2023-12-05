@@ -106,7 +106,7 @@ func main() {
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal().Err(err).Msgf("retreiving cluster config: %v", err)
+		log.Fatal().Err(err).Msgf("retreiving cluster config")
 	}
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
@@ -344,6 +344,7 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 	}
 }
 
+// TODO rename to processInterruptionEvent RENAME
 func processInterruptionEventFunctions(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, clientset *kubernetes.Clientset, wg *sync.WaitGroup) {
 	defer wg.Done()
 	processASGLaunchLifecycleEvent(interruptionEventStore, drainEvent, node, nthConfig, nodeMetadata, metrics, recorder, clientset)
@@ -351,17 +352,19 @@ func processInterruptionEventFunctions(interruptionEventStore *interruptionevent
 	<-interruptionEventStore.Workers
 }
 
+// TODO move function and helpers to new package pkg/interruptioneventhandler/asg/launch
 func processASGLaunchLifecycleEvent(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, clientset *kubernetes.Clientset) {
 	if drainEvent.Kind != monitor.ASGLaunchLifecycleKind {
 		return
 	}
 
 	if !isNodeReady(drainEvent.InstanceID, clientset) {
-		log.Error().Msgf("new ASG instance, %s, has not connected to cluster", drainEvent.InstanceID)
+		log.Error().Str("instanceID", drainEvent.InstanceID).Msg("EC2 instance is not found and ready in cluster")
 		interruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 		return
 	}
 
+	log.Info().Str("instanceID", drainEvent.InstanceID).Msg("EC2 instance is found and ready in cluster")
 	nodeName := getNodeName(drainEvent, node, nthConfig)
 
 	if drainEvent.PostDrainTask != nil {
@@ -370,6 +373,7 @@ func processASGLaunchLifecycleEvent(interruptionEventStore *interruptioneventsto
 }
 
 func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Store, drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
+	//TODO Use allow list instead of denylist LOGIC
 	if drainEvent.Kind == monitor.ASGLaunchLifecycleKind {
 		return
 	}
@@ -418,6 +422,7 @@ func drainOrCordonIfNecessary(interruptionEventStore *interruptioneventstore.Sto
 	}
 }
 
+// TODO Restructure indentation LOGIC
 func getNodeName(drainEvent *monitor.InterruptionEvent, node node.Node, nthConfig config.Config) string {
 	nodeName := drainEvent.NodeName
 	if nthConfig.UseProviderId {
@@ -432,6 +437,7 @@ func getNodeName(drainEvent *monitor.InterruptionEvent, node node.Node, nthConfi
 	return nodeName
 }
 
+// TODO make method return error
 func isNodeReady(instanceID string, clientset *kubernetes.Clientset) bool {
 	nodes, err := getNodesWithInstanceID(instanceID, clientset)
 	if err != nil {
@@ -440,23 +446,21 @@ func isNodeReady(instanceID string, clientset *kubernetes.Clientset) bool {
 	}
 
 	if len(nodes) == 0 {
-		log.Error().Msg(fmt.Sprintf("ec2 instance, %s, not found in cluster", instanceID))
 		return false
 	}
 
 	for _, node := range nodes {
 		conditions := node.Status.Conditions
 		for _, condition := range conditions {
+			//TODO combine if statements LOGIC
 			if condition.Type != "Ready" {
 				continue
 			}
 			if condition.Status != "True" {
-				log.Error().Msg(fmt.Sprintf("ec2 instance, %s, found, but not ready in cluster", instanceID))
 				return false
 			}
 		}
 	}
-	log.Info().Msgf("new ASG instance, %s, is found and ready in cluster", instanceID)
 	return true
 }
 
@@ -503,6 +507,7 @@ func getNodesWithInstanceFromProviderID(instanceID string, clientset *kubernetes
 	return filteredNodes, nil
 }
 
+// TODO Remove method
 func getNodes(options metav1.ListOptions, clientset *kubernetes.Clientset) ([]v1.Node, error) {
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), options)
 	if err != nil {

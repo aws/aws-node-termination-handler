@@ -128,12 +128,17 @@ func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*
 	})
 }
 
+// TODO Rename to createAsgInstanceLaunchEvent RENAME
 // Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
 func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+	if message == nil || event == nil {
+		return nil, fmt.Errorf("event message is nil for ASG Instance Launch Event creation")
+	}
+
 	lifecycleDetail := &LifecycleDetail{}
 	err := json.Unmarshal(event.Detail, lifecycleDetail)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshaling ASG lifecycle event: %w", err)
+		return nil, fmt.Errorf("unmarshaling message, %s, from ASG lifecycle event: %w", *message.MessageId, err)
 	}
 
 	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
@@ -161,11 +166,9 @@ func (m SQSMonitor) continueAsgLaunchLifecycle(event *EventBridgeEvent, message 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
 		_, err = m.continueLifecycleAction(lifecycleDetail)
 		if err != nil {
-			return fmt.Errorf("continuing ASG launch lifecyle: %w", err)
+			return fmt.Errorf("continuing ASG launch lifecycle: %w", err)
 		}
-		log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
-			lifecycleDetail.LifecycleHookName,
-			lifecycleDetail.EC2InstanceID)
+		log.Info().Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).Str("instanceID", lifecycleDetail.EC2InstanceID).Msg("Completed ASG Lifecycle Hook")
 		return m.deleteMessage(message)
 	}
 
