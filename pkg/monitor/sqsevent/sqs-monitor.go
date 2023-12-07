@@ -131,10 +131,10 @@ func (m SQSMonitor) processSQSMessage(message *sqs.Message) (*EventBridgeEvent, 
 	return &event, err
 }
 
-func parseLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
+func parseLifecycleEvent(message string) (LifecycleDetail, error) {
 	lifecycleEventMessage := LifecycleDetailMessage{}
 	lifecycleEvent := LifecycleDetail{}
-	err := json.Unmarshal([]byte(*messageBody), &lifecycleEventMessage)
+	err := json.Unmarshal([]byte(message), &lifecycleEventMessage)
 	if err != nil {
 		return lifecycleEvent, err
 	}
@@ -142,7 +142,7 @@ func parseLifecycleEvent(messageBody *string) (LifecycleDetail, error) {
 	if lifecycleEventMessage.Message != nil {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 	} else {
-		err = json.Unmarshal([]byte(fmt.Sprintf("%v", *messageBody)), &lifecycleEvent)
+		err = json.Unmarshal([]byte(fmt.Sprintf("%v", message)), &lifecycleEvent)
 	}
 	return lifecycleEvent, err
 }
@@ -155,7 +155,7 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 	if message == nil {
 		return eventBridgeEvent, fmt.Errorf("ASG event message is nil")
 	}
-	lifecycleEvent, err := parseLifecycleEvent(message.Body)
+	lifecycleEvent, err := parseLifecycleEvent(*message.Body)
 
 	switch {
 	case err != nil:
