@@ -26,8 +26,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-var allowedKinds = []string{monitor.ASGLifecycleKind, monitor.RebalanceRecommendationKind, monitor.SQSTerminateKind, monitor.ScheduledEventKind,
-	monitor.SpotITNKind, monitor.StateChangeKind}
+var allowedKinds = []string{
+	monitor.ASGLifecycleKind,
+	monitor.RebalanceRecommendationKind,
+	monitor.SQSTerminateKind,
+	monitor.ScheduledEventKind,
+	monitor.SpotITNKind,
+	monitor.StateChangeKind,
+}
 
 type Handler struct {
 	commonHandler *common.Handler

@@ -63,13 +63,13 @@ func getNode(t *testing.T, drainHelper *drain.Helper) *node.Node {
 	return tNode
 }
 
-func getNewNode(nthConfig config.Config, client *fake.Clientset) (*node.Node, error) {
+func newNode(nthConfig config.Config, client *fake.Clientset) (*node.Node, error) {
 	drainHelper := getDrainHelper(client)
 	return node.NewWithValues(nthConfig, drainHelper, uptime.Uptime)
 }
 
 func TestDryRun(t *testing.T) {
-	tNode, err := getNewNode(config.Config{DryRun: true}, fake.NewSimpleClientset())
+	tNode, err := newNode(config.Config{DryRun: true}, fake.NewSimpleClientset())
 	h.Ok(t, err)
 
 	fakeRecorder := record.NewFakeRecorder(recorderBufferSize)
@@ -109,7 +109,7 @@ func TestDryRun(t *testing.T) {
 
 func TestNewFailure(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	_, err := getNewNode(config.Config{}, client)
+	_, err := newNode(config.Config{}, client)
 	h.Assert(t, true, "Failed to return error when creating new Node.", err != nil)
 }
 

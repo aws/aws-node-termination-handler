@@ -32,6 +32,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const instanceIDLabel = "alpha.eksctl.io/instance-id"
+
 type Handler struct {
 	commonHandler *common.Handler
 	clientset     *kubernetes.Clientset
@@ -64,7 +66,6 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) {
 		return
 	}
 
-	log.Info().Str("instanceID", drainEvent.InstanceID).Msg("EC2 instance is found and ready in cluster")
 	nodeName, err := h.commonHandler.GetNodeName(drainEvent)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to retrieve node name for ASG event processing")
@@ -78,21 +79,24 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) {
 func (h *Handler) isNodeReady(instanceID string) (bool, error) {
 	nodes, err := h.getNodesWithInstanceID(instanceID)
 	if err != nil {
-		return false, fmt.Errorf("getting nodes with instance ID: %w", err)
+		return false, fmt.Errorf("find node(s) with instanceId=%s: %w", instanceID, err)
 	}
 
 	if len(nodes) == 0 {
-		return false, fmt.Errorf("EC2 instance, %s, not found in cluster", instanceID)
+		log.Warn().Str("instanceID", instanceID).Msg("EC2 instance not found in cluster")
+		return false, nil
 	}
 
 	for _, node := range nodes {
 		conditions := node.Status.Conditions
 		for _, condition := range conditions {
 			if condition.Type == "Ready" && condition.Status != "True" {
-				return false, fmt.Errorf("EC2 instance, %s, found, but not ready in cluster", instanceID)
+				log.Warn().Str("instanceID", instanceID).Msg("EC2 instance found, but not ready in cluster")
+				return false, nil
 			}
 		}
 	}
+	log.Info().Str("instanceID", instanceID).Msg("EC2 instance is found and ready in cluster")
 	return true, nil
 }
 
@@ -114,15 +118,14 @@ func (h *Handler) getNodesWithInstanceID(instanceID string) ([]v1.Node, error) {
 }
 
 func (h *Handler) getNodesWithInstanceFromLabel(instanceID string) ([]v1.Node, error) {
-	instanceIDLabel := "alpha.eksctl.io/instance-id"
 	instanceIDReq, err := labels.NewRequirement(instanceIDLabel, selection.Equals, []string{instanceID})
 	if err != nil {
-		return nil, fmt.Errorf("bad label requirement: %w", err)
+		return nil, fmt.Errorf("construct node search requirement %s=%s: %w", instanceIDLabel, instanceID, err)
 	}
 	selector := labels.NewSelector().Add(*instanceIDReq)
 	nodeList, err := h.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		return nil, fmt.Errorf("retreiving nodes with label, %s, from cluster: %w", instanceIDLabel, err)
+		return nil, fmt.Errorf("list nodes using selector %q: %w", selector.String(), err)
 	}
 	return nodeList.Items, nil
 }
@@ -130,7 +133,7 @@ func (h *Handler) getNodesWithInstanceFromLabel(instanceID string) ([]v1.Node, e
 func (h *Handler) getNodesWithInstanceFromProviderID(instanceID string) ([]v1.Node, error) {
 	nodeList, err := h.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("retreiving all nodes from cluster: %w", err)
+		return nil, fmt.Errorf("list all nodes: %w", err)
 	}
 
 	var filteredNodes []v1.Node
