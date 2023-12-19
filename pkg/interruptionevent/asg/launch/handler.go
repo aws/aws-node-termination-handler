@@ -54,26 +54,34 @@ func New(interruptionEventStore *interruptioneventstore.Store, node node.Node, n
 	}
 }
 
-func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) {
+func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
+	if drainEvent == nil {
+		return fmt.Errorf("handling nil event")
+	}
+
 	if !common.IsAllowedKind(drainEvent.Kind, monitor.ASGLaunchLifecycleKind) {
-		return
+		return nil
 	}
 
 	isNodeReady, err := h.isNodeReady(drainEvent.InstanceID)
-	if err != nil || !isNodeReady {
-		log.Error().Err(err).Str("instanceID", drainEvent.InstanceID).Msg("EC2 instance is not found and ready in cluster")
+	if err != nil {
 		h.commonHandler.InterruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
-		return
+		return fmt.Errorf("EC2 instance is not found and ready in cluster instanceID=%s: %w", drainEvent.InstanceID, err)
+	}
+	if !isNodeReady {
+		h.commonHandler.InterruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
+		return fmt.Errorf("EC2 instance is not found and ready in cluster instanceID=%s", drainEvent.InstanceID)
 	}
 
 	nodeName, err := h.commonHandler.GetNodeName(drainEvent)
 	if err != nil {
-		log.Error().Err(err).Msg("unable to retrieve node name for ASG event processing")
+		return fmt.Errorf("unable to retrieve node name for ASG event processing: %w", err)
 	}
 
 	if drainEvent.PostDrainTask != nil {
 		h.commonHandler.RunPostDrainTask(nodeName, drainEvent)
 	}
+	return nil
 }
 
 func (h *Handler) isNodeReady(instanceID string) (bool, error) {
@@ -83,7 +91,7 @@ func (h *Handler) isNodeReady(instanceID string) (bool, error) {
 	}
 
 	if len(nodes) == 0 {
-		log.Warn().Str("instanceID", instanceID).Msg("EC2 instance not found in cluster")
+		log.Info().Str("instanceID", instanceID).Msg("EC2 instance not found in cluster")
 		return false, nil
 	}
 
@@ -91,7 +99,7 @@ func (h *Handler) isNodeReady(instanceID string) (bool, error) {
 		conditions := node.Status.Conditions
 		for _, condition := range conditions {
 			if condition.Type == "Ready" && condition.Status != "True" {
-				log.Warn().Str("instanceID", instanceID).Msg("EC2 instance found, but not ready in cluster")
+				log.Info().Str("instanceID", instanceID).Msg("EC2 instance found, but not ready in cluster")
 				return false, nil
 			}
 		}

@@ -60,7 +60,7 @@ const (
 )
 
 type interruptionEventHandler interface {
-	HandleEvent(*monitor.InterruptionEvent)
+	HandleEvent(*monitor.InterruptionEvent) error
 }
 
 func main() {
@@ -350,8 +350,17 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 
 func processInterruptionEvent(interruptionEventStore *interruptioneventstore.Store, event *monitor.InterruptionEvent, eventHandlers []interruptionEventHandler, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	if event == nil {
+		log.Error().Msg("processing nil interruption event")
+	}
+
+	var err error
 	for _, eventHandler := range eventHandlers {
-		eventHandler.HandleEvent(event)
+		err = eventHandler.HandleEvent(event)
+		if err != nil {
+			log.Error().Err(err).Interface("event", event).Msg("handling event")
+		}
 	}
 	<-interruptionEventStore.Workers
 }

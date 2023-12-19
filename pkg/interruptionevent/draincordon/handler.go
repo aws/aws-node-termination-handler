@@ -14,6 +14,8 @@
 package draincordon
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent/internal/common"
@@ -55,35 +57,39 @@ func New(interruptionEventStore *interruptioneventstore.Store, node node.Node, n
 	}
 }
 
-func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) {
+func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 	if !common.IsAllowedKind(drainEvent.Kind, allowedKinds...) {
-		return
+		return nil
 	}
 
 	nodeFound := true
 	nodeName, err := h.commonHandler.GetNodeName(drainEvent)
 	if err != nil {
-		log.Error().Err(err).Msg("unable to retrieve node name for draining or cordoning")
+		return fmt.Errorf("unable to retrieve node name for draining or cordoning: %w", err)
 	}
 
 	nodeLabels, err := h.commonHandler.Node.GetNodeLabels(nodeName)
 	if err != nil {
-		log.Err(err).Msgf("Unable to fetch node labels for node '%s' ", nodeName)
+		log.Warn().Err(err).Msgf("Unable to fetch node labels for nodeName=%s", nodeName)
 		nodeFound = false
+	} else {
+		drainEvent.NodeLabels = nodeLabels
 	}
-	drainEvent.NodeLabels = nodeLabels
+
 	if drainEvent.PreDrainTask != nil {
 		h.commonHandler.RunPreDrainTask(nodeName, drainEvent)
 	}
 
 	podNameList, err := h.commonHandler.Node.FetchPodNameList(nodeName)
 	if err != nil {
-		log.Err(err).Msgf("Unable to fetch running pods for node '%s' ", nodeName)
+		log.Warn().Err(err).Msgf("Unable to fetch running pods for nodeName=%s", nodeName)
+	} else {
+		drainEvent.Pods = podNameList
 	}
-	drainEvent.Pods = podNameList
+
 	err = h.commonHandler.Node.LogPods(podNameList, nodeName)
 	if err != nil {
-		log.Err(err).Msg("There was a problem while trying to log all pod names on the node")
+		log.Warn().Err(err).Msgf("There was a problem while trying to log all pod names on the node nodeName=%s", nodeName)
 	}
 
 	if h.commonHandler.NthConfig.CordonOnly || (!h.commonHandler.NthConfig.EnableSQSTerminationDraining && drainEvent.IsRebalanceRecommendation() && !h.commonHandler.NthConfig.EnableRebalanceDraining) {
@@ -105,6 +111,7 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) {
 	if (err == nil || (!nodeFound && h.commonHandler.NthConfig.DeleteSqsMsgIfNodeNotFound)) && drainEvent.PostDrainTask != nil {
 		h.commonHandler.RunPostDrainTask(nodeName, drainEvent)
 	}
+	return nil
 }
 
 func (h *Handler) cordonNode(nodeName string, drainEvent *monitor.InterruptionEvent) error {

@@ -136,27 +136,31 @@ func parseLifecycleEvent(message string) (LifecycleDetail, error) {
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(message), &lifecycleEventMessage)
 	if err != nil {
-		return lifecycleEvent, fmt.Errorf("unmarshalling SQS message body to extract Message field: %w", err)
+		return lifecycleEvent, fmt.Errorf("unmarshalling SQS message body to extract 'Message' field: %w", err)
 	}
 	// Converts escaped JSON object to string, to lifecycle event
 	if lifecycleEventMessage.Message != nil {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
-		err = fmt.Errorf("unmarshalling Message field from SQS message body: %w", err)
+		if err != nil {
+			err = fmt.Errorf("unmarshalling 'Message' field from SQS message body: %w", err)
+		}
 	} else {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", message)), &lifecycleEvent)
-		err = fmt.Errorf("unmarshalling SQS message body: %w", err)
+		if err != nil {
+			err = fmt.Errorf("unmarshalling SQS message body: %w", err)
+		}
 	}
 	return lifecycleEvent, err
 }
 
 // processLifecycleEventFromASG checks for a Lifecycle event from ASG to SQS, and wraps it in an EventBridgeEvent
 func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBridgeEvent, error) {
+	log.Debug().Interface("message", message).Msg("processing lifecycle event from ASG")
 	eventBridgeEvent := EventBridgeEvent{}
 
 	if message == nil {
 		return eventBridgeEvent, fmt.Errorf("ASG event message is nil")
 	}
-	log.Debug().Str("messageBody", *message.Body).Str("messageID", *message.MessageId).Msg("processing lifecycle event from ASG")
 	lifecycleEvent, err := parseLifecycleEvent(*message.Body)
 
 	switch {
@@ -172,7 +176,7 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 
 	case lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" &&
 		lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_LAUNCHING":
-		return eventBridgeEvent, fmt.Errorf("unsupported message type (%s) while parsing lifecycle event messsage from ASG", message.String())
+		return eventBridgeEvent, fmt.Errorf("unsupported lifecycle transition while parsing lifecycle event messsage from ASG lifecycleTransition=%s", lifecycleEvent.LifecycleTransition)
 	}
 
 	eventBridgeEvent.Source = "aws.autoscaling"
@@ -188,12 +192,16 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	interruptionEvent := &monitor.InterruptionEvent{}
 	var err error
 
-	if message == nil || eventBridgeEvent == nil {
-		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("event message is nil")})
+	if eventBridgeEvent == nil {
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("EventBridgeEvent is nil for EventBridgeEvent processing")})
+	}
+	if message == nil {
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("SQS message is nil for EventBridgeEvent processing")})
 	}
 
 	switch eventBridgeEvent.Source {
-	// LifecycleTransitions other than LAUNCHING or TERMINATING will result in the interruptionEvent being uninitialized
+	/* LifecycleTransitions other than LAUNCHING and TERMINATING are invalid values. These values result in uninitialized interruptionEvents, whose
+	   messages are later dropped */
 	case "aws.autoscaling":
 		lifecycleEvent := LifecycleDetail{}
 		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
