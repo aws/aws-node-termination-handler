@@ -14,6 +14,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 NODE_GROUP_CONFIG_FILE="$SCRIPTPATH/../eks-cluster-test/node_group-spec.yaml"
 account_id=$(aws sts get-caller-identity | jq -r '.Account')
 nth_label="Use-Case=NTH"
+heartbeat_timeout=$((3 * 60))
 
 ##### JSON FILES #####
 
@@ -235,8 +236,22 @@ function update_ASG {
 
     create_auto_scaling_role
     echo "🥑 Creating Lifecycle Hooks"
-    aws autoscaling put-lifecycle-hook --lifecycle-hook-name "Launch-LC-Hook" --auto-scaling-group-name $asg_name --lifecycle-transition="autoscaling:EC2_INSTANCE_LAUNCHING" --heartbeat-timeout=180 --notification-target-arn=$sns_arn --role-arn=$auto_scaling_role_arn --default-result="ABANDON"     
-    aws autoscaling put-lifecycle-hook --lifecycle-hook-name "Terminate-LC-Hook" --auto-scaling-group-name $asg_name --lifecycle-transition="autoscaling:EC2_INSTANCE_TERMINATING" --heartbeat-timeout=180 --notification-target-arn=$sns_arn --role-arn=$auto_scaling_role_arn --default-result="CONTINUE"
+    aws autoscaling put-lifecycle-hook \
+        --lifecycle-hook-name "Launch-LC-Hook" \
+        --auto-scaling-group-name $asg_name \
+        --lifecycle-transition="autoscaling:EC2_INSTANCE_LAUNCHING" \
+        --heartbeat-timeout=$heartbeat_timeout \
+        --notification-target-arn=$sns_arn \
+        --role-arn=$auto_scaling_role_arn \
+        --default-result="ABANDON"     
+    aws autoscaling put-lifecycle-hook \
+        --lifecycle-hook-name "Terminate-LC-Hook" \
+        --auto-scaling-group-name $asg_name \
+        --lifecycle-transition="autoscaling:EC2_INSTANCE_TERMINATING" \
+        --heartbeat-timeout=$heartbeat_timeout \
+        --notification-target-arn=$sns_arn \
+        --role-arn=$auto_scaling_role_arn \
+        --default-result="CONTINUE"
 }
 
 function create_auto_scaling_role {
@@ -339,6 +354,11 @@ function convert_date_to_epoch_seconds {
     IFS='.' read -r second fraction <<< "$second_fractional"
     IFS=':' read -r offset_hours offset_minutes <<< "${time_part:16:5}"
 
+    # Convert time strings to base-10 integers
+    year=$((10#$year + 0)); month=$((10#$month + 0)); day=$((10#$day + 0)) 
+    hour=$((10#$hour + 0)); minute=$((10#$minute + 0)); second=$((10#$second + 0))
+    offset_hours=$((10#$offset_hours + 0)); offset_minutes=$((10#$offset_minutes + 0))
+
     if [[ $time_part =~ .*"-".* ]]; then
         offset_hours=$((offset_hours * -1))
         offset_minutes=$((offset_minutes * -1))
@@ -389,12 +409,11 @@ function test_launch_lifecycle {
     aws sqs receive-message --queue-url $queue_url
     echo -n "🥑 Waiting for launch hook completion."
 
-    max_duration=$((4 * 60))
     start_time=$(date +%s)
     while [[ true ]]; do
         current_time=$(date +%s)
         elapsed_time=$((current_time - start_time))
-        if [[ $elapsed_time -ge $max_duration ]]; then 
+        if [[ $elapsed_time -ge $heartbeat_timeout ]]; then 
             echo ""
             echo "❌ Launch Lifecycle not Completed. Timeout Reached ❌"
             exit 1
@@ -405,17 +424,9 @@ function test_launch_lifecycle {
             echo ""
             echo "✅ Launch Lifecycle Successfully Completed ✅"
             exit 0
-        fi
-
-        if [[ $activity_status == "Cancelled" ]]; then
+        elif [[ $activity_status == "Cancelled" || $activity_status == "Failed" ]]; then
             echo ""
-            echo "❌ Launch Lifecycle Cancelled ❌"
-            exit 1
-        fi
-
-        if [[ $activity_status == "Failed" ]]; then
-            echo ""
-            echo "❌ Launch Lifecycle Failed ❌"
+            echo "❌ Launch Lifecycle $activity_status ❌"
             exit 1
         fi
         echo -n "."
@@ -430,9 +441,8 @@ function clean_up {
     echo "🧹  Cleaning up SQS, SNS, NodeGroup, IAM, FIS  🧹"
     echo "====================================================================================================="
     print_logs
-    echo "🥑 Uninstalling NTH helm chart"
-    helm uninstall "$CLUSTER_NAME-acth" -n kube-system
-    delete_node_group
+    uninstall_helm
+    delete_node_group_policy
     if [[ -n $subscription_arn ]]; then 
         echo "🥑 Unsubscribing SNS from SQS"
         aws sns unsubscribe --subscription-arn $subscription_arn
@@ -465,13 +475,23 @@ function print_logs {
     pod_id=$(get_nth_worker_pod || :)
     if [[ -n $pod_id ]]; then
         kubectl logs $pod_id --namespace kube-system || :
+    else 
+        echo "❌ Failed to get pod ID. Unable to print logs ❌"
     fi
 }
 
-function delete_node_group {
-    echo "Node Role Name: $node_role_name"
+function uninstall_helm {
+    helm_exists=$(helm ls -A | grep "$CLUSTER_NAME-acth")
+    if [[ -n $helm_exists ]]; then 
+        echo "🥑 Uninstalling NTH helm chart"
+        helm uninstall "$CLUSTER_NAME-acth" -n kube-system
+    fi
+}
+
+function delete_node_group_policy {
+    if [[ -z $node_role_name || -z $node_policy_name ]]; then return; fi
+
     node_policy_exists=$(aws iam list-attached-role-policies --role-name $node_role_name | grep "$node_policy_name" || :)
-    echo $node_policy_exists
     if [[ -n $node_policy_exists ]]; then
         echo "🥑 Detaching NTH Node Group policy"
         aws iam detach-role-policy --role-name $node_role_name --policy-arn $node_policy_arn

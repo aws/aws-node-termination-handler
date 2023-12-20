@@ -353,6 +353,8 @@ func processInterruptionEvent(interruptionEventStore *interruptioneventstore.Sto
 
 	if event == nil {
 		log.Error().Msg("processing nil interruption event")
+		<-interruptionEventStore.Workers
+		return
 	}
 
 	var err error

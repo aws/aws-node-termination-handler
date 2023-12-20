@@ -65,12 +65,16 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 	nodeFound := true
 	nodeName, err := h.commonHandler.GetNodeName(drainEvent)
 	if err != nil {
-		return fmt.Errorf("unable to retrieve node name for draining or cordoning: %w", err)
+		return fmt.Errorf("get node name for instanceID=%s: %w", drainEvent.InstanceID, err)
 	}
 
 	nodeLabels, err := h.commonHandler.Node.GetNodeLabels(nodeName)
 	if err != nil {
-		log.Warn().Err(err).Msgf("Unable to fetch node labels for nodeName=%s", nodeName)
+		log.Warn().
+			Err(err).
+			Interface("fallbackNodeLabels", drainEvent.NodeLabels).
+			Str("nodeName", nodeName).
+			Msg("Failed to get node labels. Proceeding with fallback labels")
 		nodeFound = false
 	} else {
 		drainEvent.NodeLabels = nodeLabels
@@ -82,14 +86,18 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 
 	podNameList, err := h.commonHandler.Node.FetchPodNameList(nodeName)
 	if err != nil {
-		log.Warn().Err(err).Msgf("Unable to fetch running pods for nodeName=%s", nodeName)
+		log.Warn().
+			Err(err).
+			Strs("fallbackPodNames", podNameList).
+			Str("nodeName", nodeName).
+			Msg("Failed to fetch pod names. Proceeding with fallback pod names")
 	} else {
 		drainEvent.Pods = podNameList
 	}
 
 	err = h.commonHandler.Node.LogPods(podNameList, nodeName)
 	if err != nil {
-		log.Warn().Err(err).Msgf("There was a problem while trying to log all pod names on the node nodeName=%s", nodeName)
+		log.Warn().Err(err).Str("nodeName", nodeName).Msg("Failed to log pods")
 	}
 
 	if h.commonHandler.NthConfig.CordonOnly || (!h.commonHandler.NthConfig.EnableSQSTerminationDraining && drainEvent.IsRebalanceRecommendation() && !h.commonHandler.NthConfig.EnableRebalanceDraining) {

@@ -38,7 +38,9 @@ const (
 	// SQSMonitorKind is a const to define this monitor kind
 	SQSMonitorKind = "SQS_MONITOR"
 	// ASGTagName is the name of the instance tag whose value is the AutoScaling group name
-	ASGTagName = "aws:autoscaling:groupName"
+	ASGTagName                        = "aws:autoscaling:groupName"
+	ASGTerminatingLifecycleTransition = "autoscaling:EC2_INSTANCE_TERMINATING"
+	ASGLaunchingLifecycleTransition   = "autoscaling:EC2_INSTANCE_LAUNCHING"
 )
 
 // SQSMonitor is a struct definition that knows how to process events from Amazon EventBridge
@@ -136,18 +138,18 @@ func parseLifecycleEvent(message string) (LifecycleDetail, error) {
 	lifecycleEvent := LifecycleDetail{}
 	err := json.Unmarshal([]byte(message), &lifecycleEventMessage)
 	if err != nil {
-		return lifecycleEvent, fmt.Errorf("unmarshalling SQS message body to extract 'Message' field: %w", err)
+		return lifecycleEvent, fmt.Errorf("unmarshalling SQS message: %w", err)
 	}
 	// Converts escaped JSON object to string, to lifecycle event
 	if lifecycleEventMessage.Message != nil {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", lifecycleEventMessage.Message)), &lifecycleEvent)
 		if err != nil {
-			err = fmt.Errorf("unmarshalling 'Message' field from SQS message body: %w", err)
+			err = fmt.Errorf("unmarshalling message body from '.Message': %w", err)
 		}
 	} else {
 		err = json.Unmarshal([]byte(fmt.Sprintf("%v", message)), &lifecycleEvent)
 		if err != nil {
-			err = fmt.Errorf("unmarshalling SQS message body: %w", err)
+			err = fmt.Errorf("unmarshalling message body: %w", err)
 		}
 	}
 	return lifecycleEvent, err
@@ -174,9 +176,9 @@ func (m SQSMonitor) processLifecycleEventFromASG(message *sqs.Message) (EventBri
 		}
 		return eventBridgeEvent, skip{err}
 
-	case lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" &&
-		lifecycleEvent.LifecycleTransition != "autoscaling:EC2_INSTANCE_LAUNCHING":
-		return eventBridgeEvent, fmt.Errorf("unsupported lifecycle transition while parsing lifecycle event messsage from ASG lifecycleTransition=%s", lifecycleEvent.LifecycleTransition)
+	case lifecycleEvent.LifecycleTransition != ASGTerminatingLifecycleTransition &&
+		lifecycleEvent.LifecycleTransition != ASGLaunchingLifecycleTransition:
+		return eventBridgeEvent, fmt.Errorf("lifecycle transition must be %s or %s. Got %s", ASGTerminatingLifecycleTransition, ASGLaunchingLifecycleTransition, lifecycleEvent.LifecycleTransition)
 	}
 
 	eventBridgeEvent.Source = "aws.autoscaling"
@@ -193,27 +195,27 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 	var err error
 
 	if eventBridgeEvent == nil {
-		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("EventBridgeEvent is nil for EventBridgeEvent processing")})
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("eventBridgeEvent is nil")})
 	}
 	if message == nil {
-		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("SQS message is nil for EventBridgeEvent processing")})
+		return append(interruptionEventWrappers, InterruptionEventWrapper{nil, fmt.Errorf("message is nil")})
 	}
 
 	switch eventBridgeEvent.Source {
-	/* LifecycleTransitions other than LAUNCHING and TERMINATING are invalid values. These values result in uninitialized interruptionEvents, whose
-	   messages are later dropped */
 	case "aws.autoscaling":
 		lifecycleEvent := LifecycleDetail{}
 		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
 		if err != nil {
 			interruptionEvent, err = nil, fmt.Errorf("unmarshaling message, %s, from ASG lifecycle event: %w", *message.MessageId, err)
 		}
-		if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_LAUNCHING" {
+		if lifecycleEvent.LifecycleTransition == ASGLaunchingLifecycleTransition {
 			interruptionEvent, err = m.createAsgInstanceLaunchEvent(eventBridgeEvent, message)
-		} else if lifecycleEvent.LifecycleTransition == "autoscaling:EC2_INSTANCE_TERMINATING" {
+			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
+		} else if lifecycleEvent.LifecycleTransition == ASGTerminatingLifecycleTransition {
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
+			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 		}
-		return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
+		return interruptionEventWrappers
 
 	case "aws.ec2":
 		if eventBridgeEvent.DetailType == "EC2 Instance State-change Notification" {
