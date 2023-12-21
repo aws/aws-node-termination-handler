@@ -218,8 +218,9 @@ You'll need the following AWS infrastructure components:
 
 1. Amazon Simple Queue Service (SQS) Queue
 2. AutoScaling Group Termination Lifecycle Hook
-3. Amazon EventBridge Rule
-4. IAM Role for the aws-node-termination-handler Queue Processing Pods
+3. AutoScaling Group Launch Lifecycle Hook (optional)
+4. Amazon EventBridge Rule
+5. IAM Role for the aws-node-termination-handler Queue Processing Pods
 
 #### 1. Create an SQS Queue:
 
@@ -294,7 +295,37 @@ aws autoscaling put-lifecycle-hook \
   --role-arn <your SQS access role ARN here>
 ```
 
-#### 3. Tag the Instances:
+#### 3. Create an ASG Launch Lifecycle Hook (optional):
+
+If [Capacity Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html) is configured for your ASG, then a new instance will be launched upon another's termination. The use of an ASG launch lifecycle hook, as configured below, can verify the new instance has successfully connected as a Kubernetes node.
+
+Here is the AWS CLI command to create a launch lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+
+```
+aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-launch-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
+  --default-result="ABANDON" \
+  --heartbeat-timeout=300
+```
+
+If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
+
+```
+aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-term-launch-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
+  --default-result="ABANDON" \
+  --heartbeat-timeout=300 \
+  --notification-target-arn <your test queue ARN here> \
+  --role-arn <your SQS access role ARN here>
+```    
+
+The hook will be completed by NTH upon the instance's verified connection as a node. If not, the ABANDON default result will cause the instance to be terminated, and a new one to replace it repeating the same verification process.
+
+#### 4. Tag the Instances:
 
 By default the aws-node-termination-handler will only manage terminations for instances tagged with `key=aws-node-termination-handler/managed`.
 The value of the key does not matter.
@@ -320,7 +351,7 @@ You can also control what resources NTH manages by adding the resource ARNs to y
 
 Take a look at the docs on how to [create rules that only manage certain ASGs](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html), and read about all the [supported ASG events](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-event-reference.html).
 
-#### 4. Create Amazon EventBridge Rules
+#### 5. Create Amazon EventBridge Rules
 
 You may skip this step if sending events from ASG to SQS directly.
 
@@ -367,7 +398,7 @@ aws events put-targets --rule MyK8sScheduledChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 
-#### 5. Create an IAM Role for the Pods
+#### 6. Create an IAM Role for the Pods
 
 There are many different ways to allow the aws-node-termination-handler pods to assume a role:
 
