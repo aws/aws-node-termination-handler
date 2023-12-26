@@ -218,9 +218,11 @@ You'll need the following AWS infrastructure components:
 
 1. Amazon Simple Queue Service (SQS) Queue
 2. AutoScaling Group Termination Lifecycle Hook
-3. AutoScaling Group Launch Lifecycle Hook (optional)
-4. Amazon EventBridge Rule
-5. IAM Role for the aws-node-termination-handler Queue Processing Pods
+3. Amazon EventBridge Rule
+4. IAM Role for the aws-node-termination-handler Queue Processing Pods
+
+Optional AWS infrastructure components:
+1. AutoScaling Group Launch Lifecycle Hook
 
 #### 1. Create an SQS Queue:
 
@@ -271,7 +273,9 @@ There are some caveats when using [server side encryption with SQS](https://docs
 
 #### 2. Create an ASG Termination Lifecycle Hook:
 
-Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+##### 2.1. Send Notification via EventBridge
+
+This will configure ASG to send termination notifications to EventBridge.
 
 ```
 aws autoscaling put-lifecycle-hook \
@@ -282,7 +286,9 @@ aws autoscaling put-lifecycle-hook \
   --heartbeat-timeout=300
 ```
 
-If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
+##### 2.2. Send notifications directly to SQS
+
+This will configure ASG to send termination notifications directly to an SQS queue monitored by NTH.
 
 ```
 aws autoscaling put-lifecycle-hook \
@@ -291,39 +297,43 @@ aws autoscaling put-lifecycle-hook \
   --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
   --default-result=CONTINUE \
   --heartbeat-timeout=300 \
-  --notification-target-arn <your test queue ARN here> \
+  --notification-target-arn <your queue ARN here> \
   --role-arn <your SQS access role ARN here>
 ```
 
-#### 3. Create an ASG Launch Lifecycle Hook (optional):
+#### 3. Handle ASG Instance Launch Lifecycle Notifications (optional):
 
-If [Capacity Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html) is configured for your ASG, then a new instance will be launched upon another's termination. The use of an ASG launch lifecycle hook, as configured below, can verify the new instance has successfully connected as a Kubernetes node.
+If [Capacity Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html) is configured for your ASG, a new instance will be launched before another's termination. The use of an ASG launch lifecycle hook, as configured below, can verify the new instance has successfully connected as a Kubernetes node.
 
-Here is the AWS CLI command to create a launch lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
+##### 3.1. Send Notification via EventBridge
+
+This will configure ASG to send launch notifications to EventBridge.
 
 ```
 aws autoscaling put-lifecycle-hook \
-  --lifecycle-hook-name=my-k8s-term-launch-hook \
+  --lifecycle-hook-name=my-k8s-launch-hook \
   --auto-scaling-group-name=my-k8s-asg \
   --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
   --default-result="ABANDON" \
   --heartbeat-timeout=300
 ```
 
-If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
+##### 3.2. Send notifications directly to SQS
+
+This will configure ASG to send launch notifications directly to an SQS queue monitored by NTH.
 
 ```
 aws autoscaling put-lifecycle-hook \
-  --lifecycle-hook-name=my-k8s-term-launch-hook \
+  --lifecycle-hook-name=my-k8s-launch-hook \
   --auto-scaling-group-name=my-k8s-asg \
   --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
   --default-result="ABANDON" \
   --heartbeat-timeout=300 \
-  --notification-target-arn <your test queue ARN here> \
+  --notification-target-arn <your queue ARN here> \
   --role-arn <your SQS access role ARN here>
 ```    
 
-The hook will be completed by NTH upon the instance's verified connection as a node. If not, the ABANDON default result will cause the instance to be terminated, and a new one to replace it repeating the same verification process.
+When NTH receives a launch notification, it will periodically check for a node backed by the EC2 instance to join the cluster and for the node to have a status of 'ready.' Once a node becomes ready, NTH will complete the lifecycle hook, prompting the ASG to proceed with terminating the previous instance. If the lifecycle hook is not completed before the timeout, the ASG will take the default action. If the default action is 'ABANDON,' the new instance will be terminated, and the notification process will be repeated with another new instance.
 
 #### 4. Tag the Instances:
 
