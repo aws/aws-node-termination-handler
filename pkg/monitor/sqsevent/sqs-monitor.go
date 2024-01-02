@@ -207,6 +207,7 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 		err = json.Unmarshal([]byte(eventBridgeEvent.Detail), &lifecycleEvent)
 		if err != nil {
 			interruptionEvent, err = nil, fmt.Errorf("unmarshaling message, %s, from ASG lifecycle event: %w", *message.MessageId, err)
+			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 		}
 		if lifecycleEvent.LifecycleTransition == ASGLaunchingLifecycleTransition {
 			interruptionEvent, err = m.createAsgInstanceLaunchEvent(eventBridgeEvent, message)

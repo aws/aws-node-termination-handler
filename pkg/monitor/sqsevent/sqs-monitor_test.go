@@ -67,6 +67,26 @@ var asgLifecycleEvent = sqsevent.EventBridgeEvent{
 	  }`),
 }
 
+var asgLaunchLifecycleEvent = sqsevent.EventBridgeEvent{
+	Version:    "0",
+	ID:         "83c632dd-0145-1ab0-ae93-a756ebf429b5",
+	DetailType: "EC2 Instance-launch Lifecycle Action",
+	Source:     "aws.autoscaling",
+	Account:    "123456789012",
+	Time:       "2020-07-01T22:30:58Z",
+	Region:     "us-east-1",
+	Resources: []string{
+		"arn:aws:autoscaling:us-east-1:123456789012:autoScalingGroup:c4c64181-52c1-dd3f-20bb-f4a0965a09db:autoScalingGroupName/nth-test1",
+	},
+	Detail: []byte(`{
+		"LifecycleActionToken": "524632c5-3333-d52d-3992-d9633ec24ed7",
+		"AutoScalingGroupName": "nth-test1",
+		"LifecycleHookName": "node-termination-handler-launch",
+		"EC2InstanceId": "i-0a68bf5ef13e21b52",
+		"LifecycleTransition": "autoscaling:EC2_INSTANCE_LAUNCHING"
+	  }`),
+}
+
 var asgLifecycleEventFromSQS = sqsevent.LifecycleDetail{
 	LifecycleHookName:    "test-nth-asg-to-sqs",
 	RequestID:            "3775fac9-93c3-7ead-8713-159816566000",
@@ -352,7 +372,7 @@ func TestMonitor_DrainTasks(t *testing.T) {
 }
 
 func TestMonitor_DrainTasks_Delay(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	msg, err := getSQSMessageFromEvent(asgLaunchLifecycleEvent)
 	h.Ok(t, err)
 
 	sqsMock := h.MockedSQS{
@@ -384,13 +404,12 @@ func TestMonitor_DrainTasks_Delay(t *testing.T) {
 	err = sqsMonitor.Monitor()
 	h.Ok(t, err)
 
-	t.Run(asgLifecycleEvent.DetailType, func(st *testing.T) {
+	t.Run(asgLaunchLifecycleEvent.DetailType, func(st *testing.T) {
 		result := <-drainChan
-		h.Equals(st, monitor.ASGLifecycleKind, result.Kind)
+		h.Equals(st, monitor.ASGLaunchLifecycleKind, result.Kind)
 		h.Equals(st, sqsevent.SQSMonitorKind, result.Monitor)
 		h.Equals(st, result.NodeName, dnsNodeName)
 		h.Assert(st, result.PostDrainTask != nil, "PostDrainTask should have been set")
-		h.Assert(st, result.PreDrainTask != nil, "PreDrainTask should have been set")
 		err := result.PostDrainTask(result, node.Node{})
 		h.Ok(st, err)
 		h.Assert(st, hookCalled, "BeforeCompleteLifecycleAction hook not called")
@@ -457,7 +476,7 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 }
 
 func TestMonitor_DrainTasksASGFailure(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	msg, err := getSQSMessageFromEvent(asgLaunchLifecycleEvent)
 	h.Ok(t, err)
 	messages := []*sqs.Message{
 		&msg,
@@ -492,11 +511,10 @@ func TestMonitor_DrainTasksASGFailure(t *testing.T) {
 
 	select {
 	case result := <-drainChan:
-		h.Equals(t, monitor.ASGLifecycleKind, result.Kind)
+		h.Equals(t, monitor.ASGLaunchLifecycleKind, result.Kind)
 		h.Equals(t, sqsevent.SQSMonitorKind, result.Monitor)
 		h.Equals(t, result.NodeName, dnsNodeName)
 		h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
-		h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
 		err = result.PostDrainTask(result, node.Node{})
 		h.Nok(t, err)
 	default:
