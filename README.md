@@ -218,8 +218,9 @@ You'll need the following AWS infrastructure components:
 
 1. Amazon Simple Queue Service (SQS) Queue
 2. AutoScaling Group Termination Lifecycle Hook
-3. Amazon EventBridge Rule
-4. IAM Role for the aws-node-termination-handler Queue Processing Pods
+3. Instance Tagging
+4. Amazon EventBridge Rule
+5. IAM Role for the aws-node-termination-handler Queue Processing Pods
 
 Optional AWS infrastructure components:
 1. AutoScaling Group Launch Lifecycle Hook
@@ -273,9 +274,7 @@ There are some caveats when using [server side encryption with SQS](https://docs
 
 #### 2. Create an ASG Termination Lifecycle Hook:
 
-##### 2.1. Send Notification via EventBridge
-
-This will configure ASG to send termination notifications to EventBridge.
+Here is the AWS CLI command to create a termination lifecycle hook on an existing ASG when using EventBridge, although this should really be configured via your favorite infrastructure-as-code tool like CloudFormation or Terraform:
 
 ```
 aws autoscaling put-lifecycle-hook \
@@ -286,9 +285,7 @@ aws autoscaling put-lifecycle-hook \
   --heartbeat-timeout=300
 ```
 
-##### 2.2. Send notifications directly to SQS
-
-This will configure ASG to send termination notifications directly to an SQS queue monitored by NTH.
+If you want to avoid using EventBridge and instead send ASG Lifecycle events directly to SQS, instead use the following command, using the ARNs from Step 1:
 
 ```
 aws autoscaling put-lifecycle-hook \
@@ -301,41 +298,7 @@ aws autoscaling put-lifecycle-hook \
   --role-arn <your SQS access role ARN here>
 ```
 
-#### 3. Handle ASG Instance Launch Lifecycle Notifications (optional):
-
-If [Capacity Rebalance](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html) is configured for your ASG, a new instance will be launched before another's termination. The use of an ASG launch lifecycle hook, as configured below, can verify the new instance has successfully connected as a Kubernetes node.
-
-##### 3.1. Send Notification via EventBridge
-
-This will configure ASG to send launch notifications to EventBridge.
-
-```
-aws autoscaling put-lifecycle-hook \
-  --lifecycle-hook-name=my-k8s-launch-hook \
-  --auto-scaling-group-name=my-k8s-asg \
-  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
-  --default-result="ABANDON" \
-  --heartbeat-timeout=300
-```
-
-##### 3.2. Send notifications directly to SQS
-
-This will configure ASG to send launch notifications directly to an SQS queue monitored by NTH.
-
-```
-aws autoscaling put-lifecycle-hook \
-  --lifecycle-hook-name=my-k8s-launch-hook \
-  --auto-scaling-group-name=my-k8s-asg \
-  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
-  --default-result="ABANDON" \
-  --heartbeat-timeout=300 \
-  --notification-target-arn <your queue ARN here> \
-  --role-arn <your SQS access role ARN here>
-```    
-
-When NTH receives a launch notification, it will periodically check for a node backed by the EC2 instance to join the cluster and for the node to have a status of 'ready.' Once a node becomes ready, NTH will complete the lifecycle hook, prompting the ASG to proceed with terminating the previous instance. If the lifecycle hook is not completed before the timeout, the ASG will take the default action. If the default action is 'ABANDON,' the new instance will be terminated, and the notification process will be repeated with another new instance.
-
-#### 4. Tag the Instances:
+#### 3. Tag the Instances:
 
 By default the aws-node-termination-handler will only manage terminations for instances tagged with `key=aws-node-termination-handler/managed`.
 The value of the key does not matter.
@@ -361,7 +324,7 @@ You can also control what resources NTH manages by adding the resource ARNs to y
 
 Take a look at the docs on how to [create rules that only manage certain ASGs](https://docs.aws.amazon.com/autoscaling/ec2/userguide/cloud-watch-events.html), and read about all the [supported ASG events](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-event-reference.html).
 
-#### 5. Create Amazon EventBridge Rules
+#### 4. Create Amazon EventBridge Rules
 
 You may skip this step if sending events from ASG to SQS directly.
 
@@ -408,7 +371,7 @@ aws events put-targets --rule MyK8sScheduledChangeRule \
   --targets "Id"="1","Arn"="arn:aws:sqs:us-east-1:123456789012:MyK8sTermQueue"
 ```
 
-#### 6. Create an IAM Role for the Pods
+#### 5. Create an IAM Role for the Pods
 
 There are many different ways to allow the aws-node-termination-handler pods to assume a role:
 
@@ -438,6 +401,36 @@ IAM Policy for aws-node-termination-handler Deployment:
     ]
 }
 ```
+
+#### 1. Handle ASG Instance Launch Lifecycle Notifications (optional):
+
+NTH can monitor for new instances launched by an ASG and notify the ASG when the instance is available in the EKS cluster.
+
+NTH will need to receive notifications of new instance launches within the ASG.  We can add a lifecycle hook to the ASG that will send instance launch notifications via EventBridge:
+
+```
+aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-launch-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
+  --default-result="ABANDON" \
+  --heartbeat-timeout=300
+```
+
+Alternatively, ASG can send the instance launch notification directly to an SQS Queue:
+
+```
+aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-launch-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
+  --default-result="ABANDON" \
+  --heartbeat-timeout=300 \
+  --notification-target-arn <your queue ARN here> \
+  --role-arn <your SQS access role ARN here>
+```    
+
+When NTH receives a launch notification, it will periodically check for a node backed by the EC2 instance to join the cluster and for the node to have a status of 'ready.' Once a node becomes ready, NTH will complete the lifecycle hook, prompting the ASG to proceed with terminating the previous instance. If the lifecycle hook is not completed before the timeout, the ASG will take the default action. If the default action is 'ABANDON', the new instance will be terminated, and the notification process will be repeated with another new instance.
 
 ### Installation
 
