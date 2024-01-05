@@ -275,7 +275,7 @@ kubectl label node "${CLUSTER_NAME}-worker" "$(echo $NTH_WORKER_LABEL | tr -d '\
 kubectl taint node "${CLUSTER_NAME}-worker2" CriticalAddonsOnly=true:NoSchedule --overwrite
 
 function is_denylisted {
-    if [[ $SCRIPT_DENYLIST =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
+    if [[ ${SCRIPT_DENYLIST[*]} =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then 
         return 0
     fi
     return 1

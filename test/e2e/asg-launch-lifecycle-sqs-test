@@ -6,15 +6,16 @@ sqs_queue_name="nth-sqs-test"
 sns_topic_name="nth-sns-test"
 node_policy_name="nth-test-node-policy"
 auto_scaling_role_name="AWSServiceRoleForAutoScaling_nth-test"
-auto_scaling_policy_arn="arn:aws:iam::aws:policy/aws-service-role/AutoScalingServiceRolePolicy"
 fis_role_name="nth-test-fis-role"
 fis_template_name="nth-fis-test"
 fis_policy_arn="arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorEC2Access"
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-NODE_GROUP_CONFIG_FILE="$SCRIPTPATH/../eks-cluster-test/node_group-spec.yaml"
 account_id=$(aws sts get-caller-identity | jq -r '.Account')
 nth_label="Use-Case=NTH"
 heartbeat_timeout=$((3 * 60))
+LAUNCH_CHECK_CYCLES=15
+LAUNCH_ACTIVITY_CHECK_SLEEP=15
+LAUNCH_STATUS_CHECK_SLEEP=$((heartbeat_timeout / LAUNCH_CHECK_CYCLES))
 
 ##### JSON FILES #####
 
@@ -212,18 +213,16 @@ function create_node_policy {
 
 function get_node_role_name {
     node_role_arn=$(aws eks describe-nodegroup --cluster-name $CLUSTER_NAME --nodegroup-name $node_group_name | jq -r .nodegroup.nodeRole)
-    split_node_role_arn=($(tr '/' ' ' <<< $node_role_arn))
-    node_role_name=${split_node_role_arn[1]}
+    IFS="/" read -r -a node_role_arn_array <<< "$node_role_arn"
+    node_role_name=${node_role_arn_array[1]}
 }
 
 function set_node_data {
     instance_ids=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $asg_name | jq -r '.AutoScalingGroups | .[0].Instances | .[].InstanceId')
     instance_data=$(aws ec2 describe-instances --instance-ids $instance_ids | jq -r '[.Reservations | .[].Instances | .[].InstanceId, .[].PrivateDnsName]')
 
-    nth_node_id=$(jq -r '.[0]' <<< $instance_data)
     nth_node_ip=$(jq -r '.[1]' <<< $instance_data)
     termination_node_id=$(jq -r '.[2]' <<< $instance_data)
-    termination_node_ip=$(jq -r '.[3]' <<< $instance_data)
 }
 
 function update_ASG {
@@ -255,19 +254,20 @@ function update_ASG {
 }
 
 function create_auto_scaling_role {
-    auto_scaling_role_exists=$(aws iam get-role --role-name=$auto_scaling_role_name | grep "$auto_scaling_role_name" || :)
+    auto_scaling_role_exists=$(aws iam get-role --role-name=$auto_scaling_role_name 2> /dev/null | grep "$auto_scaling_role_name" || :) 
     if [[ -z $auto_scaling_role_exists ]]; then
         echo "🥑 Creating Auto Scaling Role"
         auto_scaling_role_arn=$(aws iam create-service-linked-role --aws-service-name autoscaling.amazonaws.com --custom-suffix "nth-test" | jq -r '.Role.Arn')
         sleep 10
     else
         echo "🥑 $auto_scaling_role_name already exists; continuing with test run"
-        auto_scaling_role_arn=$(aws iam get-role --role-name=$auto_scaling_role_name | jq -r '.Role.Arn')
+        auto_scaling_role_arn=$(aws iam get-role --role-name=$auto_scaling_role_name 2> /dev/null | jq -r '.Role.Arn')
     fi
 }
 
 ### HELM ###
 function install_helm {
+    get_aws_credentials
 
     anth_helm_args=(
         upgrade
@@ -280,8 +280,8 @@ function install_helm {
         --set image.pullPolicy="Always"
         --set nodeSelector."${nth_label}"
         --set tolerations[0].operator=Exists
-        --set awsAccessKeyID=$(aws --profile default configure get aws_access_key_id)
-        --set awsSecretAccessKey=$(aws --profile default configure get aws_secret_access_key)
+        --set awsAccessKeyID="$aws_access_key_id"
+        --set awsSecretAccessKey="$aws_secret_access_key"
         --set awsRegion="${REGION}"
         --set checkTagBeforeDraining=false
         --set enableSqsTerminationDraining=true
@@ -296,9 +296,24 @@ function install_helm {
     sleep 15
 }
 
+function get_aws_credentials {
+    echo "🥑 Retrieving AWS Credentials"
+    aws_access_key_id=$(aws --profile default configure get aws_access_key_id 2> /dev/null)
+    if [[ -z $aws_access_key_id ]]; then
+        echo "❌ Failed to retrieve AWS Access Key ❌"
+        exit 1
+    fi
+
+    aws_secret_access_key=$(aws --profile default configure get aws_secret_access_key 2> /dev/null)
+    if [[ -z $aws_access_key_id ]]; then
+        echo "❌ Failed to retrieve AWS Secret Access Key ❌"
+        exit 1
+    fi
+}
+
 ### FIS ###
 function create_FIS_role {
-    fis_role_exists=$(aws iam get-role --role-name $fis_role_name | grep "$fis_role_name" || :)
+    fis_role_exists=$(aws iam get-role --role-name $fis_role_name 2> /dev/null | grep "$fis_role_name" || :)
     if [[ -z $fis_role_exists ]]; then
         echo "🥑 Creating FIS Role"
         fis_role_arn=$(aws iam create-role --role-name $fis_role_name --assume-role-policy-document file:///tmp/fis-role-trust-policy.json | jq -r '.Role.Arn')
@@ -306,7 +321,7 @@ function create_FIS_role {
         sleep 10
     else
         echo "🥑 $fis_role_name already exists; continuing with test run"
-        fis_role_arn=$(aws iam get-role --role-name=$fis_role_name | jq -r '.Role.Arn')
+        fis_role_arn=$(aws iam get-role --role-name=$fis_role_name 2> /dev/null | jq -r '.Role.Arn')
     fi
 }
 
@@ -335,28 +350,21 @@ function start_FIS_experiment {
     create_experiment_template
     echo "🥑 Starting Experiment"
     experiment_start_time=$(date +%s)
-    experiment=$(aws fis start-experiment --experiment-template-id $template_id)
+    aws fis start-experiment --experiment-template-id $template_id > /dev/null
 }
 
 
 ##### TESTING #####
-function is_new_instance {
-    is_new="true"
-    if [[ $instance_ids =~ (^|[[:space:]])$1($|[[:space:]]) ]]; then
-        is_new="false"
-    fi
-}
-
 function convert_date_to_epoch_seconds {
     IFS='T' read -r date_part time_part <<< "$1"
     IFS='-' read -r year month day <<< "$date_part"
     IFS=':' read -r hour minute second_fractional <<< "$time_part"
-    IFS='.' read -r second fraction <<< "$second_fractional"
+    IFS='.' read -r -a seconds_array <<< "$second_fractional"
     IFS=':' read -r offset_hours offset_minutes <<< "${time_part:16:5}"
 
     # Convert time strings to base-10 integers
     year=$((10#$year + 0)); month=$((10#$month + 0)); day=$((10#$day + 0)) 
-    hour=$((10#$hour + 0)); minute=$((10#$minute + 0)); second=$((10#$second + 0))
+    hour=$((10#$hour + 0)); minute=$((10#$minute + 0)); second=$((10#${seconds_array[0]} + 0))
     offset_hours=$((10#$offset_hours + 0)); offset_minutes=$((10#$offset_minutes + 0))
 
     if [[ $time_part =~ .*"-".* ]]; then
@@ -365,60 +373,47 @@ function convert_date_to_epoch_seconds {
     fi
 
     total_days=$(((year - 1970) * 365 + (year - 1970)/4))
-    for ((i = 1; i < month; i++)); do
-        total_days=$((total_days + $(cal $i $year | awk 'NF {DAYS = $NF} END {print DAYS}')))
+    for ((k = 1; k < month; k++)); do
+        total_days=$((total_days + $(cal $k $year | awk 'NF {DAYS = $NF} END {print DAYS}')))
     done
     total_days=$((total_days + day - 1))
     total_seconds=$((total_days * 86400 + (hour + offset_hours) * 3600 + (minute + offset_minutes) * 60 + second))
 }
 
 function get_launch_activity {
-    max_duration=$((5 * 60))
-    start_time=$(date +%s)
-
+    echo "🥑 Finding launch activity "
     launch_activity=""
-    while [[ -z $launch_activity ]]; do
-        current_time=$(date +%s)
-        elapsed_time=$((current_time - start_time))
-        if [[ $elapsed_time -ge $max_duration ]]; then 
-            echo "❌ Failed to find a new launched instance. Timeout Reached ❌"
-            exit 1
-        fi
-
-        sleep 5
+    for i in $(seq 1 $LAUNCH_CHECK_CYCLES); do
         activities=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name $asg_name)
-        activities_details=$(jq -r '[.Activities | .[] | .ActivityId, .Description, .StatusCode, .StartTime]' <<< $activities)
+        activities_details=$(jq -r '[.Activities | .[] | .ActivityId, .Description, .StartTime]' <<< $activities)
         num_activities=$(jq -r 'length' <<< $activities_details)
-        for i in $(seq 0 4 $((--num_activities))); do
-            id=$(jq -r .[$i] <<< $activities_details)
-            description=$(jq -r .[$((++i))] <<< $activities_details)
-            status=$(jq -r .[$((i+=2))] <<< $activities_details)
-            start=$(jq -r .[$((i+=3))] <<< $activities_details)
+        for j in $(seq 0 3 $((--num_activities))); do
+            id=$(jq -r .[$j] <<< $activities_details)
+            description=$(jq -r .[$((++j))] <<< $activities_details)
+            start=$(jq -r .[$((j+=2))] <<< $activities_details)
             activity_instance=${description##*:}
             convert_date_to_epoch_seconds $start
             if [[ $description =~ .*"Launching".* && $total_seconds -gt $experiment_start_time ]]; then
                 launch_activity=$id
-                echo "🥑 Launch Activity found for instance $activity_instance"
-                break
+                break 2
             fi    
         done
+
+        echo "Setup Loop $i/$LAUNCH_CHECK_CYCLES, sleeping for $LAUNCH_ACTIVITY_CHECK_SLEEP seconds"
+        sleep $LAUNCH_ACTIVITY_CHECK_SLEEP
     done
+
+    if [[ -n $launch_activity ]]; then 
+        echo "✅ Launch Activity found for instance $activity_instance"
+    else
+        echo "❌ Failed to find a new launched instance ❌"
+        exit 1
+    fi
 }
 
 function test_launch_lifecycle {
-    aws sqs receive-message --queue-url $queue_url
-    echo -n "🥑 Waiting for launch hook completion."
-
-    start_time=$(date +%s)
-    while [[ true ]]; do
-        current_time=$(date +%s)
-        elapsed_time=$((current_time - start_time))
-        if [[ $elapsed_time -ge $heartbeat_timeout ]]; then 
-            echo ""
-            echo "❌ Timeout Reached ❌"
-            exit 1
-        fi
-
+    echo "🥑 Verifying launch hook completion "
+    for i in $(seq 1 $LAUNCH_CHECK_CYCLES); do
         activity_status=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name $asg_name --activity-ids $launch_activity | jq -r '.Activities | .[].StatusCode')
         if [[ $activity_status == "Successful" ]]; then
             echo ""
@@ -429,9 +424,13 @@ function test_launch_lifecycle {
             echo "❌ Launch Lifecycle $activity_status ❌"
             exit 1
         fi
-        echo -n "."
-        sleep 10
+        
+        echo "Assertion Loop $i/$LAUNCH_CHECK_CYCLES, sleeping for $LAUNCH_STATUS_CHECK_SLEEP seconds"
+        sleep $LAUNCH_STATUS_CHECK_SLEEP
     done
+
+    echo "❌ Failed to verify launch hook completion ❌"
+    exit 1
 }
 
 
@@ -457,14 +456,14 @@ function clean_up {
     fi
     if [[ -n $template_id ]]; then 
         echo "🥑 Deleting FIS experiment template"
-        deletedTemplate=$(aws fis delete-experiment-template --id $template_id --no-paginate)
+        aws fis delete-experiment-template --id $template_id --no-paginate > /dev/null
     fi
     echo "🥑 Detaching FIS role policy"
     aws iam detach-role-policy --role-name $fis_role_name --policy-arn $fis_policy_arn
     echo "🥑 Deleting FIS role"
     aws iam delete-role --role-name $fis_role_name
     echo "🥑 Deleting autoscaling role"
-    aws iam delete-service-linked-role --role-name $auto_scaling_role_name
+    aws iam delete-service-linked-role --role-name $auto_scaling_role_name > /dev/null
     if [[ -n $node_policy_arn ]]; then
         echo "🥑 Deleting Node role policy"
         aws iam delete-policy --policy-arn $node_policy_arn
