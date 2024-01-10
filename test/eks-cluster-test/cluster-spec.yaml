@@ -10,9 +10,12 @@ cloudWatch:
     enableTypes: ["*"]
 managedNodeGroups:
   - name: linux-ng
-    instanceType: t3.large
+    instanceType: t3.medium
+    amiFamily: AmazonLinux2
+    desiredCapacity: 2
     minSize: 2
     maxSize: 2
+    spot: true
 nodeGroups:
   - name: windows-ng
     instanceType: m5.large

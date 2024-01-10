@@ -151,7 +151,7 @@ echo "INSTANCE_METADATA_URL=${INSTANCE_METADATA_URL:=$EC2_METADATA_URL}"
 
 # Label first linux node in cluster; nth will be deployed to this node ONLY -- NEEDED FOR LINUX RUN ONLY:
 if [[ $TEST_OS = "linux" ]]; then
-  nth_node=$(kubectl get node --selector="kubernetes.io/os=linux" --output jsonpath='{.items[-1].metadata.name}')
+  nth_node=$(kubectl get node --selector="kubernetes.io/os=linux" --output jsonpath='{.items[0].metadata.name}')
   export NTH_WORKER_LABEL="role=nth_worker"
   kubectl label nodes $nth_node $NTH_WORKER_LABEL --overwrite
 fi
@@ -171,10 +171,7 @@ if ! kubectl get svc >/dev/null 2>&1; then
     exit 1
 fi
 
-TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$TEST_OS |
-    tail -n +2 |
-    tr -s "\t" " " |
-    cut -d" " -f1)
+TEST_NODE=$(kubectl get nodes -l kubernetes.io/os=$TEST_OS --output jsonpath='{.items[0].metadata.name}')
 export TEST_NODE
 echo "TEST_NODE=${TEST_NODE:?"not found"}"
 
