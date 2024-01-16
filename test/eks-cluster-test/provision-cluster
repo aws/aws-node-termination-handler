@@ -20,7 +20,7 @@ CLUSTER_NAME="nth-eks-cluster-test"
 cluster_exists=$(eksctl get cluster --region $REGION | grep "$CLUSTER_NAME" || :)
 if [[ -z $cluster_exists ]]; then
   echo "🥑 Provisioning EKS cluster"
-  eksctl create cluster -f $CLUSTER_CONFIG_FILE --install-vpc-controllers
+  eksctl create cluster -f $CLUSTER_CONFIG_FILE
 else
   echo "🥑 $CLUSTER_NAME already exists; continuing with test run"
 fi
