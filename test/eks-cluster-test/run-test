@@ -194,7 +194,6 @@ function reset_cluster {
 
 if [[ -z ${assertion_scripts+x} ]]; then
     assertion_scripts=(
-        "$SCRIPTPATH/../e2e/asg-launch-lifecycle-sqs-test"
         "$SCRIPTPATH/../e2e/cordon-only-test"
         "$SCRIPTPATH/../e2e/imds-v2-test"
         "$SCRIPTPATH/../e2e/maintenance-event-cancellation-test"
@@ -206,6 +205,8 @@ if [[ -z ${assertion_scripts+x} ]]; then
         #"$SCRIPTPATH/../e2e/webhook-http-proxy-test"
         #"$SCRIPTPATH/../e2e/webhook-secret-test"
         "$SCRIPTPATH/../e2e/webhook-test"
+        # This test terminates nodes in the cluster and needs to be run last
+        "$SCRIPTPATH/../e2e/asg-launch-lifecycle-sqs-test"
     )
 fi
 
