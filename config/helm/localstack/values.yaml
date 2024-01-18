@@ -13,8 +13,8 @@ label: localstack
 port: 80
 containerPort: 4566
 image:
-  repository: localstack/localstack-light
-  tag: 0.11.2@sha256:d14cc1102e61c6daf6d416e3c9b0f3a7bc78330e93afdd9dfa6a461e776bb8a1
+  repository: localstack/localstack
+  tag: 3.0.2
   pullPolicy: IfNotPresent
 tolerations:
   - operator: "Exists"
