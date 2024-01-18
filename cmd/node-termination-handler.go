@@ -248,8 +248,6 @@ loop:
 		select {
 		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
-			// exit = true
-			wg.Done()
 			break loop
 		default:
 		EventLoop:
