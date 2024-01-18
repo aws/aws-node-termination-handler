@@ -243,11 +243,14 @@ func main() {
 
 	var wg sync.WaitGroup
 
+loop:
 	for range time.NewTicker(1 * time.Second).C {
 		select {
 		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
-			break
+			// exit = true
+			wg.Done()
+			break loop
 		default:
 		EventLoop:
 			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
