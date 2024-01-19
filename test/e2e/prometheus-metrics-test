@@ -162,11 +162,27 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         fi
     done
     if [ -z $failed ]; then
-        exit 0
+        break
     fi
     echo "Metrics Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
     sleep $TAINT_CHECK_SLEEP
 done
 
-echo "❌ Failed checking metric for $METRIC"
-exit 3
+if [[ -n $failed ]];then
+    exit 4
+fi
+
+metric_name="actions_total"
+for action in cordon-and-drain pre-drain; do
+    labels='node_action="'$action'",node_status="success",otel_scope_name="aws.node.termination.handler",otel_scope_version=""'
+    query="$metric_name{$labels}"
+    counter_value=$(echo "$METRICS_RESPONSE" | grep -E "${query}[[:space:]]+[0-9]+" | awk '{print $NF}')
+    if (($counter_value <= 1)); then
+        echo "❌ Failed counter count for metric action:$action"
+        exit 5
+    fi
+    echo "✅ Fetched counter:$counter_value for metric with action:$action"
+done
+
+
+exit 0
