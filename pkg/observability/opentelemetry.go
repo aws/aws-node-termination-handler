@@ -106,6 +106,8 @@ func (m Metrics) NodeActionsInc(action, nodeName string, eventID string, err err
 func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
+	// Deprecated: actionsCounter metric has a high label cardinality, resulting in numerous time-series which utilize
+	// a large amount of memory. Use actionsCounterV2 metric instead.
 	name := "actions.node"
 	actionsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions per node"))
 	if err != nil {
@@ -113,6 +115,7 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	}
 	actionsCounter.Add(context.Background(), 0)
 
+	// Recommended replacement for actionsCounter metric
 	name = "actions"
 	actionsCounterV2, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions"))
 	if err != nil {
