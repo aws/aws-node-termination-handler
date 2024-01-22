@@ -31,6 +31,8 @@ const (
 	StateChangeKind = "STATE_CHANGE"
 	// ASGLifecycleKind is a const to define an ASG Lifecycle kind of interruption event
 	ASGLifecycleKind = "ASG_LIFECYCLE"
+	// ASGLifecycleKind is a const to define an ASG Launch Lifecycle kind of interruption event
+	ASGLaunchLifecycleKind = "ASG_LAUNCH_LIFECYCLE"
 	// SQSTerminateKind is a const to define an SQS termination kind of interruption event
 	SQSTerminateKind = "SQS_TERMINATE"
 )

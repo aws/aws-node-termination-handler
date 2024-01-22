@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 )
 
@@ -80,7 +79,7 @@ type K8sEventRecorder struct {
 }
 
 // InitK8sEventRecorder creates a Kubernetes event recorder
-func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetadata ec2metadata.NodeMetadata, extraAnnotationsStr string) (K8sEventRecorder, error) {
+func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetadata ec2metadata.NodeMetadata, extraAnnotationsStr string, clientSet *kubernetes.Clientset) (K8sEventRecorder, error) {
 	if !enabled {
 		return K8sEventRecorder{}, nil
 	}
@@ -105,16 +104,6 @@ func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetad
 		if err != nil {
 			return K8sEventRecorder{}, err
 		}
-	}
-
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return K8sEventRecorder{}, err
-	}
-
-	clientSet, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return K8sEventRecorder{}, err
 	}
 
 	broadcaster := record.NewBroadcaster()

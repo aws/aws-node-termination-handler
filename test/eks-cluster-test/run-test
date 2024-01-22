@@ -205,6 +205,8 @@ if [[ -z ${assertion_scripts+x} ]]; then
         #"$SCRIPTPATH/../e2e/webhook-http-proxy-test"
         #"$SCRIPTPATH/../e2e/webhook-secret-test"
         "$SCRIPTPATH/../e2e/webhook-test"
+        # This test terminates nodes in the cluster and needs to be run last
+        "$SCRIPTPATH/../e2e/asg-launch-lifecycle-sqs-test"
     )
 fi
 

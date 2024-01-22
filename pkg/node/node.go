@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/drain"
 )
 
@@ -84,8 +83,8 @@ type Node struct {
 }
 
 // New will construct a node struct to perform various node function through the kubernetes api server
-func New(nthConfig config.Config) (*Node, error) {
-	drainHelper, err := getDrainHelper(nthConfig)
+func New(nthConfig config.Config, clientset *kubernetes.Clientset) (*Node, error) {
+	drainHelper, err := getDrainHelper(nthConfig, clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -634,7 +633,7 @@ func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 	})
 }
 
-func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
+func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*drain.Helper, error) {
 	drainHelper := &drain.Helper{
 		Ctx:                 context.TODO(),
 		Client:              &kubernetes.Clientset{},
@@ -652,17 +651,7 @@ func getDrainHelper(nthConfig config.Config) (*drain.Helper, error) {
 		return drainHelper, nil
 	}
 
-	clusterConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(clusterConfig)
-	if err != nil {
-		return nil, err
-	}
 	drainHelper.Client = clientset
-
 	return drainHelper, nil
 }
 

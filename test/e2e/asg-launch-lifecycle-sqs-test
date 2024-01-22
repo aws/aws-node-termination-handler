@@ -1,0 +1,509 @@
+#!/bin/bash
+set -euo pipefail
+
+node_group_name="linux-ng"
+sqs_queue_name="nth-sqs-test"
+sns_topic_name="nth-sns-test"
+node_policy_name="nth-test-node-policy"
+auto_scaling_role_name="AWSServiceRoleForAutoScaling_nth-test"
+fis_role_name="nth-test-fis-role"
+fis_template_name="nth-fis-test"
+fis_policy_arn="arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorEC2Access"
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+account_id=$(aws sts get-caller-identity | jq -r '.Account')
+nth_label="Use-Case=NTH"
+heartbeat_timeout=$((3 * 60))
+LAUNCH_CHECK_CYCLES=15
+LAUNCH_ACTIVITY_CHECK_SLEEP=15
+LAUNCH_STATUS_CHECK_SLEEP=$((heartbeat_timeout / LAUNCH_CHECK_CYCLES))
+
+##### JSON FILES #####
+
+### SQS ###
+sqs_queue_policy=$(cat <<EOF
+{
+    "Version": "2012-10-17",
+    "Id": "MyQueuePolicy",
+    "Statement": [{
+        "Effect": "Allow",
+        "Principal": {
+            "Service": ["events.amazonaws.com", "sqs.amazonaws.com"]
+        },
+        "Action": "sqs:SendMessage",
+        "Resource": [
+            "arn:aws:sqs:${REGION}:${account_id}:${sqs_queue_name}"
+        ]
+    }]
+}
+EOF
+)
+
+cat << EOF > /tmp/sqs-subscription-policy.json
+{
+    "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"MyQueuePolicy\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"events.amazonaws.com\",\"sqs.amazonaws.com\"]},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:${REGION}:${account_id}:${sqs_queue_name}\"},{\"Sid\":\"topic-subscription-arn:aws:sns:${REGION}:${account_id}:${sns_topic_name}\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"SQS:SendMessage\",\"Resource\":\"arn:aws:sqs:${REGION}:${account_id}:${sqs_queue_name}\",\"Condition\":{\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:sns:${REGION}:${account_id}:${sns_topic_name}\"}}}]}"
+}
+EOF
+
+cat << EOF > /tmp/queue-attributes.json
+{
+    "MessageRetentionPeriod": "300",
+    "Policy": "$(echo $sqs_queue_policy | sed 's/\"/\\"/g' | tr -d -s '\n' " ")",
+    "SqsManagedSseEnabled": "true"
+}
+EOF
+
+### NODEGROUP ###
+cat << EOF > /tmp/nth-nodegroup-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:CompleteLifecycleAction",
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:DescribeTags",
+                "ec2:DescribeInstances",
+                "sqs:DeleteMessage",
+                "sqs:ReceiveMessage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+
+### FIS ###
+cat << EOF > /tmp/fis-role-trust-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": [
+                "fis.amazonaws.com"
+                ]
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+EOF
+
+function create_FIS_Template_JSON {
+cat << EOF > /tmp/fis-experiment-template.json
+{
+    "description": "Test Spot Instance interruptions",
+    "targets": {
+        "oneSpotInstance": {
+            "resourceType": "aws:ec2:spot-instance",
+            "resourceTags": {
+                "Name": "interruptMe"
+            },
+            "filters": [
+                {
+                    "path": "State.Name",
+                    "values": [
+                        "running"
+                    ]
+                }
+            ],
+            "selectionMode": "COUNT(1)"
+        }
+    },
+    "actions": {
+        "interruptSpotInstance": {
+            "actionId": "aws:ec2:send-spot-instance-interruptions",
+            "parameters": {
+                "durationBeforeInterruption": "PT2M"
+            },
+            "targets": {
+                "SpotInstances": "oneSpotInstance"
+            }
+        }
+    },
+    "stopConditions": [
+        {
+            "source": "none"
+        }
+    ],
+    "roleArn": "$fis_role_arn",
+    "tags": {
+        "Name": "$fis_template_name"
+    }
+}
+EOF
+}
+
+
+##### SETUP #####
+
+function validate_aws_account {
+    if [[ -n "$account_id" ]]; then
+        echo "🥑 AWS Account ID: $account_id"
+    else
+        echo "❌ Failed to retrieve AWS Account ID ❌"
+        exit 1
+    fi
+}
+
+### SQS ###
+function provision_sqs_queue {
+    queue_exists=$(aws sqs list-queues --queue-name-prefix $sqs_queue_name)
+    if [[ -z $queue_exists ]]; then
+        echo "🥑 Provisioning SQS Queue"
+        queue_url=$(aws sqs create-queue --queue-name "${sqs_queue_name}" --attributes file:///tmp/queue-attributes.json | jq -r .QueueUrl)
+    else 
+        echo "🥑 $sqs_queue_name already exists; continuing with test run"
+        queue_url=$(aws sqs list-queues --queue-name-prefix $sqs_queue_name | jq -r '.QueueUrls | .[0]')
+    fi
+    sqs_arn=$(aws sqs get-queue-attributes --queue-url=$queue_url --attribute-names=QueueArn | jq -r .Attributes.QueueArn)
+    aws sqs set-queue-attributes --queue-url $queue_url --attributes file:///tmp/sqs-subscription-policy.json
+}
+
+### SNS ###
+function provision_sns_topic {
+    topic_exists=$(aws sns list-topics | grep "$sns_topic_name" || :)
+    if [[ -z $topic_exists ]]; then
+        echo "🥑 Provisioning SNS Topic"
+        sns_arn=$(aws sns create-topic --name $sns_topic_name | jq -r .TopicArn)
+    else 
+        echo "🥑 $sns_topic_name already exists; continuing with test run"
+        sns_arn=$(aws sns list-topics | jq -r '.Topics | .[].TopicArn' | grep "$sns_topic_name")
+    fi
+}
+
+function subscribe_sqs_to_sns {
+    num_subscriptions=$(aws sns list-subscriptions-by-topic --topic-arn $sns_arn | jq '.Subscriptions | length')
+    if [[ $num_subscriptions -eq 0 ]]; then
+        echo "🥑 Subscribing $sns_topic_name to $sqs_queue_name"
+        subscription_arn=$(aws sns subscribe --topic-arn $sns_arn --protocol sqs --notification-endpoint $sqs_arn | jq -r .SubscriptionArn)
+    else 
+        echo "🥑 $sns_topic_name already subscribed to $sqs_queue_name; continuing with test run"
+        subscription_arn=$(aws sns list-subscriptions-by-topic --topic-arn $sns_arn | jq -r '.Subscriptions | .[0].SubscriptionArn')
+    fi
+}
+
+### NODEGROUP ###
+function update_node_group {
+    create_node_policy
+
+    echo "🥑 Attaching Node policy to Node role"
+    get_node_role_name
+    aws iam attach-role-policy --role-name $node_role_name --policy-arn $node_policy_arn
+
+    update_ASG
+    set_node_data
+    kubectl label nodes $nth_node_ip $nth_label
+}
+
+function create_node_policy {
+    node_policy_exists=$(aws iam list-policies | grep "$node_policy_name" || :)
+    if [[ -z $node_policy_exists ]]; then
+        echo "🥑 Creating Node policy"
+        node_policy_arn=$(aws iam create-policy --policy-name $node_policy_name --policy-document file:///tmp/nth-nodegroup-policy.json | jq -r .Policy.Arn)
+    else 
+        echo "🥑 $node_policy_name already exists; continuing with test run"
+        node_policy_arn=$(aws iam list-policies | jq -r --arg policy_name $node_policy_name '.Policies | .[] | select(.PolicyName | contains($policy_name)) | .Arn')
+    fi
+
+    sleep 10
+}
+
+function get_node_role_name {
+    node_role_arn=$(aws eks describe-nodegroup --cluster-name $CLUSTER_NAME --nodegroup-name $node_group_name | jq -r .nodegroup.nodeRole)
+    IFS="/" read -r -a node_role_arn_array <<< "$node_role_arn"
+    node_role_name=${node_role_arn_array[1]}
+}
+
+function set_node_data {
+    instance_ids=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $asg_name | jq -r '.AutoScalingGroups | .[0].Instances | .[].InstanceId')
+    instance_data=$(aws ec2 describe-instances --instance-ids $instance_ids | jq -r '[.Reservations | .[].Instances | .[].InstanceId, .[].PrivateDnsName]')
+
+    nth_node_ip=$(jq -r '.[1]' <<< $instance_data)
+    termination_node_id=$(jq -r '.[2]' <<< $instance_data)
+}
+
+function update_ASG {
+    asg_name=$(eksctl get nodegroup --cluster=$CLUSTER_NAME --name=$node_group_name --output=json | jq -r '.[0].AutoScalingGroupName')
+
+    echo "🥑 Setting Capacity Rebalance"
+    aws autoscaling update-auto-scaling-group --auto-scaling-group-name $asg_name --capacity-rebalance
+    echo "🥑 Tagging ASG"
+    aws autoscaling create-or-update-tags --tags ResourceId=$asg_name,ResourceType=auto-scaling-group,Key=aws-node-termination-handler/managed,Value=,PropagateAtLaunch=true
+
+    create_auto_scaling_role
+    echo "🥑 Creating Lifecycle Hooks"
+    aws autoscaling put-lifecycle-hook \
+        --lifecycle-hook-name "Launch-LC-Hook" \
+        --auto-scaling-group-name $asg_name \
+        --lifecycle-transition="autoscaling:EC2_INSTANCE_LAUNCHING" \
+        --heartbeat-timeout=$heartbeat_timeout \
+        --notification-target-arn=$sns_arn \
+        --role-arn=$auto_scaling_role_arn \
+        --default-result="ABANDON"     
+    aws autoscaling put-lifecycle-hook \
+        --lifecycle-hook-name "Terminate-LC-Hook" \
+        --auto-scaling-group-name $asg_name \
+        --lifecycle-transition="autoscaling:EC2_INSTANCE_TERMINATING" \
+        --heartbeat-timeout=$heartbeat_timeout \
+        --notification-target-arn=$sns_arn \
+        --role-arn=$auto_scaling_role_arn \
+        --default-result="CONTINUE"
+}
+
+function create_auto_scaling_role {
+    auto_scaling_role_exists=$(aws iam get-role --role-name=$auto_scaling_role_name 2> /dev/null | grep "$auto_scaling_role_name" || :) 
+    if [[ -z $auto_scaling_role_exists ]]; then
+        echo "🥑 Creating Auto Scaling Role"
+        auto_scaling_role_arn=$(aws iam create-service-linked-role --aws-service-name autoscaling.amazonaws.com --custom-suffix "nth-test" | jq -r '.Role.Arn')
+        sleep 10
+    else
+        echo "🥑 $auto_scaling_role_name already exists; continuing with test run"
+        auto_scaling_role_arn=$(aws iam get-role --role-name=$auto_scaling_role_name 2> /dev/null | jq -r '.Role.Arn')
+    fi
+}
+
+### HELM ###
+function install_helm {
+    get_aws_credentials
+
+    anth_helm_args=(
+        upgrade
+        --install
+        --namespace kube-system
+        "$CLUSTER_NAME-acth"
+        "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+        --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+        --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+        --set image.pullPolicy="Always"
+        --set nodeSelector."${nth_label}"
+        --set tolerations[0].operator=Exists
+        --set awsAccessKeyID="$aws_access_key_id"
+        --set awsSecretAccessKey="$aws_secret_access_key"
+        --set awsRegion="${REGION}"
+        --set checkTagBeforeDraining=false
+        --set enableSqsTerminationDraining=true
+        --set queueURL="${queue_url}"
+        --wait
+    )
+
+    set -x
+    helm "${anth_helm_args[@]}"
+    set +x
+
+    sleep 15
+}
+
+function get_aws_credentials {
+    echo "🥑 Retrieving AWS Credentials"
+    aws_access_key_id=$(aws --profile default configure get aws_access_key_id 2> /dev/null)
+    if [[ -z $aws_access_key_id ]]; then
+        echo "❌ Failed to retrieve AWS Access Key ❌"
+        exit 1
+    fi
+
+    aws_secret_access_key=$(aws --profile default configure get aws_secret_access_key 2> /dev/null)
+    if [[ -z $aws_access_key_id ]]; then
+        echo "❌ Failed to retrieve AWS Secret Access Key ❌"
+        exit 1
+    fi
+}
+
+### FIS ###
+function create_FIS_role {
+    fis_role_exists=$(aws iam get-role --role-name $fis_role_name 2> /dev/null | grep "$fis_role_name" || :)
+    if [[ -z $fis_role_exists ]]; then
+        echo "🥑 Creating FIS Role"
+        fis_role_arn=$(aws iam create-role --role-name $fis_role_name --assume-role-policy-document file:///tmp/fis-role-trust-policy.json | jq -r '.Role.Arn')
+        aws iam attach-role-policy --role-name $fis_role_name --policy-arn $fis_policy_arn
+        sleep 10
+    else
+        echo "🥑 $fis_role_name already exists; continuing with test run"
+        fis_role_arn=$(aws iam get-role --role-name=$fis_role_name 2> /dev/null | jq -r '.Role.Arn')
+    fi
+}
+
+function create_experiment_template {
+    experiment_exists=$(aws fis list-experiment-templates | grep "$fis_template_name" || :)
+    if [[ -z $experiment_exists ]]; then
+        create_FIS_Template_JSON
+        echo "🥑 Creating experiment template"
+        template_id=$(aws fis create-experiment-template --cli-input-json file:///tmp/fis-experiment-template.json | jq -r .experimentTemplate.id)
+    else
+        template_id=$(aws fis list-experiment-templates | jq -r --arg template_name $fis_template_name '.experimentTemplates | .[] | select(.tags | has("Name")) | select(.tags.Name | contains($template_name)) | .id')
+        echo "🥑 $fis_template_name already exists; continuing with test run"
+    fi
+}
+
+function create_tags {
+    echo "🥑 Creating instance tags"
+    instance_id_string=$(tr '\n' ' ' <<< ${instance_ids})
+    eval 'aws ec2 create-tags --resources'" $instance_id_string "'--tags 'Key="aws-node-termination-handler/managed",Value=''
+    aws ec2 create-tags --resources "${termination_node_id}" --tags Key=Name,Value=interruptMe
+}
+
+function start_FIS_experiment {
+    create_tags
+    create_FIS_role
+    create_experiment_template
+    echo "🥑 Starting Experiment"
+    experiment_start_time=$(date +%s)
+    aws fis start-experiment --experiment-template-id $template_id > /dev/null
+}
+
+
+##### TESTING #####
+function convert_date_to_epoch_seconds {
+    IFS='T' read -r date_part time_part <<< "$1"
+    IFS='-' read -r year month day <<< "$date_part"
+    IFS=':' read -r hour minute second_fractional <<< "$time_part"
+    IFS='.' read -r -a seconds_array <<< "$second_fractional"
+    IFS=':' read -r offset_hours offset_minutes <<< "${time_part:16:5}"
+
+    # Convert time strings to base-10 integers
+    year=$((10#$year + 0)); month=$((10#$month + 0)); day=$((10#$day + 0)) 
+    hour=$((10#$hour + 0)); minute=$((10#$minute + 0)); second=$((10#${seconds_array[0]} + 0))
+    offset_hours=$((10#$offset_hours + 0)); offset_minutes=$((10#$offset_minutes + 0))
+
+    if [[ $time_part =~ .*"-".* ]]; then
+        offset_hours=$((offset_hours * -1))
+        offset_minutes=$((offset_minutes * -1))
+    fi
+
+    total_days=$(((year - 1970) * 365 + (year - 1970)/4))
+    for ((k = 1; k < month; k++)); do
+        total_days=$((total_days + $(cal $k $year | awk 'NF {DAYS = $NF} END {print DAYS}')))
+    done
+    total_days=$((total_days + day - 1))
+    total_seconds=$((total_days * 86400 + (hour + offset_hours) * 3600 + (minute + offset_minutes) * 60 + second))
+}
+
+function get_launch_activity {
+    echo "🥑 Finding launch activity "
+    launch_activity=""
+    for i in $(seq 1 $LAUNCH_CHECK_CYCLES); do
+        activities=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name $asg_name)
+        activities_details=$(jq -r '[.Activities | .[] | .ActivityId, .Description, .StartTime]' <<< $activities)
+        num_activities=$(jq -r 'length' <<< $activities_details)
+        for j in $(seq 0 3 $((--num_activities))); do
+            id=$(jq -r .[$j] <<< $activities_details)
+            description=$(jq -r .[$((++j))] <<< $activities_details)
+            start=$(jq -r .[$((j+=2))] <<< $activities_details)
+            activity_instance=${description##*:}
+            convert_date_to_epoch_seconds $start
+            if [[ $description =~ .*"Launching".* && $total_seconds -gt $experiment_start_time ]]; then
+                launch_activity=$id
+                break 2
+            fi    
+        done
+
+        echo "Setup Loop $i/$LAUNCH_CHECK_CYCLES, sleeping for $LAUNCH_ACTIVITY_CHECK_SLEEP seconds"
+        sleep $LAUNCH_ACTIVITY_CHECK_SLEEP
+    done
+
+    if [[ -n $launch_activity ]]; then 
+        echo "✅ Launch Activity found for instance $activity_instance"
+    else
+        echo "❌ Failed to find a new launched instance ❌"
+        exit 1
+    fi
+}
+
+function test_launch_lifecycle {
+    echo "🥑 Verifying launch hook completion "
+    for i in $(seq 1 $LAUNCH_CHECK_CYCLES); do
+        activity_status=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name $asg_name --activity-ids $launch_activity | jq -r '.Activities | .[].StatusCode')
+        if [[ $activity_status == "Successful" ]]; then
+            echo ""
+            echo "✅ Launch Lifecycle Successfully Completed ✅"
+            exit 0
+        elif [[ $activity_status == "Cancelled" || $activity_status == "Failed" ]]; then
+            echo ""
+            echo "❌ Launch Lifecycle $activity_status ❌"
+            exit 1
+        fi
+        
+        echo "Assertion Loop $i/$LAUNCH_CHECK_CYCLES, sleeping for $LAUNCH_STATUS_CHECK_SLEEP seconds"
+        sleep $LAUNCH_STATUS_CHECK_SLEEP
+    done
+
+    echo "❌ Failed to verify launch hook completion ❌"
+    exit 1
+}
+
+
+##### CLEAN UP #####
+function clean_up {
+    echo "====================================================================================================="
+    echo "🧹  Cleaning up SQS, SNS, NodeGroup, IAM, FIS  🧹"
+    echo "====================================================================================================="
+    print_logs
+    uninstall_helm
+    delete_node_group_policy
+    if [[ -n $subscription_arn ]]; then 
+        echo "🥑 Unsubscribing SNS from SQS"
+        aws sns unsubscribe --subscription-arn $subscription_arn
+    fi 
+    if [[ -n $queue_url ]]; then 
+        echo "🥑 Deleting SQS queue"
+        aws sqs delete-queue --queue-url $queue_url
+    fi
+    if [[ -n $sns_arn ]]; then 
+        echo "🥑 Deleting SNS topic"
+        aws sns delete-topic --topic-arn $sns_arn
+    fi
+    if [[ -n $template_id ]]; then 
+        echo "🥑 Deleting FIS experiment template"
+        aws fis delete-experiment-template --id $template_id --no-paginate > /dev/null
+    fi
+    echo "🥑 Detaching FIS role policy"
+    aws iam detach-role-policy --role-name $fis_role_name --policy-arn $fis_policy_arn
+    echo "🥑 Deleting FIS role"
+    aws iam delete-role --role-name $fis_role_name
+    echo "🥑 Deleting autoscaling role"
+    aws iam delete-service-linked-role --role-name $auto_scaling_role_name > /dev/null
+    if [[ -n $node_policy_arn ]]; then
+        echo "🥑 Deleting Node role policy"
+        aws iam delete-policy --policy-arn $node_policy_arn
+    fi
+}
+
+function print_logs {
+    pod_id=$(get_nth_worker_pod || :)
+    if [[ -n $pod_id ]]; then
+        kubectl logs $pod_id --namespace kube-system || :
+    else 
+        echo "❌ Failed to get pod ID. Unable to print logs ❌"
+    fi
+}
+
+function uninstall_helm {
+    helm_exists=$(helm ls -A | grep "$CLUSTER_NAME-acth")
+    if [[ -n $helm_exists ]]; then 
+        echo "🥑 Uninstalling NTH helm chart"
+        helm uninstall "$CLUSTER_NAME-acth" -n kube-system
+    fi
+}
+
+function delete_node_group_policy {
+    if [[ -z $node_role_name || -z $node_policy_name ]]; then return; fi
+
+    node_policy_exists=$(aws iam list-attached-role-policies --role-name $node_role_name | grep "$node_policy_name" || :)
+    if [[ -n $node_policy_exists ]]; then
+        echo "🥑 Detaching NTH Node Group policy"
+        aws iam detach-role-policy --role-name $node_role_name --policy-arn $node_policy_arn
+    fi
+}
+
+trap "clean_up" EXIT
+validate_aws_account
+provision_sqs_queue
+provision_sns_topic    
+subscribe_sqs_to_sns
+update_node_group
+install_helm
+start_FIS_experiment
+get_launch_activity
+test_launch_lifecycle

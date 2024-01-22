@@ -20,7 +20,6 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog/log"
@@ -49,6 +48,10 @@ import (
 */
 
 const TEST_NOTIFICATION = "autoscaling:TEST_NOTIFICATION"
+
+type LifecycleDetailMessage struct {
+	Message interface{} `json:"Message"`
+}
 
 // LifecycleDetail provides the ASG lifecycle event details
 type LifecycleDetail struct {
@@ -92,26 +95,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
-		_, err := m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
-			AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
-			LifecycleActionResult: aws.String("CONTINUE"),
-			LifecycleHookName:     &lifecycleDetail.LifecycleHookName,
-			LifecycleActionToken:  &lifecycleDetail.LifecycleActionToken,
-			InstanceId:            &lifecycleDetail.EC2InstanceID,
-		})
-		if err != nil {
-			if aerr, ok := err.(awserr.RequestFailure); ok && aerr.StatusCode() != 400 {
-				return err
-			}
-		}
-		log.Info().Msgf("Completed ASG Lifecycle Hook (%s) for instance %s",
-			lifecycleDetail.LifecycleHookName,
-			lifecycleDetail.EC2InstanceID)
-		errs := m.deleteMessages([]*sqs.Message{message})
-		if errs != nil {
-			return errs[0]
-		}
-		return nil
+		return m.deleteMessage(message)
 	}
 
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
@@ -123,4 +107,73 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	return &interruptionEvent, nil
+}
+
+func (m SQSMonitor) deleteMessage(message *sqs.Message) error {
+	errs := m.deleteMessages([]*sqs.Message{message})
+	if errs != nil {
+		return errs[0]
+	}
+	return nil
+}
+
+// Continues the lifecycle hook thereby indicating a successful action occured
+func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*autoscaling.CompleteLifecycleActionOutput, error) {
+	return m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
+		AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
+		LifecycleActionResult: aws.String("CONTINUE"),
+		LifecycleHookName:     &lifecycleDetail.LifecycleHookName,
+		LifecycleActionToken:  &lifecycleDetail.LifecycleActionToken,
+		InstanceId:            &lifecycleDetail.EC2InstanceID,
+	})
+}
+
+// Completes the ASG launch lifecycle hook if the new EC2 instance launched by ASG is Ready in the cluster
+func (m SQSMonitor) createAsgInstanceLaunchEvent(event *EventBridgeEvent, message *sqs.Message) (*monitor.InterruptionEvent, error) {
+	if event == nil {
+		return nil, fmt.Errorf("event is nil")
+	}
+
+	if message == nil {
+		return nil, fmt.Errorf("message is nil")
+	}
+
+	lifecycleDetail := &LifecycleDetail{}
+	err := json.Unmarshal(event.Detail, lifecycleDetail)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshaling message, %s, from ASG launch lifecycle event: %w", *message.MessageId, err)
+	}
+
+	if lifecycleDetail.Event == TEST_NOTIFICATION || lifecycleDetail.LifecycleTransition == TEST_NOTIFICATION {
+		return nil, skip{fmt.Errorf("message is an ASG test notification")}
+	}
+
+	nodeInfo, err := m.getNodeInfo(lifecycleDetail.EC2InstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	interruptionEvent := monitor.InterruptionEvent{
+		EventID:              fmt.Sprintf("asg-lifecycle-term-%x", event.ID),
+		Kind:                 monitor.ASGLaunchLifecycleKind,
+		Monitor:              SQSMonitorKind,
+		AutoScalingGroupName: lifecycleDetail.AutoScalingGroupName,
+		StartTime:            event.getTime(),
+		NodeName:             nodeInfo.Name,
+		IsManaged:            nodeInfo.IsManaged,
+		InstanceID:           lifecycleDetail.EC2InstanceID,
+		ProviderID:           nodeInfo.ProviderID,
+		Description:          fmt.Sprintf("ASG Lifecycle Launch event received. Instance will be interrupted at %s \n", event.getTime()),
+	}
+
+	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
+		_, err = m.continueLifecycleAction(lifecycleDetail)
+		if err != nil {
+			return fmt.Errorf("continuing ASG launch lifecycle: %w", err)
+		}
+		log.Info().Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).Str("instanceID", lifecycleDetail.EC2InstanceID).Msg("Completed ASG Lifecycle Hook")
+		return m.deleteMessage(message)
+	}
+
+	return &interruptionEvent, err
 }

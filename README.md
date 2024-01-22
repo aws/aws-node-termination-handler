@@ -218,8 +218,12 @@ You'll need the following AWS infrastructure components:
 
 1. Amazon Simple Queue Service (SQS) Queue
 2. AutoScaling Group Termination Lifecycle Hook
-3. Amazon EventBridge Rule
-4. IAM Role for the aws-node-termination-handler Queue Processing Pods
+3. Instance Tagging
+4. Amazon EventBridge Rule
+5. IAM Role for the aws-node-termination-handler Queue Processing Pods
+
+Optional AWS infrastructure components:
+1. AutoScaling Group Launch Lifecycle Hook
 
 #### 1. Create an SQS Queue:
 
@@ -290,7 +294,7 @@ aws autoscaling put-lifecycle-hook \
   --lifecycle-transition=autoscaling:EC2_INSTANCE_TERMINATING \
   --default-result=CONTINUE \
   --heartbeat-timeout=300 \
-  --notification-target-arn <your test queue ARN here> \
+  --notification-target-arn <your queue ARN here> \
   --role-arn <your SQS access role ARN here>
 ```
 
@@ -397,6 +401,36 @@ IAM Policy for aws-node-termination-handler Deployment:
     ]
 }
 ```
+
+#### 1. Handle ASG Instance Launch Lifecycle Notifications (optional):
+
+NTH can monitor for new instances launched by an ASG and notify the ASG when the instance is available in the EKS cluster.
+
+NTH will need to receive notifications of new instance launches within the ASG.  We can add a lifecycle hook to the ASG that will send instance launch notifications via EventBridge:
+
+```
+aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-launch-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
+  --default-result="ABANDON" \
+  --heartbeat-timeout=300
+```
+
+Alternatively, ASG can send the instance launch notification directly to an SQS Queue:
+
+```
+aws autoscaling put-lifecycle-hook \
+  --lifecycle-hook-name=my-k8s-launch-hook \
+  --auto-scaling-group-name=my-k8s-asg \
+  --lifecycle-transition=autoscaling:EC2_INSTANCE_LAUNCHING \
+  --default-result="ABANDON" \
+  --heartbeat-timeout=300 \
+  --notification-target-arn <your queue ARN here> \
+  --role-arn <your SQS access role ARN here>
+```    
+
+When NTH receives a launch notification, it will periodically check for a node backed by the EC2 instance to join the cluster and for the node to have a status of 'ready.' Once a node becomes ready, NTH will complete the lifecycle hook, prompting the ASG to proceed with terminating the previous instance. If the lifecycle hook is not completed before the timeout, the ASG will take the default action. If the default action is 'ABANDON', the new instance will be terminated, and the notification process will be repeated with another new instance.
 
 ### Installation
 
