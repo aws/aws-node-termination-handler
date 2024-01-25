@@ -60,10 +60,17 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
-      - name: Set up golangci-lint
-        uses: golangci/golangci-lint-action@v3.4.0
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v4
         with:
-          version: v1.51.1
+          go-version: ${{ env.DEFAULT_GO_VERSION }}
+          cache: false
+
+      - name: Set up golangci-lint
+        uses: golangci/golangci-lint-action@v3.7
+        with:
+          version: v1.55.2
           args: --timeout=5m
           skip-cache: true
     
