@@ -573,10 +573,11 @@ For build instructions please consult [BUILD.md](./BUILD.md).
 ## Metrics
 Available Prometheus metrics:
 
-| Metric name    | Description                           |
-| -------------- | ------------------------------------- |
-| `actions_node` | Number of actions per node            |
-| `events_error` | Number of errors in events processing |
+| Metric name    | Description                                                        |                              
+| -------------- | -------------------------------------------------------------------|
+| `actions`      | Number of actions                                                  |
+| `actions_node` | Number of actions per node (Deprecated: Use actions metric instead)|
+| `events_error` | Number of errors in events processing                              |
 
 
 ## Communication

@@ -174,6 +174,6 @@ The configuration in this table applies to AWS Node Termination Handler testing 
 
 ## Metrics Endpoint Considerations
 
-AWS Node Termination HAndler in IMDS mode runs as a DaemonSet with `useHostNetwork: true` by default. If the Prometheus server is enabled with `enablePrometheusServer: true` nothing else will be able to bind to the configured port (by default `prometheusServerPort: 9092`) in the root network namespace. Therefore, it will need to have a firewall/security group configured on the nodes to block access to the `/metrics` endpoint.
+AWS Node Termination Handler in IMDS mode runs as a DaemonSet with `useHostNetwork: true` by default. If the Prometheus server is enabled with `enablePrometheusServer: true` nothing else will be able to bind to the configured port (by default `prometheusServerPort: 9092`) in the root network namespace. Therefore, it will need to have a firewall/security group configured on the nodes to block access to the `/metrics` endpoint.
 
 You can switch NTH in IMDS mode to run w/ `useHostNetwork: false`, but you will need to make sure that IMDSv1 is enabled or IMDSv2 IP hop count will need to be incremented to 2 (see the [IMDSv2 documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html).

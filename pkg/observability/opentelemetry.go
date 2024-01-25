@@ -45,6 +45,7 @@ type Metrics struct {
 	enabled            bool
 	meter              api.Meter
 	actionsCounter     instrument.Int64Counter
+	actionsCounterV2   instrument.Int64Counter
 	errorEventsCounter instrument.Int64Counter
 }
 
@@ -89,24 +90,38 @@ func (m Metrics) NodeActionsInc(action, nodeName string, eventID string, err err
 	}
 
 	labels := []attribute.KeyValue{labelNodeActionKey.String(action), labelNodeNameKey.String(nodeName), labelEventIDKey.String(eventID)}
+	labelsV2 := []attribute.KeyValue{labelNodeActionKey.String(action)}
 	if err != nil {
 		labels = append(labels, labelNodeStatusKey.String("error"))
+		labelsV2 = append(labelsV2, labelNodeStatusKey.String("error"))
 	} else {
 		labels = append(labels, labelNodeStatusKey.String("success"))
+		labelsV2 = append(labelsV2, labelNodeStatusKey.String("success"))
 	}
 
 	m.actionsCounter.Add(context.Background(), 1, labels...)
+	m.actionsCounterV2.Add(context.Background(), 1, labelsV2...)
 }
 
 func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
+	// Deprecated: actionsCounter metric has a high label cardinality, resulting in numerous time-series which utilize
+	// a large amount of memory. Use actionsCounterV2 metric instead.
 	name := "actions.node"
 	actionsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions per node"))
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
 	actionsCounter.Add(context.Background(), 0)
+
+	// Recommended replacement for actionsCounter metric
+	name = "actions"
+	actionsCounterV2, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions"))
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
+	}
+	actionsCounterV2.Add(context.Background(), 0)
 
 	name = "events.error"
 	errorEventsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of errors in events processing"))
@@ -118,6 +133,7 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 		meter:              meter,
 		errorEventsCounter: errorEventsCounter,
 		actionsCounter:     actionsCounter,
+		actionsCounterV2:   actionsCounterV2,
 	}, nil
 }
 
