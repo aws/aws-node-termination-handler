@@ -68,7 +68,7 @@ jobs:
           cache: false
 
       - name: Set up golangci-lint
-        uses: golangci/golangci-lint-action@v3.7
+        uses: golangci/golangci-lint-action@v3
         with:
           version: v1.55.2
           args: --timeout=5m
