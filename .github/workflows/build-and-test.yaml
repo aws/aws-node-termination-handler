@@ -13,7 +13,7 @@ on:
     - cron: '0 19 * * 1-5'
 
 env:
-  DEFAULT_GO_VERSION: ^1.20.4
+  DEFAULT_GO_VERSION: ^1.21.5
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -60,10 +60,17 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
-      - name: Set up golangci-lint
-        uses: golangci/golangci-lint-action@v3.4.0
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v4
         with:
-          version: v1.51.1
+          go-version: ${{ env.DEFAULT_GO_VERSION }}
+          cache: false
+
+      - name: Set up golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.55.2
           args: --timeout=5m
           skip-cache: true
     

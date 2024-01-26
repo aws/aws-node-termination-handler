@@ -19,15 +19,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog/log"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/sdk/metric"
 )
 
@@ -44,9 +42,9 @@ var (
 type Metrics struct {
 	enabled            bool
 	meter              api.Meter
-	actionsCounter     instrument.Int64Counter
-	actionsCounterV2   instrument.Int64Counter
-	errorEventsCounter instrument.Int64Counter
+	actionsCounter     api.Int64Counter
+	actionsCounterV2   api.Int64Counter
+	errorEventsCounter api.Int64Counter
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
@@ -80,7 +78,7 @@ func (m Metrics) ErrorEventsInc(where string) {
 	if !m.enabled {
 		return
 	}
-	m.errorEventsCounter.Add(context.Background(), 1, labelEventErrorWhereKey.String(where))
+	m.errorEventsCounter.Add(context.Background(), 1, api.WithAttributes(labelEventErrorWhereKey.String(where)))
 }
 
 // NodeActionsInc will increment one for the node stats counter, partitioned by action, nodeName and status, and only if metrics are enabled.
@@ -99,8 +97,8 @@ func (m Metrics) NodeActionsInc(action, nodeName string, eventID string, err err
 		labelsV2 = append(labelsV2, labelNodeStatusKey.String("success"))
 	}
 
-	m.actionsCounter.Add(context.Background(), 1, labels...)
-	m.actionsCounterV2.Add(context.Background(), 1, labelsV2...)
+	m.actionsCounter.Add(context.Background(), 1, api.WithAttributes(labels...))
+	m.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(labelsV2...))
 }
 
 func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
@@ -109,7 +107,7 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	// Deprecated: actionsCounter metric has a high label cardinality, resulting in numerous time-series which utilize
 	// a large amount of memory. Use actionsCounterV2 metric instead.
 	name := "actions.node"
-	actionsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions per node"))
+	actionsCounter, err := meter.Int64Counter(name, api.WithDescription("Number of actions per node"))
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
@@ -117,14 +115,14 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 
 	// Recommended replacement for actionsCounter metric
 	name = "actions"
-	actionsCounterV2, err := meter.Int64Counter(name, instrument.WithDescription("Number of actions"))
+	actionsCounterV2, err := meter.Int64Counter(name, api.WithDescription("Number of actions"))
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
 	actionsCounterV2.Add(context.Background(), 0)
 
 	name = "events.error"
-	errorEventsCounter, err := meter.Int64Counter(name, instrument.WithDescription("Number of errors in events processing"))
+	errorEventsCounter, err := meter.Int64Counter(name, api.WithDescription("Number of errors in events processing"))
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
