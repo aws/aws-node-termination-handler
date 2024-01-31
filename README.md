@@ -83,7 +83,7 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 
 |                                      NTH Release                                      | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 | K8s v1.22 | K8s v1.21 | 
 | :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | 
-|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ✅    |    ✅     |    ✅     |    ✅     |    ✅     |    ❌    |
+|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ✅    |    ✅     |    ✅     |    ✅     |    ✅     |    ❌    |
 |  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    |
 |  [v1.18.3](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.18.3)  |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    |
 |  [v1.18.2](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.18.2)  |     ❌    |    ❌     |    ❌     |    ✅     |    ✅     |    ✅    | 
@@ -127,7 +127,7 @@ When using Kubernetes [Pod Security Admission](https://kubernetes.io/docs/concep
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.20.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.21.0/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
@@ -200,7 +200,7 @@ helm upgrade --install aws-node-termination-handler \
   oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.20.0/config/helm/aws-node-termination-handler#readme).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.21.0/config/helm/aws-node-termination-handler#readme).
 
 </details>
 
@@ -490,7 +490,7 @@ helm upgrade --install aws-node-termination-handler \
   oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.20.0/config/helm/aws-node-termination-handler#readme).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.21.0/config/helm/aws-node-termination-handler#readme).
 
 #### Single Instance vs Multiple Replicas
 
@@ -515,7 +515,7 @@ Queue Processor needs an **SQS queue URL** to function; therefore, manifest chan
 Minimal Config:
 
 ```
-curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.20.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
+curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.21.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
 <open all-resources-queue-processor.yaml and update QUEUE_URL value>
 kubectl apply -f ./all-resources-queue-processor.yaml
 ```
