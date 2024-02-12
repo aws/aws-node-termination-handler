@@ -81,14 +81,10 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 
 ### Kubernetes Compatibility
 
-|                                      NTH Release                                      | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 | K8s v1.22 | K8s v1.21 |
-| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
-|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ✅    |     ✅    |     ✅    |     ✅    |    ✅     |    ✅    |    ✅     |    ❌    |
-|  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |     ❌    |     ❌    |     ❌    |    ❌     |    ✅    |    ✅     |    ✅    |
-|  [v1.18.3](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.18.3)  |     ❌    |     ❌    |     ❌    |     ❌    |    ❌     |    ✅    |    ✅     |    ✅    |
-|  [v1.18.2](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.18.2)  |     ❌    |     ❌    |     ❌    |     ❌    |    ❌     |    ✅    |    ✅     |    ✅    |
-|  [v1.18.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.18.1)  |     ❌    |     ❌    |     ❌    |     ❌    |    ❌     |    ✅    |    ✅     |    ✅    |
-|  [v1.18.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.18.0)  |     ❌    |     ❌    |     ❌    |     ❌    |    ❌     |    ✅    |    ✅     |    ✅    |
+|                                      NTH Release                                      | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 |
+| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: |
+|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ✅    |     ✅    |     ✅    |     ✅    |    ✅     |
+|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ✅    |     ✅    |     ✅    |     ✅    |    ✅     |
 
 
 ## Installation and Configuration
