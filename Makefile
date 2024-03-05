@@ -4,9 +4,12 @@ LATEST_COMMIT_HASH=$(shell git rev-parse HEAD)
 LATEST_COMMIT_CHART_VERSION=$(shell git --no-pager show ${LATEST_COMMIT_HASH}:config/helm/aws-node-termination-handler/Chart.yaml | grep 'version:' | cut -d' ' -f2 | tr -d '[:space:]')
 PREVIOUS_RELEASE_TAG=$(shell git describe --abbrev=0 --tags `git rev-list --tags --skip=1  --max-count=1`)
 REPO_FULL_NAME=aws/aws-node-termination-handler
-ECR_REGISTRY ?= public.ecr.aws/aws-ec2
-ECR_REPO ?= ${ECR_REGISTRY}/aws-node-termination-handler
 ECR_REPO_CHART ?= aws-node-termination-handler
+ECR_HOST ?= public.ecr.aws
+ECR_ALIAS ?= aws-ec2
+ECR_REGISTRY = $(ECR_HOST)/$(ECR_ALIAS)
+ECR_REPOSITORY_NAME = aws-node-termination-handler
+ECR_REPOSITORY = $(ECR_REGISTRY)/$(ECR_REPOSITORY_NAME)
 IMG ?= amazon/aws-node-termination-handler
 IMG_TAG ?= ${VERSION}
 IMG_W_TAG = ${IMG}:${IMG_TAG}
@@ -52,14 +55,16 @@ build-docker-images-windows:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${IMG} -v ${VERSION}
 
 push-docker-images:
-	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
+	@echo "Images will be pushed to ${ECR_REPOSITORY} with version ${VERSION}"
+	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION} -o ${IMG} -n ${ECR_REPOSITORY}
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${ECR_REPO} -v ${VERSION} -m
+	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${ECR_REPOSITORY} -v ${VERSION} -m
 
 push-docker-images-windows:
-	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
+	@echo "Images will be pushed to ${ECR_REPOSITORY} with version ${VERSION}"
+	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -v ${VERSION} -o ${IMG} -n ${ECR_REPOSITORY}
 	${MAKEFILE_PATH}/scripts/install-amazon-ecr-credential-helper $(AMAZON_ECR_CREDENTIAL_HELPER_VERSION)
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
+	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPOSITORY} -v ${VERSION} -m
 
 push-helm-chart:
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/helm-login
@@ -165,7 +170,15 @@ eks-cluster-test:
 
 release: build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
 
+release-test: ECR_REPOSITORY_NAME := test/$(ECR_REPOSITORY_NAME)
+release-test: VERSION := test-$(shell date +"%Y%m%d%H%M%S")
+release-test: build-binaries build-docker-images push-docker-images
+
 release-windows: build-binaries-windows build-docker-images-windows push-docker-images-windows upload-resources-to-github-windows
+
+release-windows-test: ECR_REPOSITORY_NAME := test/$(ECR_REPOSITORY_NAME)
+release-windows-test: VERSION := test-$(shell date +"%Y%m%d%H%M%S")
+release-windows-test: build-binaries-windows build-docker-images-windows push-docker-images-windows
 
 test: spellcheck shellcheck unit-test e2e-test compatibility-test license-test go-linter helm-version-sync-test helm-lint
 

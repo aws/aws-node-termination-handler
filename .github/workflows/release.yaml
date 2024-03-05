@@ -4,12 +4,14 @@ on:
   push:
     tags:
       - "v1.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write # required for uploading releases
 
 env:
   DEFAULT_GO_VERSION: ^1.21.5
+  NTH_RELEASE_MODE: ${{ github.event_name == "push" && "prod" || "test" }}
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -28,11 +30,12 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Release Linux Assets
-      run: make release
+      run: make $NTH_RELEASE_TARGET
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        NTH_RELEASE_TARGET: ${{ env.NTH_RELEASE_MODE == "prod" && "release" || "release-test" }}
 
   releaseWindows:
     name: Release Windows
@@ -52,14 +55,16 @@ jobs:
         Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
         refreshenv
 
-        choco install make && choco install zip && make release-windows
+        choco install make && choco install zip && make $Env:NTH_RELEASE_TARGET
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        NTH_RELEASE_TARGET: ${{ env.NTH_RELEASE_MODE == "prod" && "release-windows" || "release-windows-test" }}
 
   release:
     name: Release
+    if: ${{ env.NTH_RELEASE_MODE == "prod" }}
     runs-on: ubuntu-20.04
     needs: [releaseLinux, releaseWindows]
     steps:
