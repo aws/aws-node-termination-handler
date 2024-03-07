@@ -58,7 +58,7 @@ push-docker-images:
 
 push-docker-images-windows:
 	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
-	${MAKEFILE_PATH}/scripts/install-amazon-ecr-credential-helper $(AMAZON_ECR_CREDENTIAL_HELPER_VERSION)
+	bash ${MAKEFILE_PATH}/scripts/install-amazon-ecr-credential-helper $(AMAZON_ECR_CREDENTIAL_HELPER_VERSION)
 	${MAKEFILE_PATH}/scripts/push-docker-images -p ${SUPPORTED_PLATFORMS_WINDOWS} -r ${ECR_REPO} -v ${VERSION} -m
 
 push-helm-chart:
