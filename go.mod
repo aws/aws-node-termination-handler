@@ -6,7 +6,7 @@ toolchain go1.21.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/aws/aws-sdk-go v1.50.30
+	github.com/aws/aws-sdk-go v1.51.6
 	github.com/prometheus/client_golang v1.18.0
 	github.com/rs/zerolog v1.29.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.47.0
