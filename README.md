@@ -4,7 +4,7 @@
 
 <p>
   <a href="https://github.com/kubernetes/kubernetes/releases">
-    <img src="https://img.shields.io/badge/Kubernetes-%3E%3D%201.22-brightgreen" alt="kubernetes">
+    <img src="https://img.shields.io/badge/Kubernetes-%3E%3D%201.23-brightgreen" alt="kubernetes">
   </a>
   <a href="https://golang.org/doc/go1.21">
     <img src="https://img.shields.io/github/go-mod/go-version/aws/aws-node-termination-handler?color=blueviolet" alt="go-version">
@@ -81,12 +81,13 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 
 ### Kubernetes Compatibility
 
-|                                      NTH Release                                      | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 |
-| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
-|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |
+|                                      NTH Release                                      | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 |
+| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
+|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |
 
+A ✅ indicates that a specific aws-node-termination-handler release has been tested with a specific Kubernetes version. A ❌ indicates that a specific aws-node-termination-handler release has not been tested with a specific Kubernetes version.
 
 ## Installation and Configuration
 
