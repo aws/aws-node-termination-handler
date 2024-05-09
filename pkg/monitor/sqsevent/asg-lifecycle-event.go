@@ -163,7 +163,7 @@ func (m SQSMonitor) createAsgInstanceLaunchEvent(event *EventBridgeEvent, messag
 		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           lifecycleDetail.EC2InstanceID,
 		ProviderID:           nodeInfo.ProviderID,
-		Description:          fmt.Sprintf("ASG Lifecycle Launch event received. Instance will be interrupted at %s \n", event.getTime()),
+		Description:          fmt.Sprintf("ASG Lifecycle Launch event received. Instance was started at %s \n", event.getTime()),
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
