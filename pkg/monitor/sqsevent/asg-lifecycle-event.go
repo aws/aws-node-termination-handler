@@ -95,6 +95,11 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
+		_, err = m.continueLifecycleAction(lifecycleDetail)
+		if err != nil {
+			return fmt.Errorf("continuing ASG termination lifecycle: %w", err)
+		}
+		log.Info().Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).Str("instanceID", lifecycleDetail.EC2InstanceID).Msg("Completed ASG Lifecycle Hook")
 		return m.deleteMessage(message)
 	}
 
