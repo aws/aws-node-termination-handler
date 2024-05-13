@@ -84,6 +84,7 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
 |                                      NTH Release                                      | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 |
 | :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
 |  [v1.22.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
 |  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
 |  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |
 
