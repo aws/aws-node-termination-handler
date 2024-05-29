@@ -628,9 +628,13 @@ func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 		log.Info().Msgf("Would have retrieved running pod list on node %s, but dry-run flag was set", nodeName)
 		return &corev1.PodList{}, nil
 	}
-	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+	listOptions := metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + nodeName,
-	})
+	}
+	if n.nthConfig.UseAPIServerCacheToListPods {
+		listOptions.ResourceVersion = "0"
+	}
+	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), listOptions)
 }
 
 func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*drain.Helper, error) {

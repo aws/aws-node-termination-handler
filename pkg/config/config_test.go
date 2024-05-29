@@ -52,6 +52,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	t.Setenv("WEBHOOK_TEMPLATE", "WEBHOOK_TEMPLATE")
 	t.Setenv("METADATA_TRIES", "100")
 	t.Setenv("CORDON_ONLY", "false")
+	t.Setenv("USE_APISERVER_CACHE", "true")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -76,6 +77,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, "WEBHOOK_TEMPLATE", nthConfig.WebhookTemplate)
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
+	h.Equals(t, true, nthConfig.UseAPIServerCacheToListPods)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -111,6 +113,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--webhook-template=WEBHOOK_TEMPLATE",
 		"--metadata-tries=100",
 		"--cordon-only=false",
+		"--use-apiserver-cache=true",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -137,6 +140,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
 	h.Equals(t, false, nthConfig.EnablePrometheus)
+	h.Equals(t, true, nthConfig.UseAPIServerCacheToListPods)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
