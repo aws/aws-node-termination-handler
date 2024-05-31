@@ -8,6 +8,6 @@ updates:
     directory: "/" 
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "tuesday"
       time: "09:00"
       timezone: "America/Chicago"

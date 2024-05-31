@@ -9,7 +9,7 @@ permissions:
   contents: write # required for uploading releases
 
 env:
-  DEFAULT_GO_VERSION: ^1.21.5
+  DEFAULT_GO_VERSION: ^1.22.0
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
