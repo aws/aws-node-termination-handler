@@ -1,11 +1,12 @@
 module github.com/aws/aws-node-termination-handler
 
 go 1.22.0
+
 toolchain go1.22.2
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/aws/aws-sdk-go v1.53.5
+	github.com/aws/aws-sdk-go v1.53.13
 	github.com/prometheus/client_golang v1.18.0
 	github.com/rs/zerolog v1.29.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.47.0
