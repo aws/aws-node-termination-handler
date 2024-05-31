@@ -69,6 +69,14 @@ Must be deployed as a Kubernetes **Deployment**. Also requires some **additional
      - [Unhealthy Instances](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html), and more
    - [Instance State Change events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instance-state-changes.html)
 
+We can use the **Queue Processor** for both ASG Lifecycle Termination Hooks and Instance State Change Events for termination of nodes. Below listed are the details on how AWS EC2 takes actions for graceful shutdowns. You can pick one that is best suitable for your use, based on the configuration and workloads.
+
+#### Queue Processor with ASG Lifecycle Hooks
+When using the ASG Lifecycle Hooks, ASG first sends the lifecycle action notification then waits until it has been completed or times out. This allows time for NTH to receive the notification via SQS, cordon and drain the node, and then complete the lifecycle action. Once the ASG receives the completion it then instructs EC2 to terminate the instance.
+
+#### Queue Processor with Instance State Change Events
+When using the EC2 Console or EC2 API to terminate the instance, a state-change notification is sent and the instance termination is started. EC2 does not wait for a "continue" signal before beginning to terminate the instance. When you terminate an EC2 instance, it should trigger a graceful operating system shutdown which will send a SIGTERM to the kubelet, which will in-turn start shutting down pods by propagating that SIGTERM to the containers on the node. If the containers do not shut down by the kubelet's `podTerminationGracePeriod (k8s default is 30s)`, then it will send a SIGKILL to forcefully terminate the containers. Setting the `podTerminationGracePeriod` to a max of 90sec (probably a bit less than that) will delay the termination of pods, which helps in graceful shutdown.
+
 ### Which one should I use?
 |                    Feature                    | IMDS Processor | Queue Processor |
 | :-------------------------------------------: | :------------: | :-------------: |
