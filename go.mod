@@ -1,6 +1,7 @@
 module github.com/aws/aws-node-termination-handler
 
 go 1.22.0
+
 toolchain go1.22.2
 
 require (
@@ -15,8 +16,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.22.0
 	go.uber.org/multierr v1.11.0
 	golang.org/x/sys v0.18.0
-	k8s.io/api v0.30.1
-	k8s.io/apimachinery v0.30.1
+	k8s.io/api v0.30.2
+	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v0.30.1
 	k8s.io/kubectl v0.30.1
 )
