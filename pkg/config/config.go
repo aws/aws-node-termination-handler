@@ -88,6 +88,7 @@ const (
 	uptimeFromFileDefault                   = ""
 	workersConfigKey                        = "WORKERS"
 	workersDefault                          = 10
+	useAPIServerCache                       = "USE_APISERVER_CACHE"
 	// prometheus
 	enablePrometheusDefault   = false
 	enablePrometheusConfigKey = "ENABLE_PROMETHEUS_SERVER"
@@ -161,6 +162,7 @@ type Config struct {
 	UseProviderId                       bool
 	CompleteLifecycleActionDelaySeconds int
 	DeleteSqsMsgIfNodeNotFound          bool
+	UseAPIServerCacheToListPods         bool
 }
 
 // ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -223,6 +225,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.UseProviderId, "use-provider-id", getBoolEnv(useProviderIdConfigKey, useProviderIdDefault), "If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.")
 	flag.IntVar(&config.CompleteLifecycleActionDelaySeconds, "complete-lifecycle-action-delay-seconds", getIntEnv(completeLifecycleActionDelaySecondsKey, -1), "Delay completing the Autoscaling lifecycle action after a node has been drained.")
 	flag.BoolVar(&config.DeleteSqsMsgIfNodeNotFound, "delete-sqs-msg-if-node-not-found", getBoolEnv(deleteSqsMsgIfNodeNotFoundKey, false), "If true, delete SQS Messages from the SQS Queue if the targeted node(s) are not found.")
+	flag.BoolVar(&config.UseAPIServerCacheToListPods, "use-apiserver-cache", getBoolEnv(useAPIServerCache, false), "If true, leverage the k8s apiserver's index on pod's spec.nodeName to list pods on a node, instead of doing an etcd quorum read.")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
@@ -324,6 +327,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("check_tag_before_draining", c.CheckTagBeforeDraining).
 		Str("ManagedTag", c.ManagedTag).
 		Bool("use_provider_id", c.UseProviderId).
+		Bool("use_apiserver_cache", c.UseAPIServerCacheToListPods).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -374,7 +378,8 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tcheck-tag-before-draining: %t,\n"+
 			"\tmanaged-tag: %s,\n"+
 			"\tuse-provider-id: %t,\n"+
-			"\taws-endpoint: %s,\n",
+			"\taws-endpoint: %s,\n"+
+			"\tuse-apiserver-cache: %t,\n",
 		c.DryRun,
 		c.NodeName,
 		c.PodName,
@@ -414,6 +419,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.ManagedTag,
 		c.UseProviderId,
 		c.AWSEndpoint,
+		c.UseAPIServerCacheToListPods,
 	)
 }
 

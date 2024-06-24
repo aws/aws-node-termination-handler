@@ -114,15 +114,18 @@ func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderIn
 	if err != nil {
 		return err
 	}
-	// Delete all pods on the node
-	log.Info().Msg("Draining the node")
+	// Be very careful here: in tests, nodeName and node.Name can be different, as
+	// fetchKubernetesNode does some translation using the kubernetes.io/hostname label
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
 		return err
 	}
+	var pods *corev1.PodList
+	// Delete all pods on the node
+	log.Info().Msg("Draining the node")
 	// Emit events for all pods that will be evicted
 	if recorder != nil {
-		pods, err := n.fetchAllPods(nodeName)
+		pods, err = n.fetchAllPods(node.Name)
 		if err == nil {
 			for _, pod := range pods.Items {
 				podRef := &corev1.ObjectReference{
@@ -139,7 +142,14 @@ func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderIn
 			}
 		}
 	}
-	err = drain.RunNodeDrain(n.drainHelper, node.Name)
+	if n.nthConfig.UseAPIServerCacheToListPods {
+		if pods != nil {
+			err = n.drainHelper.DeleteOrEvictPods(pods.Items)
+		}
+	} else {
+		// RunNodeDrain does an etcd quorum-read to list all pods on this node
+		err = drain.RunNodeDrain(n.drainHelper, node.Name)
+	}
 	if err != nil {
 		return err
 	}
@@ -628,9 +638,13 @@ func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 		log.Info().Msgf("Would have retrieved running pod list on node %s, but dry-run flag was set", nodeName)
 		return &corev1.PodList{}, nil
 	}
-	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+	listOptions := metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + nodeName,
-	})
+	}
+	if n.nthConfig.UseAPIServerCacheToListPods {
+		listOptions.ResourceVersion = "0"
+	}
+	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), listOptions)
 }
 
 func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*drain.Helper, error) {
