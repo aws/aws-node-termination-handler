@@ -358,8 +358,25 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		},
 	})
 	if err != nil {
+		// handle all kinds of InvalidInstanceID error events
+		// - https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID" {
+			msg := fmt.Sprintf("Invalid instance id %s provided", instanceID)
+			log.Warn().Msg(msg)
+			return nil, skip{fmt.Errorf(msg)}
+		}
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotFound" {
 			msg := fmt.Sprintf("No instance found with instance-id %s", instanceID)
+			log.Warn().Msg(msg)
+			return nil, skip{fmt.Errorf(msg)}
+		}
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.Malformed" {
+			msg := fmt.Sprintf("Malformed instance-id %s", instanceID)
+			log.Warn().Msg(msg)
+			return nil, skip{fmt.Errorf(msg)}
+		}
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotLinkable" {
+			msg := fmt.Sprintf("Instance-id %s not linkable", instanceID)
 			log.Warn().Msg(msg)
 			return nil, skip{fmt.Errorf(msg)}
 		}
