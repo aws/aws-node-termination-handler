@@ -53,6 +53,8 @@ const (
 	enableScheduledEventDrainingDefault     = true
 	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
 	enableSpotInterruptionDrainingDefault   = true
+	enableASGLifecycleDrainingConfigKey     = "ENABLE_ASG_LIFECYCLE_DRAINING"
+	enableASGLifecycleDrainingDefault       = true
 	enableSQSTerminationDrainingConfigKey   = "ENABLE_SQS_TERMINATION_DRAINING"
 	enableSQSTerminationDrainingDefault     = false
 	enableRebalanceMonitoringConfigKey      = "ENABLE_REBALANCE_MONITORING"
@@ -132,6 +134,7 @@ type Config struct {
 	WebhookProxy                        string
 	EnableScheduledEventDraining        bool
 	EnableSpotInterruptionDraining      bool
+	EnableASGLifecycleDraining          bool
 	EnableSQSTerminationDraining        bool
 	EnableRebalanceMonitoring           bool
 	EnableRebalanceDraining             bool
@@ -195,6 +198,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.WebhookTemplateFile, "webhook-template-file", getEnv(webhookTemplateFileConfigKey, ""), "If specified, replaces the default webhook message template with content from template file.")
 	flag.BoolVar(&config.EnableScheduledEventDraining, "enable-scheduled-event-draining", getBoolEnv(enableScheduledEventDrainingConfigKey, enableScheduledEventDrainingDefault), "If true, drain nodes before the maintenance window starts for an EC2 instance scheduled event")
 	flag.BoolVar(&config.EnableSpotInterruptionDraining, "enable-spot-interruption-draining", getBoolEnv(enableSpotInterruptionDrainingConfigKey, enableSpotInterruptionDrainingDefault), "If true, drain nodes when the spot interruption termination notice is received")
+	flag.BoolVar(&config.EnableASGLifecycleDraining, "enable-asg-lifecycle-draining", getBoolEnv(enableASGLifecycleDrainingConfigKey, enableASGLifecycleDrainingDefault), "If true, drain nodes when the ASG target lifecyle state is Terminated is received")
 	flag.BoolVar(&config.EnableSQSTerminationDraining, "enable-sqs-termination-draining", getBoolEnv(enableSQSTerminationDrainingConfigKey, enableSQSTerminationDrainingDefault), "If true, drain nodes when an SQS termination event is received")
 	flag.BoolVar(&config.EnableRebalanceMonitoring, "enable-rebalance-monitoring", getBoolEnv(enableRebalanceMonitoringConfigKey, enableRebalanceMonitoringDefault), "If true, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set \"enableRebalanceDraining\".")
 	flag.BoolVar(&config.EnableRebalanceDraining, "enable-rebalance-draining", getBoolEnv(enableRebalanceDrainingConfigKey, enableRebalanceDrainingDefault), "If true, drain nodes when the rebalance recommendation notice is received")
