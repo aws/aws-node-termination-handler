@@ -120,6 +120,7 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `managedAsgTag`              | [DEPRECATED](Use `managedTag` instead) The node tag to check if `checkASGTagBeforeDraining` is `true`.     
 | `useProviderId`              | If `true`, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.                                                               | `false`                                |
 | `topologySpreadConstraints`  | [Topology Spread Constraints](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) for pod scheduling. Useful with a highly available deployment to reduce the risk of running multiple replicas on the same Node      | `[]`                                   |
+| `deleteSqsMsgIfNodeNotFound`     | If `true`, delete the SQS Message from the SQS Queue if the targeted node is not found. Only used in Queue Processor mode.                                       | `false`                |
 ### IMDS Mode Configuration
 
 The configuration in this table applies to AWS Node Termination Handler in IMDS mode.
@@ -158,7 +159,6 @@ The configuration in this table applies to AWS Node Termination Handler in IMDS 
 | `enableScheduledEventDraining`   | If `true`, drain nodes before the maintenance window starts for an EC2 instance scheduled event. Only used in IMDS mode.                                                                                                                                      | `true`                 |
 | `enableRebalanceMonitoring`      | If `true`, cordon nodes when the rebalance recommendation notice is received. If you'd like to drain the node in addition to cordoning, then also set `enableRebalanceDraining`. Only used in IMDS mode.                                                      | `false`                |
 | `enableRebalanceDraining`        | If `true`, drain nodes when the rebalance recommendation notice is received. Only used in IMDS mode.                                                                                                                                                          | `false`                |
-| `deleteSqsMsgIfNodeNotFound`     | If `true`, delete the SQS Message from the SQS Queue if the targeted node is not found. Only used in Queue Processor mode.                                       | `false`                |
 
 ### Testing Configuration
 
