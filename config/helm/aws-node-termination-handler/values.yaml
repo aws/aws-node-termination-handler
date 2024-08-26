@@ -270,6 +270,9 @@ metadataTries: 3
 # enableSpotInterruptionDraining If false, do not drain nodes when the spot interruption termination notice is received. Only used in IMDS mode.
 enableSpotInterruptionDraining: true
 
+# enableASGLifecycleDraining If false, do not drain nodes when ASG target lifecycle state Terminated is received. Only used in IMDS mode.
+enableASGLifecycleDraining: true
+
 # enableScheduledEventDraining If false, do not drain nodes before the maintenance window starts for an EC2 instance scheduled event. Only used in IMDS mode.
 enableScheduledEventDraining: true
 
