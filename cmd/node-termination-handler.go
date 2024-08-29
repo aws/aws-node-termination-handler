@@ -168,8 +168,9 @@ func main() {
 			err = handleRebootUncordon(nthConfig.NodeName, interruptionEventStore, *node)
 			if err != nil {
 				log.Warn().Err(err).Msgf("Unable to complete the uncordon after reboot workflow on startup, retrying")
+				return false, nil
 			}
-			return false, nil
+			return true, nil
 		})
 		if err != nil {
 			log.Warn().Err(err).Msgf("All retries failed, unable to complete the uncordon after reboot workflow")
