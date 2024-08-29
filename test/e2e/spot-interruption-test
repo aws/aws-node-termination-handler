@@ -112,11 +112,6 @@ cordoned=0
 tainted=0
 test_node=${TEST_NODE:-$CLUSTER_NAME-worker}
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
-
-    echo "CURRENT NODES"
-    echo $(kubectl get nodes)
-    echo "\n"
-    
     if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled >/dev/null; then
         echo "✅ Verified the worker node was cordoned!"
         cordoned=1
@@ -130,9 +125,6 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $tainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
         echo "✅ Verified the regular-pod-test pod was evicted!"
         echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"
-        echo "CURRENT NODES"
-        echo $(kubectl get nodes)
-        echo "\n"
         exit 0
     fi
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
