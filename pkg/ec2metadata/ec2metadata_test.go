@@ -609,7 +609,7 @@ func TestGetMetadataServiceRequest404(t *testing.T) {
 	// Use URL from our local test server
 	imds := ec2metadata.New(server.URL, 1)
 
-	_, err := imds.GetMetadataInfo(requestPath)
+	_, err := imds.GetMetadataInfo(requestPath, false)
 
 	h.Assert(t, err != nil, "Expected error to be nil but it was not")
 }
@@ -618,7 +618,7 @@ func TestGetMetadataServiceRequestFailure(t *testing.T) {
 	// Use URL from our local test server
 	imds := ec2metadata.New("/some-path-that-will-error", 1)
 
-	_, err := imds.GetMetadataInfo("/latest/meta-data/instance-type")
+	_, err := imds.GetMetadataInfo("/latest/meta-data/instance-type", false)
 	h.Assert(t, err != nil, "Error expected because no server should be running")
 }
 
@@ -643,7 +643,7 @@ func TestGetMetadataServiceSuccess(t *testing.T) {
 	// Use URL from our local test server
 	imds := ec2metadata.New(server.URL, 1)
 
-	resp, err := imds.GetMetadataInfo(requestPath)
+	resp, err := imds.GetMetadataInfo(requestPath, false)
 
 	h.Ok(t, err)
 	h.Equals(t, `x1.32xlarge`, resp)
