@@ -1,80 +1,42 @@
 #!/bin/bash
 set -euo pipefail
 
-# Available env vars:
-#   $TMP_DIR
-#   $CLUSTER_NAME
-#   $KUBECONFIG
-#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
-#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
-#   $WEBHOOK_DOCKER_REPO
-#   $WEBHOOK_DOCKER_TAG
-#   $AEMM_URL
-#   $AEMM_VERSION
 
+# The purpose of this end-to-end test is to ensure that nodes with an NTH pod, will cordon and drain when they receive an ASG Termination event
+# This test assumes that AEMM (aws ec2 metadata mock service) provides an endpoint for getting and setting the target-lifecycle-state
+# For more details on expected behavior
+# Reference: https://docs.aws.amazon.com/autoscaling/ec2/userguide/retrieving-target-lifecycle-state-through-imds.html
+
+SERVICE_NAME=amazon-ec2-metadata-mock-service
 
 function fail_and_exit {
-    echo "❌ ASG Lifecycle SQS Test failed $CLUSTER_NAME ❌"
+    echo "❌ ASG Lifecycle IMDS Test failed $CLUSTER_NAME ❌"
     exit "${1:-1}"
 }
 
-echo "Starting ASG Lifecycle SQS Test for Node Termination Handler"
+echo "Starting ASG Lifecycle IMDS Test for Node Termination Handler"
 START_TIME=$(date -u +"%Y-%m-%dT%TZ")
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 common_helm_args=()
 
-localstack_helm_args=(
-    upgrade
-    --install
-    --namespace default
-    "$CLUSTER_NAME-localstack"
-    "$SCRIPTPATH/../../config/helm/localstack/"
-    --set nodeSelector."${NTH_CONTROL_LABEL}"
-    --set defaultRegion="${AWS_REGION}"
-    --wait
-)
-
-set -x
-helm "${localstack_helm_args[@]}"
-set +x
-
-sleep 10
-
-RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test},{Key=aws-node-termination-handler/managed,Value=blah}]'"
-localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
-                                  -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
-                                  | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
-echo "🥑 Using localstack pod ${localstack_pod}"
-run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
-private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
-instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
-echo "🥑 Started mock EC2 instance ($instance_id) w/ private DNS name: ${private_dns_name}"
-set -x
-CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
-queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
-
-echo "🥑 Created SQS Queue ${queue_url}"
-
 anth_helm_args=(
   upgrade
   --install
   --namespace kube-system
-  "$CLUSTER_NAME-acth"
+  "$CLUSTER_NAME-nth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
-  --set nodeSelector."${NTH_CONTROL_LABEL}"
-  --set tolerations[0].operator=Exists
-  --set awsAccessKeyID=foo
-  --set awsSecretAccessKey=bar
-  --set awsRegion="${AWS_REGION}"
-  --set awsEndpoint="http://localstack.default"
-  --set checkTagBeforeDraining=false
-  --set enableSqsTerminationDraining=true
-  --set queueURL="${queue_url}"
+  --set taintNode="true"
+  --set enableASGLifecycleDraining="true"
+  --set enableSpotInterruptionDraining="false"
+  --set enableScheduledEventDraining="false"
+  --set daemonsetTolerations=""
   --wait
+  --force
 )
 [[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
     anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
@@ -104,11 +66,30 @@ set -x
 helm "${emtp_helm_args[@]}"
 set +x
 
+aemm_helm_args=(
+  upgrade
+  --install
+  --namespace default
+  "$CLUSTER_NAME-aemm"
+  "/Volumes/workplace/github/amazon-ec2-metadata-mock/helm/amazon-ec2-metadata-mock" #$AEMM_DL_URL"
+  --set servicePort="$IMDS_PORT"
+  --set 'tolerations[0].effect=NoSchedule'
+  --set 'tolerations[0].operator=Exists'
+  --set serviceName="$SERVICE_NAME"
+  --set arguments='{asglifecycle}'
+  --wait
+)
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    aemm_helm_args+=("${common_helm_args[@]}")
+
+set -x
+retry 5 helm "${aemm_helm_args[@]}"
+set +x
+
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
 DEPLOYED=0
-
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
         echo "✅ Verified regular-pod-test pod was scheduled and started!"
@@ -124,3 +105,47 @@ if [[ $DEPLOYED -eq 0 ]]; then
     fail_and_exit 2
 fi
 
+# Confirm that IMDS is accessible from script
+# Port forwarding allows the script to access the IMDS service running inside the cluster and make POST requests
+# Port is cleaned up after script finishes running
+# Sleeping ensures that the port is fully etablished before proceeding to the next commands
+LOCAL_PORT=8899
+LOCAL_AEMM_URL="http://localhost:$LOCAL_PORT/latest/meta-data/autoscaling/target-lifecycle-state"
+kubectl port-forward service/$SERVICE_NAME $LOCAL_PORT:$IMDS_PORT > /dev/null 2>&1 & 
+PORT_FORWARD_PID=$!
+trap 'kill ${PORT_FORWARD_PID}' EXIT SIGINT SIGTERM ERR
+echo "✅ Local Port $LOCAL_PORT forwards to service $SERVICE_NAME on $IMDS_PORT"
+sleep 2
+
+# Update the target-lifecycle-state to Terminated
+TARGET_LIFECYCLE_STATE=$(curl -s $LOCAL_AEMM_URL)
+echo "✅ Instance Metadata URL is available at $LOCAL_AEMM_URL! Current target-lifecycle-state: $TARGET_LIFECYCLE_STATE"
+curl -s -X POST -H "Content-Type: application/json" -d '{"state":"Terminated"}' $LOCAL_AEMM_URL
+TARGET_LIFECYCLE_STATE=$(curl -s $LOCAL_AEMM_URL)
+echo "Set target-lifecycle-state to ${TARGET_LIFECYCLE_STATE}"
+
+# Check that worker node was cordoned and drained
+cordoned=0
+test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
+        echo "✅ Verified the worker node was cordoned!"
+        cordoned=1
+    fi
+
+    if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        echo "✅ ASG Lifecycle IMDS Test Passed $CLUSTER_NAME! ✅"
+        exit 0
+    fi
+    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ $cordoned -eq 0 ]]; then
+    echo "❌ Worker node was not cordoned"
+else
+    echo "❌ regular-pod-test was not evicted"
+fi
+
+fail_and_exit 1

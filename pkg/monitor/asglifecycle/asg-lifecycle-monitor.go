@@ -16,10 +16,11 @@ package asglifecycle
 import (
 	"crypto/sha256"
 	"fmt"
+	"time"
+
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
-	"time"
 )
 
 // ASGLifecycleMonitorKind is a const to define this monitor kind
@@ -82,12 +83,12 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 	}
 
 	return &monitor.InterruptionEvent{
-		EventID:      fmt.Sprintf("spot-itn-%x", hash.Sum(nil)),
+		EventID:      fmt.Sprintf("target-lifecycle-state-terminated-%x", hash.Sum(nil)),
 		Kind:         monitor.ASGLifecycleKind,
 		Monitor:      ASGLifecycleMonitorKind,
 		StartTime:    interruptionTime,
 		NodeName:     nodeName,
-		Description:  "AST tareget lifecycle state received. Instance will be \n",
+		Description:  "AST target lifecycle state received. Instance will be terminated\n",
 		PreDrainTask: setInterruptionTaint,
 	}, nil
 }

@@ -300,7 +300,7 @@ for assert_script in $ASSERTION_SCRIPTS; do
   POD_ID=$(get_nth_worker_pod || :)
   kubectl logs "$POD_ID" --namespace kube-system || :
   ## Resets cluster to run another test on the same cluster
-  reset_cluster
+  # reset_cluster
   echo "✅ Assertion test $assert_script PASSED! ✅"
 done
 
