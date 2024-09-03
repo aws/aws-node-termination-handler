@@ -48,20 +48,23 @@ for os_arch in "${PLATFORMS[@]}"; do
     os=$(echo $os_arch | cut -d'/' -f1)
     arch=$(echo $os_arch | cut -d'/' -f2)
 
-    img_tag="$IMAGE_REPO:$VERSION-$os-$arch"
-
     dockerfile="$DOCKERFILE_PATH"
-    if [[ $os = "windows" ]]; then
+    if [[ $os == "windows"* ]]; then  
+        windows_version=$(echo $os | cut -d'-' -f2) 
+        os=$(echo $os | cut -d'-' -f1)
+        img_tag="$IMAGE_REPO:$VERSION-$os-$windows_version-$arch"
         dockerfile="${dockerfile}.windows"
         docker build \
             --file "${dockerfile}" \
             --build-arg GOOS=${os} \
             --build-arg GOARCH=${arch} \
+            --build-arg WINDOWS_VERSION=${windows_version} \
             --build-arg GOPROXY=${GOPROXY} \
             --tag ${img_tag} \
             ${REPO_ROOT_PATH}
     else
         # Launch a docker buildx instance and save its name so we can terminate it later
+        img_tag="$IMAGE_REPO:$VERSION-$os-$arch"
         buildx_instance_name=$(docker buildx create --use)
         docker buildx build \
             --load \
