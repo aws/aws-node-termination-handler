@@ -61,7 +61,7 @@ func (m ASGLifecycleMonitor) Kind() string {
 	return ASGLifecycleMonitorKind
 }
 
-// checkForSpotInterruptionNotice Checks EC2 instance metadata for a spot interruption termination notice
+// checkForASGTargetLifecycleStateNotice Checks EC2 instance metadata for a asg lifecycle termination notice
 func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.InterruptionEvent, error) {
 	state, err := m.IMDS.GetASGTargetLifecycleState()
 	if err != nil {
