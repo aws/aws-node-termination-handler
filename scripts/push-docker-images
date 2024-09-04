@@ -68,17 +68,9 @@ if [[ $MANIFEST == "true" ]]; then
   if [[ manifest_exists -eq 0 ]]; then
     echo "manifest already exists"
     EXISTING_IMAGES=()
-
-    # Run while loop to collect images with no OS version (typically linux)
     while IFS='' read -r line; do 
       EXISTING_IMAGES+=("$line"); 
-    done < <(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | select(.platform."os.version" == null) | "\(.platform.os)-\(.platform.architecture)"')
-
-    # Run while loop to collect images with OS version (typically windows)
-    while IFS='' read -r line; do 
-      EXISTING_IMAGES+=("$line"); 
-    done < <(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | select(.platform."os.version" != null) | "\(.platform.os)-\(.platform."os.version")-\(.platform.architecture)"')
-
+    done < <(docker manifest inspect $IMAGE_REPO:$VERSION | jq -r '.manifests[] | "\(.platform.os)-\(.platform.architecture)"')
     # treat separate from PLATFORMS because existing images don't need to be tagged and pushed
     for os_arch in "${EXISTING_IMAGES[@]}"; do
       img_tag="$IMAGE_REPO:$VERSION-$os_arch"
@@ -125,10 +117,7 @@ if [[ $MANIFEST == "true" ]]; then
       # However, our builds in the past required this explicit annotation, and it doesn't hurt to keep it for now.
       os_arch=$(echo ${updated_img//$IMAGE_REPO:$VERSION-/})
       os=$(echo $os_arch | cut -d'-' -f1)
-
-      # os_arch may be linux-amd64 or windows-10.0.17763.6189-amd64. To get the proper architecture, the bash command
-      # will extract the last element after the hyphen (-).
-      arch=${os_arch##*-}
+      arch=$(echo $os_arch | cut -d'-' -f2)
 
       echo "annotating manifest"
       docker manifest annotate $IMAGE_REPO:$VERSION $updated_img --arch $arch --os $os

@@ -49,7 +49,7 @@ for os_arch in "${PLATFORMS[@]}"; do
     container_name="build-$BASE_BIN_NAME-$os-$arch"
     repo_name="bin-build"
 
-    if [[ $os == "windows"* ]]; then
+    if [[ $os == "windows" ]]; then
         bin_name="$BASE_BIN_NAME-$os-$arch.exe"
     else
         bin_name="$BASE_BIN_NAME-$os-$arch"
@@ -60,7 +60,7 @@ for os_arch in "${PLATFORMS[@]}"; do
     docker container create --rm --name $container_name "$repo_name:$VERSION-$os-$arch"
     docker container cp $container_name:/${BASE_BIN_NAME} $BIN_DIR/$bin_name
 
-    if [[ $os == "windows"* ]]; then
+    if [[ $os == "windows" ]]; then
       ## Create zip archive with binary taking into account windows .exe
       cp ${BIN_DIR}/${bin_name} ${BIN_DIR}/${BASE_BIN_NAME}.exe
       ## Can't reuse bin_name below because it includes .exe
