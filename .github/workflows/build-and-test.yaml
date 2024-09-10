@@ -124,7 +124,10 @@ jobs:
 
   buildWindows:
     name: Build Windows Binaries
-    runs-on: windows-2019
+    strategy:
+      matrix:
+        version: [2019, 2022]
+    runs-on: windows-${{matrix.version}}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -149,11 +152,14 @@ jobs:
         Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
         refreshenv
 
-        choco install make && choco install zip && make build-binaries-windows
+        choco install make && choco install zip && make build-binaries-windows-${{matrix.version}}
 
   buildWindowsDocker:
     name: Build Windows Docker Images
-    runs-on: windows-2019
+    strategy:
+      matrix:
+        version: [2019, 2022]
+    runs-on: windows-${{matrix.version}}
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -178,7 +184,7 @@ jobs:
         Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
         refreshenv
 
-        choco install make && make build-docker-images-windows
+        choco install make && make build-docker-images-windows-${{matrix.version}}
 
   e2e:
     name: E2E Tests
