@@ -18,7 +18,7 @@ WEBHOOK_DOCKER_IMG=""
 OVERRIDE_PATH=0
 K8S_VERSION="1.30"
 AEMM_URL="amazon-ec2-metadata-mock-service.default.svc.cluster.local"
-AEMM_VERSION="1.8.1"
+AEMM_VERSION="1.12.0"
 AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
 WEBHOOK_URL=${WEBHOOK_URL:="http://webhook-test-proxy.default.svc.cluster.local"}
 

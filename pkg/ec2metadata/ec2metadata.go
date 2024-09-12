@@ -30,6 +30,8 @@ import (
 const (
 	// SpotInstanceActionPath is the context path to spot/instance-action within IMDS
 	SpotInstanceActionPath = "/latest/meta-data/spot/instance-action"
+	// ASGTargetLifecycleStatePath path to autoscaling target lifecycle state within IMDS
+	ASGTargetLifecycleStatePath = "/latest/meta-data/autoscaling/target-lifecycle-state"
 	// ScheduledEventPath is the context path to events/maintenance/scheduled within IMDS
 	ScheduledEventPath = "/latest/meta-data/events/maintenance/scheduled"
 	// RebalanceRecommendationPath is the context path to events/recommendations/rebalance within IMDS
@@ -191,6 +193,28 @@ func (e *Service) GetRebalanceRecommendationEvent() (rebalanceRec *RebalanceReco
 		return nil, fmt.Errorf("Could not decode rebalance recommendation response: %w", err)
 	}
 	return rebalanceRec, nil
+}
+
+// GetASGTargetLifecycleState retrieves ASG target lifecycle state from imds. State can be empty string
+// if the lifecycle hook is not present on the ASG
+func (e *Service) GetASGTargetLifecycleState() (state string, err error) {
+	resp, err := e.Request(ASGTargetLifecycleStatePath)
+	// 404s should not happen, but there can be a case if the instance is brand new and the field is not populated yet
+	if resp != nil && resp.StatusCode == 404 {
+		return "", nil
+	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+	}
+	if err != nil {
+		return "", fmt.Errorf("Unable to parse metadata response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("Unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
+	}
+	return string(body), nil
 }
 
 // GetMetadataInfo generic function for retrieving ec2 metadata
