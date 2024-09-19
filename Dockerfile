@@ -1,7 +1,7 @@
-FROM --platform=$BUILDPLATFORM golang:1.23 as builder
+FROM --platform=$BUILDPLATFORM golang:1.22 as builder
 
 ## GOLANG env
-ARG GOPROXY="https://proxy.golang.org|direct"
+ARG GOPROXY="direct"
 ARG GO111MODULE="on"
 
 # Copy go.mod and download dependencies

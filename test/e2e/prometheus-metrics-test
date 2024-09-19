@@ -110,6 +110,7 @@ fi
 
 EXIT_STATUS=1
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+      kubectl get nodes "${CLUSTER_NAME}-worker"
       if kubectl get nodes "${CLUSTER_NAME}-worker" | grep SchedulingDisabled; then
           echo "✅ Verified the worker node was cordoned!"
 
