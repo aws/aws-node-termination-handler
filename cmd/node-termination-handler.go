@@ -16,13 +16,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
@@ -192,7 +193,7 @@ func main() {
 			monitoringFns[spotITN] = imdsSpotMonitor
 		}
 		if nthConfig.EnableASGLifecycleDraining {
-			asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName)
+			asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, interruptionChan, cancelChan, nthConfig.NodeName, nthConfig.LifecycleHookName)
 			monitoringFns[asgLifecycle] = asgLifecycleMonitor
 		}
 		if nthConfig.EnableScheduledEventDraining {

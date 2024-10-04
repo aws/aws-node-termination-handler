@@ -34,19 +34,21 @@ const ASGLifecycleMonitorKind = "ASG_LIFECYCLE_MONITOR"
 
 // ASGLifecycleMonitor is a struct definition which facilitates monitoring of ASG target lifecycle state from IMDS
 type ASGLifecycleMonitor struct {
-	IMDS             *ec2metadata.Service
-	InterruptionChan chan<- monitor.InterruptionEvent
-	CancelChan       chan<- monitor.InterruptionEvent
-	NodeName         string
+	IMDS              *ec2metadata.Service
+	InterruptionChan  chan<- monitor.InterruptionEvent
+	CancelChan        chan<- monitor.InterruptionEvent
+	NodeName          string
+	LifecycleHookName string
 }
 
 // NewASGLifecycleMonitor creates an instance of a ASG lifecycle IMDS monitor
-func NewASGLifecycleMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string) ASGLifecycleMonitor {
+func NewASGLifecycleMonitor(imds *ec2metadata.Service, interruptionChan chan<- monitor.InterruptionEvent, cancelChan chan<- monitor.InterruptionEvent, nodeName string, lifecycleHookName string) ASGLifecycleMonitor {
 	return ASGLifecycleMonitor{
-		IMDS:             imds,
-		InterruptionChan: interruptionChan,
-		CancelChan:       cancelChan,
-		NodeName:         nodeName,
+		IMDS:              imds,
+		InterruptionChan:  interruptionChan,
+		CancelChan:        cancelChan,
+		NodeName:          nodeName,
+		LifecycleHookName: lifecycleHookName,
 	}
 }
 
@@ -131,7 +133,7 @@ func (m ASGLifecycleMonitor) completeLifecycleAction() error {
 	ec2Svc := ec2.New(sess)
 
 	instanceID := m.IMDS.GetNodeMetadata().InstanceID
-	lifecycleHookName := "PAU_TERMINATION"
+	lifecycleHookName := m.LifecycleHookName
 
 	// Get the ASG name from similar to aws autoscaling describe-auto-scaling-instances --instance-ids="i-zzxxccvv"
 	autoScalingGroupName, err := m.getAutoScalingGroupName(ec2Svc, instanceID)

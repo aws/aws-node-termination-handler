@@ -14,10 +14,11 @@
 package asglifecycle_test
 
 import (
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
@@ -57,7 +58,7 @@ func TestMonitor_Success(t *testing.T) {
 		h.Equals(t, expFormattedTime, result.StartTime.String())
 	}()
 
-	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName)
+	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName, "test-lifecycle-hook")
 	err := asgLifecycleMonitor.Monitor()
 	h.Ok(t, err)
 }
@@ -75,7 +76,7 @@ func TestMonitor_MetadataParseFailure(t *testing.T) {
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName)
+	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName, "test-lifecycle-hook")
 	err := asgLifecycleMonitor.Monitor()
 	h.Ok(t, err)
 }
@@ -97,7 +98,7 @@ func TestMonitor_404Response(t *testing.T) {
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName)
+	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName, "test-lifecycle-hook")
 	err := asgLifecycleMonitor.Monitor()
 	h.Ok(t, err)
 }
@@ -119,7 +120,7 @@ func TestMonitor_500Response(t *testing.T) {
 	cancelChan := make(chan monitor.InterruptionEvent)
 	imds := ec2metadata.New(server.URL, 1)
 
-	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName)
+	asgLifecycleMonitor := asglifecycle.NewASGLifecycleMonitor(imds, drainChan, cancelChan, nodeName, "test-lifecycle-hook")
 	err := asgLifecycleMonitor.Monitor()
 	h.Assert(t, err != nil, "Failed to return error when 500 response")
 }
