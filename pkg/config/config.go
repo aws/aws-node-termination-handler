@@ -112,6 +112,7 @@ const (
 	queueURLConfigKey                         = "QUEUE_URL"
 	completeLifecycleActionDelaySecondsKey    = "COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS"
 	deleteSqsMsgIfNodeNotFoundKey             = "DELETE_SQS_MSG_IF_NODE_NOT_FOUND"
+	lifecycleHookNameKey                      = "LIFECYCLE_HOOK_NAME"
 )
 
 // Config arguments set via CLI, environment variables, or defaults
@@ -166,6 +167,7 @@ type Config struct {
 	CompleteLifecycleActionDelaySeconds int
 	DeleteSqsMsgIfNodeNotFound          bool
 	UseAPIServerCacheToListPods         bool
+	LifecycleHookName                   string
 }
 
 // ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -230,6 +232,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.CompleteLifecycleActionDelaySeconds, "complete-lifecycle-action-delay-seconds", getIntEnv(completeLifecycleActionDelaySecondsKey, -1), "Delay completing the Autoscaling lifecycle action after a node has been drained.")
 	flag.BoolVar(&config.DeleteSqsMsgIfNodeNotFound, "delete-sqs-msg-if-node-not-found", getBoolEnv(deleteSqsMsgIfNodeNotFoundKey, false), "If true, delete SQS Messages from the SQS Queue if the targeted node(s) are not found.")
 	flag.BoolVar(&config.UseAPIServerCacheToListPods, "use-apiserver-cache", getBoolEnv(useAPIServerCache, false), "If true, leverage the k8s apiserver's index on pod's spec.nodeName to list pods on a node, instead of doing an etcd quorum read.")
+	flag.StringVar(&config.LifecycleHookName, "lifecycle-hook-name", getEnv(lifecycleHookNameKey, ""), "Name of the ASG lifecycle hook to monitor for termination events.")
+
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {

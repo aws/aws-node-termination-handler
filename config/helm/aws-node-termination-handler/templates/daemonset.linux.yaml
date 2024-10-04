@@ -155,6 +155,8 @@ spec:
               value: "false"
             - name: UPTIME_FROM_FILE
               value: {{ .Values.procUptimeFile | quote }}
+            - name: LIFECYCLE_HOOK_NAME
+              value: {{ .Values.lifecycleHookName | quote }}
             {{- with .Values.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
