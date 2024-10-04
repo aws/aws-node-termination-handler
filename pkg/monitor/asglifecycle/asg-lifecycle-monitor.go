@@ -21,6 +21,12 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
+	"github.com/rs/zerolog/log"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 // ASGLifecycleMonitorKind is a const to define this monitor kind
@@ -52,6 +58,11 @@ func (m ASGLifecycleMonitor) Monitor() error {
 	}
 	if interruptionEvent != nil && interruptionEvent.Kind == monitor.ASGLifecycleKind {
 		m.InterruptionChan <- *interruptionEvent
+		// After handling the interruption, complete the lifecycle action
+		err = m.completeLifecycleAction()
+		if err != nil {
+			return fmt.Errorf("failed to complete ASG lifecycle action: %w", err)
+		}
 	}
 	return nil
 }
@@ -82,7 +93,7 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 		return nil, fmt.Errorf("There was a problem creating an event ID from the event: %w", err)
 	}
 
-	return &monitor.InterruptionEvent{
+	interruptionEvent := &monitor.InterruptionEvent{
 		EventID:      fmt.Sprintf("target-lifecycle-state-terminated-%x", hash.Sum(nil)),
 		Kind:         monitor.ASGLifecycleKind,
 		Monitor:      ASGLifecycleMonitorKind,
@@ -90,7 +101,18 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 		NodeName:     nodeName,
 		Description:  "AST target lifecycle state received. Instance will be terminated\n",
 		PreDrainTask: setInterruptionTaint,
-	}, nil
+	}
+
+	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
+		err = m.completeLifecycleAction()
+		if err != nil {
+			return fmt.Errorf("continuing ASG termination lifecycle: %w", err)
+		}
+		log.Info().Str("instanceID", nodeName).Msg("Completed ASG Lifecycle Hook")
+		return nil
+	}
+
+	return interruptionEvent, nil
 }
 
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
@@ -100,4 +122,59 @@ func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.No
 	}
 
 	return nil
+}
+
+// completeLifecycleAction sends a CONTINUE action to the ASG lifecycle hook to indicate that the instance can be terminated
+func (m ASGLifecycleMonitor) completeLifecycleAction() error {
+	sess := session.Must(session.NewSession())
+	autoScalingSvc := autoscaling.New(sess)
+	ec2Svc := ec2.New(sess)
+
+	instanceID := m.IMDS.GetNodeMetadata().InstanceID
+	lifecycleHookName := "PAU_TERMINATION"
+
+	// Get the ASG name from similar to aws autoscaling describe-auto-scaling-instances --instance-ids="i-zzxxccvv"
+	autoScalingGroupName, err := m.getAutoScalingGroupName(ec2Svc, instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get Auto Scaling group name: %w", err)
+	}
+
+	input := &autoscaling.CompleteLifecycleActionInput{
+		AutoScalingGroupName:  aws.String(autoScalingGroupName),
+		LifecycleHookName:     aws.String(lifecycleHookName),
+		InstanceId:            aws.String(instanceID),
+		LifecycleActionResult: aws.String("CONTINUE"),
+	}
+
+	_, err = autoScalingSvc.CompleteLifecycleAction(input)
+	if err != nil {
+		return fmt.Errorf("failed to complete lifecycle action: %w", err)
+	}
+
+	return nil
+}
+
+// getAutoScalingGroupName fetches the Auto Scaling group name from the EC2 API
+func (m ASGLifecycleMonitor) getAutoScalingGroupName(ec2Svc *ec2.EC2, instanceID string) (string, error) {
+	describeInstancesInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(instanceID)},
+	}
+
+	describeInstancesOutput, err := ec2Svc.DescribeInstances(describeInstancesInput)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe instances: %w", err)
+	}
+
+	if len(describeInstancesOutput.Reservations) == 0 || len(describeInstancesOutput.Reservations[0].Instances) == 0 {
+		return "", fmt.Errorf("no instances found for instance ID %s", instanceID)
+	}
+
+	tags := describeInstancesOutput.Reservations[0].Instances[0].Tags
+	for _, tag := range tags {
+		if *tag.Key == "aws:autoscaling:groupName" {
+			return *tag.Value, nil
+		}
+	}
+
+	return "", fmt.Errorf("Auto Scaling group name tag not found for instance ID %s", instanceID)
 }
