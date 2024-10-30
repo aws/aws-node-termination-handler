@@ -121,7 +121,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
 	}
 
-	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
+	metrics, err := observability.InitMetrics(nthConfig, clientset)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")

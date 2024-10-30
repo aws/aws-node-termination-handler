@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/aws/aws-node-termination-handler/pkg/daemonset"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 
@@ -27,6 +29,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -49,7 +52,7 @@ type Metrics struct {
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
-func InitMetrics(enabled bool, port int) (Metrics, error) {
+func InitMetrics(nthConfig config.Config, clientset *kubernetes.Clientset) (Metrics, error) {
 	exporter, err := prometheus.New()
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus exporter: %w", err)
@@ -59,7 +62,7 @@ func InitMetrics(enabled bool, port int) (Metrics, error) {
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to register metrics with Prometheus provider: %w", err)
 	}
-	metrics.enabled = enabled
+	metrics.enabled = nthConfig.EnablePrometheus
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
@@ -69,9 +72,31 @@ func InitMetrics(enabled bool, port int) (Metrics, error) {
 		return Metrics{}, fmt.Errorf("failed to start Go runtime metrics collection: %w", err)
 	}
 
-	go serveMetrics(port)
+	metrics.recordNodes(nthConfig, clientset)
+
+	go serveMetrics(nthConfig.PrometheusPort)
 
 	return metrics, nil
+}
+
+func (m Metrics) recordNodes(nthConfig config.Config, clientset *kubernetes.Clientset) {
+	if !m.enabled {
+		return
+	}
+
+	daemonset := daemonset.New(nthConfig, clientset)
+
+	go func() {
+		for {
+			a, err := daemonset.Describe("aws-node-termination-handler")
+			if err != nil {
+				// TODO: research error handling in goroutine
+			} else {
+				m.NodesRecord(int64(a.Size()))
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}()
 }
 
 // ErrorEventsInc will increment one for the event errors counter, partitioned by action, and only if metrics are enabled.
