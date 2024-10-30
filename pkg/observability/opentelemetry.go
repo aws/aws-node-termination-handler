@@ -45,6 +45,7 @@ type Metrics struct {
 	actionsCounter     api.Int64Counter
 	actionsCounterV2   api.Int64Counter
 	errorEventsCounter api.Int64Counter
+	nodesGauge         api.Int64Gauge
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
@@ -101,6 +102,14 @@ func (m Metrics) NodeActionsInc(action, nodeName string, eventID string, err err
 	m.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(labelsV2...))
 }
 
+func (m Metrics) NodesRecord(num int64) {
+	if !m.enabled {
+		return
+	}
+
+	m.nodesGauge.Record(context.Background(), num)
+}
+
 func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
@@ -127,11 +136,20 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
 	}
 	errorEventsCounter.Add(context.Background(), 0)
+
+	name = "nodes"
+	nodesGauge, err := meter.Int64Gauge(name, api.WithDescription("Number of nodes processing"))
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
+	}
+	nodesGauge.Record(context.Background(), 0)
+
 	return Metrics{
 		meter:              meter,
 		errorEventsCounter: errorEventsCounter,
 		actionsCounter:     actionsCounter,
 		actionsCounterV2:   actionsCounterV2,
+		nodesGauge:         nodesGauge,
 	}, nil
 }
 
