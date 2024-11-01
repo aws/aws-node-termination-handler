@@ -41,6 +41,6 @@ func New(nthConfig config.Config, clientset *kubernetes.Clientset) *DaemonSet {
 	}
 }
 
-func (d *DaemonSet) Describe(name string) (*appv1.DaemonSet, error) {
+func (d *DaemonSet) GetOne(name string) (*appv1.DaemonSet, error) {
 	return d.daemonSetHelper.Get(context.Background(), "aws-node-termination-handler", metav1.GetOptions{})
 }

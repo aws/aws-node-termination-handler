@@ -88,9 +88,9 @@ func (m Metrics) recordNodes(nthConfig config.Config, clientset *kubernetes.Clie
 
 	go func() {
 		for {
-			a, err := daemonset.Describe("aws-node-termination-handler")
+			a, err := daemonset.GetOne("aws-node-termination-handler")
 			if err != nil {
-				// TODO: research error handling in goroutine
+				log.Err(err).Msg("Failed to describe daemonset")
 			} else {
 				m.NodesRecord(int64(a.Size()))
 			}
@@ -165,7 +165,7 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	name = "nodes"
 	nodesGauge, err := meter.Int64Gauge(name, api.WithDescription("Number of nodes processing"))
 	if err != nil {
-		return Metrics{}, fmt.Errorf("failed to create Prometheus counter %q: %w", name, err)
+		return Metrics{}, fmt.Errorf("failed to create Prometheus gauge %q: %w", name, err)
 	}
 	nodesGauge.Record(context.Background(), 0)
 
