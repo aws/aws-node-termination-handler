@@ -587,6 +587,28 @@ Available Prometheus metrics:
 | `actions_node` | Number of actions per node (Deprecated: Use actions metric instead)|
 | `events_error` | Number of errors in events processing                              |
 
+The method of collecting Prometheus metrics changes depending on whether NTH is running in IMDS mode or Queue mode.
+
+> [!WARNING]
+> Both `serviceMonitor` and `podMonitor` are custom resources provided by the [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator) for seamless integration with Kubernetes services and pods. For more details, please refer to [the API reference docs](https://prometheus-operator.dev/docs/api-reference/api/) for the Prometheus Operator.
+
+In Queue mode, metrics can be collected in two ways:
+- Use a `serviceMonitor` custom resource with the Prometheus Operator to collect metrics.
+- Alternatively, add aws-node-termination-handler service address statically in Prometheus `scrape_configs`.
+
+Example `scrape_configs` in prometheus helm chart:
+```yaml
+# charts/prometheus/values.yaml
+# See: https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus/values.yaml
+extraScrapeConfigs: |
+  - job_name: 'aws-node-termination-handler'
+    static_configs:
+      - targets:
+          - 'aws-node-termination-handler.kube-system.svc.cluster.local:9092'
+```
+
+In IMDS mode, metrics can be collected as follows:
+- Use a `podMonitor` custom resource with the Prometheus Operator to collect metrics.
 
 ## Communication
 * If you've run into a bug or have a new feature request, please open an [issue](https://github.com/aws/aws-node-termination-handler/issues/new).
