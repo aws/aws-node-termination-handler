@@ -20,7 +20,10 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
-	"github.com/aws/aws-node-termination-handler/pkg/daemonset"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 
@@ -29,7 +32,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -44,15 +46,17 @@ var (
 // Metrics represents the stats for observability
 type Metrics struct {
 	enabled            bool
+	EC2                ec2iface.EC2API
 	meter              api.Meter
 	actionsCounter     api.Int64Counter
 	actionsCounterV2   api.Int64Counter
 	errorEventsCounter api.Int64Counter
 	nodesGauge         api.Int64Gauge
+	instancesGauge     api.Int64Gauge
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
-func InitMetrics(nthConfig config.Config, clientset *kubernetes.Clientset) (Metrics, error) {
+func InitMetrics(nthConfig config.Config, node *node.Node, ec2 ec2iface.EC2API) (Metrics, error) {
 	exporter, err := prometheus.New()
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus exporter: %w", err)
@@ -63,6 +67,7 @@ func InitMetrics(nthConfig config.Config, clientset *kubernetes.Clientset) (Metr
 		return Metrics{}, fmt.Errorf("failed to register metrics with Prometheus provider: %w", err)
 	}
 	metrics.enabled = nthConfig.EnablePrometheus
+	metrics.EC2 = ec2
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
@@ -72,31 +77,74 @@ func InitMetrics(nthConfig config.Config, clientset *kubernetes.Clientset) (Metr
 		return Metrics{}, fmt.Errorf("failed to start Go runtime metrics collection: %w", err)
 	}
 
-	metrics.recordNodes(nthConfig, clientset)
+	go metrics.serveNodeMetrics(nthConfig, node)
 
 	go serveMetrics(nthConfig.PrometheusPort)
 
 	return metrics, nil
 }
 
-func (m Metrics) recordNodes(nthConfig config.Config, clientset *kubernetes.Clientset) {
+func (m Metrics) serveNodeMetrics(nthConfig config.Config, node *node.Node) {
 	if !m.enabled {
 		return
 	}
 
-	daemonset := daemonset.New(nthConfig, clientset)
-
-	go func() {
-		for {
-			a, err := daemonset.GetOne("aws-node-termination-handler")
-			if err != nil {
-				log.Err(err).Msg("Failed to describe daemonset")
-			} else {
-				m.NodesRecord(int64(a.Size()))
-			}
-			time.Sleep(2 * time.Second)
+	for {
+		instanceIdsMap, err := m.getInstanceIdsMapByTagKey(nthConfig.ManagedTag)
+		if err != nil {
+			log.Err(err).Msg("Failed to get AWS instance ids")
+		} else {
+			m.InstancesRecord(int64(len(instanceIdsMap)))
 		}
-	}()
+
+		nodeInstanceIds, err := node.FetchKubernetesNodeInstanceIds()
+		if err != nil {
+			log.Err(err).Msg("Failed to get node instance ids")
+		} else {
+			nodeCount := 0
+			for _, id := range nodeInstanceIds {
+				if _, ok := instanceIdsMap[id]; ok {
+					nodeCount++
+				}
+			}
+			m.NodesRecord(int64(nodeCount))
+		}
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func (m Metrics) getInstanceIdsMapByTagKey(tag string) (map[string]bool, error) {
+	ids := map[string]bool{}
+	nextToken := ""
+
+	for {
+		result, err := m.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
+			Filters: []*ec2.Filter{
+				{
+					Name:   aws.String("tag-key"),
+					Values: []*string{aws.String(tag)},
+				},
+			},
+			NextToken: &nextToken,
+		})
+
+		if err != nil {
+			return ids, err
+		}
+
+		for _, reservation := range result.Reservations {
+			for _, instance := range reservation.Instances {
+				ids[*instance.InstanceId] = true
+			}
+		}
+		nextToken = *result.NextToken
+
+		if result.NextToken == nil {
+			break
+		}
+	}
+
+	return ids, nil
 }
 
 // ErrorEventsInc will increment one for the event errors counter, partitioned by action, and only if metrics are enabled.
@@ -135,6 +183,14 @@ func (m Metrics) NodesRecord(num int64) {
 	m.nodesGauge.Record(context.Background(), num)
 }
 
+func (m Metrics) InstancesRecord(num int64) {
+	if !m.enabled {
+		return
+	}
+
+	m.instancesGauge.Record(context.Background(), num)
+}
+
 func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	meter := provider.Meter("aws.node.termination.handler")
 
@@ -162,12 +218,19 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	}
 	errorEventsCounter.Add(context.Background(), 0)
 
-	name = "nodes"
+	name = "nth_managed_nodes"
 	nodesGauge, err := meter.Int64Gauge(name, api.WithDescription("Number of nodes processing"))
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus gauge %q: %w", name, err)
 	}
 	nodesGauge.Record(context.Background(), 0)
+
+	name = "nth_managed_instances"
+	instancesGauge, err := meter.Int64Gauge(name, api.WithDescription("Number of instances processing"))
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to create Prometheus gauge %q: %w", name, err)
+	}
+	instancesGauge.Record(context.Background(), 0)
 
 	return Metrics{
 		meter:              meter,
@@ -175,6 +238,7 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 		actionsCounter:     actionsCounter,
 		actionsCounterV2:   actionsCounterV2,
 		nodesGauge:         nodesGauge,
+		instancesGauge:     instancesGauge,
 	}, nil
 }
 
