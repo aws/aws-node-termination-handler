@@ -20,9 +20,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/aws/aws-node-termination-handler/pkg/ec2helper"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
@@ -46,7 +45,7 @@ var (
 // Metrics represents the stats for observability
 type Metrics struct {
 	enabled            bool
-	EC2                ec2iface.EC2API
+	ec2Helper          ec2helper.EC2Helper
 	meter              api.Meter
 	actionsCounter     api.Int64Counter
 	actionsCounterV2   api.Int64Counter
@@ -67,7 +66,7 @@ func InitMetrics(nthConfig config.Config, node *node.Node, ec2 ec2iface.EC2API) 
 		return Metrics{}, fmt.Errorf("failed to register metrics with Prometheus provider: %w", err)
 	}
 	metrics.enabled = nthConfig.EnablePrometheus
-	metrics.EC2 = ec2
+	metrics.ec2Helper = ec2helper.New(ec2)
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
@@ -90,7 +89,7 @@ func (m Metrics) serveNodeMetrics(nthConfig config.Config, node *node.Node) {
 	}
 
 	for {
-		instanceIdsMap, err := m.getInstanceIdsMapByTagKey(nthConfig.ManagedTag)
+		instanceIdsMap, err := m.ec2Helper.GetInstanceIdsMapByTagKey(nthConfig.ManagedTag)
 		if err != nil {
 			log.Err(err).Msg("Failed to get AWS instance ids")
 		} else {
@@ -111,40 +110,6 @@ func (m Metrics) serveNodeMetrics(nthConfig config.Config, node *node.Node) {
 		}
 		time.Sleep(10 * time.Second)
 	}
-}
-
-func (m Metrics) getInstanceIdsMapByTagKey(tag string) (map[string]bool, error) {
-	ids := map[string]bool{}
-	nextToken := ""
-
-	for {
-		result, err := m.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("tag-key"),
-					Values: []*string{aws.String(tag)},
-				},
-			},
-			NextToken: &nextToken,
-		})
-
-		if err != nil {
-			return ids, err
-		}
-
-		for _, reservation := range result.Reservations {
-			for _, instance := range reservation.Instances {
-				ids[*instance.InstanceId] = true
-			}
-		}
-		nextToken = *result.NextToken
-
-		if result.NextToken == nil {
-			break
-		}
-	}
-
-	return ids, nil
 }
 
 // ErrorEventsInc will increment one for the event errors counter, partitioned by action, and only if metrics are enabled.

@@ -640,13 +640,14 @@ func (n Node) FetchKubernetesNodeInstanceIds() ([]string, error) {
 	if n.nthConfig.DryRun {
 		return ids, nil
 	}
-	listOptions := metav1.ListOptions{
-		FieldSelector: "providerID",
-	}
-	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
+	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Warn().Msgf("Unable to list Nodes")
 		return ids, err
+	}
+
+	if matchingNodes == nil || len(matchingNodes.Items) == 0 {
+		return ids, nil
 	}
 
 	for _, node := range matchingNodes.Items {
