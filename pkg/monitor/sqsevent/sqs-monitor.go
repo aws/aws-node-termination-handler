@@ -363,29 +363,29 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID" {
 			msg := fmt.Sprintf("Invalid instance id %s provided", instanceID)
 			log.Warn().Msg(msg)
-			return nil, skip{fmt.Errorf(msg)}
+			return nil, skip{fmt.Errorf("%s", msg)}
 		}
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotFound" {
 			msg := fmt.Sprintf("No instance found with instance-id %s", instanceID)
 			log.Warn().Msg(msg)
-			return nil, skip{fmt.Errorf(msg)}
+			return nil, skip{fmt.Errorf("%s", msg)}
 		}
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.Malformed" {
 			msg := fmt.Sprintf("Malformed instance-id %s", instanceID)
 			log.Warn().Msg(msg)
-			return nil, skip{fmt.Errorf(msg)}
+			return nil, skip{fmt.Errorf("%s", msg)}
 		}
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "InvalidInstanceID.NotLinkable" {
 			msg := fmt.Sprintf("Instance-id %s not linkable", instanceID)
 			log.Warn().Msg(msg)
-			return nil, skip{fmt.Errorf(msg)}
+			return nil, skip{fmt.Errorf("%s", msg)}
 		}
 		return nil, err
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
 		msg := fmt.Sprintf("No reservation with instance-id %s", instanceID)
 		log.Warn().Msg(msg)
-		return nil, skip{fmt.Errorf(msg)}
+		return nil, skip{fmt.Errorf("%s", msg)}
 	}
 
 	instance := result.Reservations[0].Instances[0]
