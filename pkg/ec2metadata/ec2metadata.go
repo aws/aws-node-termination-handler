@@ -218,7 +218,7 @@ func (e *Service) GetASGTargetLifecycleState() (state string, err error) {
 }
 
 // GetMetadataInfo generic function for retrieving ec2 metadata
-func (e *Service) GetMetadataInfo(path string) (info string, err error) {
+func (e *Service) GetMetadataInfo(path string, allowMissing bool) (info string, err error) {
 	metadataInfo := ""
 	resp, err := e.Request(path)
 	if err != nil {
@@ -232,8 +232,12 @@ func (e *Service) GetMetadataInfo(path string) (info string, err error) {
 		}
 		metadataInfo = string(body)
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			log.Info().Msgf("Metadata response status code: %d. Body: %s", resp.StatusCode, metadataInfo)
-			return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+			if resp.StatusCode != 404 || !allowMissing {
+				log.Info().Msgf("Metadata response status code: %d. Body: %s", resp.StatusCode, metadataInfo)
+				return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+			} else {
+				return "", nil
+			}
 		}
 	}
 	return metadataInfo, nil
@@ -351,7 +355,7 @@ func retry(attempts int, sleep time.Duration, httpReq func() (*http.Response, er
 // GetNodeMetadata attempts to gather additional ec2 instance information from the metadata service
 func (e *Service) GetNodeMetadata() NodeMetadata {
 	metadata := NodeMetadata{}
-	identityDoc, err := e.GetMetadataInfo(IdentityDocPath)
+	identityDoc, err := e.GetMetadataInfo(IdentityDocPath, false)
 	if err != nil {
 		log.Err(err).Msg("Unable to fetch metadata from IMDS")
 		return metadata
@@ -359,18 +363,18 @@ func (e *Service) GetNodeMetadata() NodeMetadata {
 	err = json.NewDecoder(strings.NewReader(identityDoc)).Decode(&metadata)
 	if err != nil {
 		log.Warn().Msg("Unable to fetch instance identity document from ec2 metadata")
-		metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath)
-		metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath)
-		metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath)
-		metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath)
+		metadata.InstanceID, _ = e.GetMetadataInfo(InstanceIDPath, false)
+		metadata.InstanceType, _ = e.GetMetadataInfo(InstanceTypePath, false)
+		metadata.LocalIP, _ = e.GetMetadataInfo(LocalIPPath, false)
+		metadata.AvailabilityZone, _ = e.GetMetadataInfo(AZPlacementPath, false)
 		if len(metadata.AvailabilityZone) > 1 {
 			metadata.Region = metadata.AvailabilityZone[0 : len(metadata.AvailabilityZone)-1]
 		}
 	}
-	metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle)
-	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath)
-	metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath)
-	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath)
+	metadata.InstanceLifeCycle, _ = e.GetMetadataInfo(InstanceLifeCycle, false)
+	metadata.LocalHostname, _ = e.GetMetadataInfo(LocalHostnamePath, false)
+	metadata.PublicHostname, _ = e.GetMetadataInfo(PublicHostnamePath, true)
+	metadata.PublicIP, _ = e.GetMetadataInfo(PublicIPPath, true)
 
 	log.Info().Interface("metadata", metadata).Msg("Startup Metadata Retrieved")
 
