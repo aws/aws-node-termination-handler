@@ -16,13 +16,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
@@ -121,7 +122,20 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
 	}
 
-	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
+	cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            *cfg,
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	creds, err := sess.Config.Credentials.Get()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to get AWS credentials")
+	}
+	log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
+
+	ec2 := ec2.New(sess)
+
+	metrics, err := observability.InitMetrics(nthConfig, node, ec2)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
@@ -205,17 +219,6 @@ func main() {
 		}
 	}
 	if nthConfig.EnableSQSTerminationDraining {
-		cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
-		sess := session.Must(session.NewSessionWithOptions(session.Options{
-			Config:            *cfg,
-			SharedConfigState: session.SharedConfigEnable,
-		}))
-		creds, err := sess.Config.Credentials.Get()
-		if err != nil {
-			log.Fatal().Err(err).Msg("Unable to get AWS credentials")
-		}
-		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
-
 		completeLifecycleActionDelay := time.Duration(nthConfig.CompleteLifecycleActionDelaySeconds) * time.Second
 		sqsMonitor := sqsevent.SQSMonitor{
 			CheckIfManaged:                nthConfig.CheckTagBeforeDraining,
@@ -225,7 +228,7 @@ func main() {
 			CancelChan:                    cancelChan,
 			SQS:                           sqs.New(sess),
 			ASG:                           autoscaling.New(sess),
-			EC2:                           ec2.New(sess),
+			EC2:                           ec2,
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
