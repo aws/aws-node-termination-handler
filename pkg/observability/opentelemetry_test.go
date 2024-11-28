@@ -143,7 +143,9 @@ func TestServeMetrics(t *testing.T) {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		server.Shutdown(ctx)
+		if err := server.Shutdown(ctx); err != nil {
+			t.Errorf("failed to shutdown server: %v", err)
+		}
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -175,10 +177,14 @@ func getMetrics(t *testing.T) *Metrics {
 
 	t.Cleanup(func() {
 		if provider != nil {
-			provider.Shutdown(context.Background())
+			if err := provider.Shutdown(context.Background()); err != nil {
+				t.Errorf("failed to shutdown provider: %v", err)
+			}
 		}
 		if exporter != nil {
-			exporter.Shutdown(context.Background())
+			if err := exporter.Shutdown(context.Background()); err != nil {
+				t.Errorf("failed to shutdown exporter: %v", err)
+			}
 		}
 	})
 
