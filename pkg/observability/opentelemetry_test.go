@@ -181,11 +181,6 @@ func getMetrics(t *testing.T) *Metrics {
 				t.Errorf("failed to shutdown provider: %v", err)
 			}
 		}
-		if exporter != nil {
-			if err := exporter.Shutdown(context.Background()); err != nil {
-				t.Errorf("failed to shutdown exporter: %v", err)
-			}
-		}
 	})
 
 	return &metrics
