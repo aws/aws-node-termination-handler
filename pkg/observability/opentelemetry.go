@@ -16,7 +16,9 @@ package observability
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,6 +38,7 @@ var (
 	labelNodeStatusKey = attribute.Key("node/status")
 	labelNodeNameKey   = attribute.Key("node/name")
 	labelEventIDKey    = attribute.Key("node/event-id")
+	metricsEndpoint    = "/metrics"
 )
 
 // Metrics represents the stats for observability
@@ -62,13 +65,14 @@ func InitMetrics(enabled bool, port int) (Metrics, error) {
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
-	if err = runtime.Start(
-		runtime.WithMeterProvider(provider),
-		runtime.WithMinimumReadMemStatsInterval(1*time.Second)); err != nil {
+	err = runtime.Start(runtime.WithMeterProvider(provider), runtime.WithMinimumReadMemStatsInterval(1*time.Second))
+	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to start Go runtime metrics collection: %w", err)
 	}
 
-	go serveMetrics(port)
+	if enabled {
+		serveMetrics(port)
+	}
 
 	return metrics, nil
 }
@@ -135,10 +139,19 @@ func registerMetricsWith(provider *metric.MeterProvider) (Metrics, error) {
 	}, nil
 }
 
-func serveMetrics(port int) {
-	log.Info().Msgf("Starting to serve handler /metrics, port %d", port)
-	http.Handle("/metrics", promhttp.Handler())
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
-		log.Err(err).Msg("Failed to listen and serve http server")
+func serveMetrics(port int) *http.Server {
+	http.Handle(metricsEndpoint, promhttp.Handler())
+
+	server := &http.Server{
+		Addr: net.JoinHostPort("", strconv.Itoa(port)),
 	}
+
+	go func() {
+		log.Info().Msgf("Starting to serve handler %s, port %d", metricsEndpoint, port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Err(err).Msg("Failed to listen and serve http server")
+		}
+	}()
+
+	return server
 }
