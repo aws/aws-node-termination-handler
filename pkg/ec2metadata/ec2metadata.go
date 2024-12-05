@@ -122,18 +122,6 @@ type NodeMetadata struct {
 
 // New constructs an instance of the Service client
 func New(metadataURL string, tries int) *Service {
-	if strings.HasPrefix(metadataURL, "http://amazon-ec2-metadata-mock-service.default.svc.cluster.local") {
-		return &Service{
-			metadataURL: metadataURL,
-			tries:       tries,
-			httpClient: http.Client{
-				Timeout: 2 * time.Second,
-				Transport: &http.Transport{
-					DisableKeepAlives: true,
-				},
-			},
-		}
-	}
 	return &Service{
 		metadataURL: metadataURL,
 		tries:       tries,
