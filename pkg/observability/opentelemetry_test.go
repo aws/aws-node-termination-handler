@@ -53,11 +53,11 @@ var (
 func TestInitMetrics(t *testing.T) {
 	getMetrics(t)
 
-	rr := mockMetricsRequest()
+	responseRecorder := mockMetricsRequest()
 
-	validateStatus(t, rr)
+	validateStatus(t, responseRecorder)
 
-	metricsMap := getMetricsMap(rr.Body.String())
+	metricsMap := getMetricsMap(responseRecorder.Body.String())
 
 	runtimeMetrics := []string{
 		"go_gc_gogc_percent",
@@ -76,11 +76,11 @@ func TestErrorEventsInc(t *testing.T) {
 
 	metrics.ErrorEventsInc(mockErrorEvent)
 
-	rr := mockMetricsRequest()
+	responseRecorder := mockMetricsRequest()
 
-	validateStatus(t, rr)
+	validateStatus(t, responseRecorder)
 
-	metricsMap := getMetricsMap(rr.Body.String())
+	metricsMap := getMetricsMap(responseRecorder.Body.String())
 
 	validateEventErrorTotal(t, metricsMap, 1)
 	validateActionTotalV2(t, metricsMap, 0, successStatus)
@@ -94,11 +94,11 @@ func TestNodeActionsInc(t *testing.T) {
 	metrics.NodeActionsInc(mockAction, mockNodeName2, mockEventID2, nil)
 	metrics.NodeActionsInc(mockAction, mockNodeName3, mockEventID3, errors.New("mockError"))
 
-	rr := mockMetricsRequest()
+	responseRecorder := mockMetricsRequest()
 
-	validateStatus(t, rr)
+	validateStatus(t, responseRecorder)
 
-	metricsMap := getMetricsMap(rr.Body.String())
+	metricsMap := getMetricsMap(responseRecorder.Body.String())
 
 	validateEventErrorTotal(t, metricsMap, 0)
 	validateActionTotalV2(t, metricsMap, 2, successStatus)
@@ -112,25 +112,25 @@ func TestRegisterMetricsWith(t *testing.T) {
 
 	metrics := getMetrics(t)
 
-	errorEventLables := []attribute.KeyValue{labelEventErrorWhereKey.String(mockErrorEvent)}
-	successActionLables := []attribute.KeyValue{labelNodeActionKey.String(mockAction), labelNodeStatusKey.String(successStatus)}
-	errorActionLables := []attribute.KeyValue{labelNodeActionKey.String(mockAction), labelNodeStatusKey.String(errorStatus)}
+	errorEventlabels := []attribute.KeyValue{labelEventErrorWhereKey.String(mockErrorEvent)}
+	successActionlabels := []attribute.KeyValue{labelNodeActionKey.String(mockAction), labelNodeStatusKey.String(successStatus)}
+	errorActionlabels := []attribute.KeyValue{labelNodeActionKey.String(mockAction), labelNodeStatusKey.String(errorStatus)}
 
 	for i := 0; i < errorEventMetricsTotal; i++ {
-		metrics.errorEventsCounter.Add(context.Background(), 1, api.WithAttributes(errorEventLables...))
+		metrics.errorEventsCounter.Add(context.Background(), 1, api.WithAttributes(errorEventlabels...))
 	}
 	for i := 0; i < successActionMetricsTotal; i++ {
-		metrics.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(successActionLables...))
+		metrics.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(successActionlabels...))
 	}
 	for i := 0; i < errorActionMetricsTotal; i++ {
-		metrics.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(errorActionLables...))
+		metrics.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(errorActionlabels...))
 	}
 
-	rr := mockMetricsRequest()
+	responseRecorder := mockMetricsRequest()
 
-	validateStatus(t, rr)
+	validateStatus(t, responseRecorder)
 
-	metricsMap := getMetricsMap(rr.Body.String())
+	metricsMap := getMetricsMap(responseRecorder.Body.String())
 
 	validateEventErrorTotal(t, metricsMap, errorEventMetricsTotal)
 	validateActionTotalV2(t, metricsMap, successActionMetricsTotal, successStatus)
@@ -152,14 +152,14 @@ func TestServeMetrics(t *testing.T) {
 
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", mockDefaultPort), time.Second)
 	if err != nil {
-		t.Errorf("server not listening on port %d: %v", mockDefaultPort, err)
+		t.Errorf("server is not listening on port %d: %v", mockDefaultPort, err)
 	}
 	conn.Close()
 
 	conn, err = net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", mockClosedPort), time.Second)
 	if err == nil {
 		conn.Close()
-		t.Errorf("server should not listening on port %d: %v", mockClosedPort, err)
+		t.Errorf("server should not be listening on port %d: %v", mockClosedPort, err)
 	}
 }
 
@@ -189,16 +189,21 @@ func getMetrics(t *testing.T) *Metrics {
 func mockMetricsRequest() *httptest.ResponseRecorder {
 	handler := promhttp.Handler()
 	req := httptest.NewRequest("GET", metricsEndpoint, nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-	return rr
+	responseRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(responseRecorder, req)
+	return responseRecorder
 }
 
-func validateStatus(t *testing.T, rr *httptest.ResponseRecorder) {
-	status := rr.Code
+func validateStatus(t *testing.T, responseRecorder *httptest.ResponseRecorder) {
+	status := responseRecorder.Code
 	h.Equals(t, http.StatusOK, status)
 }
 
+// This method take response body got from Prometheus exporter as arg
+// Example:
+// # HELP go_goroutines Number of goroutines that currently exist.
+// # TYPE go_goroutines gauge
+// go_goroutines 6
 func getMetricsMap(body string) map[string]string {
 	metricsMap := make(map[string]string)
 	lines := strings.Split(body, "\n")
