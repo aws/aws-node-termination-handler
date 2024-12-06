@@ -169,6 +169,8 @@ func getReasonForKindV1(eventKind, monitorKind string) string {
 		return spotITNReason
 	case monitor.RebalanceRecommendationKind:
 		return rebalanceRecommendationReason
+	case monitor.StateChangeKind:
+		return stateChangeReason
 	case monitor.ASGLifecycleKind:
 		return asgLifecycleReason
 	default:
