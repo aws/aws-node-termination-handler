@@ -25,31 +25,23 @@ common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
-anth_helm_args=(
+aemm_helm_args=(
   upgrade
   --install
-  --namespace kube-system
-  "$CLUSTER_NAME-anth"
-  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
-  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
-  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
-  --set webhookURL="${WEBHOOK_URL}"
-  --set webhookTemplate="\{\"Content\":\"[NTH][Instance Interruption] InstanceId: \{\{ \.InstanceID \}\} - Node: \{\{ \.NodeName \}\} - InstanceType: \{\{ \.InstanceType \}\} -  AvailabilityZone: \{\{ \.AvailabilityZone \}\} - Kind: \{\{ \.Kind \}\} - Start Time: \{\{ \.StartTime \}\}\"\}"
-  --set enableSpotInterruptionDraining="true"
-  --set enableScheduledEventDraining="true"
-  --set daemonsetTolerations=""
+  --namespace default
+  "$CLUSTER_NAME-aemm"
+  "$AEMM_DL_URL"
+  --set servicePort="$IMDS_PORT"
   --wait
-  --force
 )
-[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
-    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
-    anth_helm_args+=("${common_helm_args[@]}")
+    aemm_helm_args+=("${common_helm_args[@]}")
 
 set -x
-helm "${anth_helm_args[@]}"
+retry 5 helm "${aemm_helm_args[@]}"
 set +x
+
+sleep 5
 
 emtp_helm_args=(
   upgrade
@@ -70,21 +62,35 @@ set -x
 helm "${emtp_helm_args[@]}"
 set +x
 
-aemm_helm_args=(
+sleep 5
+
+anth_helm_args=(
   upgrade
   --install
-  --namespace default
-  "$CLUSTER_NAME-aemm"
-  "$AEMM_DL_URL"
-  --set servicePort="$IMDS_PORT"
+  --namespace kube-system
+  "$CLUSTER_NAME-anth"
+  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set webhookURL="${WEBHOOK_URL}"
+  --set webhookTemplate="\{\"Content\":\"[NTH][Instance Interruption] InstanceId: \{\{ \.InstanceID \}\} - Node: \{\{ \.NodeName \}\} - InstanceType: \{\{ \.InstanceType \}\} -  AvailabilityZone: \{\{ \.AvailabilityZone \}\} - Kind: \{\{ \.Kind \}\} - Start Time: \{\{ \.StartTime \}\}\"\}"
+  --set enableSpotInterruptionDraining="true"
+  --set enableScheduledEventDraining="true"
+  --set daemonsetTolerations=""
+  --force
   --wait
 )
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
 [[ ${#common_helm_args[@]} -gt 0 ]] &&
-    aemm_helm_args+=("${common_helm_args[@]}")
+    anth_helm_args+=("${common_helm_args[@]}")
 
 set -x
-retry 5 helm "${aemm_helm_args[@]}"
+helm "${anth_helm_args[@]}"
 set +x
+
+sleep 5
 
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15

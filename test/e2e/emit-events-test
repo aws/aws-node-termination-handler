@@ -25,6 +25,25 @@ common_helm_args=()
 [[ "${TEST_WINDOWS-}" == "true" ]] && common_helm_args+=(--set targetNodeOs="windows")
 [[ -n "${NTH_WORKER_LABEL-}" ]] && common_helm_args+=(--set nodeSelector."$NTH_WORKER_LABEL")
 
+aemm_helm_args=(
+  upgrade
+  --install
+  --namespace default
+  "$CLUSTER_NAME-aemm"
+  "$AEMM_DL_URL"
+  --set aemm.IMDSv2="true"
+  --set servicePort="$IMDS_PORT"
+  --wait
+)
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    aemm_helm_args+=("${common_helm_args[@]}")
+
+set -x
+retry 5 helm "${aemm_helm_args[@]}"
+set +x
+
+sleep 5
+
 anth_helm_args=(
   upgrade
   --install
@@ -68,23 +87,6 @@ set -x
 helm "${emtp_helm_args[@]}"
 set +x
 
-aemm_helm_args=(
-  upgrade
-  --install
-  --namespace default
-  "$CLUSTER_NAME-aemm"
-  "$AEMM_DL_URL"
-  --set aemm.IMDSv2="true"
-  --set servicePort="$IMDS_PORT"
-  --wait
-)
-[[ ${#common_helm_args[@]} -gt 0 ]] &&
-    aemm_helm_args+=("${common_helm_args[@]}")
-
-set -x
-retry 5 helm "${aemm_helm_args[@]}"
-set +x
-
 TAINT_CHECK_CYCLES=15
 TAINT_CHECK_SLEEP=15
 
@@ -108,8 +110,8 @@ fi
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if kubectl get events | tr -s " " | grep "CordonAndDrain node/${test_node} Node successfully cordoned and drained" >/dev/null; then
-        echo "✅ Verified CordonAndDrain was emitted as a k8s event!"
-        echo "✅ K8s Emit Events Test Passed $CLUSTER_NAME! ✅"s
+        echo "✅ Verified CordonAndDrain was emitted as a k8s event! (success event)"
+        echo "✅ K8s Emit Events Test Passed $CLUSTER_NAME! ✅"
         exit 0
     fi
 
