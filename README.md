@@ -92,6 +92,7 @@ When using the EC2 Console or EC2 API to terminate the instance, a state-change 
 |                                      NTH Release                                      | K8s v1.30 | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 |
 | :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
 |  [v1.23.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.22.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.1)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
 |  [v1.22.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
 |  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
 |  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
