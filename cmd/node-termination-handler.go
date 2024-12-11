@@ -16,7 +16,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 	"os"
 	"os/signal"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
@@ -43,7 +43,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -223,7 +222,7 @@ func main() {
 			QueueURL:                      nthConfig.QueueURL,
 			InterruptionChan:              interruptionChan,
 			CancelChan:                    cancelChan,
-			SQS:                           sqs.New(sess),
+			SQS:                           sqsevent.GetSqsClient(sess),
 			ASG:                           autoscaling.New(sess),
 			EC2:                           ec2.New(sess),
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
