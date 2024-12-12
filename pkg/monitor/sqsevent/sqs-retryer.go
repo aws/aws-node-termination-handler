@@ -37,6 +37,7 @@ func GetSqsClient(sess *session.Session) *sqs.SQS {
 	return sqs.New(sess, &aws.Config{
 		Retryer: SqsRetryer{
 			DefaultRetryer: client.DefaultRetryer{
+				// Monitor continuously monitors SQS for events every 2 seconds
 				NumMaxRetries:    client.DefaultRetryerMaxNumRetries,
 				MinRetryDelay:    client.DefaultRetryerMinRetryDelay,
 				MaxRetryDelay:    1200 * time.Millisecond,
