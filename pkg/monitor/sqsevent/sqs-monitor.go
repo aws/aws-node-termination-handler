@@ -343,7 +343,7 @@ type NodeInfo struct {
 	AsgName      string
 	InstanceID   string
 	ProviderID   string
-  InstanceType string
+	InstanceType string
 	IsManaged    bool
 	Name         string
 	Tags         map[string]string
