@@ -75,6 +75,7 @@ func (m SQSMonitor) ec2StateChangeToInterruptionEvent(event *EventBridgeEvent, m
 		AutoScalingGroupName: nodeInfo.AsgName,
 		InstanceID:           ec2StateChangeDetail.InstanceID,
 		ProviderID:           nodeInfo.ProviderID,
+		InstanceType:         nodeInfo.InstanceType,
 		Description:          fmt.Sprintf("EC2 State Change event received. Instance %s went into %s at %s \n", ec2StateChangeDetail.InstanceID, ec2StateChangeDetail.State, event.getTime()),
 	}
 

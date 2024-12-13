@@ -69,6 +69,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           spotInterruptionDetail.InstanceID,
 		ProviderID:           nodeInfo.ProviderID,
+		InstanceType:         nodeInfo.InstanceType,
 		Description:          fmt.Sprintf("Spot Interruption notice for instance %s was sent at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {

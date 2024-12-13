@@ -53,6 +53,7 @@ type InterruptionEvent struct {
 	Pods                 []string
 	InstanceID           string
 	ProviderID           string
+	InstanceType         string
 	IsManaged            bool
 	StartTime            time.Time
 	EndTime              time.Time

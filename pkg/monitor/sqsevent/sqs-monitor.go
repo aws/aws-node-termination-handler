@@ -340,12 +340,13 @@ func (m SQSMonitor) completeLifecycleAction(input *autoscaling.CompleteLifecycle
 
 // NodeInfo is relevant information about a single node
 type NodeInfo struct {
-	AsgName    string
-	InstanceID string
-	ProviderID string
-	IsManaged  bool
-	Name       string
-	Tags       map[string]string
+	AsgName      string
+	InstanceID   string
+	ProviderID   string
+  InstanceType string
+	IsManaged    bool
+	Name         string
+	Tags         map[string]string
 }
 
 // getNodeInfo returns the NodeInfo record for the given instanceID.
@@ -411,11 +412,12 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 	}
 
 	nodeInfo := &NodeInfo{
-		Name:       *instance.PrivateDnsName,
-		InstanceID: instanceID,
-		ProviderID: providerID,
-		Tags:       make(map[string]string),
-		IsManaged:  true,
+		Name:         *instance.PrivateDnsName,
+		InstanceID:   instanceID,
+		ProviderID:   providerID,
+		InstanceType: *instance.InstanceType,
+		Tags:         make(map[string]string),
+		IsManaged:    true,
 	}
 	for _, t := range (*instance).Tags {
 		nodeInfo.Tags[*t.Key] = *t.Value
