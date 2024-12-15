@@ -61,6 +61,7 @@ const (
 	RebalanceRecommendationTaint = "aws-node-termination-handler/rebalance-recommendation"
 
 	maxTaintValueLength = 63
+	daemonSet           = "DaemonSet"
 )
 
 const (
@@ -144,6 +145,7 @@ func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderIn
 	}
 	if n.nthConfig.UseAPIServerCacheToListPods {
 		if pods != nil {
+			pods = n.filterOutDaemonSetPods(pods)
 			err = n.drainHelper.DeleteOrEvictPods(pods.Items)
 		}
 	} else {
@@ -647,6 +649,23 @@ func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), listOptions)
 }
 
+// filterOutDaemonSetPods filters a list of pods to exclude DaemonSet pods when IgnoreDaemonSets is enabled
+func (n *Node) filterOutDaemonSetPods(pods *corev1.PodList) *corev1.PodList {
+	if !n.nthConfig.IgnoreDaemonSets {
+		return pods
+	}
+
+	var nonDaemonSetPods []corev1.Pod
+	for _, pod := range pods.Items {
+		if !isDaemonSetPod(pod) {
+			nonDaemonSetPods = append(nonDaemonSetPods, pod)
+		}
+	}
+
+	pods.Items = nonDaemonSetPods
+	return pods
+}
+
 func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*drain.Helper, error) {
 	drainHelper := &drain.Helper{
 		Ctx:                 context.TODO(),
@@ -836,6 +855,15 @@ func filterPodForDeletion(podName, podNamespace string) func(pod corev1.Pod) dra
 		}
 		return drain.MakePodDeleteStatusOkay()
 	}
+}
+
+func isDaemonSetPod(pod corev1.Pod) bool {
+	for _, owner := range pod.OwnerReferences {
+		if owner.Kind == daemonSet {
+			return true
+		}
+	}
+	return false
 }
 
 type recorderInterface interface {
