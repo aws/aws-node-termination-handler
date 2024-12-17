@@ -83,7 +83,7 @@ When using the EC2 Console or EC2 API to terminate the instance, a state-change 
 | Spot Instance Termination Notifications (ITN) |       ✅        |        ✅        |
 |               Scheduled Events                |       ✅        |        ✅        |
 |       Instance Rebalance Recommendation       |       ✅        |        ✅        |
-|        ASG Termination Lifecycle Hooks        |       ✅        |        ✅        |
+|        ASG Termination Lifecycle Hooks        |       ❌        |        ✅        |
 |        AZ Rebalance Recommendation            |       ❌        |        ✅        |
 |         Instance State Change Events          |       ❌        |        ✅        |
 
