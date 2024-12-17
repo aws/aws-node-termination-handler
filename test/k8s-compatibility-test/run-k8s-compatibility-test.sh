@@ -2,14 +2,14 @@
 set -euo pipefail 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-versions=("1.26" "1.25" "1.24" "1.23" "1.22")
+versions=("1.29" "1.30" "1.31")
 E_CODE=0
 AFTER_FIRST_RUN_ARGS=""
 PASS_THRU_ARGS=""
 
 USAGE=$(cat << 'EOM'
   Usage: run-k8s-compatability-test [-h]
-  Executes the spot termination integration test for each version of kubernetes (k8s 1.22 - 1.26 supported)
+  Executes the spot termination integration test for each version of kubernetes (k8s 1.29 - 1.31 supported)
 
   Examples:
           # run test with direct download of go modules
@@ -36,7 +36,7 @@ done
 
 for i in "${!versions[@]}"; do
    version=${versions[$i]}
-   $SCRIPTPATH/../k8s-local-cluster-test/run-test -b "test-$version" -v $version $PASS_THRU_ARGS $AFTER_FIRST_RUN_ARGS
+   $SCRIPTPATH/../k8s-local-cluster-test/run-test -b "test-${version//./-}" -v $version $PASS_THRU_ARGS $AFTER_FIRST_RUN_ARGS
    if [ $? -eq 0 ]; then
       echo "✅ Passed test for K8s version $version"
    else

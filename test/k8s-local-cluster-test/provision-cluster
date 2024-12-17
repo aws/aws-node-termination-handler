@@ -9,26 +9,16 @@ OVERRIDE_PATH=0
 KIND_CONFIG_FILE=$SCRIPTPATH/kind-three-node-cluster.yaml
 use_psp=false
 # shellcheck disable=SC2034
+K8_1_31="kindest/node:v1.31.2@sha256:18fbefc20a7113353c7b75b5c869d7145a6abd6269154825872dc59c1329912e"
+# shellcheck disable=SC2034
 K8_1_30="kindest/node:v1.30@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 # shellcheck disable=SC2034
 K8_1_29="kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245"
-# shellcheck disable=SC2034
-K8_1_28="kindest/node:v1.28.7@sha256:9bc6c451a289cf96ad0bbaf33d416901de6fd632415b076ab05f5fa7e4f65c58"
-# shellcheck disable=SC2034
-K8_1_27="kindest/node:v1.27.11@sha256:681253009e68069b8e01aad36a1e0fa8cf18bb0ab3e5c4069b2e65cafdd70843"
-# shellcheck disable=SC2034
-K8_1_26="kindest/node:v1.26.14@sha256:5d548739ddef37b9318c70cb977f57bf3e5015e4552be4e27e57280a8cbb8e4f"
-# shellcheck disable=SC2034
-K8_1_25="kindest/node:v1.25.16@sha256:e8b50f8e06b44bb65a93678a65a26248fae585b3d3c2a669e5ca6c90c69dc519"
-# shellcheck disable=SC2034
-K8_1_24="kindest/node:v1.24.17@sha256:bad10f9b98d54586cba05a7eaa1b61c6b90bfc4ee174fdc43a7b75ca75c95e51"
-# shellcheck disable=SC2034
-K8_1_23="kindest/node:v1.23.17@sha256:14d0a9a892b943866d7e6be119a06871291c517d279aedb816a4b4bc0ec0a5b3"
 
-K8_VERSION="$K8_1_30"
+K8_VERSION="$K8_1_31"
 KUBECTL_VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-KIND_VERSION="0.22.0"
-HELM_VERSION="3.14.3"
+KIND_VERSION="0.25.0"
+HELM_VERSION="3.16.2"
 
 echoerr() { echo "$@" 1>&2; }
 
@@ -37,7 +27,7 @@ USAGE=$(cat << 'EOM'
   Executes the spot termination integration test for the Node Termination Handler.
   Outputs the cluster context directory to stdout on successful completion
 
-  Example: provision-cluster -b my-test -i 123 -v 1.30
+  Example: provision-cluster -b my-test -i 123 -v 1.31
 
           Optional:
             -b          Base Name of cluster

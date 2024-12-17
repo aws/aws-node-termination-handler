@@ -16,7 +16,7 @@ NODE_TERMINATION_HANDLER_DOCKER_IMG=""
 DEFAULT_WEBHOOK_DOCKER_IMG="webhook-test-proxy:customtest"
 WEBHOOK_DOCKER_IMG=""
 OVERRIDE_PATH=0
-K8S_VERSION="1.30"
+K8S_VERSION="1.31"
 AEMM_URL="amazon-ec2-metadata-mock-service.default.svc.cluster.local"
 AEMM_VERSION="1.12.0"
 AEMM_DL_URL="https://github.com/aws/amazon-ec2-metadata-mock/releases/download/v$AEMM_VERSION/amazon-ec2-metadata-mock-$AEMM_VERSION.tgz"
@@ -139,7 +139,7 @@ USAGE=$(cat << 'EOM'
             -n          Node Termination Handler Docker Image
             -d          use GOPROXY=direct to bypass proxy.golang.org
             -o          Override path w/ your own kubectl and kind binaries
-            -v          Kubernetes Version (Default: 1.29) [1.23, 1.24, 1.25, 1.26, 1.27, 1.28, 1.29, and 1.30]
+            -v          Kubernetes Version (Default: 1.31) [1.29, 1.30, and 1.31]
             -w          Webhook Docker Image
 
 EOM
