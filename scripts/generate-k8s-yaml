@@ -7,9 +7,9 @@ VERSION=$(make -s -f $MAKEFILEPATH version)
 BUILD_DIR=$SCRIPTPATH/../build/k8s-resources/$VERSION
 
 PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
-HELM_VERSION="3.7.1"
+HELM_VERSION="3.16.2"
 NAMESPACE="kube-system"
-K8S_VERSION="1.24.0"
+K8S_VERSION="1.31.2"
 SUFFIX=""
 
 USAGE=$(cat << EOM
