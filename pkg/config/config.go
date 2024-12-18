@@ -54,7 +54,7 @@ const (
 	enableSpotInterruptionDrainingConfigKey = "ENABLE_SPOT_INTERRUPTION_DRAINING"
 	enableSpotInterruptionDrainingDefault   = true
 	enableASGLifecycleDrainingConfigKey     = "ENABLE_ASG_LIFECYCLE_DRAINING"
-	enableASGLifecycleDrainingDefault       = true
+	enableASGLifecycleDrainingDefault       = false
 	enableSQSTerminationDrainingConfigKey   = "ENABLE_SQS_TERMINATION_DRAINING"
 	enableSQSTerminationDrainingDefault     = false
 	enableRebalanceMonitoringConfigKey      = "ENABLE_REBALANCE_MONITORING"
