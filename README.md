@@ -89,14 +89,15 @@ When using the EC2 Console or EC2 API to terminate the instance, a state-change 
 
 ### Kubernetes Compatibility
 
-|                                      NTH Release                                      | K8s v1.30 | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 |
-| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
-|  [v1.23.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.22.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.1)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.22.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |
+|                                      NTH Release                                      | K8s v1.31 | K8s v1.30 | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 | K8s v1.24 | K8s v1.23 |
+| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
+|  [v1.23.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.1)  |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.23.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.22.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.1)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.22.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.19.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.19.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |
 
 A ✅ indicates that a specific aws-node-termination-handler release has been tested with a specific Kubernetes version. A ❌ indicates that a specific aws-node-termination-handler release has not been tested with a specific Kubernetes version.
 
@@ -136,7 +137,7 @@ When using Kubernetes [Pod Security Admission](https://kubernetes.io/docs/concep
 You can use kubectl to directly add all of the above resources with the default configuration into your cluster.
 
 ```
-kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.23.0/all-resources.yaml
+kubectl apply -f https://github.com/aws/aws-node-termination-handler/releases/download/v1.23.1/all-resources.yaml
 ```
 
 For a full list of releases and associated artifacts see our [releases page](https://github.com/aws/aws-node-termination-handler/releases).
@@ -209,7 +210,7 @@ helm upgrade --install aws-node-termination-handler \
   oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.23.0/config/helm/aws-node-termination-handler#readme).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.23.1/config/helm/aws-node-termination-handler#readme).
 
 </details>
 
@@ -499,7 +500,7 @@ helm upgrade --install aws-node-termination-handler \
   oci://public.ecr.aws/aws-ec2/helm/aws-node-termination-handler --version $CHART_VERSION
 ```
 
-For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.23.0/config/helm/aws-node-termination-handler#readme).
+For a full list of configuration options see our [Helm readme](https://github.com/aws/aws-node-termination-handler/blob/v1.23.1/config/helm/aws-node-termination-handler#readme).
 
 #### Single Instance vs Multiple Replicas
 
@@ -524,7 +525,7 @@ Queue Processor needs an **SQS queue URL** to function; therefore, manifest chan
 Minimal Config:
 
 ```
-curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.23.0/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
+curl -L https://github.com/aws/aws-node-termination-handler/releases/download/v1.23.1/all-resources-queue-processor.yaml -o all-resources-queue-processor.yaml
 <open all-resources-queue-processor.yaml and update QUEUE_URL value>
 kubectl apply -f ./all-resources-queue-processor.yaml
 ```
