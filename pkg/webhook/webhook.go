@@ -33,7 +33,8 @@ import (
 type combinedDrainData struct {
 	ec2metadata.NodeMetadata
 	monitor.InterruptionEvent
-	InstanceID string
+	InstanceID   string
+	InstanceType string
 }
 
 // Post makes a http post to send drain event data to webhook url
@@ -60,12 +61,17 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 		return
 	}
 
-	// Need to merge the two data sources manually since both have an InstanceID field
+	// Need to merge the two data sources manually since both have
+	// InstanceID and InstanceType fields
 	instanceID := additionalInfo.InstanceID
 	if event.InstanceID != "" {
 		instanceID = event.InstanceID
 	}
-	var combined = combinedDrainData{NodeMetadata: additionalInfo, InterruptionEvent: *event, InstanceID: instanceID}
+	instanceType := additionalInfo.InstanceType
+	if event.InstanceType != "" {
+		instanceType = event.InstanceType
+	}
+	var combined = combinedDrainData{NodeMetadata: additionalInfo, InterruptionEvent: *event, InstanceID: instanceID, InstanceType: instanceType}
 
 	var byteBuffer bytes.Buffer
 	err = webhookTemplate.Execute(&byteBuffer, combined)

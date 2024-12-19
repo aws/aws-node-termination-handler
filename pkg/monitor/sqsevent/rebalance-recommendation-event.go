@@ -67,6 +67,7 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event *EventBridg
 		IsManaged:            nodeInfo.IsManaged,
 		InstanceID:           nodeInfo.InstanceID,
 		ProviderID:           nodeInfo.ProviderID,
+		InstanceType:         nodeInfo.InstanceType,
 		Description:          fmt.Sprintf("Rebalance recommendation event received. Instance %s will be cordoned at %s \n", rebalanceRecDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {

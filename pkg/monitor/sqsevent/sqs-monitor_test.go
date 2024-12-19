@@ -929,6 +929,7 @@ func getDescribeInstancesResp(privateDNSName string, withASGTag bool, withManage
 							GroupName:        aws.String(""),
 							Tenancy:          aws.String("default"),
 						},
+						InstanceType:   aws.String("t3.medium"),
 						PrivateDnsName: &privateDNSName,
 						Tags:           tags,
 					},

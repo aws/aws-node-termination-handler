@@ -102,6 +102,7 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 			NodeName:             nodeInfo.Name,
 			InstanceID:           nodeInfo.InstanceID,
 			ProviderID:           nodeInfo.ProviderID,
+			InstanceType:         nodeInfo.InstanceType,
 			IsManaged:            nodeInfo.IsManaged,
 			Description:          fmt.Sprintf("AWS Health scheduled change event received. Instance %s will be interrupted at %s \n", nodeInfo.InstanceID, event.getTime()),
 		}
