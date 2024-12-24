@@ -145,7 +145,7 @@ func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderIn
 	}
 	if n.nthConfig.UseAPIServerCacheToListPods {
 		if pods != nil {
-			pods = n.filterOutDaemonSetPods(pods)
+			pods = n.FilterOutDaemonSetPods(pods)
 			err = n.drainHelper.DeleteOrEvictPods(pods.Items)
 		}
 	} else {
@@ -649,8 +649,8 @@ func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 	return n.drainHelper.Client.CoreV1().Pods("").List(context.TODO(), listOptions)
 }
 
-// filterOutDaemonSetPods filters a list of pods to exclude DaemonSet pods when IgnoreDaemonSets is enabled
-func (n *Node) filterOutDaemonSetPods(pods *corev1.PodList) *corev1.PodList {
+// FilterOutDaemonSetPods filters a list of pods to exclude DaemonSet pods when IgnoreDaemonSets is enabled
+func (n *Node) FilterOutDaemonSetPods(pods *corev1.PodList) *corev1.PodList {
 	if !n.nthConfig.IgnoreDaemonSets {
 		return pods
 	}

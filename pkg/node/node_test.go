@@ -26,6 +26,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/uptime"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -376,4 +377,44 @@ func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
 	tNode := getNode(t, getDrainHelper(client))
 	err = tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to parse time")
+}
+
+func TestFilterOutDaemonSetPods(t *testing.T) {
+	tNode, err := newNode(config.Config{IgnoreDaemonSets: true}, fake.NewSimpleClientset())
+	h.Ok(t, err)
+
+	mockPodList := &corev1.PodList{
+		Items: []corev1.Pod{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mock-daemon-pod",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind: "DaemonSet",
+							Name: "daemon-1",
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mock-replica-pod",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind: "ReplicaSet",
+							Name: "replica-1",
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mock-regular-pod",
+				},
+			},
+		},
+	}
+
+	filteredMockPodList := tNode.FilterOutDaemonSetPods(mockPodList)
+	h.Equals(t, 2, len(filteredMockPodList.Items))
 }
