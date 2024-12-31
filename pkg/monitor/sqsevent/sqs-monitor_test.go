@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
@@ -276,7 +277,6 @@ func TestMonitor_AsgDirectToSqsSuccess(t *testing.T) {
 	default:
 		h.Ok(t, fmt.Errorf("Expected an event to be generated"))
 	}
-
 }
 
 func TestMonitor_AsgDirectToSqsTestNotification(t *testing.T) {
@@ -520,7 +520,6 @@ func TestMonitor_DrainTasksASGFailure(t *testing.T) {
 	default:
 		h.Ok(t, fmt.Errorf("Expected to get an event with a failing post drain task"))
 	}
-
 }
 
 func TestMonitor_Failure(t *testing.T) {
@@ -906,6 +905,93 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 			h.Ok(t, nil)
 		}
 	}
+}
+
+func TestSendHeartbeats_EarlyClosure(t *testing.T) {
+	asgMock := h.MockedASG{
+		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
+		RecordLifecycleActionHeartbeatErr:  nil,
+	}
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		ASG: asgMock,
+	}
+
+	lifecycleDetail := sqsevent.LifecycleDetail{
+		LifecycleHookName:    "test-hook",
+		AutoScalingGroupName: "test-asg",
+		LifecycleActionToken: "test-token",
+		EC2InstanceID:        "XXXXXXXXXXXX",
+	}
+
+	stopHeartbeatCh := make(chan struct{})
+
+	go func() {
+		time.Sleep(3500 * time.Millisecond)
+		close(stopHeartbeatCh)
+	}()
+
+	sqsMonitor.SendHeartbeats(1, 5, &lifecycleDetail, stopHeartbeatCh)
+
+	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func TestSendHeartbeats_NormalClosure(t *testing.T) {
+	asgMock := h.MockedASG{
+		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
+		RecordLifecycleActionHeartbeatErr:  nil,
+	}
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		ASG: asgMock,
+	}
+
+	lifecycleDetail := sqsevent.LifecycleDetail{
+		LifecycleHookName:    "test-hook",
+		AutoScalingGroupName: "test-asg",
+		LifecycleActionToken: "test-token",
+		EC2InstanceID:        "XXXXXXXXXXXX",
+	}
+
+	stopHeartbeatCh := make(chan struct{})
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		close(stopHeartbeatCh)
+	}()
+
+	sqsMonitor.SendHeartbeats(1, 5, &lifecycleDetail, stopHeartbeatCh)
+
+	h.Assert(t, h.HeartbeatCallCount == 5, "5 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func TestSendHeartbeats_ErrorASG(t *testing.T) {
+	asgMock := h.MockedASG{
+		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
+		RecordLifecycleActionHeartbeatErr:  awserr.NewRequestFailure(aws.ErrThrottling, 400, "bad-request"),
+	}
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		ASG: asgMock,
+	}
+
+	lifecycleDetail := sqsevent.LifecycleDetail{
+		LifecycleHookName:    "test-hook",
+		AutoScalingGroupName: "test-asg",
+		LifecycleActionToken: "test-token",
+		EC2InstanceID:        "XXXXXXXXXXXX",
+	}
+
+	stopHeartbeatCh := make(chan struct{})
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		close(stopHeartbeatCh)
+	}()
+
+	sqsMonitor.SendHeartbeats(1, 6, &lifecycleDetail, stopHeartbeatCh)
+
+	h.Assert(t, h.HeartbeatCallCount == 6, "6 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 // AWS Mock Helpers specific to sqs-monitor tests
