@@ -16,6 +16,7 @@ package sqsevent
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
@@ -94,16 +95,24 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		Description:          fmt.Sprintf("ASG Lifecycle Termination event received. Instance will be interrupted at %s \n", event.getTime()),
 	}
 
+	stopHeartbeatCh := make(chan struct{})
+
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
+
 		_, err = m.continueLifecycleAction(lifecycleDetail)
 		if err != nil {
 			return fmt.Errorf("continuing ASG termination lifecycle: %w", err)
 		}
 		log.Info().Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).Str("instanceID", lifecycleDetail.EC2InstanceID).Msg("Completed ASG Lifecycle Hook")
+
+		close(stopHeartbeatCh)
 		return m.deleteMessage(message)
 	}
 
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
+		nthConfig := n.GetNthConfig()
+		go m.SendHeartbeats(nthConfig.HeartbeatInterval, nthConfig.HeartbeatUntil, lifecycleDetail, stopHeartbeatCh)
+
 		err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)
 		if err != nil {
 			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.ASGLifecycleTerminationTaint, interruptionEvent.EventID)
@@ -112,6 +121,48 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	return &interruptionEvent, nil
+}
+
+func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, lifecycleDetail *LifecycleDetail, stopCh <-chan struct{}) {
+	ticker := time.NewTicker(time.Duration(heartbeatInterval) * time.Second)
+	defer ticker.Stop()
+	timeout := time.After(time.Duration(heartbeatUntil) * time.Second)
+
+	for {
+		select {
+		case <-stopCh:
+			return
+		case <-ticker.C:
+			if err := m.recordLifecycleActionHeartbeat(lifecycleDetail); err != nil {
+				log.Err(err).Msg("Unable to send lifecycle heartbeat")
+			}
+		case <-timeout:
+			log.Info().Msg("Heartbeat deadline exceeded, stopping heartbeat")
+			return
+		}
+	}
+}
+
+func (m SQSMonitor) recordLifecycleActionHeartbeat(LifecycleDetail *LifecycleDetail) error {
+	input := &autoscaling.RecordLifecycleActionHeartbeatInput{
+		AutoScalingGroupName: aws.String(LifecycleDetail.AutoScalingGroupName),
+		LifecycleHookName:    aws.String(LifecycleDetail.LifecycleHookName),
+		LifecycleActionToken: aws.String(LifecycleDetail.LifecycleActionToken),
+		InstanceId:           aws.String(LifecycleDetail.EC2InstanceID),
+	}
+
+	_, err := m.ASG.RecordLifecycleActionHeartbeat(input)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Str("asgName", LifecycleDetail.AutoScalingGroupName).
+		Str("lifecycleHookName", LifecycleDetail.LifecycleHookName).
+		Str("lifecycleActionToken", LifecycleDetail.LifecycleActionToken).
+		Str("instanceID", LifecycleDetail.EC2InstanceID).
+		Msg("Successfully sent lifecycle heartbeat")
+
+	return nil
 }
 
 func (m SQSMonitor) deleteMessage(message *sqs.Message) error {
