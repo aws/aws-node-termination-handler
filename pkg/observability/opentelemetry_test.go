@@ -25,13 +25,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/kubectl/pkg/drain"
 
+	"github.com/aws/aws-node-termination-handler/pkg/config"
+	"github.com/aws/aws-node-termination-handler/pkg/ec2helper"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
+	"github.com/aws/aws-node-termination-handler/pkg/uptime"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 var (
@@ -48,6 +60,9 @@ var (
 	errorStatus     = "error"
 	mockDefaultPort = 9092
 	mockClosedPort  = 9093
+	instanceId1     = "i-1"
+	instanceId2     = "i-2"
+	instanceId3     = "i-3"
 )
 
 func TestInitMetrics(t *testing.T) {
@@ -109,6 +124,8 @@ func TestRegisterMetricsWith(t *testing.T) {
 	const errorEventMetricsTotal = 23
 	const successActionMetricsTotal = 31
 	const errorActionMetricsTotal = 97
+	const managedInstancesTotal = 3
+	const managedNodesTotal = 5
 
 	metrics := getMetrics(t)
 
@@ -126,6 +143,9 @@ func TestRegisterMetricsWith(t *testing.T) {
 		metrics.actionsCounterV2.Add(context.Background(), 1, api.WithAttributes(errorActionlabels...))
 	}
 
+	metrics.NodesRecord(managedNodesTotal)
+	metrics.InstancesRecord(managedInstancesTotal)
+
 	responseRecorder := mockMetricsRequest()
 
 	validateStatus(t, responseRecorder)
@@ -135,6 +155,57 @@ func TestRegisterMetricsWith(t *testing.T) {
 	validateEventErrorTotal(t, metricsMap, errorEventMetricsTotal)
 	validateActionTotalV2(t, metricsMap, successActionMetricsTotal, successStatus)
 	validateActionTotalV2(t, metricsMap, errorActionMetricsTotal, errorStatus)
+	validateGauge(t, metricsMap, managedNodesTotal, "nth_managed_nodes")
+	validateGauge(t, metricsMap, managedInstancesTotal, "nth_managed_instances")
+}
+
+func TestServeNodeMetrics(t *testing.T) {
+	metrics := getMetrics(t)
+	metrics.ec2Helper = ec2helper.New(h.MockedEC2{
+		DescribeInstancesResp: ec2.DescribeInstancesOutput{
+			Reservations: []*ec2.Reservation{
+				{
+					Instances: []*ec2.Instance{
+						{
+							InstanceId: aws.String(instanceId1),
+						},
+						{
+							InstanceId: aws.String(instanceId2),
+						},
+						{
+							InstanceId: aws.String(instanceId3),
+						},
+					},
+				},
+			},
+		},
+	})
+
+	helper := getDrainHelper(fake.NewSimpleClientset(
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s", instanceId1)},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "node-2"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s", instanceId2)},
+		},
+	))
+
+	node, err := node.NewWithValues(config.Config{}, helper, uptime.Uptime)
+	h.Ok(t, err)
+
+	metrics.node = node
+	metrics.serveNodeMetrics()
+
+	responseRecorder := mockMetricsRequest()
+
+	validateStatus(t, responseRecorder)
+
+	metricsMap := getMetricsMap(responseRecorder.Body.String())
+
+	validateGauge(t, metricsMap, 2, "nth_managed_nodes")
+	validateGauge(t, metricsMap, 3, "nth_managed_instances")
 }
 
 func TestServeMetrics(t *testing.T) {
@@ -225,6 +296,20 @@ func getMetricsMap(body string) map[string]string {
 	return metricsMap
 }
 
+func getDrainHelper(client *fake.Clientset) *drain.Helper {
+	return &drain.Helper{
+		Ctx:                 context.TODO(),
+		Client:              client,
+		Force:               true,
+		GracePeriodSeconds:  -1,
+		IgnoreAllDaemonSets: true,
+		DeleteEmptyDirData:  true,
+		Timeout:             time.Duration(120) * time.Second,
+		Out:                 log.Logger,
+		ErrOut:              log.Logger,
+	}
+}
+
 func validateEventErrorTotal(t *testing.T, metricsMap map[string]string, expectedTotal int) {
 	eventErrorTotalKey := fmt.Sprintf("events_error_total{event_error_where=\"%v\",otel_scope_name=\"%v\",otel_scope_version=\"\"}", mockErrorEvent, mockNth)
 	actualValue, exists := metricsMap[eventErrorTotalKey]
@@ -236,6 +321,15 @@ func validateEventErrorTotal(t *testing.T, metricsMap map[string]string, expecte
 
 func validateActionTotalV2(t *testing.T, metricsMap map[string]string, expectedTotal int, nodeStatus string) {
 	actionTotalKey := fmt.Sprintf("actions_total{node_action=\"%v\",node_status=\"%v\",otel_scope_name=\"%v\",otel_scope_version=\"\"}", mockAction, nodeStatus, mockNth)
+	actualValue, exists := metricsMap[actionTotalKey]
+	if !exists {
+		actualValue = "0"
+	}
+	h.Equals(t, strconv.Itoa(expectedTotal), actualValue)
+}
+
+func validateGauge(t *testing.T, metricsMap map[string]string, expectedTotal int, name string) {
+	actionTotalKey := fmt.Sprintf("%v{otel_scope_name=\"%v\",otel_scope_version=\"\"}", name, mockNth)
 	actualValue, exists := metricsMap[actionTotalKey]
 	if !exists {
 		actualValue = "0"
