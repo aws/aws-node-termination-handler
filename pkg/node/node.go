@@ -635,6 +635,32 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	return &matchingNodes.Items[0], nil
 }
 
+// fetchKubernetesNode will send an http request to the k8s api server and return list of AWS EC2 instance id
+func (n Node) FetchKubernetesNodeInstanceIds() ([]string, error) {
+	ids := []string{}
+
+	if n.nthConfig.DryRun {
+		return ids, nil
+	}
+	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Warn().Msgf("Unable to list Nodes")
+		return ids, err
+	}
+
+	if matchingNodes == nil || len(matchingNodes.Items) == 0 {
+		return ids, nil
+	}
+
+	for _, node := range matchingNodes.Items {
+		// sample providerID: aws:///us-west-2a/i-0abcd1234efgh5678
+		parts := strings.Split(node.Spec.ProviderID, "/")
+		ids = append(ids, parts[len(parts)-1])
+	}
+
+	return ids, nil
+}
+
 func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
 	if n.nthConfig.DryRun {
 		log.Info().Msgf("Would have retrieved running pod list on node %s, but dry-run flag was set", nodeName)
