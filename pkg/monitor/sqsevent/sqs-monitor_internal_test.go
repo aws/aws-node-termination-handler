@@ -199,6 +199,7 @@ func getDescribeInstancesResp(instanceID string, privateDNSName string, tags map
 							GroupName:        aws.String(""),
 							Tenancy:          aws.String("default"),
 						},
+						InstanceType:   aws.String("t3.medium"),
 						PrivateDnsName: aws.String(privateDNSName),
 						Tags:           awsTags,
 					},
