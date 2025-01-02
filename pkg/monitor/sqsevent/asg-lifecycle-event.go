@@ -133,9 +133,7 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 		case <-stopCh:
 			return
 		case <-ticker.C:
-			if err := m.recordLifecycleActionHeartbeat(lifecycleDetail); err != nil {
-				log.Err(err).Msg("Unable to send lifecycle heartbeat")
-			}
+			m.recordLifecycleActionHeartbeat(lifecycleDetail)
 		case <-timeout:
 			log.Info().Msg("Heartbeat deadline exceeded, stopping heartbeat")
 			return
@@ -143,7 +141,7 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 	}
 }
 
-func (m SQSMonitor) recordLifecycleActionHeartbeat(LifecycleDetail *LifecycleDetail) error {
+func (m SQSMonitor) recordLifecycleActionHeartbeat(LifecycleDetail *LifecycleDetail) {
 	input := &autoscaling.RecordLifecycleActionHeartbeatInput{
 		AutoScalingGroupName: aws.String(LifecycleDetail.AutoScalingGroupName),
 		LifecycleHookName:    aws.String(LifecycleDetail.LifecycleHookName),
@@ -151,18 +149,19 @@ func (m SQSMonitor) recordLifecycleActionHeartbeat(LifecycleDetail *LifecycleDet
 		InstanceId:           aws.String(LifecycleDetail.EC2InstanceID),
 	}
 
-	_, err := m.ASG.RecordLifecycleActionHeartbeat(input)
-	if err != nil {
-		return err
-	}
-
 	log.Info().Str("asgName", LifecycleDetail.AutoScalingGroupName).
 		Str("lifecycleHookName", LifecycleDetail.LifecycleHookName).
 		Str("lifecycleActionToken", LifecycleDetail.LifecycleActionToken).
 		Str("instanceID", LifecycleDetail.EC2InstanceID).
-		Msg("Successfully sent lifecycle heartbeat")
+		Msg("Sending lifecycle heartbeat")
 
-	return nil
+	_, err := m.ASG.RecordLifecycleActionHeartbeat(input)
+	if err != nil {
+		log.Err(err).Msg("Failed to send lifecycle heartbeat")
+		return
+	}
+
+	log.Info().Msg("Successfully sent lifecycle heartbeat")
 }
 
 func (m SQSMonitor) deleteMessage(message *sqs.Message) error {
