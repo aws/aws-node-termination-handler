@@ -286,19 +286,13 @@ func ParseCliArgs() (config Config, err error) {
 		return config, fmt.Errorf("invalid heartbeat-interval passed: %d  Should be between 30 and 3600 seconds", config.HeartbeatInterval)
 	}
 	if config.HeartbeatUntil != -1 && (config.HeartbeatUntil < 60 || config.HeartbeatUntil > 172800) {
-		return config, fmt.Errorf("invalid heartbeat-until passed: %d  Should be between 30 and 172800 seconds", config.HeartbeatUntil)
+		return config, fmt.Errorf("invalid heartbeat-until passed: %d  Should be between 60 and 172800 seconds", config.HeartbeatUntil)
 	}
-	if config.EnableSQSTerminationDraining {
-		if config.HeartbeatInterval != -1 && config.HeartbeatUntil == -1 {
-			config.HeartbeatUntil = 172800
-			log.Info().Msgf("Since heartbeat-until is not set, defaulting to %d seconds", config.HeartbeatUntil)
-		} else if config.HeartbeatInterval == -1 && config.HeartbeatUntil != -1 {
-			return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval must be set to activate heartbeat")
-		}
-	} else {
-		if config.HeartbeatInterval != -1 || config.HeartbeatUntil != -1 {
-			return config, fmt.Errorf("heartbeat is only supported for Queue Processor mode")
-		}
+	if config.HeartbeatInterval != -1 && config.HeartbeatUntil == -1 {
+		config.HeartbeatUntil = 172800
+		log.Info().Msgf("Since heartbeat-until is not set, defaulting to %d seconds", config.HeartbeatUntil)
+	} else if config.HeartbeatInterval == -1 && config.HeartbeatUntil != -1 {
+		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval must be set to activate heartbeat")
 	}
 
 	// client-go expects these to be set in env vars
