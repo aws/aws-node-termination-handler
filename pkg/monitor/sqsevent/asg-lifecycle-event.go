@@ -112,11 +112,14 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		nthConfig := n.GetNthConfig()
-		go m.SendHeartbeats(nthConfig.HeartbeatInterval, nthConfig.HeartbeatUntil, lifecycleDetail, stopHeartbeatCh)
+		if nthConfig.HeartbeatInterval != -1 && nthConfig.HeartbeatUntil != -1 {
+			go m.checkHeartbeatTimeout(nthConfig.HeartbeatInterval, lifecycleDetail)
+			go m.SendHeartbeats(nthConfig.HeartbeatInterval, nthConfig.HeartbeatUntil, lifecycleDetail, stopHeartbeatCh)
+		}
 
 		err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)
 		if err != nil {
-			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.ASGLifecycleTerminationTaint, interruptionEvent.EventID)
+			log.Err(err).Msgf("unable to taint node with taint %s:%s", node.ASGLifecycleTerminationTaint, interruptionEvent.EventID)
 		}
 		return nil
 	}
@@ -124,6 +127,35 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	return &interruptionEvent, nil
 }
 
+// Compare the heartbeatInterval with the heartbeat timeout and warn if (heartbeatInterval >= heartbeat timeout)
+func (m SQSMonitor) checkHeartbeatTimeout(heartbeatInterval int, lifecycleDetail *LifecycleDetail) {
+	input := &autoscaling.DescribeLifecycleHooksInput{
+		AutoScalingGroupName: aws.String(lifecycleDetail.AutoScalingGroupName),
+		LifecycleHookNames:   []*string{aws.String(lifecycleDetail.LifecycleHookName)},
+	}
+
+	lifecyclehook, err := m.ASG.DescribeLifecycleHooks(input)
+	if err != nil {
+		log.Err(err).Msg("failed to describe lifecycle hook")
+		return
+	}
+
+	if len(lifecyclehook.LifecycleHooks) == 0 {
+		log.Warn().
+			Str("asgName", lifecycleDetail.AutoScalingGroupName).
+			Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+			Msg("Tried to check heartbeat timeout, but no lifecycle hook found from ASG")
+		return
+	}
+
+	heartbeatTimeout := int(*lifecyclehook.LifecycleHooks[0].HeartbeatTimeout)
+
+	if heartbeatInterval >= heartbeatTimeout {
+		log.Warn().Msgf("Heartbeat interval (%d seconds) is equal to or greater than the heartbeat timeout (%d seconds) for the lifecycle hook %s. The node would likely be terminated before the heartbeat is sent", heartbeatInterval, heartbeatTimeout, *lifecyclehook.LifecycleHooks[0].LifecycleHookName)
+	}
+}
+
+// Issue lifecycle heartbeats to reset the heartbeat timeout timer in ASG
 func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, lifecycleDetail *LifecycleDetail, stopCh <-chan struct{}) {
 	ticker := time.NewTicker(time.Duration(heartbeatInterval) * time.Second)
 	defer ticker.Stop()
@@ -142,18 +174,18 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 	}
 }
 
-func (m SQSMonitor) recordLifecycleActionHeartbeat(LifecycleDetail *LifecycleDetail) {
+func (m SQSMonitor) recordLifecycleActionHeartbeat(lifecycleDetail *LifecycleDetail) {
 	input := &autoscaling.RecordLifecycleActionHeartbeatInput{
-		AutoScalingGroupName: aws.String(LifecycleDetail.AutoScalingGroupName),
-		LifecycleHookName:    aws.String(LifecycleDetail.LifecycleHookName),
-		LifecycleActionToken: aws.String(LifecycleDetail.LifecycleActionToken),
-		InstanceId:           aws.String(LifecycleDetail.EC2InstanceID),
+		AutoScalingGroupName: aws.String(lifecycleDetail.AutoScalingGroupName),
+		LifecycleHookName:    aws.String(lifecycleDetail.LifecycleHookName),
+		LifecycleActionToken: aws.String(lifecycleDetail.LifecycleActionToken),
+		InstanceId:           aws.String(lifecycleDetail.EC2InstanceID),
 	}
 
-	log.Info().Str("asgName", LifecycleDetail.AutoScalingGroupName).
-		Str("lifecycleHookName", LifecycleDetail.LifecycleHookName).
-		Str("lifecycleActionToken", LifecycleDetail.LifecycleActionToken).
-		Str("instanceID", LifecycleDetail.EC2InstanceID).
+	log.Info().Str("asgName", lifecycleDetail.AutoScalingGroupName).
+		Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+		Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
+		Str("instanceID", lifecycleDetail.EC2InstanceID).
 		Msg("Sending lifecycle heartbeat")
 
 	_, err := m.ASG.RecordLifecycleActionHeartbeat(input)
@@ -173,7 +205,7 @@ func (m SQSMonitor) deleteMessage(message *sqs.Message) error {
 	return nil
 }
 
-// Continues the lifecycle hook thereby indicating a successful action occured
+// Continues the lifecycle hook thereby indicating a successful action occurred
 func (m SQSMonitor) continueLifecycleAction(lifecycleDetail *LifecycleDetail) (*autoscaling.CompleteLifecycleActionOutput, error) {
 	return m.completeLifecycleAction(&autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  &lifecycleDetail.AutoScalingGroupName,
