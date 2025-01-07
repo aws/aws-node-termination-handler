@@ -293,7 +293,7 @@ func ParseCliArgs() (config Config, err error) {
 			config.HeartbeatUntil = 172800
 			log.Info().Msgf("Since heartbeat-until is not set, defaulting to %d seconds", config.HeartbeatUntil)
 		} else if config.HeartbeatInterval == -1 && config.HeartbeatUntil != -1 {
-			return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval must be set to activate heartbeat")
+			return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval is required when heartbeat-until is set")
 		}
 	} else {
 		if config.HeartbeatInterval != -1 || config.HeartbeatUntil != -1 {
