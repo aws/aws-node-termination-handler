@@ -64,7 +64,7 @@ anth_helm_args=(
   --namespace kube-system
   "$CLUSTER_NAME-acth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-#   --set completeLifecycleActionDelaySeconds=-1
+  --set completeLifecycleActionDelaySeconds=120
   --set heartbeatInterval=30
   --set heartbeatUntil=100
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
