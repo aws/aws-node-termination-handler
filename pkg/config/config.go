@@ -297,7 +297,7 @@ func ParseCliArgs() (config Config, err error) {
 		}
 	} else {
 		if config.HeartbeatInterval != -1 || config.HeartbeatUntil != -1 {
-			return config, fmt.Errorf("heartbeat is only supported for Queue Processor mode")
+			return config, fmt.Errorf("currently using IMDS mode. Heartbeat is only supported for Queue Processor mode")
 		}
 	}
 
