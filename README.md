@@ -629,23 +629,23 @@ You can set NTH to send heartbeats to ASG in Queue Processor mode. This allows f
 - Specify values for `Heartbeat Interval` (required) and `Heartbeat Until` (optional).
 
 ### Configurations
-#### Heartbeat Interval
+#### `Heartbeat Interval`
 - Time period between consecutive heartbeat signals (in seconds)
 - Range: 30 to 3600 seconds (30 seconds to 1 hour)
 - Flag for custom resource definition by *.yaml / helm: `heartbeatInterval`
 - CLI flag: `heartbeat-interval`
 
-#### Heartbeat Until
+#### `Heartbeat Until`
 - Duration over which heartbeat signals are sent (in seconds)
 - Range: 60 to 172800 seconds (1 minute to 48 hours)
 - Flag for custom resource definition by *.yaml / helm: `heartbeatUntil`
-- CLI flag: `heartbeat-Until`
+- CLI flag: `heartbeat-until`
 
 #### Example Case
 
-- Heartbeat Interval: 1000 seconds
-- Heartbeat Until: 4500 seconds
-- Heartbeat Timeout: 3000 seconds 
+- `Heartbeat Interval`: 1000 seconds
+- `Heartbeat Until`: 4500 seconds
+- `Heartbeat Timeout`: 3000 seconds 
 
 | Time (s) | Event | Heartbeat Timeout (HT) | Heartbeat Until (HU) | Action |
 |----------|-------------|------------------|----------------------|--------|
@@ -673,9 +673,7 @@ helm upgrade --install aws-node-termination-handler \
 ### Important Notes
 
 - A lifecycle hook for instance termination is required for this feature. Longer grace periods are achieved by renewing the heartbeat timeout of the ASG's lifecycle hook. Instances terminate instantly without a hook.
-
 - Issuing lifecycle heartbeats is only supported in Queue Processor mode. Setting `enableSqsTerminationDraining=false` and specifying heartbeat flags is prevented in Helm. Directly editing deployment settings to do this will cause NTH to fail.
-
 - The heartbeat interval should be sufficiently smaller than the heartbeat timeout. There's a time gap between instance start and NTH start. Setting the interval just slightly smaller than or equal to the timeout causes the heartbeat timeout to expire before the heartbeat is issued. Provide enough buffer for NTH to finish initializing.
 
 ## Communication
