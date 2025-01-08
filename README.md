@@ -612,6 +612,72 @@ extraScrapeConfigs: |
 In IMDS mode, metrics can be collected as follows:
 - Use a `podMonitor` custom resource with the Prometheus Operator to collect metrics.
 
+## Issuing Lifecycle Heartbeats
+
+You can set NTH to send heartbeats to ASG in Queue Processor mode. This allows for a much longer grace period (up to 48 hours) for termination than the maximum heartbeat timeout of two hours.
+
+### How it works
+
+- When NTH receives an ASG lifecycle termination event, it starts sending heartbeats to ASG to renew the heartbeat timeout associated with the ASG's termination lifecycle hook.
+- The heartbeat timeout acts as a timer that starts when the termination event begins.
+- Before the timeout reaches zero, the termination process is halted at the `Terminating:Wait` stage.
+- Previously, NTH couldn't issue heartbeats, limiting the maximum time for preventing termination to the maximum heartbeat timeout (7200 seconds).
+- Now, the graceful termination duration can be extended up to 48 hours, limited by the global timeout.
+
+### How to use
+
+- Specify values for `Heartbeat Interval` (required) and `Heartbeat Until` (optional).
+
+### Configurations
+#### Heartbeat Interval
+- Time period between consecutive heartbeat signals (in seconds)
+- Range: 30 to 3600 seconds (30 seconds to 1 hour)
+- Flag for custom resource definition by *.yaml / helm: `heartbeatInterval`
+- CLI flag: `heartbeat-interval`
+
+#### Heartbeat Until
+- Duration over which heartbeat signals are sent (in seconds)
+- Range: 60 to 172800 seconds (1 minute to 48 hours)
+- Flag for custom resource definition by *.yaml / helm: `heartbeatUntil`
+- CLI flag: `heartbeat-Until`
+
+#### Example Case
+
+- Heartbeat Interval: 1000 seconds
+- Heartbeat Until: 4500 seconds
+- Heartbeat Timeout: 3000 seconds 
+
+| Time (s) | Event | Heartbeat Timeout (HT) | Heartbeat Until (HU) | Action |
+|----------|-------------|------------------|----------------------|--------|
+| 0        | Start       | 3000            | 4500                  | Termination Event Received |
+| 1000     | HB1 Issued  | 2000 -> 3000    | 3500                  | Send Heartbeat |
+| 2000     | HB2 Issued  | 2000 -> 3000    | 2500                  | Send Heartbeat |
+| 3000     | HB3 Issued  | 2000 -> 3000    | 1500                  | Send Heartbeat |
+| 4000     | HB4 Issued  | 2000 -> 3000    | 500                   | Send Heartbeat |
+| 4500     | HB Expires  | 2500            | 0                     | Stop Heartbeats |
+| 7000     | Termination | -               | -                     | Instance Terminates |
+
+Note: The instance can terminate earlier if its pods finish draining and are ready for termination.
+
+### Example Helm Command
+
+```sh
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  --set enableSqsTerminationDraining=true \
+  --set heartbeatInterval=1000 \
+  --set heartbeatUntil=4500 \
+  // other inputs..
+```
+
+### Important Notes
+
+- A lifecycle hook for instance termination is required for this feature. Longer grace periods are achieved by renewing the heartbeat timeout of the ASG's lifecycle hook. Instances terminate instantly without a hook.
+
+- Issuing lifecycle heartbeats is only supported in Queue Processor mode. Setting `enableSqsTerminationDraining=false` and specifying heartbeat flags is prevented in Helm. Directly editing deployment settings to do this will cause NTH to fail.
+
+- The heartbeat interval should be sufficiently smaller than the heartbeat timeout. There's a time gap between instance start and NTH start. Setting the interval just slightly smaller than or equal to the timeout causes the heartbeat timeout to expire before the heartbeat is issued. Provide enough buffer for NTH to finish initializing.
+
 ## Communication
 * If you've run into a bug or have a new feature request, please open an [issue](https://github.com/aws/aws-node-termination-handler/issues/new).
 * You can also chat with us in the [Kubernetes Slack](https://kubernetes.slack.com) in the `#provider-aws` channel
