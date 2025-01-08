@@ -120,25 +120,6 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
 	}
 
-	cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            *cfg,
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	creds, err := sess.Config.Credentials.Get()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to get AWS credentials")
-	}
-	log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
-
-	ec2 := ec2.New(sess)
-
-	metrics, err := observability.InitMetrics(nthConfig, node, ec2)
-	if err != nil {
-		nthConfig.Print()
-		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
-	}
-
 	err = observability.InitProbes(nthConfig.EnableProbes, nthConfig.ProbesPort, nthConfig.ProbesEndpoint)
 	if err != nil {
 		nthConfig.Print()
@@ -165,6 +146,25 @@ func main() {
 	if nthConfig.AWSRegion == "" && nthConfig.EnableSQSTerminationDraining {
 		nthConfig.Print()
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
+	}
+
+	cfg := aws.NewConfig().WithRegion(nthConfig.AWSRegion).WithEndpoint(nthConfig.AWSEndpoint).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            *cfg,
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	creds, err := sess.Config.Credentials.Get()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to get AWS credentials")
+	}
+	log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
+
+	ec2Client := ec2.New(sess)
+
+	metrics, err := observability.InitMetrics(nthConfig, node, ec2Client)
+	if err != nil {
+		nthConfig.Print()
+		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics")
 	}
 
 	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nthConfig.EnableSQSTerminationDraining, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations, clientset)
@@ -226,7 +226,7 @@ func main() {
 			CancelChan:                    cancelChan,
 			SQS:                           sqsevent.GetSqsClient(sess),
 			ASG:                           autoscaling.New(sess),
-			EC2:                           ec2,
+			EC2:                           ec2Client,
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
 		}
 		monitoringFns[sqsEvents] = sqsMonitor

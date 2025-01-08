@@ -83,7 +83,7 @@ func InitMetrics(nthConfig config.Config, node *node.Node, ec2 ec2iface.EC2API) 
 	}
 
 	if metrics.enabled {
-		metrics.initCronMetrics()
+		go metrics.initCronMetrics()
 		serveMetrics(nthConfig.PrometheusPort)
 	}
 
@@ -102,14 +102,15 @@ func (m Metrics) initCronMetrics() {
 
 func (m Metrics) serveNodeMetrics() {
 	instanceIdsMap, err := m.ec2Helper.GetInstanceIdsMapByTagKey(m.nthConfig.ManagedTag)
-	if err != nil {
+	if err != nil || instanceIdsMap == nil {
 		log.Err(err).Msg("Failed to get AWS instance ids")
+		return
 	} else {
 		m.InstancesRecord(int64(len(instanceIdsMap)))
 	}
 
 	nodeInstanceIds, err := m.node.FetchKubernetesNodeInstanceIds()
-	if err != nil {
+	if err != nil || nodeInstanceIds == nil {
 		log.Err(err).Msg("Failed to get node instance ids")
 	} else {
 		nodeCount := 0

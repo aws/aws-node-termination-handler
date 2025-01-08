@@ -37,7 +37,7 @@ func New(ec2 ec2iface.EC2API) EC2Helper {
 
 func (h EC2Helper) GetInstanceIdsByTagKey(tag string) ([]string, error) {
 	ids := []string{}
-	nextToken := ""
+	var nextToken string
 
 	for {
 		result, err := h.ec2ServiceClient.DescribeInstances(&ec2.DescribeInstancesInput{
@@ -51,17 +51,19 @@ func (h EC2Helper) GetInstanceIdsByTagKey(tag string) ([]string, error) {
 		})
 
 		if err != nil {
-			return ids, err
+			return nil, err
 		}
 
-		if result == nil || len(result.Reservations) == 0 ||
-			len(result.Reservations[0].Instances) == 0 {
-			return ids, fmt.Errorf("failed to describe instances")
+		if result == nil || result.Reservations == nil {
+			return nil, fmt.Errorf("failed to describe instances")
 		}
 
 		for _, reservation := range result.Reservations {
+			if reservation.Instances == nil {
+				continue
+			}
 			for _, instance := range reservation.Instances {
-				if instance.InstanceId == nil {
+				if instance == nil || instance.InstanceId == nil {
 					continue
 				}
 				ids = append(ids, *instance.InstanceId)
@@ -81,7 +83,11 @@ func (h EC2Helper) GetInstanceIdsMapByTagKey(tag string) (map[string]bool, error
 	idMap := map[string]bool{}
 	ids, err := h.GetInstanceIdsByTagKey(tag)
 	if err != nil {
-		return idMap, err
+		return nil, err
+	}
+
+	if ids == nil {
+		return nil, fmt.Errorf("failed to describe instances")
 	}
 
 	for _, id := range ids {
