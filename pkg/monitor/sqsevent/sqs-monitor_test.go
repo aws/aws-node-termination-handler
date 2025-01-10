@@ -965,7 +965,7 @@ func TestSendHeartbeats_NormalClosure(t *testing.T) {
 	h.Assert(t, h.HeartbeatCallCount == 5, "5 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
-func TestSendHeartbeats_ErrorASG(t *testing.T) {
+func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
 		RecordLifecycleActionHeartbeatErr:  awserr.NewRequestFailure(aws.ErrThrottling, 400, "bad-request"),
@@ -992,6 +992,35 @@ func TestSendHeartbeats_ErrorASG(t *testing.T) {
 	sqsMonitor.SendHeartbeats(1, 6, &lifecycleDetail, stopHeartbeatCh)
 
 	h.Assert(t, h.HeartbeatCallCount == 6, "6 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
+	asgMock := h.MockedASG{
+		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
+		RecordLifecycleActionHeartbeatErr:  awserr.NewRequestFailure(aws.ErrValidation, 400, "bad-request"),
+	}
+
+	sqsMonitor := sqsevent.SQSMonitor{
+		ASG: asgMock,
+	}
+
+	lifecycleDetail := sqsevent.LifecycleDetail{
+		LifecycleHookName:    "test-hook",
+		AutoScalingGroupName: "test-asg",
+		LifecycleActionToken: "test-token",
+		EC2InstanceID:        "XXXXXXXXXXXX",
+	}
+
+	stopHeartbeatCh := make(chan struct{})
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		close(stopHeartbeatCh)
+	}()
+
+	sqsMonitor.SendHeartbeats(1, 6, &lifecycleDetail, stopHeartbeatCh)
+
+	h.Assert(t, h.HeartbeatCallCount == 1, "1 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 // AWS Mock Helpers specific to sqs-monitor tests
