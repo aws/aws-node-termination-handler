@@ -675,6 +675,7 @@ helm upgrade --install aws-node-termination-handler \
 - A lifecycle hook for instance termination is required for this feature. Longer grace periods are achieved by renewing the heartbeat timeout of the ASG's lifecycle hook. Instances terminate instantly without a hook.
 - Issuing lifecycle heartbeats is only supported in Queue Processor mode. Setting `enableSqsTerminationDraining=false` and specifying heartbeat flags is prevented in Helm. Directly editing deployment settings to do this will cause NTH to fail.
 - The heartbeat interval should be sufficiently smaller than the heartbeat timeout. There's a time gap between instance start and NTH start. Setting the interval just slightly smaller than or equal to the timeout causes the heartbeat timeout to expire before the heartbeat is issued. Provide enough buffer for NTH to finish initializing.
+- Issuing heartbeats is part of the termination process. The maximum number of instances that NTH can handle termination concurrently is limited by the number of workers. This implies that heartbeats can only be issued for up to the number of instances specified by the `workers` flag simultaneously.
 
 ## Communication
 * If you've run into a bug or have a new feature request, please open an [issue](https://github.com/aws/aws-node-termination-handler/issues/new).
