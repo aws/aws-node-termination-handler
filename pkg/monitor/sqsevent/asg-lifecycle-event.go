@@ -15,12 +15,14 @@ package sqsevent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/rs/zerolog/log"
@@ -166,7 +168,11 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 		case <-stopCh:
 			return
 		case <-ticker.C:
-			m.recordLifecycleActionHeartbeat(lifecycleDetail)
+			err := m.recordLifecycleActionHeartbeat(lifecycleDetail)
+			if err != nil {
+				log.Err(err).Msg("invalid heartbeat target, stopping heartbeat")
+				return
+			}
 		case <-timeout:
 			log.Info().Msg("Heartbeat deadline exceeded, stopping heartbeat")
 			return
@@ -174,7 +180,7 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 	}
 }
 
-func (m SQSMonitor) recordLifecycleActionHeartbeat(lifecycleDetail *LifecycleDetail) {
+func (m SQSMonitor) recordLifecycleActionHeartbeat(lifecycleDetail *LifecycleDetail) error {
 	input := &autoscaling.RecordLifecycleActionHeartbeatInput{
 		AutoScalingGroupName: aws.String(lifecycleDetail.AutoScalingGroupName),
 		LifecycleHookName:    aws.String(lifecycleDetail.LifecycleHookName),
@@ -188,13 +194,19 @@ func (m SQSMonitor) recordLifecycleActionHeartbeat(lifecycleDetail *LifecycleDet
 		Str("instanceID", lifecycleDetail.EC2InstanceID).
 		Msg("Sending lifecycle heartbeat")
 
+	// Stop the heartbeat if the target is invalid
 	_, err := m.ASG.RecordLifecycleActionHeartbeat(input)
 	if err != nil {
-		log.Err(err).Msg("Failed to send lifecycle heartbeat")
-		return
+		var awsErr awserr.Error
+		log.Warn().Err(err).Msg("Failed to send lifecycle heartbeat")
+		if errors.As(err, &awsErr) && awsErr.Code() == "ValidationError" {
+			return err
+		}
+		return nil
 	}
 
 	log.Info().Msg("Successfully sent lifecycle heartbeat")
+	return nil
 }
 
 func (m SQSMonitor) deleteMessage(message *sqs.Message) error {
