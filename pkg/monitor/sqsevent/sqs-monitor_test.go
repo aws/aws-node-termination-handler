@@ -908,6 +908,8 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 }
 
 func TestSendHeartbeats_EarlyClosure(t *testing.T) {
+	h.HeartbeatCallCount = 0
+
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
 		RecordLifecycleActionHeartbeatErr:  nil,
@@ -937,6 +939,8 @@ func TestSendHeartbeats_EarlyClosure(t *testing.T) {
 }
 
 func TestSendHeartbeats_NormalClosure(t *testing.T) {
+	h.HeartbeatCallCount = 0
+
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
 		RecordLifecycleActionHeartbeatErr:  nil,
@@ -966,6 +970,8 @@ func TestSendHeartbeats_NormalClosure(t *testing.T) {
 }
 
 func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
+	h.HeartbeatCallCount = 0
+
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
 		RecordLifecycleActionHeartbeatErr:  awserr.New("ThrottlingException", "Rate exceeded", nil),
@@ -995,6 +1001,8 @@ func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
 }
 
 func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
+	h.HeartbeatCallCount = 0
+
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
 		RecordLifecycleActionHeartbeatErr:  awserr.New("ValidationError", "No active Lifecycle Action found", nil),
