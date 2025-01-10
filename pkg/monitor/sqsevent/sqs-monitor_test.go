@@ -968,7 +968,7 @@ func TestSendHeartbeats_NormalClosure(t *testing.T) {
 func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  awserr.NewRequestFailure(aws.ErrThrottling, 400, "bad-request"),
+		RecordLifecycleActionHeartbeatErr:  awserr.New("ThrottlingException", "Rate exceeded", nil),
 	}
 
 	sqsMonitor := sqsevent.SQSMonitor{
@@ -997,7 +997,7 @@ func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
 func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  awserr.NewRequestFailure(aws.ErrValidation, 400, "bad-request"),
+		RecordLifecycleActionHeartbeatErr:  awserr.New("ValidationError", "No active Lifecycle Action found", nil),
 	}
 
 	sqsMonitor := sqsevent.SQSMonitor{
