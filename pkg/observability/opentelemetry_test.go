@@ -155,8 +155,8 @@ func TestRegisterMetricsWith(t *testing.T) {
 	validateEventErrorTotal(t, metricsMap, errorEventMetricsTotal)
 	validateActionTotalV2(t, metricsMap, successActionMetricsTotal, successStatus)
 	validateActionTotalV2(t, metricsMap, errorActionMetricsTotal, errorStatus)
-	validateGauge(t, metricsMap, managedNodesTotal, "nth_managed_nodes")
-	validateGauge(t, metricsMap, managedInstancesTotal, "nth_managed_instances")
+	validateGauge(t, metricsMap, managedNodesTotal, "nth_tagged_nodes")
+	validateGauge(t, metricsMap, managedInstancesTotal, "nth_tagged_instances")
 }
 
 func TestServeNodeMetrics(t *testing.T) {
@@ -204,8 +204,8 @@ func TestServeNodeMetrics(t *testing.T) {
 
 	metricsMap := getMetricsMap(responseRecorder.Body.String())
 
-	validateGauge(t, metricsMap, 2, "nth_managed_nodes")
-	validateGauge(t, metricsMap, 3, "nth_managed_instances")
+	validateGauge(t, metricsMap, 2, "nth_tagged_nodes")
+	validateGauge(t, metricsMap, 3, "nth_tagged_instances")
 }
 
 func TestServeMetrics(t *testing.T) {
