@@ -48,13 +48,17 @@ Both modes (IMDS and Queue Processor) monitor for events affecting your EC2 inst
 - Webhook feature to send shutdown or restart notification messages
 - Unit & integration tests
 
-### Instance Metadata Service Processor
+### Instance Metadata Service (IMDS) Processor
 Must be deployed as a Kubernetes **DaemonSet**.
 
 - Monitors EC2 Instance Metadata for:
    - [Spot Instance Termination Notifications](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-instance-termination-notices.html)
    - [Scheduled Events](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html)
    - [Instance Rebalance Recommendations](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/rebalance-recommendations.html)
+   - [Autoscaling Group Target Lifecycle State changes](https://docs.aws.amazon.com/autoscaling/ec2/userguide/retrieving-target-lifecycle-state-through-imds.html)
+
+#### IMDS Processor with ASG Target Lifecycle State change
+Please note that IMDS does **not** support lifecycle *hooks*, but it does support lifecycle *state* change. When using IMDS mode with the ASG target lifecycle state, ASG will update instance metadata to be **Terminated** before it terminates the node. NTH will monitor the path latest/meta-data/autoscaling/target-lifecycle-state for changes and will cordon and drain when the target state is set to **Terminated**.
 
 ### Queue Processor
 Must be deployed as a Kubernetes **Deployment**. Also requires some **additional infrastructure setup** (including SQS queue, EventBridge rules).
@@ -84,7 +88,8 @@ When using the EC2 Console or EC2 API to terminate the instance, a state-change 
 |               Scheduled Events                |       ✅        |        ✅        |
 |       Instance Rebalance Recommendation       |       ✅        |        ✅        |
 |        ASG Termination Lifecycle Hooks        |       ❌        |        ✅        |
-|        AZ Rebalance Recommendation            |       ❌        |        ✅        |
+|     ASG Termination Lifecycle State Change    |       ✅        |        ❌        |
+|         AZ Rebalance Recommendation           |       ❌        |        ✅        |
 |         Instance State Change Events          |       ❌        |        ✅        |
 
 ### Kubernetes Compatibility
