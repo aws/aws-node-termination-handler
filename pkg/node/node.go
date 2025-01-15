@@ -280,6 +280,10 @@ func (n Node) MarkForUncordonAfterReboot(nodeName string) error {
 	return nil
 }
 
+func (n Node) GetNthConfig() config.Config {
+	return n.nthConfig
+}
+
 // addLabel will add a label to the node given a label key and value
 // Specifying true for the skipExisting parameter will skip adding the label if it already exists
 func (n Node) addLabel(nodeName string, key string, value string, skipExisting bool) error {

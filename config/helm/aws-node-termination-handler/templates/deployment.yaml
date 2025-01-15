@@ -168,6 +168,10 @@ spec:
               value: {{ .Values.deleteSqsMsgIfNodeNotFound | quote }}
             - name: WORKERS
               value: {{ .Values.workers | quote }}
+            - name: HEARTBEAT_INTERVAL
+              value: {{ .Values.heartbeatInterval | quote }}
+            - name: HEARTBEAT_UNTIL
+              value: {{ .Values.heartbeatUntil | quote }}
             {{- with .Values.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
