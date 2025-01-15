@@ -217,7 +217,9 @@ func main() {
 
 		ec2Client := ec2.New(sess)
 
-		go metrics.InitNodeMetrics(node, ec2Client)
+		if nthConfig.EnablePrometheus {
+			go metrics.InitNodeMetrics(node, ec2Client)
+		}
 
 		completeLifecycleActionDelay := time.Duration(nthConfig.CompleteLifecycleActionDelaySeconds) * time.Second
 		sqsMonitor := sqsevent.SQSMonitor{
