@@ -120,7 +120,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
 	}
 
-	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
+	metrics, err := observability.InitMetrics(nthConfig)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
@@ -215,6 +215,12 @@ func main() {
 		}
 		log.Debug().Msgf("AWS Credentials retrieved from provider: %s", creds.ProviderName)
 
+		ec2Client := ec2.New(sess)
+
+		if nthConfig.EnablePrometheus {
+			go metrics.InitNodeMetrics(node, ec2Client)
+		}
+
 		completeLifecycleActionDelay := time.Duration(nthConfig.CompleteLifecycleActionDelaySeconds) * time.Second
 		sqsMonitor := sqsevent.SQSMonitor{
 			CheckIfManaged:                nthConfig.CheckTagBeforeDraining,
@@ -224,7 +230,7 @@ func main() {
 			CancelChan:                    cancelChan,
 			SQS:                           sqsevent.GetSqsClient(sess),
 			ASG:                           autoscaling.New(sess),
-			EC2:                           ec2.New(sess),
+			EC2:                           ec2Client,
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
