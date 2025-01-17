@@ -94,3 +94,7 @@ func (m MockedASG) RecordLifecycleActionHeartbeat(input *autoscaling.RecordLifec
 	}
 	return &m.RecordLifecycleActionHeartbeatResp, nil
 }
+
+func (m MockedASG) DescribeLifecycleHooks(input *autoscaling.DescribeLifecycleHooksInput) (*autoscaling.DescribeLifecycleHooksOutput, error) {
+	return &autoscaling.DescribeLifecycleHooksOutput{}, nil
+}

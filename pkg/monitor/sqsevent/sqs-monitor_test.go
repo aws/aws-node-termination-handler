@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/sqsevent"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
@@ -907,131 +908,100 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 	}
 }
 
-func TestSendHeartbeats_EarlyClosure(t *testing.T) {
-	h.HeartbeatCallCount = 0
+func TestHeartbeat_closeHeartbeatCh(t *testing.T) {
+	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	h.Ok(t, err)
 
-	asgMock := h.MockedASG{
-		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  nil,
+	sqsMock := h.MockedSQS{
+		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: []*sqs.Message{&msg}},
+		ReceiveMessageErr:  nil,
+		DeleteMessageResp:  sqs.DeleteMessageOutput{},
 	}
+	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
+	}
+	asgMock := h.MockedASG{
+		CompleteLifecycleActionResp: autoscaling.CompleteLifecycleActionOutput{},
+	}
+	drainChan := make(chan monitor.InterruptionEvent, 1)
 
 	sqsMonitor := sqsevent.SQSMonitor{
-		ASG: asgMock,
+		SQS:              sqsMock,
+		EC2:              ec2Mock,
+		ManagedTag:       "aws-node-termination-handler/managed",
+		ASG:              asgMock,
+		CheckIfManaged:   true,
+		QueueURL:         "https://test-queue",
+		InterruptionChan: drainChan,
+		BeforeCompleteLifecycleAction: func() {
+			time.Sleep(3500 * time.Millisecond)
+		},
 	}
 
-	lifecycleDetail := sqsevent.LifecycleDetail{
-		LifecycleHookName:    "test-hook",
-		AutoScalingGroupName: "test-asg",
-		LifecycleActionToken: "test-token",
-		EC2InstanceID:        "XXXXXXXXXXXX",
+	err = sqsMonitor.Monitor()
+	h.Ok(t, err)
+
+	nthConfig := &config.Config{
+		HeartbeatInterval: 1,
+		HeartbeatUntil:    5,
 	}
+	h.HeartbeatCallCount = 0
 
-	stopHeartbeatCh := make(chan struct{})
+	testNode, _ := node.New(*nthConfig, nil)
 
-	go func() {
-		time.Sleep(3500 * time.Millisecond)
-		close(stopHeartbeatCh)
-	}()
+	result := <-drainChan
+	h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+	err = result.PreDrainTask(result, *testNode)
+	h.Ok(t, err)
+	h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
+	err = result.PostDrainTask(result, *testNode)
+	h.Ok(t, err)
+	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
 
-	sqsMonitor.SendHeartbeats(1, 5, &lifecycleDetail, stopHeartbeatCh)
-
+func TestSendHeartbeats_EarlyClosure(t *testing.T) {
+	heartbeatTestHelper(nil, 3500, 1, 5)
 	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 func TestSendHeartbeats_NormalClosure(t *testing.T) {
-	h.HeartbeatCallCount = 0
-
-	asgMock := h.MockedASG{
-		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  nil,
-	}
-
-	sqsMonitor := sqsevent.SQSMonitor{
-		ASG: asgMock,
-	}
-
-	lifecycleDetail := sqsevent.LifecycleDetail{
-		LifecycleHookName:    "test-hook",
-		AutoScalingGroupName: "test-asg",
-		LifecycleActionToken: "test-token",
-		EC2InstanceID:        "XXXXXXXXXXXX",
-	}
-
-	stopHeartbeatCh := make(chan struct{})
-
-	go func() {
-		time.Sleep(10 * time.Second)
-		close(stopHeartbeatCh)
-	}()
-
-	sqsMonitor.SendHeartbeats(1, 5, &lifecycleDetail, stopHeartbeatCh)
-
+	heartbeatTestHelper(nil, 10000, 1, 5)
 	h.Assert(t, h.HeartbeatCallCount == 5, "5 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
-	h.HeartbeatCallCount = 0
-
-	asgMock := h.MockedASG{
-		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  awserr.New("ThrottlingException", "Rate exceeded", nil),
-	}
-
-	sqsMonitor := sqsevent.SQSMonitor{
-		ASG: asgMock,
-	}
-
-	lifecycleDetail := sqsevent.LifecycleDetail{
-		LifecycleHookName:    "test-hook",
-		AutoScalingGroupName: "test-asg",
-		LifecycleActionToken: "test-token",
-		EC2InstanceID:        "XXXXXXXXXXXX",
-	}
-
-	stopHeartbeatCh := make(chan struct{})
-
-	go func() {
-		time.Sleep(10 * time.Second)
-		close(stopHeartbeatCh)
-	}()
-
-	sqsMonitor.SendHeartbeats(1, 6, &lifecycleDetail, stopHeartbeatCh)
-
+	heartbeatTestHelper(awserr.New("ThrottlingException", "Rate exceeded", nil), 10000, 1, 6)
 	h.Assert(t, h.HeartbeatCallCount == 6, "6 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
+	heartbeatTestHelper(awserr.New("ValidationError", "No active Lifecycle Action found", nil), 10000, 1, 6)
+	h.Assert(t, h.HeartbeatCallCount == 1, "1 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+// AWS Mock Helpers specific to sqs-monitor tests
+func heartbeatTestHelper(err error, sleepMilliSeconds int, heartbeatInterval int, heartbeatUntil int) {
 	h.HeartbeatCallCount = 0
 
 	asgMock := h.MockedASG{
 		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  awserr.New("ValidationError", "No active Lifecycle Action found", nil),
+		RecordLifecycleActionHeartbeatErr:  err,
 	}
 
 	sqsMonitor := sqsevent.SQSMonitor{
 		ASG: asgMock,
 	}
 
-	lifecycleDetail := sqsevent.LifecycleDetail{
-		LifecycleHookName:    "test-hook",
-		AutoScalingGroupName: "test-asg",
-		LifecycleActionToken: "test-token",
-		EC2InstanceID:        "XXXXXXXXXXXX",
-	}
-
 	stopHeartbeatCh := make(chan struct{})
 
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Duration(sleepMilliSeconds) * time.Millisecond)
 		close(stopHeartbeatCh)
 	}()
 
-	sqsMonitor.SendHeartbeats(1, 6, &lifecycleDetail, stopHeartbeatCh)
-
-	h.Assert(t, h.HeartbeatCallCount == 1, "1 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+	sqsMonitor.SendHeartbeats(heartbeatInterval, heartbeatUntil, &asgLifecycleEventFromSQS, stopHeartbeatCh)
 }
-
-// AWS Mock Helpers specific to sqs-monitor tests
 
 func getDescribeInstancesResp(privateDNSName string, withASGTag bool, withManagedTag bool) ec2.DescribeInstancesOutput {
 	tags := []*ec2.Tag{}
