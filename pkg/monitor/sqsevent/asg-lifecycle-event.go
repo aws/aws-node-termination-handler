@@ -114,6 +114,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		nthConfig := n.GetNthConfig()
+		// If only HeartbeatInterval is set, HeartbeatUntil will default to 172800.
 		if nthConfig.HeartbeatInterval != -1 && nthConfig.HeartbeatUntil != -1 {
 			go m.checkHeartbeatTimeout(nthConfig.HeartbeatInterval, lifecycleDetail)
 			go m.SendHeartbeats(nthConfig.HeartbeatInterval, nthConfig.HeartbeatUntil, lifecycleDetail, stopHeartbeatCh)
