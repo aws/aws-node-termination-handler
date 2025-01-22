@@ -14,6 +14,7 @@
 package test
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -64,6 +65,9 @@ type MockedASG struct {
 	DescribeTagsPagesErr               error
 	RecordLifecycleActionHeartbeatResp autoscaling.RecordLifecycleActionHeartbeatOutput
 	RecordLifecycleActionHeartbeatErr  error
+	HeartbeatTimeout                   int
+	AutoScalingGroupName               string
+	LifecycleHookName                  string
 }
 
 // CompleteLifecycleAction mocks the autoscaling.CompleteLifecycleAction API call
@@ -96,5 +100,13 @@ func (m MockedASG) RecordLifecycleActionHeartbeat(input *autoscaling.RecordLifec
 }
 
 func (m MockedASG) DescribeLifecycleHooks(input *autoscaling.DescribeLifecycleHooksInput) (*autoscaling.DescribeLifecycleHooksOutput, error) {
-	return &autoscaling.DescribeLifecycleHooksOutput{}, nil
+	return &autoscaling.DescribeLifecycleHooksOutput{
+		LifecycleHooks: []*autoscaling.LifecycleHook{
+			{
+				AutoScalingGroupName: &m.AutoScalingGroupName,
+				LifecycleHookName:    &m.LifecycleHookName,
+				HeartbeatTimeout:     aws.Int64(int64(m.HeartbeatTimeout)),
+			},
+		},
+	}, nil
 }

@@ -908,99 +908,92 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 	}
 }
 
-func TestHeartbeat_closeHeartbeatCh(t *testing.T) {
-	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+func TestSendHeartbeats_EarlyClosure(t *testing.T) {
+	err := heartbeatTestHelper(nil, 3500, 1, 5)
 	h.Ok(t, err)
+	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func TestSendHeartbeats_HeartbeatUntilExpire(t *testing.T) {
+	err := heartbeatTestHelper(nil, 8000, 1, 5)
+	h.Ok(t, err)
+	h.Assert(t, h.HeartbeatCallCount == 5, "5 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
+	RecordLifecycleActionHeartbeatErr := awserr.New("Throttling", "Rate exceeded", nil)
+	err := heartbeatTestHelper(RecordLifecycleActionHeartbeatErr, 8000, 1, 6)
+	h.Ok(t, err)
+	h.Assert(t, h.HeartbeatCallCount == 6, "6 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
+	RecordLifecycleActionHeartbeatErr := awserr.New("ValidationError", "No active Lifecycle Action found", nil)
+	err := heartbeatTestHelper(RecordLifecycleActionHeartbeatErr, 6000, 1, 4)
+	h.Ok(t, err)
+	h.Assert(t, h.HeartbeatCallCount == 1, "1 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func heartbeatTestHelper(RecordLifecycleActionHeartbeatErr error, sleepMilliSeconds int, heartbeatInterval int, heartbeatUntil int) error {
+	h.HeartbeatCallCount = 0
+
+	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
+	if err != nil {
+		return err
+	}
 
 	sqsMock := h.MockedSQS{
 		ReceiveMessageResp: sqs.ReceiveMessageOutput{Messages: []*sqs.Message{&msg}},
-		ReceiveMessageErr:  nil,
-		DeleteMessageResp:  sqs.DeleteMessageOutput{},
 	}
 	dnsNodeName := "ip-10-0-0-157.us-east-2.compute.internal"
 	ec2Mock := h.MockedEC2{
 		DescribeInstancesResp: getDescribeInstancesResp(dnsNodeName, true, true),
 	}
 	asgMock := h.MockedASG{
-		CompleteLifecycleActionResp: autoscaling.CompleteLifecycleActionOutput{},
+		CompleteLifecycleActionResp:        autoscaling.CompleteLifecycleActionOutput{},
+		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
+		RecordLifecycleActionHeartbeatErr:  RecordLifecycleActionHeartbeatErr,
+		HeartbeatTimeout:                   30,
 	}
-	drainChan := make(chan monitor.InterruptionEvent, 1)
 
+	drainChan := make(chan monitor.InterruptionEvent, 1)
 	sqsMonitor := sqsevent.SQSMonitor{
 		SQS:              sqsMock,
 		EC2:              ec2Mock,
-		ManagedTag:       "aws-node-termination-handler/managed",
 		ASG:              asgMock,
-		CheckIfManaged:   true,
-		QueueURL:         "https://test-queue",
 		InterruptionChan: drainChan,
 		BeforeCompleteLifecycleAction: func() {
-			time.Sleep(3500 * time.Millisecond)
+			time.Sleep(time.Duration(sleepMilliSeconds) * time.Millisecond)
 		},
 	}
 
-	err = sqsMonitor.Monitor()
-	h.Ok(t, err)
+	if err := sqsMonitor.Monitor(); err != nil {
+		return err
+	}
 
 	nthConfig := &config.Config{
-		HeartbeatInterval: 1,
-		HeartbeatUntil:    5,
+		HeartbeatInterval: heartbeatInterval,
+		HeartbeatUntil:    heartbeatUntil,
 	}
-	h.HeartbeatCallCount = 0
 
 	testNode, _ := node.New(*nthConfig, nil)
-
 	result := <-drainChan
-	h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
-	err = result.PreDrainTask(result, *testNode)
-	h.Ok(t, err)
-	h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
-	err = result.PostDrainTask(result, *testNode)
-	h.Ok(t, err)
-	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
-}
 
-func TestSendHeartbeats_EarlyClosure(t *testing.T) {
-	heartbeatTestHelper(nil, 3500, 1, 5)
-	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
-}
-
-func TestSendHeartbeats_NormalClosure(t *testing.T) {
-	heartbeatTestHelper(nil, 10000, 1, 5)
-	h.Assert(t, h.HeartbeatCallCount == 5, "5 Heartbeat Expected, got %d", h.HeartbeatCallCount)
-}
-
-func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
-	heartbeatTestHelper(awserr.New("ThrottlingException", "Rate exceeded", nil), 10000, 1, 6)
-	h.Assert(t, h.HeartbeatCallCount == 6, "6 Heartbeat Expected, got %d", h.HeartbeatCallCount)
-}
-
-func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
-	heartbeatTestHelper(awserr.New("ValidationError", "No active Lifecycle Action found", nil), 10000, 1, 6)
-	h.Assert(t, h.HeartbeatCallCount == 1, "1 Heartbeat Expected, got %d", h.HeartbeatCallCount)
-}
-
-// AWS Mock Helpers specific to sqs-monitor tests
-func heartbeatTestHelper(err error, sleepMilliSeconds int, heartbeatInterval int, heartbeatUntil int) {
-	h.HeartbeatCallCount = 0
-
-	asgMock := h.MockedASG{
-		RecordLifecycleActionHeartbeatResp: autoscaling.RecordLifecycleActionHeartbeatOutput{},
-		RecordLifecycleActionHeartbeatErr:  err,
+	if result.PreDrainTask == nil {
+		return fmt.Errorf("PreDrainTask should have been set")
+	}
+	if err := result.PreDrainTask(result, *testNode); err != nil {
+		return err
 	}
 
-	sqsMonitor := sqsevent.SQSMonitor{
-		ASG: asgMock,
+	if result.PostDrainTask == nil {
+		return fmt.Errorf("PostDrainTask should have been set")
+	}
+	if err := result.PostDrainTask(result, *testNode); err != nil {
+		return err
 	}
 
-	stopHeartbeatCh := make(chan struct{})
-
-	go func() {
-		time.Sleep(time.Duration(sleepMilliSeconds) * time.Millisecond)
-		close(stopHeartbeatCh)
-	}()
-
-	sqsMonitor.SendHeartbeats(heartbeatInterval, heartbeatUntil, &asgLifecycleEventFromSQS, stopHeartbeatCh)
+	return nil
 }
 
 func getDescribeInstancesResp(privateDNSName string, withASGTag bool, withManagedTag bool) ec2.DescribeInstancesOutput {
