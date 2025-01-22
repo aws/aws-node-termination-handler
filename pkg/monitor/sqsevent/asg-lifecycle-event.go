@@ -153,7 +153,15 @@ func (m SQSMonitor) checkHeartbeatTimeout(heartbeatInterval int, lifecycleDetail
 	heartbeatTimeout := int(*lifecyclehook.LifecycleHooks[0].HeartbeatTimeout)
 
 	if heartbeatInterval >= heartbeatTimeout {
-		log.Warn().Msgf("Heartbeat interval (%d seconds) is equal to or greater than the heartbeat timeout (%d seconds) for the lifecycle hook %s. The node would likely be terminated before the heartbeat is sent", heartbeatInterval, heartbeatTimeout, *lifecyclehook.LifecycleHooks[0].LifecycleHookName)
+		log.Warn().Msgf(
+			"Heartbeat interval (%d seconds) is equal to or greater than "+
+				"the heartbeat timeout (%d seconds) for the lifecycle hook %s attached to ASG %s. "+
+				"The node would likely be terminated before the heartbeat is sent",
+			heartbeatInterval,
+			heartbeatTimeout,
+			*lifecyclehook.LifecycleHooks[0].LifecycleHookName,
+			*lifecyclehook.LifecycleHooks[0].AutoScalingGroupName,
+		)
 	}
 }
 
@@ -166,6 +174,11 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 	for {
 		select {
 		case <-stopCh:
+			log.Info().Str("asgName", lifecycleDetail.AutoScalingGroupName).
+				Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+				Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
+				Str("instanceID", lifecycleDetail.EC2InstanceID).
+				Msg("Successfully cordoned and drained the node, stopping heartbeat")
 			return
 		case <-ticker.C:
 			err := m.recordLifecycleActionHeartbeat(lifecycleDetail)
@@ -174,7 +187,11 @@ func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, li
 				return
 			}
 		case <-timeout:
-			log.Info().Msg("Heartbeat deadline exceeded, stopping heartbeat")
+			log.Info().Str("asgName", lifecycleDetail.AutoScalingGroupName).
+				Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+				Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
+				Str("instanceID", lifecycleDetail.EC2InstanceID).
+				Msg("Heartbeat deadline exceeded, stopping heartbeat")
 			return
 		}
 	}
@@ -188,24 +205,29 @@ func (m SQSMonitor) recordLifecycleActionHeartbeat(lifecycleDetail *LifecycleDet
 		InstanceId:           aws.String(lifecycleDetail.EC2InstanceID),
 	}
 
-	log.Info().Str("asgName", lifecycleDetail.AutoScalingGroupName).
-		Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
-		Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
-		Str("instanceID", lifecycleDetail.EC2InstanceID).
-		Msg("Sending lifecycle heartbeat")
-
 	// Stop the heartbeat if the target is invalid
 	_, err := m.ASG.RecordLifecycleActionHeartbeat(input)
 	if err != nil {
 		var awsErr awserr.Error
-		log.Warn().Err(err).Msg("Failed to send lifecycle heartbeat")
+		log.Warn().
+			Str("asgName", lifecycleDetail.AutoScalingGroupName).
+			Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+			Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
+			Str("instanceID", lifecycleDetail.EC2InstanceID).
+			Err(err).
+			Msg("Failed to send lifecycle heartbeat")
 		if errors.As(err, &awsErr) && awsErr.Code() == "ValidationError" {
 			return err
 		}
 		return nil
 	}
 
-	log.Info().Msg("Successfully sent lifecycle heartbeat")
+	log.Info().
+		Str("asgName", lifecycleDetail.AutoScalingGroupName).
+		Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+		Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
+		Str("instanceID", lifecycleDetail.EC2InstanceID).
+		Msg("Successfully sent lifecycle heartbeat")
 	return nil
 }
 
