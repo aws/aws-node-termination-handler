@@ -282,23 +282,24 @@ func ParseCliArgs() (config Config, err error) {
 	}
 
 	// heartbeat value boundary and compability check
-	if config.EnableSQSTerminationDraining {
-		if config.HeartbeatInterval != -1 && (config.HeartbeatInterval < 30 || config.HeartbeatInterval > 3600) {
-			return config, fmt.Errorf("invalid heartbeat-interval passed: %d  Should be between 30 and 3600 seconds", config.HeartbeatInterval)
-		}
-		if config.HeartbeatUntil != -1 && (config.HeartbeatUntil < 60 || config.HeartbeatUntil > 172800) {
-			return config, fmt.Errorf("invalid heartbeat-until passed: %d  Should be between 60 and 172800 seconds", config.HeartbeatUntil)
-		}
-		if config.HeartbeatInterval != -1 && config.HeartbeatUntil == -1 {
-			config.HeartbeatUntil = 172800
-			log.Info().Msgf("Since heartbeat-until is not set, defaulting to %d seconds", config.HeartbeatUntil)
-		} else if config.HeartbeatInterval == -1 && config.HeartbeatUntil != -1 {
-			return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval is required when heartbeat-until is set")
-		}
-	} else {
-		if config.HeartbeatInterval != -1 || config.HeartbeatUntil != -1 {
-			return config, fmt.Errorf("currently using IMDS mode. Heartbeat is only supported for Queue Processor mode")
-		}
+	if !config.EnableSQSTerminationDraining && (config.HeartbeatInterval != -1 || config.HeartbeatUntil != -1) {
+		return config, fmt.Errorf("currently using IMDS mode. Heartbeat is only supported for Queue Processor mode")
+	}
+	if config.HeartbeatInterval != -1 && (config.HeartbeatInterval < 30 || config.HeartbeatInterval > 3600) {
+		return config, fmt.Errorf("invalid heartbeat-interval passed: %d  Should be between 30 and 3600 seconds", config.HeartbeatInterval)
+	}
+	if config.HeartbeatUntil != -1 && (config.HeartbeatUntil < 60 || config.HeartbeatUntil > 172800) {
+		return config, fmt.Errorf("invalid heartbeat-until passed: %d  Should be between 60 and 172800 seconds", config.HeartbeatUntil)
+	}
+	if config.HeartbeatInterval == -1 && config.HeartbeatUntil != -1 {
+		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval is required when heartbeat-until is set")
+	}
+	if config.HeartbeatInterval != -1 && config.HeartbeatUntil == -1 {
+		config.HeartbeatUntil = 172800
+		log.Info().Msgf("Since heartbeat-until is not set, defaulting to %d seconds", config.HeartbeatUntil)
+	}
+	if config.HeartbeatInterval != -1 && config.HeartbeatUntil != -1 && config.HeartbeatInterval > config.HeartbeatUntil {
+		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval should be less than or equal to heartbeat-until")
 	}
 
 	// client-go expects these to be set in env vars
