@@ -58,15 +58,20 @@ set +x
 
 echo "🥑 Created SQS Queue ${queue_url}"
 
+# arguments specific to heartbeat testing
+COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS=120
+HEARTBEAT_INTERVAL=30
+HEARTBEAT_UNTIL=100
+
 anth_helm_args=(
   upgrade
   --install
   --namespace kube-system
   "$CLUSTER_NAME-acth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
-  --set completeLifecycleActionDelaySeconds=120
-  --set heartbeatInterval=30
-  --set heartbeatUntil=100
+  --set completeLifecycleActionDelaySeconds=$COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS
+  --set heartbeatInterval=$HEARTBEAT_INTERVAL
+  --set heartbeatUntil=$HEARTBEAT_UNTIL
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set nodeSelector."${NTH_CONTROL_LABEL}"
@@ -154,7 +159,7 @@ EOF
 ASG_TERMINATE_EVENT_ONE_LINE=$(echo "${ASG_TERMINATE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
 SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${ASG_TERMINATE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
 kubectl exec -i "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
-echo "✅ Sent Spot Interruption Event to SQS queue: ${queue_url}"
+echo "✅ Sent ASG Termination Event to SQS queue: ${queue_url}"
 
 NTH_POD=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-node-termination-handler -o jsonpath="{.items[0].metadata.name}")
 
@@ -162,13 +167,14 @@ HEARTBEAT_COUNT=0
 LAST_HEARTBEAT_LOG=''
 CURRENT_HEARTBEAT_LOG=''
 FOUND_HEARTBEAT_END_LOG=0
-HEARTBEAT_CHECK_CYCLES=8
-HEARTBEAT_CHECK_SLEEP=15
+HEARTBEAT_CHECK_CYCLES=$((($HEARTBEAT_UNTIL/$HEARTBEAT_INTERVAL+1)*2))
+HEARTBEAT_CHECK_SLEEP=$(($HEARTBEAT_INTERVAL/2))
+TARGET_HEARTBEAT_COUNT=$((($HEARTBEAT_UNTIL-5)/$HEARTBEAT_INTERVAL))
 
-# Localstack does not support RecordLifecycleActionHeartbeat. We currently can only check upto issuing signals.
+# Localstack does not support RecordLifecycleActionHeartbeat. We currently can only check up to issuing signals.
 for i in $(seq 1 $HEARTBEAT_CHECK_CYCLES); do
     FULL_LOG=$(kubectl logs -n kube-system "${NTH_POD}")
-    CURRENT_HEARTBEAT_LOG=$(echo "${FULL_LOG}" | grep "Sending lifecycle heartbeat" || true)
+    CURRENT_HEARTBEAT_LOG=$(echo "${FULL_LOG}" | grep "Failed to send lifecycle heartbeat" || true)
     if [[ "$CURRENT_HEARTBEAT_LOG" != "$LAST_HEARTBEAT_LOG" ]]; then
         LAST_HEARTBEAT_LOG=$CURRENT_HEARTBEAT_LOG
         (( HEARTBEAT_COUNT+=1 ))
@@ -176,20 +182,20 @@ for i in $(seq 1 $HEARTBEAT_CHECK_CYCLES); do
     if [[ $FOUND_HEARTBEAT_END_LOG -eq 0 ]] && kubectl logs -n kube-system "${NTH_POD}" | grep -q "Heartbeat deadline exceeded, stopping heartbeat"; then
         FOUND_HEARTBEAT_END_LOG=1
     fi
-    if [[ $HEARTBEAT_COUNT -eq 3 && $FOUND_HEARTBEAT_END_LOG -eq 1 ]]; then
+    if [[ $HEARTBEAT_COUNT -eq $TARGET_HEARTBEAT_COUNT && $FOUND_HEARTBEAT_END_LOG -eq 1 ]]; then
         break
     fi
     echo "Heartbeat Loop $i/$HEARTBEAT_CHECK_CYCLES, sleeping for $HEARTBEAT_CHECK_SLEEP seconds"
     sleep $HEARTBEAT_CHECK_SLEEP
 done
 
-if [[ $HEARTBEAT_COUNT -eq 3 && $FOUND_HEARTBEAT_END_LOG -eq 1 ]]; then
+if [[ $HEARTBEAT_COUNT -eq $TARGET_HEARTBEAT_COUNT && $FOUND_HEARTBEAT_END_LOG -eq 1 ]]; then
     echo "✅ Verified the heartbeat was sent correct!"
 else
     if [[ $FOUND_HEARTBEAT_END_LOG -eq 0 ]]; then
         echo "❌ Heartbeat was not closed"
     fi
-    if [[ $HEARTBEAT_COUNT -ne 3 ]]; then
+    if [[ $HEARTBEAT_COUNT -ne $TARGET_HEARTBEAT_COUNT ]]; then
         echo "❌ Heartbeat was sent $HEARTBEAT_COUNT out of 3 times"
     fi
     fail_and_exit 3
@@ -206,7 +212,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
 
     if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
         echo "✅ Verified the regular-pod-test pod was evicted!"
-        echo "✅ ASG Lifecycle SQS Test Passed $CLUSTER_NAME! ✅"
+        echo "✅ ASG Lifecycle SQS Test Passed with Heartbeat $CLUSTER_NAME! ✅"
         exit 0
     fi
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
