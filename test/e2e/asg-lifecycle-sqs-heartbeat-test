@@ -133,7 +133,7 @@ if [[ $DEPLOYED -eq 0 ]]; then
     fail_and_exit 2
 fi
 
-ASG_TERMINATE_EVENT=$(cat <<EOF
+ASG_TERMINATION_EVENT=$(cat <<EOF
 {
   "version": "0",
   "id": "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
@@ -156,8 +156,8 @@ ASG_TERMINATE_EVENT=$(cat <<EOF
 EOF
 )
 
-ASG_TERMINATE_EVENT_ONE_LINE=$(echo "${ASG_TERMINATE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
-SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${ASG_TERMINATE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+ASG_TERMINATION_EVENT_ONE_LINE=$(echo "${ASG_TERMINATION_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${ASG_TERMINATION_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
 kubectl exec -i "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
 echo "✅ Sent ASG Termination Event to SQS queue: ${queue_url}"
 
