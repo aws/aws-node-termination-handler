@@ -37,7 +37,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	t.Setenv("ENABLE_SCHEDULED_EVENT_DRAINING", "true")
 	t.Setenv("ENABLE_SPOT_INTERRUPTION_DRAINING", "false")
 	t.Setenv("ENABLE_ASG_LIFECYCLE_DRAINING", "false")
-	t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "false")
+	t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "true")
 	t.Setenv("ENABLE_REBALANCE_MONITORING", "true")
 	t.Setenv("ENABLE_REBALANCE_DRAINING", "true")
 	t.Setenv("GRACE_PERIOD", "12345")
@@ -54,6 +54,8 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	t.Setenv("METADATA_TRIES", "100")
 	t.Setenv("CORDON_ONLY", "false")
 	t.Setenv("USE_APISERVER_CACHE", "true")
+	t.Setenv("HEARTBEAT_INTERVAL", "30")
+	t.Setenv("HEARTBEAT_UNTIL", "60")
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
 
@@ -64,7 +66,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
 	h.Equals(t, false, nthConfig.EnableASGLifecycleDraining)
-	h.Equals(t, false, nthConfig.EnableSQSTerminationDraining)
+	h.Equals(t, true, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, true, nthConfig.EnableRebalanceMonitoring)
 	h.Equals(t, true, nthConfig.EnableRebalanceDraining)
 	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
@@ -80,6 +82,8 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, 100, nthConfig.MetadataTries)
 	h.Equals(t, false, nthConfig.CordonOnly)
 	h.Equals(t, true, nthConfig.UseAPIServerCacheToListPods)
+	h.Equals(t, 30, nthConfig.HeartbeatInterval)
+	h.Equals(t, 60, nthConfig.HeartbeatUntil)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -101,7 +105,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--enable-scheduled-event-draining=true",
 		"--enable-spot-interruption-draining=false",
 		"--enable-asg-lifecycle-draining=false",
-		"--enable-sqs-termination-draining=false",
+		"--enable-sqs-termination-draining=true",
 		"--enable-rebalance-monitoring=true",
 		"--enable-rebalance-draining=true",
 		"--ignore-daemon-sets=false",
@@ -117,6 +121,8 @@ func TestParseCliArgsSuccess(t *testing.T) {
 		"--metadata-tries=100",
 		"--cordon-only=false",
 		"--use-apiserver-cache=true",
+		"--heartbeat-interval=30",
+		"--heartbeat-until=60",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -128,7 +134,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, true, nthConfig.EnableScheduledEventDraining)
 	h.Equals(t, false, nthConfig.EnableSpotInterruptionDraining)
 	h.Equals(t, false, nthConfig.EnableASGLifecycleDraining)
-	h.Equals(t, false, nthConfig.EnableSQSTerminationDraining)
+	h.Equals(t, true, nthConfig.EnableSQSTerminationDraining)
 	h.Equals(t, true, nthConfig.EnableRebalanceMonitoring)
 	h.Equals(t, true, nthConfig.EnableRebalanceDraining)
 	h.Equals(t, false, nthConfig.IgnoreDaemonSets)
@@ -145,6 +151,8 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, false, nthConfig.CordonOnly)
 	h.Equals(t, false, nthConfig.EnablePrometheus)
 	h.Equals(t, true, nthConfig.UseAPIServerCacheToListPods)
+	h.Equals(t, 30, nthConfig.HeartbeatInterval)
+	h.Equals(t, 60, nthConfig.HeartbeatUntil)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -176,6 +184,9 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	t.Setenv("WEBHOOK_TEMPLATE", "no")
 	t.Setenv("METADATA_TRIES", "100")
 	t.Setenv("CORDON_ONLY", "true")
+	t.Setenv("HEARTBEAT_INTERVAL", "3601")
+	t.Setenv("HEARTBEAT_UNTIL", "172801")
+
 	os.Args = []string{
 		"cmd",
 		"--use-provider-id=false",
@@ -201,6 +212,8 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--cordon-only=false",
 		"--enable-prometheus-server=true",
 		"--prometheus-server-port=2112",
+		"--heartbeat-interval=3600",
+		"--heartbeat-until=172800",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -229,6 +242,8 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, false, nthConfig.CordonOnly)
 	h.Equals(t, true, nthConfig.EnablePrometheus)
 	h.Equals(t, 2112, nthConfig.PrometheusPort)
+	h.Equals(t, 3600, nthConfig.HeartbeatInterval)
+	h.Equals(t, 172800, nthConfig.HeartbeatUntil)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
