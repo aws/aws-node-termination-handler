@@ -83,38 +83,35 @@ When using the EC2 Console or EC2 API to terminate the instance, a state-change 
 
 #### Issuing Lifecycle Heartbeats
 
-You can set NTH to send heartbeats to ASG in Queue Processor mode. This allows for a much longer grace period (up to 48 hours) for termination than the maximum heartbeat timeout of two hours.
+You can set NTH to send heartbeats to ASG in Queue Processor mode. This allows for a much longer grace period (up to 48 hours) for termination than the maximum heartbeat timeout of two hours. The feature is useful when pods require long time to drain or when you need a shorter heartbeat timeout with a longer grace period.
 
 ##### How it works
 
 - When NTH receives an ASG lifecycle termination event, it starts sending heartbeats to ASG to renew the heartbeat timeout associated with the ASG's termination lifecycle hook.
 - The heartbeat timeout acts as a timer that starts when the termination event begins.
 - Before the timeout reaches zero, the termination process is halted at the `Terminating:Wait` stage.
-- Previously, NTH couldn't issue heartbeats, limiting the maximum time for preventing termination to the maximum heartbeat timeout (7200 seconds).
-- Now, the graceful termination duration can be extended up to 48 hours, limited by the global timeout.
+- By issuing heartbeats, graceful termination duration can be extended up to 48 hours, limited by the global timeout.
 
 ##### How to use
 
 - Configure a termination lifecycle hook on ASG (required). Set the heartbeat timeout value to be longer than the `Heartbeat Interval`. Each heartbeat signal resets this timeout, extending the duration that an instance remains in the `Terminating:Wait` state. Without this lifecycle hook, the instance will terminate immediately when termination event occurs.
-- Configure `Heartbeat Interval` (required) and `Heartbeat Until` (optional). NTH operates normally without heartbeats if neither value is set. If only the interval is specified, `Heartbeat Until` defaults to 172800 seconds (48 hours) and heartbeats will be sent. Providing both values enables NTH to run with heartbeats. `Heartbeat Until` must be provided with a valid `Heartbeat Interval`, otherwise NTH will fail to start. Any invalid values (wrong type or out of range) will also prevent NTH from starting.
+- Configure `Heartbeat Interval` (required) and `Heartbeat Until` (optional). NTH operates normally without heartbeats if neither value is set. If only the interval is specified, `Heartbeat Until` defaults to 172800 seconds (48 hours) and heartbeats will be sent. `Heartbeat Until` must be provided with a valid `Heartbeat Interval`, otherwise NTH will fail to start. Any invalid values (wrong type or out of range) will also prevent NTH from starting.
 
 ##### Configurations
-###### `Heartbeat Interval`
+###### `Heartbeat Interval` (Required)
 - Time period between consecutive heartbeat signals (in seconds)
 - Specifying this value triggers heartbeat
 - Range: 30 to 3600 seconds (30 seconds to 1 hour)
 - Flag for custom resource definition by *.yaml / helm: `heartbeatInterval`
 - CLI flag: `heartbeat-interval`
-- Required: O
 - Default value: X
 
-###### `Heartbeat Until`
+###### `Heartbeat Until` (Optional)
 - Duration over which heartbeat signals are sent (in seconds)
 - Must be provided with a valid `Heartbeat Interval`
 - Range: 60 to 172800 seconds (1 minute to 48 hours)
 - Flag for custom resource definition by *.yaml / helm: `heartbeatUntil`
 - CLI flag: `heartbeat-until`
-- Required: X
 - Default value: 172800 (48 hours)
 
 ###### Example Case
