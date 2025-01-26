@@ -652,20 +652,22 @@ func (n Node) FetchKubernetesNodeInstanceIds() ([]string, error) {
 	}
 
 	if matchingNodes == nil || matchingNodes.Items == nil {
-		return nil, fmt.Errorf("failed to list nodes")
+		return nil, fmt.Errorf("list nodes success but return empty response")
 	}
 
 	for _, node := range matchingNodes.Items {
 		// sample providerID: aws:///us-west-2a/i-0abcd1234efgh5678
 		parts := strings.Split(node.Spec.ProviderID, "/")
-		if len(parts) < 2 {
-			log.Warn().Msgf("Found invalid providerID: %s", node.Spec.ProviderID)
+		if len(parts) != 5 {
+			log.Warn().Msgf("Invalid providerID format found for node %s: %s (expected format: aws:///region/instance-id)", node.Name, node.Spec.ProviderID)
 			continue
 		}
 
 		instanceId := parts[len(parts)-1]
 		if instanceIDRegex.MatchString(instanceId) {
 			ids = append(ids, parts[len(parts)-1])
+		} else {
+			log.Warn().Msgf("Invalid instance id format found for node %s: %s (expected format: ^i-.*)", node.Name, instanceId)
 		}
 	}
 

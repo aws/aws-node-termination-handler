@@ -55,7 +55,7 @@ func (h EC2Helper) GetInstanceIdsByTagKey(tag string) ([]string, error) {
 		}
 
 		if result == nil || result.Reservations == nil {
-			return nil, fmt.Errorf("failed to describe instances")
+			return nil, fmt.Errorf("describe instances success but return empty response for tag key: %s", tag)
 		}
 
 		for _, reservation := range result.Reservations {
@@ -87,7 +87,7 @@ func (h EC2Helper) GetInstanceIdsMapByTagKey(tag string) (map[string]bool, error
 	}
 
 	if ids == nil {
-		return nil, fmt.Errorf("failed to describe instances")
+		return nil, fmt.Errorf("get instance ids success but return empty response for tag key: %s", tag)
 	}
 
 	for _, id := range ids {

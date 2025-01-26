@@ -60,7 +60,7 @@ type Metrics struct {
 }
 
 // InitMetrics will initialize, register and expose, via http server, the metrics with Opentelemetry.
-func InitMetrics(nthConfig config.Config) (Metrics, error) {
+func InitMetrics(enabled bool, port int) (Metrics, error) {
 	exporter, err := prometheus.New()
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to create Prometheus exporter: %w", err)
@@ -70,8 +70,7 @@ func InitMetrics(nthConfig config.Config) (Metrics, error) {
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to register metrics with Prometheus provider: %w", err)
 	}
-	metrics.enabled = nthConfig.EnablePrometheus
-	metrics.nthConfig = nthConfig
+	metrics.enabled = enabled
 
 	// Starts an async process to collect golang runtime stats
 	// go.opentelemetry.io/contrib/instrumentation/runtime
@@ -80,14 +79,15 @@ func InitMetrics(nthConfig config.Config) (Metrics, error) {
 		return Metrics{}, fmt.Errorf("failed to start Go runtime metrics collection: %w", err)
 	}
 
-	if metrics.enabled {
-		serveMetrics(nthConfig.PrometheusPort)
+	if enabled {
+		serveMetrics(port)
 	}
 
 	return metrics, nil
 }
 
-func (m Metrics) InitNodeMetrics(node *node.Node, ec2 ec2iface.EC2API) {
+func (m Metrics) InitNodeMetrics(nthConfig config.Config, node *node.Node, ec2 ec2iface.EC2API) {
+	m.nthConfig = nthConfig
 	m.ec2Helper = ec2helper.New(ec2)
 	m.node = node
 
@@ -105,9 +105,9 @@ func (m Metrics) serveNodeMetrics() {
 	if err != nil || instanceIdsMap == nil {
 		log.Err(err).Msg("Failed to get AWS instance ids")
 		return
-	} else {
-		m.InstancesRecord(int64(len(instanceIdsMap)))
 	}
+
+	m.InstancesRecord(int64(len(instanceIdsMap)))
 
 	nodeInstanceIds, err := m.node.FetchKubernetesNodeInstanceIds()
 	if err != nil || nodeInstanceIds == nil {

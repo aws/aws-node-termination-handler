@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/ec2helper"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
@@ -38,6 +39,85 @@ func TestGetInstanceIdsByTagKey(t *testing.T) {
 	h.Equals(t, 2, len(instanceIds))
 	h.Equals(t, instanceId1, instanceIds[0])
 	h.Equals(t, instanceId2, instanceIds[1])
+}
+
+func TestGetInstanceIdsByTagKeyAPIError(t *testing.T) {
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: getDescribeInstancesResp(),
+		DescribeInstancesErr:  awserr.New("ThrottlingException", "Rate exceeded", nil),
+	}
+	ec2Helper := ec2helper.New(ec2Mock)
+	_, err := ec2Helper.GetInstanceIdsByTagKey("myNTHManagedTag")
+	h.Nok(t, err)
+}
+
+func TestGetInstanceIdsByTagKeyNilResponse(t *testing.T) {
+	ec2Mock := h.MockedEC2{}
+	ec2Helper := ec2helper.New(ec2Mock)
+	_, err := ec2Helper.GetInstanceIdsByTagKey("myNTHManagedTag")
+	h.Nok(t, err)
+}
+
+func TestGetInstanceIdsByTagKeyNilReservations(t *testing.T) {
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: ec2.DescribeInstancesOutput{
+			Reservations: nil,
+		},
+	}
+	ec2Helper := ec2helper.New(ec2Mock)
+	_, err := ec2Helper.GetInstanceIdsByTagKey("myNTHManagedTag")
+	h.Nok(t, err)
+}
+
+func TestGetInstanceIdsByTagKeyEmptyReservation(t *testing.T) {
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: ec2.DescribeInstancesOutput{
+			Reservations: []*ec2.Reservation{},
+		},
+	}
+	ec2Helper := ec2helper.New(ec2Mock)
+	instanceIds, err := ec2Helper.GetInstanceIdsByTagKey("myNTHManagedTag")
+	h.Ok(t, err)
+	h.Equals(t, 0, len(instanceIds))
+}
+
+func TestGetInstanceIdsByTagKeyEmptyInstances(t *testing.T) {
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: ec2.DescribeInstancesOutput{
+			Reservations: []*ec2.Reservation{
+				{
+					Instances: []*ec2.Instance{},
+				},
+			},
+		},
+	}
+	ec2Helper := ec2helper.New(ec2Mock)
+	instanceIds, err := ec2Helper.GetInstanceIdsByTagKey("myNTHManagedTag")
+	h.Ok(t, err)
+	h.Equals(t, 0, len(instanceIds))
+}
+
+func TestGetInstanceIdsByTagKeyNilInstancesId(t *testing.T) {
+	ec2Mock := h.MockedEC2{
+		DescribeInstancesResp: ec2.DescribeInstancesOutput{
+			Reservations: []*ec2.Reservation{
+				{
+					Instances: []*ec2.Instance{
+						{
+							InstanceId: nil,
+						},
+						{
+							InstanceId: aws.String(instanceId1),
+						},
+					},
+				},
+			},
+		},
+	}
+	ec2Helper := ec2helper.New(ec2Mock)
+	instanceIds, err := ec2Helper.GetInstanceIdsByTagKey("myNTHManagedTag")
+	h.Ok(t, err)
+	h.Equals(t, 1, len(instanceIds))
 }
 
 func TestGetInstanceIdsMapByTagKey(t *testing.T) {
