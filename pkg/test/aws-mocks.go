@@ -14,6 +14,7 @@
 package test
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -56,12 +57,17 @@ func (m MockedEC2) DescribeInstances(input *ec2.DescribeInstancesInput) (*ec2.De
 // MockedASG mocks the autoscaling API
 type MockedASG struct {
 	autoscalingiface.AutoScalingAPI
-	CompleteLifecycleActionResp      autoscaling.CompleteLifecycleActionOutput
-	CompleteLifecycleActionErr       error
-	DescribeAutoScalingInstancesResp autoscaling.DescribeAutoScalingInstancesOutput
-	DescribeAutoScalingInstancesErr  error
-	DescribeTagsPagesResp            autoscaling.DescribeTagsOutput
-	DescribeTagsPagesErr             error
+	CompleteLifecycleActionResp        autoscaling.CompleteLifecycleActionOutput
+	CompleteLifecycleActionErr         error
+	DescribeAutoScalingInstancesResp   autoscaling.DescribeAutoScalingInstancesOutput
+	DescribeAutoScalingInstancesErr    error
+	DescribeTagsPagesResp              autoscaling.DescribeTagsOutput
+	DescribeTagsPagesErr               error
+	RecordLifecycleActionHeartbeatResp autoscaling.RecordLifecycleActionHeartbeatOutput
+	RecordLifecycleActionHeartbeatErr  error
+	HeartbeatTimeout                   int
+	AutoScalingGroupName               string
+	LifecycleHookName                  string
 }
 
 // CompleteLifecycleAction mocks the autoscaling.CompleteLifecycleAction API call
@@ -80,4 +86,27 @@ type describeTagsPagesFn = func(page *autoscaling.DescribeTagsOutput, lastPage b
 func (m MockedASG) DescribeTagsPages(input *autoscaling.DescribeTagsInput, fn describeTagsPagesFn) error {
 	fn(&m.DescribeTagsPagesResp, true)
 	return m.DescribeTagsPagesErr
+}
+
+var HeartbeatCallCount int
+
+// RecordLifecycleActionHeartbeat mocks the autoscaling.RecordLifecycleActionHeartbeat API call
+func (m MockedASG) RecordLifecycleActionHeartbeat(input *autoscaling.RecordLifecycleActionHeartbeatInput) (*autoscaling.RecordLifecycleActionHeartbeatOutput, error) {
+	HeartbeatCallCount++
+	if m.RecordLifecycleActionHeartbeatErr != nil && HeartbeatCallCount%2 == 1 {
+		return &m.RecordLifecycleActionHeartbeatResp, m.RecordLifecycleActionHeartbeatErr
+	}
+	return &m.RecordLifecycleActionHeartbeatResp, nil
+}
+
+func (m MockedASG) DescribeLifecycleHooks(input *autoscaling.DescribeLifecycleHooksInput) (*autoscaling.DescribeLifecycleHooksOutput, error) {
+	return &autoscaling.DescribeLifecycleHooksOutput{
+		LifecycleHooks: []*autoscaling.LifecycleHook{
+			{
+				AutoScalingGroupName: &m.AutoScalingGroupName,
+				LifecycleHookName:    &m.LifecycleHookName,
+				HeartbeatTimeout:     aws.Int64(int64(m.HeartbeatTimeout)),
+			},
+		},
+	}, nil
 }

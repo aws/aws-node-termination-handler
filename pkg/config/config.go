@@ -112,6 +112,9 @@ const (
 	queueURLConfigKey                         = "QUEUE_URL"
 	completeLifecycleActionDelaySecondsKey    = "COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS"
 	deleteSqsMsgIfNodeNotFoundKey             = "DELETE_SQS_MSG_IF_NODE_NOT_FOUND"
+	// heartbeat
+	heartbeatIntervalKey = "HEARTBEAT_INTERVAL"
+	heartbeatUntilKey    = "HEARTBEAT_UNTIL"
 )
 
 // Config arguments set via CLI, environment variables, or defaults
@@ -166,6 +169,8 @@ type Config struct {
 	CompleteLifecycleActionDelaySeconds int
 	DeleteSqsMsgIfNodeNotFound          bool
 	UseAPIServerCacheToListPods         bool
+	HeartbeatInterval                   int
+	HeartbeatUntil                      int
 }
 
 // ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -230,6 +235,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.CompleteLifecycleActionDelaySeconds, "complete-lifecycle-action-delay-seconds", getIntEnv(completeLifecycleActionDelaySecondsKey, -1), "Delay completing the Autoscaling lifecycle action after a node has been drained.")
 	flag.BoolVar(&config.DeleteSqsMsgIfNodeNotFound, "delete-sqs-msg-if-node-not-found", getBoolEnv(deleteSqsMsgIfNodeNotFoundKey, false), "If true, delete SQS Messages from the SQS Queue if the targeted node(s) are not found.")
 	flag.BoolVar(&config.UseAPIServerCacheToListPods, "use-apiserver-cache", getBoolEnv(useAPIServerCache, false), "If true, leverage the k8s apiserver's index on pod's spec.nodeName to list pods on a node, instead of doing an etcd quorum read.")
+	flag.IntVar(&config.HeartbeatInterval, "heartbeat-interval", getIntEnv(heartbeatIntervalKey, -1), "The time period in seconds between consecutive heartbeat signals. Valid range: 30-3600 seconds (30 seconds to 1 hour).")
+	flag.IntVar(&config.HeartbeatUntil, "heartbeat-until", getIntEnv(heartbeatUntilKey, -1), "The duration in seconds over which heartbeat signals are sent. Valid range: 60-172800 seconds (1 minute to 48 hours).")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
@@ -272,6 +279,27 @@ func ParseCliArgs() (config Config, err error) {
 
 	if config.NodeName == "" {
 		panic("You must provide a node-name to the CLI or NODE_NAME environment variable.")
+	}
+
+	// heartbeat value boundary and compability check
+	if !config.EnableSQSTerminationDraining && (config.HeartbeatInterval != -1 || config.HeartbeatUntil != -1) {
+		return config, fmt.Errorf("currently using IMDS mode. Heartbeat is only supported for Queue Processor mode")
+	}
+	if config.HeartbeatInterval != -1 && (config.HeartbeatInterval < 30 || config.HeartbeatInterval > 3600) {
+		return config, fmt.Errorf("invalid heartbeat-interval passed: %d  Should be between 30 and 3600 seconds", config.HeartbeatInterval)
+	}
+	if config.HeartbeatUntil != -1 && (config.HeartbeatUntil < 60 || config.HeartbeatUntil > 172800) {
+		return config, fmt.Errorf("invalid heartbeat-until passed: %d  Should be between 60 and 172800 seconds", config.HeartbeatUntil)
+	}
+	if config.HeartbeatInterval == -1 && config.HeartbeatUntil != -1 {
+		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval is required when heartbeat-until is set")
+	}
+	if config.HeartbeatInterval != -1 && config.HeartbeatUntil == -1 {
+		config.HeartbeatUntil = 172800
+		log.Info().Msgf("Since heartbeat-until is not set, defaulting to %d seconds", config.HeartbeatUntil)
+	}
+	if config.HeartbeatInterval != -1 && config.HeartbeatUntil != -1 && config.HeartbeatInterval > config.HeartbeatUntil {
+		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval should be less than or equal to heartbeat-until")
 	}
 
 	// client-go expects these to be set in env vars
@@ -332,6 +360,8 @@ func (c Config) PrintJsonConfigArgs() {
 		Str("ManagedTag", c.ManagedTag).
 		Bool("use_provider_id", c.UseProviderId).
 		Bool("use_apiserver_cache", c.UseAPIServerCacheToListPods).
+		Int("heartbeat_interval", c.HeartbeatInterval).
+		Int("heartbeat_until", c.HeartbeatUntil).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -383,7 +413,9 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tmanaged-tag: %s,\n"+
 			"\tuse-provider-id: %t,\n"+
 			"\taws-endpoint: %s,\n"+
-			"\tuse-apiserver-cache: %t,\n",
+			"\tuse-apiserver-cache: %t,\n"+
+			"\theartbeat-interval: %d,\n"+
+			"\theartbeat-until: %d\n",
 		c.DryRun,
 		c.NodeName,
 		c.PodName,
@@ -424,6 +456,8 @@ func (c Config) PrintHumanConfigArgs() {
 		c.UseProviderId,
 		c.AWSEndpoint,
 		c.UseAPIServerCacheToListPods,
+		c.HeartbeatInterval,
+		c.HeartbeatUntil,
 	)
 }
 

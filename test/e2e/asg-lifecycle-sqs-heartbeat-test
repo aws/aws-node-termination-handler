@@ -1,0 +1,228 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $WEBHOOK_DOCKER_REPO
+#   $WEBHOOK_DOCKER_TAG
+#   $AEMM_URL
+#   $AEMM_VERSION
+
+
+function fail_and_exit {
+    echo "❌ ASG Lifecycle SQS Heartbeat Test failed $CLUSTER_NAME ❌"
+    exit "${1:-1}"
+}
+
+echo "Starting ASG Lifecycle SQS Heartbeat Test for Node Termination Handler"
+START_TIME=$(date -u +"%Y-%m-%dT%TZ")
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+common_helm_args=()
+
+localstack_helm_args=(
+    upgrade
+    --install
+    --namespace default
+    "$CLUSTER_NAME-localstack"
+    "$SCRIPTPATH/../../config/helm/localstack/"
+    --set nodeSelector."${NTH_CONTROL_LABEL}"
+    --set defaultRegion="${AWS_REGION}"
+    --wait
+)
+
+set -x
+helm "${localstack_helm_args[@]}"
+set +x
+
+sleep 10
+
+RUN_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test},{Key=aws-node-termination-handler/managed,Value=blah}]'"
+localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
+                                  -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
+                                  | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
+echo "🥑 Using localstack pod ${localstack_pod}"
+run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "${RUN_INSTANCE_CMD}")
+private_dns_name=$(echo "${run_instances_resp}" | jq -r '.Instances[] .PrivateDnsName')
+instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
+echo "🥑 Started mock EC2 instance ($instance_id) w/ private DNS name: ${private_dns_name}"
+set -x
+CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "${CREATE_SQS_CMD}" | jq -r .QueueUrl)
+set +x
+
+echo "🥑 Created SQS Queue ${queue_url}"
+
+# arguments specific to heartbeat testing
+COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS=120
+HEARTBEAT_INTERVAL=30
+HEARTBEAT_UNTIL=100
+
+anth_helm_args=(
+  upgrade
+  --install
+  --namespace kube-system
+  "$CLUSTER_NAME-acth"
+  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set completeLifecycleActionDelaySeconds="$COMPLETE_LIFECYCLE_ACTION_DELAY_SECONDS"
+  --set heartbeatInterval="$HEARTBEAT_INTERVAL"
+  --set heartbeatUntil="$HEARTBEAT_UNTIL"
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set nodeSelector."${NTH_CONTROL_LABEL}"
+  --set tolerations[0].operator=Exists
+  --set awsAccessKeyID=foo
+  --set awsSecretAccessKey=bar
+  --set awsRegion="${AWS_REGION}"
+  --set awsEndpoint="http://localstack.default"
+  --set checkTagBeforeDraining=false
+  --set enableSqsTerminationDraining=true
+  --set queueURL="${queue_url}"
+  --wait
+)
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    anth_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${anth_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  --namespace default
+  "$CLUSTER_NAME-emtp"
+  "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
+)
+[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    echo "Setup Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    echo "❌ regular-pod-test pod deployment failed"
+    fail_and_exit 2
+fi
+
+ASG_TERMINATION_EVENT=$(cat <<EOF
+{
+  "version": "0",
+  "id": "782d5b4c-0f6f-1fd6-9d62-ecf6aed0a470",
+  "detail-type": "EC2 Instance-terminate Lifecycle Action",
+  "source": "aws.autoscaling",
+  "account": "123456789012",
+  "time": "$(date -u +"%Y-%m-%dT%TZ")",
+  "region": "${AWS_REGION}",
+  "resources": [
+    "arn:aws:autoscaling:us-east-1:123456789012:autoScalingGroup:26e7234b-03a4-47fb-b0a9-2b241662774e:autoScalingGroupName/nth-integ-test"
+  ],
+  "detail": {
+    "LifecycleActionToken": "0befcbdb-6ecd-498a-9ff7-ae9b54447cd6",
+    "AutoScalingGroupName": "nth-integ-test",
+    "LifecycleHookName": "cluster-termination-handler",
+    "EC2InstanceId": "${instance_id}",
+    "LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING"
+  }
+}
+EOF
+)
+
+ASG_TERMINATION_EVENT_ONE_LINE=$(echo "${ASG_TERMINATION_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${ASG_TERMINATION_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+kubectl exec -i "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
+echo "✅ Sent ASG Termination Event to SQS queue: ${queue_url}"
+
+NTH_POD=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-node-termination-handler -o jsonpath="{.items[0].metadata.name}")
+
+HEARTBEAT_COUNT=0
+LAST_HEARTBEAT_LOG=''
+CURRENT_HEARTBEAT_LOG=''
+FOUND_HEARTBEAT_END_LOG=0
+HEARTBEAT_CHECK_CYCLES=$((($HEARTBEAT_UNTIL/$HEARTBEAT_INTERVAL+1)*2))
+HEARTBEAT_CHECK_SLEEP=$(($HEARTBEAT_INTERVAL/2))
+TARGET_HEARTBEAT_COUNT=$((($HEARTBEAT_UNTIL-5)/$HEARTBEAT_INTERVAL))
+
+# Localstack does not support RecordLifecycleActionHeartbeat. We currently can only check up to issuing signals.
+for i in $(seq 1 $HEARTBEAT_CHECK_CYCLES); do
+    FULL_LOG=$(kubectl logs -n kube-system "${NTH_POD}")
+    CURRENT_HEARTBEAT_LOG=$(echo "${FULL_LOG}" | grep "Failed to send lifecycle heartbeat" || true)
+    if [[ "$CURRENT_HEARTBEAT_LOG" != "$LAST_HEARTBEAT_LOG" ]]; then
+        LAST_HEARTBEAT_LOG=$CURRENT_HEARTBEAT_LOG
+        (( HEARTBEAT_COUNT+=1 ))
+    fi
+    if [[ $FOUND_HEARTBEAT_END_LOG -eq 0 ]] && kubectl logs -n kube-system "${NTH_POD}" | grep -q "Heartbeat deadline exceeded, stopping heartbeat"; then
+        FOUND_HEARTBEAT_END_LOG=1
+    fi
+    if [[ $HEARTBEAT_COUNT -eq $TARGET_HEARTBEAT_COUNT && $FOUND_HEARTBEAT_END_LOG -eq 1 ]]; then
+        break
+    fi
+    echo "Heartbeat Loop $i/$HEARTBEAT_CHECK_CYCLES, sleeping for $HEARTBEAT_CHECK_SLEEP seconds"
+    sleep $HEARTBEAT_CHECK_SLEEP
+done
+
+if [[ $HEARTBEAT_COUNT -eq $TARGET_HEARTBEAT_COUNT && $FOUND_HEARTBEAT_END_LOG -eq 1 ]]; then
+    echo "✅ Verified the heartbeat was sent correct!"
+else
+    if [[ $FOUND_HEARTBEAT_END_LOG -eq 0 ]]; then
+        echo "❌ Heartbeat was not closed"
+    fi
+    if [[ $HEARTBEAT_COUNT -ne $TARGET_HEARTBEAT_COUNT ]]; then
+        echo "❌ Heartbeat was sent $HEARTBEAT_COUNT out of 3 times"
+    fi
+    fail_and_exit 3
+fi
+
+# Test from asg-lifecycle-sqs-test
+cordoned=0
+test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
+        echo "✅ Verified the worker node was cordoned!"
+        cordoned=1
+    fi
+
+    if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        echo "✅ ASG Lifecycle SQS Test Passed with Heartbeat $CLUSTER_NAME! ✅"
+        exit 0
+    fi
+    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ $cordoned -eq 0 ]]; then
+    echo "❌ Worker node was not cordoned"
+else
+    echo "❌ regular-pod-test was not evicted"
+fi
+
+fail_and_exit 1

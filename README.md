@@ -81,6 +81,75 @@ When using the ASG Lifecycle Hooks, ASG first sends the lifecycle action notific
 #### Queue Processor with Instance State Change Events
 When using the EC2 Console or EC2 API to terminate the instance, a state-change notification is sent and the instance termination is started. EC2 does not wait for a "continue" signal before beginning to terminate the instance. When you terminate an EC2 instance, it should trigger a graceful operating system shutdown which will send a SIGTERM to the kubelet, which will in-turn start shutting down pods by propagating that SIGTERM to the containers on the node. If the containers do not shut down by the kubelet's `podTerminationGracePeriod (k8s default is 30s)`, then it will send a SIGKILL to forcefully terminate the containers. Setting the `podTerminationGracePeriod` to a max of 90sec (probably a bit less than that) will delay the termination of pods, which helps in graceful shutdown.
 
+#### Issuing Lifecycle Heartbeats
+
+You can set NTH to send heartbeats to ASG in Queue Processor mode. This allows for a much longer grace period (up to 48 hours) for termination than the maximum heartbeat timeout of two hours. The feature is useful when pods require long time to drain or when you need a shorter heartbeat timeout with a longer grace period.
+
+##### How it works
+
+- When NTH receives an ASG lifecycle termination event, it starts sending heartbeats to ASG to renew the heartbeat timeout associated with the ASG's termination lifecycle hook.
+- The heartbeat timeout acts as a timer that starts when the termination event begins.
+- Before the timeout reaches zero, the termination process is halted at the `Terminating:Wait` stage.
+- By issuing heartbeats, graceful termination duration can be extended up to 48 hours, limited by the global timeout.
+
+##### How to use
+
+- Configure a termination lifecycle hook on ASG (required). Set the heartbeat timeout value to be longer than the `Heartbeat Interval`. Each heartbeat signal resets this timeout, extending the duration that an instance remains in the `Terminating:Wait` state. Without this lifecycle hook, the instance will terminate immediately when termination event occurs.
+- Configure `Heartbeat Interval` (required) and `Heartbeat Until` (optional). NTH operates normally without heartbeats if neither value is set. If only the interval is specified, `Heartbeat Until` defaults to 172800 seconds (48 hours) and heartbeats will be sent. `Heartbeat Until` must be provided with a valid `Heartbeat Interval`, otherwise NTH will fail to start. Any invalid values (wrong type or out of range) will also prevent NTH from starting.
+
+##### Configurations
+###### `Heartbeat Interval` (Required)
+- Time period between consecutive heartbeat signals (in seconds)
+- Specifying this value triggers heartbeat
+- Range: 30 to 3600 seconds (30 seconds to 1 hour)
+- Flag for custom resource definition by *.yaml / helm: `heartbeatInterval`
+- CLI flag: `heartbeat-interval`
+- Default value: X
+
+###### `Heartbeat Until` (Optional)
+- Duration over which heartbeat signals are sent (in seconds)
+- Must be provided with a valid `Heartbeat Interval`
+- Range: 60 to 172800 seconds (1 minute to 48 hours)
+- Flag for custom resource definition by *.yaml / helm: `heartbeatUntil`
+- CLI flag: `heartbeat-until`
+- Default value: 172800 (48 hours)
+
+###### Example Case
+
+- `Heartbeat Interval`: 1000 seconds
+- `Heartbeat Until`: 4500 seconds
+- `Heartbeat Timeout`: 3000 seconds 
+
+| Time (s) | Event | Heartbeat Timeout (HT) | Heartbeat Until (HU) | Action |
+|----------|-------------|------------------|----------------------|--------|
+| 0        | Start       | 3000            | 4500                  | Termination Event Received |
+| 1000     | HB1 Issued  | 2000 -> 3000    | 3500                  | Send Heartbeat |
+| 2000     | HB2 Issued  | 2000 -> 3000    | 2500                  | Send Heartbeat |
+| 3000     | HB3 Issued  | 2000 -> 3000    | 1500                  | Send Heartbeat |
+| 4000     | HB4 Issued  | 2000 -> 3000    | 500                   | Send Heartbeat |
+| 4500     | HB Expires  | 2500            | 0                     | Stop Heartbeats |
+| 7000     | Termination | -               | -                     | Instance Terminates |
+
+Note: The instance can terminate earlier if its pods finish draining and are ready for termination.
+
+##### Example Helm Command
+
+```sh
+helm upgrade --install aws-node-termination-handler \
+  --namespace kube-system \
+  --set enableSqsTerminationDraining=true \
+  --set heartbeatInterval=1000 \
+  --set heartbeatUntil=4500 \
+  // other inputs..
+```
+
+##### Important Notes
+
+- Be aware of global timeout. Instances cannot remain in a wait state indefinitely. The global timeout is 48 hours or 100 times the heartbeat timeout, whichever is smaller. This is the maximum amount of time that you can keep an instance in `terminating:wait` state.
+- Lifecycle heartbeats are only supported in Queue Processor mode. Setting `enableSqsTerminationDraining=false` and specifying heartbeat flags is prevented in Helm. Directly editing deployment settings to bypass this will cause NTH to fail.
+- The heartbeat interval should be sufficiently shorter than the heartbeat timeout. There's a time gap between instance startup and NTH initialization. Setting the interval just slightly smaller than or equal to the timeout causes the heartbeat timeout to expire before the first heartbeat is issued. Provide adequate buffer time for NTH to complete initialization.
+- Issuing heartbeats is part of the termination process. The maximum number of instances that NTH can handle termination concurrently is limited by the number of workers. This implies that heartbeats can only be issued for up to the number of instances specified by the `workers` flag simultaneously.
+
 ### Which one should I use?
 |                    Feature                    | IMDS Processor | Queue Processor |
 | :-------------------------------------------: | :------------: | :-------------: |
@@ -91,6 +160,7 @@ When using the EC2 Console or EC2 API to terminate the instance, a state-change 
 |     ASG Termination Lifecycle State Change    |       ✅        |        ❌        |
 |         AZ Rebalance Recommendation           |       ❌        |        ✅        |
 |         Instance State Change Events          |       ❌        |        ✅        |
+|          Issue Lifecycle Heartbeats           |       ❌        |        ✅        |
 
 ### Kubernetes Compatibility
 
@@ -627,4 +697,3 @@ Contributions are welcome! Please read our [guidelines](https://github.com/aws/a
 
 ## License
 This project is licensed under the Apache-2.0 License.
-
