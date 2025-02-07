@@ -120,10 +120,10 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to instantiate a node for various kubernetes node functions,")
 	}
 
-	metrics, err := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
-	if err != nil {
+	metrics, initMetricsErr := observability.InitMetrics(nthConfig.EnablePrometheus, nthConfig.PrometheusPort)
+	if initMetricsErr != nil {
 		nthConfig.Print()
-		log.Fatal().Err(err).Msg("Unable to instantiate observability metrics,")
+		log.Fatal().Err(initMetricsErr).Msg("Unable to instantiate observability metrics,")
 	}
 
 	err = observability.InitProbes(nthConfig.EnableProbes, nthConfig.ProbesPort, nthConfig.ProbesEndpoint)
@@ -217,7 +217,7 @@ func main() {
 
 		ec2Client := ec2.New(sess)
 
-		if nthConfig.EnablePrometheus {
+		if initMetricsErr == nil && nthConfig.EnablePrometheus {
 			go metrics.InitNodeMetrics(nthConfig, node, ec2Client)
 		}
 

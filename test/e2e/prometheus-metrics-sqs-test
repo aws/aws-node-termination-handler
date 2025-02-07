@@ -180,13 +180,6 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     sleep $TAINT_CHECK_SLEEP
 done
 
-if [[ $cordoned -eq 0 ]]; then
-    echo "❌ Worker node was not cordoned"
-else
-    echo "❌ regular-pod-test was not evicted"
-fi
-
-
 POD_NAME=$(get_nth_worker_pod)
 echo "✅ Fetched the pod $POD_NAME "
 
