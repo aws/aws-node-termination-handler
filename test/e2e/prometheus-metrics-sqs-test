@@ -1,0 +1,249 @@
+#!/bin/bash
+set -euo pipefail
+
+# Available env vars:
+#   $TMP_DIR
+#   $CLUSTER_NAME
+#   $KUBECONFIG
+#   $NODE_TERMINATION_HANDLER_DOCKER_REPO
+#   $NODE_TERMINATION_HANDLER_DOCKER_TAG
+#   $WEBHOOK_DOCKER_REPO
+#   $WEBHOOK_DOCKER_TAG
+#   $AEMM_URL
+#   $AEMM_VERSION
+
+echo "Starting EC2 State Change SQS Test for Node Termination Handler in SQS mode with Prometheus server enabled"
+START_TIME=$(date -u +"%Y-%m-%dT%TZ")
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+PROMETHEUS_HELM_VERSION="41.7.4"
+
+common_helm_args=()
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+retry 5 helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --version ${PROMETHEUS_HELM_VERSION} --set prometheusOperator.admissionWebhooks.enabled="false" --set grafana.enabled="false" --set nodeExporter.enabled="false" --set kubeStateMetrics.enabled="false"
+
+localstack_helm_args=(
+    upgrade
+    --install
+    --namespace default
+    "$CLUSTER_NAME-localstack"
+    "$SCRIPTPATH/../../config/helm/localstack/"
+    --set defaultRegion="${AWS_REGION}"
+    --wait
+)
+
+set -x
+helm "${localstack_helm_args[@]}"
+set +x
+
+sleep 10
+
+MANAGED_INSTANCE_CMD="awslocal ec2 run-instances --private-ip-address ${WORKER_IP} --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test},{Key=aws-node-termination-handler/managed,Value=blah}]'"
+MANAGED_INSTANCE_WITHOUT_TAG_VALUE_CMD="awslocal ec2 run-instances --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test},{Key=aws-node-termination-handler/managed,Value=\"\"}]'"
+UNMANAGED_INSTANCE_CMD="awslocal ec2 run-instances --region ${AWS_REGION} --tag-specifications 'ResourceType=instance,Tags=[{Key=aws:autoscaling:groupName,Value=nth-integ-test}]'"
+set -x
+localstack_pod=$(kubectl get pods --selector app=localstack --field-selector="status.phase=Running" \
+                                  -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
+                                  | awk '$2 >= "'"${START_TIME//+0000/Z}"'" { print $1 }')
+echo "🥑 Using localstack pod $localstack_pod"
+
+for instance_cmd in "$MANAGED_INSTANCE_WITHOUT_TAG_VALUE_CMD" "$UNMANAGED_INSTANCE_CMD" "$MANAGED_INSTANCE_CMD"; do
+    run_instances_resp=$(kubectl exec -i "${localstack_pod}" -- bash -c "$instance_cmd")
+    instance_id=$(echo "${run_instances_resp}" | jq -r '.Instances[] .InstanceId')
+    echo "🥑 Started mock EC2 instance ($instance_id)"
+done
+
+CREATE_SQS_CMD="awslocal sqs create-queue --queue-name "${CLUSTER_NAME}-queue" --attributes MessageRetentionPeriod=300 --region ${AWS_REGION}"
+queue_url=$(kubectl exec -i "${localstack_pod}" -- bash -c "$CREATE_SQS_CMD" | jq -r .QueueUrl)
+
+echo "🥑 Created SQS Queue ${queue_url}"
+
+anth_helm_args=(
+  upgrade
+  --install
+  --namespace kube-system
+  "$CLUSTER_NAME-anth"
+  "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
+  --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
+  --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
+  --set enablePrometheusServer="true"
+  --set podMonitor.create="true"
+  --set daemonsetTolerations=""
+  --set awsAccessKeyID=foo
+  --set awsSecretAccessKey=bar
+  --set awsRegion="${AWS_REGION}"
+  --set awsEndpoint="http://localstack.default"
+  --set checkTagBeforeDraining=false
+  --set enableSqsTerminationDraining=true
+  --set "queueURL=${queue_url}"
+  --wait
+  --force
+)
+[[ -n "${NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY-}" ]] &&
+    anth_helm_args+=(--set image.pullPolicy="$NODE_TERMINATION_HANDLER_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    anth_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${anth_helm_args[@]}"
+set +x
+
+emtp_helm_args=(
+  upgrade
+  --install
+  --namespace default
+  "$CLUSTER_NAME-emtp"
+  "$SCRIPTPATH/../../config/helm/webhook-test-proxy/"
+  --set webhookTestProxy.image.repository="$WEBHOOK_DOCKER_REPO"
+  --set webhookTestProxy.image.tag="$WEBHOOK_DOCKER_TAG"
+  --wait
+)
+[[ -n "${WEBHOOK_DOCKER_PULL_POLICY-}" ]] &&
+    emtp_helm_args+=(--set webhookTestProxy.image.pullPolicy="$WEBHOOK_DOCKER_PULL_POLICY")
+[[ ${#common_helm_args[@]} -gt 0 ]] &&
+    emtp_helm_args+=("${common_helm_args[@]}")
+
+set -x
+helm "${emtp_helm_args[@]}"
+set +x
+
+TAINT_CHECK_CYCLES=15
+TAINT_CHECK_SLEEP=15
+
+DEPLOYED=0
+
+for i in $(seq 1 10); do
+    if [[ $(kubectl get deployments regular-pod-test -o jsonpath='{.status.unavailableReplicas}') -eq 0 ]]; then
+        echo "✅ Verified regular-pod-test pod was scheduled and started!"
+        DEPLOYED=1
+        break
+    fi
+    sleep 5
+done
+
+if [[ $DEPLOYED -eq 0 ]]; then
+    echo "❌ regular-pod-test pod deployment failed"
+    fail_and_exit 2
+fi
+
+
+EC2_STATE_CHANGE_EVENT=$(cat <<EOF
+{
+  "version": "0",
+  "id": "7bf73129-1428-4cd3-a780-95db273d1602",
+  "detail-type": "EC2 Instance State-change Notification",
+  "source": "aws.ec2",
+  "account": "123456789012",
+  "time": "$(date -u +"%Y-%m-%dT%TZ")",
+  "region": "us-east-1",
+  "resources": [
+    "arn:aws:ec2:us-east-1:123456789012:instance/${instance_id}"
+  ],
+  "detail": {
+    "instance-id": "${instance_id}",
+    "state": "stopping"
+  }
+}
+EOF
+)
+
+EC2_STATE_CHANGE_EVENT_ONE_LINE=$(echo "${EC2_STATE_CHANGE_EVENT}" | tr -d '\n' |sed 's/\"/\\"/g')
+SEND_SQS_CMD="awslocal sqs send-message --queue-url ${queue_url} --message-body \"${EC2_STATE_CHANGE_EVENT_ONE_LINE}\" --region ${AWS_REGION}"
+kubectl exec -i "${localstack_pod}" -- bash -c "$SEND_SQS_CMD"
+echo "✅ Sent EC2 State Change Event to SQS queue: ${queue_url}"
+
+GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --attribute-names All --region ${AWS_REGION}"
+
+cordoned=0
+evicted=0
+message_deleted=0
+test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
+        echo "✅ Verified the worker node was cordoned!"
+        cordoned=1
+    fi
+
+    if [[ $cordoned -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+        echo "✅ Verified the regular-pod-test pod was evicted!"
+        evicted=1
+    fi
+
+    if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
+        kubectl exec -i "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD"
+        echo "✅ Verified the message was deleted from the queue after processing!"
+        message_deleted=1
+        break
+    fi
+
+    echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ $cordoned -eq 0 ]]; then
+  echo "❌ Worker node was not cordoned"
+  exit 3
+elif [[ $evicted -eq 0 ]]; then
+  echo "❌ regular-pod-test was not evicted"
+  exit 3
+elif [[ $message_deleted -eq 0 ]]; then
+  echo "❌ Message was not removed from the queue after processing"
+  exit 3
+fi
+
+POD_NAME=$(get_nth_worker_pod)
+echo "✅ Fetched the pod $POD_NAME "
+
+kubectl -n kube-system port-forward "$POD_NAME" 7000:9092 &
+PORT_FORWARD_PID=$!
+trap 'kill ${PORT_FORWARD_PID}' EXIT SIGINT SIGTERM ERR
+echo "✅ Port-forwarded pod $POD_NAME"
+
+sleep 10
+
+for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+    METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
+    echo "✅ Fetched /metrics."
+    failed=""
+    for METRIC in cordon-and-drain post-drain nth_tagged_instances nth_tagged_nodes runtime_go_gc runtime_go_goroutines runtime_go_mem; do
+        if [[ $METRICS_RESPONSE == *"$METRIC"* ]]; then
+            echo "✅ Metric $METRIC!"
+        else
+            echo "⚠️  Metric $METRIC"
+            failed=$METRIC
+            break
+        fi
+    done
+    if [ -z $failed ]; then
+        break
+    fi
+    echo "Metrics Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+    sleep $TAINT_CHECK_SLEEP
+done
+
+if [[ -n $failed ]]; then
+    exit 4
+fi
+
+metric_name="actions_total"
+for action in cordon-and-drain post-drain; do
+    labels='node_action="'$action'",node_status="success",otel_scope_name="aws.node.termination.handler",otel_scope_version=""'
+    query="$metric_name{$labels}"
+    counter_value=$(echo "$METRICS_RESPONSE" | grep -E "${query}[[:space:]]+[0-9]+" | awk '{print $NF}')
+    if (($counter_value < 1)); then
+        echo "❌ Failed counter count for metric action:$action"
+        exit 5
+    fi
+    echo "✅ Fetched counter:$counter_value for metric with action:$action"
+done
+
+gauge="nth_tagged_instances"
+query=''$gauge'{otel_scope_name="aws.node.termination.handler",otel_scope_version=""}'
+counter_value=$(echo "$METRICS_RESPONSE" | grep -E "${query}[[:space:]]+[0-9]+" | awk '{print $NF}')
+if (($counter_value < 2)); then
+    echo "❌ Failed gauge count for metric:$gauge"
+    exit 5
+fi
+echo "✅ Fetched gauge:$counter_value for metric:$gauge"

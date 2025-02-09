@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -74,6 +75,7 @@ const (
 var (
 	maxRetryDeadline      time.Duration = 5 * time.Second
 	conflictRetryInterval time.Duration = 750 * time.Millisecond
+	instanceIDRegex                     = regexp.MustCompile(`^i-.*`)
 )
 
 // Node represents a kubernetes node with functions to manipulate its state via the kubernetes api server
@@ -637,6 +639,43 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 		return n.drainHelper.Client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	}
 	return &matchingNodes.Items[0], nil
+}
+
+// fetchKubernetesNode will send an http request to the k8s api server and return list of AWS EC2 instance id
+func (n Node) FetchKubernetesNodeInstanceIds() ([]string, error) {
+	ids := []string{}
+
+	if n.nthConfig.DryRun {
+		log.Info().Msgf("Would have retrieved nodes, but dry-run flag was set")
+		return ids, nil
+	}
+	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Warn().Msgf("Unable to list Nodes")
+		return nil, err
+	}
+
+	if matchingNodes == nil || matchingNodes.Items == nil {
+		return nil, fmt.Errorf("list nodes success but return empty response")
+	}
+
+	for _, node := range matchingNodes.Items {
+		// sample providerID: aws:///us-west-2a/i-0abcd1234efgh5678
+		parts := strings.Split(node.Spec.ProviderID, "/")
+		if len(parts) != 5 {
+			log.Warn().Msgf("Invalid providerID format found for node %s: %s (expected format: aws:///region/instance-id)", node.Name, node.Spec.ProviderID)
+			continue
+		}
+
+		instanceId := parts[len(parts)-1]
+		if instanceIDRegex.MatchString(instanceId) {
+			ids = append(ids, parts[len(parts)-1])
+		} else {
+			log.Warn().Msgf("Invalid instance id format found for node %s: %s (expected format: ^i-.*)", node.Name, instanceId)
+		}
+	}
+
+	return ids, nil
 }
 
 func (n Node) fetchAllPods(nodeName string) (*corev1.PodList, error) {
