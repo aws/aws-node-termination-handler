@@ -158,6 +158,7 @@ GET_ATTRS_SQS_CMD="awslocal sqs get-queue-attributes --queue-url ${queue_url} --
 
 cordoned=0
 evicted=0
+message_deleted=0
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled > /dev/null; then
@@ -173,12 +174,24 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ ${evicted} -eq 1 && $(kubectl exec -i "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD" | jq '(.Attributes.ApproximateNumberOfMessagesNotVisible|tonumber) + (.Attributes.ApproximateNumberOfMessages|tonumber)' ) -eq 0 ]]; then
         kubectl exec -i "${localstack_pod}" -- bash -c "$GET_ATTRS_SQS_CMD"
         echo "✅ Verified the message was deleted from the queue after processing!"
+        message_deleted=1
         break
     fi
 
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
     sleep $TAINT_CHECK_SLEEP
 done
+
+if [[ $cordoned -eq 0 ]]; then
+  echo "❌ Worker node was not cordoned"
+  exit 3
+elif [[ $evicted -eq 0 ]]; then
+  echo "❌ regular-pod-test was not evicted"
+  exit 3
+elif [[ $message_deleted -eq 0 ]]; then
+  echo "❌ Message was not removed from the queue after processing"
+  exit 3
+fi
 
 POD_NAME=$(get_nth_worker_pod)
 echo "✅ Fetched the pod $POD_NAME "
