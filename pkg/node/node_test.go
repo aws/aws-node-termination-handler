@@ -37,6 +37,9 @@ import (
 // Size of the fakeRecorder buffer
 const recorderBufferSize = 10
 
+const outOfServiceTaintKey = "node.kubernetes.io/out-of-service"
+const outOfServiceTaintValue = "nodeshutdown"
+
 var nodeName = "NAME"
 
 func getDrainHelper(client *fake.Clientset) *drain.Helper {
@@ -417,4 +420,41 @@ func TestFilterOutDaemonSetPods(t *testing.T) {
 
 	filteredMockPodList := tNode.FilterOutDaemonSetPods(mockPodList)
 	h.Equals(t, 2, len(filteredMockPodList.Items))
+}
+
+func TestTaintOutOfService(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{EnableOutOfServiceTaint: true}, client)
+	h.Ok(t, err)
+	h.Equals(t, true, tNode.GetNthConfig().EnableOutOfServiceTaint)
+	h.Equals(t, false, tNode.GetNthConfig().CordonOnly)
+
+	err = tNode.TaintOutOfService(nodeName)
+	h.Ok(t, err)
+
+	updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+	taintFound := false
+	expectedTaint := v1.Taint{
+		Key:    outOfServiceTaintKey,
+		Value:  outOfServiceTaintValue,
+		Effect: corev1.TaintEffectNoExecute,
+	}
+	for _, taint := range updatedNode.Spec.Taints {
+		if taint.Key == expectedTaint.Key &&
+			taint.Value == expectedTaint.Value &&
+			taint.Effect == expectedTaint.Effect {
+			taintFound = true
+			break
+		}
+	}
+	h.Equals(t, true, taintFound)
 }

@@ -119,6 +119,15 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 	if (err == nil || (!nodeFound && h.commonHandler.NthConfig.DeleteSqsMsgIfNodeNotFound)) && drainEvent.PostDrainTask != nil {
 		h.commonHandler.RunPostDrainTask(nodeName, drainEvent)
 	}
+
+	// Only add out-of-service taint if ENABLE_OUT_OF_SERVICE_TAINT flag is true, and CORDON_ONLY flag is false
+	if err == nil && h.commonHandler.NthConfig.EnableOutOfServiceTaint && !h.commonHandler.NthConfig.CordonOnly {
+		err = h.commonHandler.Node.TaintOutOfService(nodeName)
+		if err != nil {
+			return fmt.Errorf("cannot add out-of-service taint on node %s: %w", nodeName, err)
+		}
+	}
+
 	return nil
 }
 

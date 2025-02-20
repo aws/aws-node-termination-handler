@@ -99,6 +99,8 @@ spec:
               value: {{ .Values.cordonOnly | quote }}
             - name: TAINT_NODE
               value: {{ .Values.taintNode | quote }}
+            - name: ENABLE_OUT_OF_SERVICE_TAINT
+              value: {{ .Values.enableOutOfServiceTaint | quote }}
             - name: EXCLUDE_FROM_LOAD_BALANCERS
               value: {{ .Values.excludeFromLoadBalancers | quote }}
             - name: DELETE_LOCAL_DATA
