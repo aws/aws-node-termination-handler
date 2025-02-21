@@ -15,6 +15,7 @@ package node_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -35,7 +36,11 @@ import (
 )
 
 // Size of the fakeRecorder buffer
-const recorderBufferSize = 10
+const (
+	recorderBufferSize = 10
+	instanceId1        = "i-0abcd1234efgh5678"
+	instanceId2        = "i-0wxyz5678ijkl1234"
+)
 
 var nodeName = "NAME"
 
@@ -377,6 +382,85 @@ func TestUncordonIfRebootedTimeParseFailure(t *testing.T) {
 	tNode := getNode(t, getDrainHelper(client))
 	err = tNode.UncordonIfRebooted(nodeName)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure to parse time")
+}
+
+func TestFetchKubernetesNodeInstanceIds(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s", instanceId1)},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "node-2"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s", instanceId2)},
+		},
+	)
+
+	_, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	h.Ok(t, err)
+
+	node, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	instanceIds, err := node.FetchKubernetesNodeInstanceIds()
+	h.Ok(t, err)
+	h.Equals(t, 2, len(instanceIds))
+	h.Equals(t, instanceId1, instanceIds[0])
+	h.Equals(t, instanceId2, instanceIds[1])
+}
+
+func TestFetchKubernetesNodeInstanceIdsEmptyResponse(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	_, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	h.Ok(t, err)
+
+	node, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	_, err = node.FetchKubernetesNodeInstanceIds()
+	h.Nok(t, err)
+}
+
+func TestFetchKubernetesNodeInstanceIdsInvalidProviderID(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-providerId-1"},
+			Spec:       v1.NodeSpec{ProviderID: "dummyProviderId"},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-providerId-2"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:/%s", instanceId2)},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-providerId-3"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("us-west-2a/%s", instanceId2)},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-providerId-4"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s/dummyPart", instanceId2)},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "valid-providerId-2"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s", instanceId2)},
+		},
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "valid-providerId-1"},
+			Spec:       v1.NodeSpec{ProviderID: fmt.Sprintf("aws:///us-west-2a/%s", instanceId1)},
+		},
+	)
+
+	_, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	h.Ok(t, err)
+
+	node, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	instanceIds, err := node.FetchKubernetesNodeInstanceIds()
+	h.Ok(t, err)
+	h.Equals(t, 2, len(instanceIds))
+	h.Equals(t, instanceId1, instanceIds[0])
+	h.Equals(t, instanceId2, instanceIds[1])
 }
 
 func TestFilterOutDaemonSetPods(t *testing.T) {
