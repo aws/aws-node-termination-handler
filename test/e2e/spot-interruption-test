@@ -17,6 +17,12 @@ function fail_and_exit {
     exit "${1:-1}"
 }
 
+function remove_out_of_service_taint {
+    local node=$1
+    echo "Removing out-of-service taint from node ${node}"
+    kubectl taint nodes "${node}" node.kubernetes.io/out-of-service:NoExecute- || true
+}
+
 echo "Starting Spot Interruption Test for Node Termination Handler"
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -37,6 +43,7 @@ anth_helm_args=(
   --set enableScheduledEventDraining="false"
   --set enableSpotInterruptionDraining="true"
   --set taintNode="true"
+  --set enableOutOfServiceTaint="true"
   --set daemonsetTolerations=""
   --wait
   --force
@@ -110,6 +117,7 @@ fi
 
 cordoned=0
 tainted=0
+outOfServiceTainted=0
 test_node=${TEST_NODE:-$CLUSTER_NAME-worker}
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled >/dev/null; then
@@ -118,13 +126,19 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     fi
 
     if [[ $cordoned -eq 1 && $tainted -eq 0 ]] && kubectl get nodes "${test_node}" -o json | grep -q "aws-node-termination-handler/spot-itn" >/dev/null; then
-    echo "✅ Verified the worked node was tainted!"
-    tainted=1
+        echo "✅ Verified the worked node was tainted!"
+        tainted=1
     fi
 
-    if [[ $tainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
+    if [[ $cordoned -eq 1 && $tainted -eq 1 ]] && kubectl get nodes "${test_node}" -o json | grep -q "node.kubernetes.io/out-of-service" >/dev/null; then
+        echo "✅ Verified the worked node was tainted as out-of-service!"
+        outOfServiceTainted=1
+    fi
+
+    if [[ $tainted -eq 1 && $outOfServiceTainted -eq 1 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
         echo "✅ Verified the regular-pod-test pod was evicted!"
         echo "✅ Spot Interruption Test Passed $CLUSTER_NAME! ✅"
+        remove_out_of_service_taint "${test_node}"
         exit 0
     fi
     echo "Assertion Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
@@ -135,8 +149,11 @@ if [[ $cordoned -eq 0 ]]; then
     echo "❌ Worker node was not cordoned"
 elif [[ $tainted -eq 0 ]]; then
     echo "❌ Worker node was not tainted"
+elif [[ $outOfServiceTainted -eq 0 ]]; then
+    echo "❌ Worker node was not tainted as out-of-service"
 else
     echo "❌ regular-pod-test pod was not evicted"
 fi
 
+remove_out_of_service_taint "${test_node}"
 fail_and_exit 1
