@@ -186,7 +186,7 @@ while getopts "pdn:oc:a:b:v:w:" opt; do
 done
 
 if [[ -z $TMP_DIR ]]; then
-    TMP_DIR=$("$SCRIPTPATH/../k8s-local-cluster-test/provision-cluster" -b "$CLUSTER_NAME_BASE" -v "$K8S_VERSION $PROVISION_CLUSTER_ARGS")
+    TMP_DIR=$("$SCRIPTPATH/../k8s-local-cluster-test/provision-cluster" -b "$CLUSTER_NAME_BASE" -v "$K8S_VERSION" "$PROVISION_CLUSTER_ARGS")
 fi
 if [[ $OVERRIDE_PATH -eq 0 ]]; then
   export PATH=$TMP_DIR:$PATH
