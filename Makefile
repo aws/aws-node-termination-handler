@@ -30,7 +30,7 @@ WINDOWS_2022 ?= "windows-10.0.20348.2582/amd64"
 BINARY_NAME ?= "node-termination-handler"
 THIRD_PARTY_LICENSES = "${MAKEFILE_PATH}/THIRD_PARTY_LICENSES.md"
 GOLICENSES = $(BIN_DIR)/go-licenses
-K8S_1_25_ASSET_SUFFIX = "_k8s-1-25-or-newer"
+K8S_1_29_ASSET_SUFFIX = "_k8s-1-29-or-newer"
 AMAZON_ECR_CREDENTIAL_HELPER_VERSION = 0.7.1
 
 $(shell mkdir -p ${BUILD_DIR_PATH} && touch ${BUILD_DIR_PATH}/_go.mod)
@@ -153,14 +153,14 @@ build-binaries-windows-2022:
 
 upload-resources-to-github:
 	${MAKEFILE_PATH}/scripts/upload-resources-to-github
-	${MAKEFILE_PATH}/scripts/upload-resources-to-github -k -s ${K8S_1_25_ASSET_SUFFIX}
+	${MAKEFILE_PATH}/scripts/upload-resources-to-github -k -s ${K8S_1_29_ASSET_SUFFIX}
 
 upload-resources-to-github-windows:
 	powershell -File ${MAKEFILE_PATH}/scripts/upload-resources-to-github-windows.ps1 -BinariesOnly
 
 generate-k8s-yaml:
 	${MAKEFILE_PATH}/scripts/generate-k8s-yaml
-	${MAKEFILE_PATH}/scripts/generate-k8s-yaml -k "1.32.2" -s ${K8S_1_25_ASSET_SUFFIX}
+	${MAKEFILE_PATH}/scripts/generate-k8s-yaml -k "1.32.2" -s ${K8S_1_29_ASSET_SUFFIX}
 
 sync-readme-to-ecr-public:
 	@ECR_REGISTRY=${ECR_REGISTRY} ${MAKEFILE_PATH}/scripts/ecr-public-login
