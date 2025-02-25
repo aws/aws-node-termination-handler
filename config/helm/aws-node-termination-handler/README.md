@@ -120,6 +120,9 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `managedAsgTag`              | [DEPRECATED](Use `managedTag` instead) The node tag to check if `checkASGTagBeforeDraining` is `true`.     
 | `useProviderId`              | If `true`, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.                                                               | `false`                                |
 | `topologySpreadConstraints`  | [Topology Spread Constraints](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) for pod scheduling. Useful with a highly available deployment to reduce the risk of running multiple replicas on the same Node      | `[]`                                   |
+| `heartbeatInterval`  | The time period in seconds between consecutive heartbeat signals. Valid range: 30-3600 seconds (30 seconds to 1 hour). | `-1`                                   |
+| `heartbeatUntil`  | The duration in seconds over which heartbeat signals are sent. Valid range: 60-172800 seconds (1 minute to 48 hours). | `-1`                                   |
+
 ### IMDS Mode Configuration
 
 The configuration in this table applies to AWS Node Termination Handler in IMDS mode.
