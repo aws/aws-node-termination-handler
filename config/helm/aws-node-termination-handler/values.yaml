@@ -86,6 +86,9 @@ cordonOnly: false
 # Taint node upon spot interruption termination notice.
 taintNode: false
 
+# Add out-of-service taint to node after cordon/drain process which would forcefully evict pods without matching tolerations and detach persistent volumes.
+enableOutOfServiceTaint: false
+
 # Exclude node from load balancer before cordoning via the ServiceNodeExclusion feature gate.
 excludeFromLoadBalancers: false
 

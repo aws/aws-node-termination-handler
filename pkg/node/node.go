@@ -60,6 +60,10 @@ const (
 	ASGLifecycleTerminationTaint = "aws-node-termination-handler/asg-lifecycle-termination"
 	// RebalanceRecommendationTaint is a taint used to make spot instance unschedulable
 	RebalanceRecommendationTaint = "aws-node-termination-handler/rebalance-recommendation"
+	// OutOfServiceTaint is a taint used to forcefully evict pods without matching tolerations and detach persistent volumes
+	OutOfServiceTaintKey        = "node.kubernetes.io/out-of-service"
+	OutOfServiceTaintValue      = "nodeshutdown"
+	OutOfServiceTaintEffectType = "NoExecute"
 
 	maxTaintValueLength = 63
 	daemonSet           = "DaemonSet"
@@ -449,7 +453,7 @@ func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID)
+	return addTaint(k8sNode, n, SpotInterruptionTaint, eventID, n.nthConfig.TaintEffect)
 }
 
 // TaintASGLifecycleTermination adds the spot termination notice taint onto a node
@@ -467,7 +471,7 @@ func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) erro
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID)
+	return addTaint(k8sNode, n, ASGLifecycleTerminationTaint, eventID, n.nthConfig.TaintEffect)
 }
 
 // TaintRebalanceRecommendation adds the rebalance recommendation notice taint onto a node
@@ -485,7 +489,7 @@ func (n Node) TaintRebalanceRecommendation(nodeName string, eventID string) erro
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, RebalanceRecommendationTaint, eventID)
+	return addTaint(k8sNode, n, RebalanceRecommendationTaint, eventID, n.nthConfig.TaintEffect)
 }
 
 // LogPods logs all the pod names on a node
@@ -527,7 +531,21 @@ func (n Node) TaintScheduledMaintenance(nodeName string, eventID string) error {
 		eventID = eventID[:maxTaintValueLength]
 	}
 
-	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID)
+	return addTaint(k8sNode, n, ScheduledMaintenanceTaint, eventID, n.nthConfig.TaintEffect)
+}
+
+// TaintOutOfService adds the out-of-service taint (NoExecute) onto a node
+func (n Node) TaintOutOfService(nodeName string) error {
+	if !n.nthConfig.EnableOutOfServiceTaint || n.nthConfig.CordonOnly {
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	return addTaint(k8sNode, n, OutOfServiceTaintKey, OutOfServiceTaintValue, OutOfServiceTaintEffectType)
 }
 
 // RemoveNTHTaints removes NTH-specific taints from a node
@@ -750,8 +768,8 @@ func getTaintEffect(effect string) corev1.TaintEffect {
 	}
 }
 
-func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string) error {
-	effect := getTaintEffect(nth.nthConfig.TaintEffect)
+func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, effectType string) error {
+	effect := getTaintEffect(effectType)
 	if nth.nthConfig.DryRun {
 		log.Info().Msgf("Would have added taint (%s=%s:%s) to node %s, but dry-run flag was set", taintKey, taintValue, effect, nth.nthConfig.NodeName)
 		return nil

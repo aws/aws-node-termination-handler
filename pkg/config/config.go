@@ -77,6 +77,8 @@ const (
 	taintNode                               = "TAINT_NODE"
 	taintEffectDefault                      = "NoSchedule"
 	taintEffect                             = "TAINT_EFFECT"
+	enableOutOfServiceTaintConfigKey        = "ENABLE_OUT_OF_SERVICE_TAINT"
+	enableOutOfServiceTaintDefault          = false
 	excludeFromLoadBalancers                = "EXCLUDE_FROM_LOAD_BALANCERS"
 	jsonLoggingConfigKey                    = "JSON_LOGGING"
 	jsonLoggingDefault                      = false
@@ -149,6 +151,7 @@ type Config struct {
 	CordonOnly                          bool
 	TaintNode                           bool
 	TaintEffect                         string
+	EnableOutOfServiceTaint             bool
 	ExcludeFromLoadBalancers            bool
 	JsonLogging                         bool
 	LogLevel                            string
@@ -215,6 +218,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.CordonOnly, "cordon-only", getBoolEnv(cordonOnly, false), "If true, nodes will be cordoned but not drained when an interruption event occurs.")
 	flag.BoolVar(&config.TaintNode, "taint-node", getBoolEnv(taintNode, false), "If true, nodes will be tainted when an interruption event occurs.")
 	flag.StringVar(&config.TaintEffect, "taint-effect", getEnv(taintEffect, taintEffectDefault), "Sets the effect when a node is tainted.")
+	flag.BoolVar(&config.EnableOutOfServiceTaint, "enable-out-of-service-taint", getBoolEnv(enableOutOfServiceTaintConfigKey, enableOutOfServiceTaintDefault), "If true, nodes will be tainted as out-of-service after we cordon/drain the nodes when an interruption event occurs.")
 	flag.BoolVar(&config.ExcludeFromLoadBalancers, "exclude-from-load-balancers", getBoolEnv(excludeFromLoadBalancers, false), "If true, nodes will be marked for exclusion from load balancers when an interruption event occurs.")
 	flag.BoolVar(&config.JsonLogging, "json-logging", getBoolEnv(jsonLoggingConfigKey, jsonLoggingDefault), "If true, use JSON-formatted logs instead of human readable logs.")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv(logLevelConfigKey, logLevelDefault), "Sets the log level (INFO, DEBUG, or ERROR)")
@@ -344,6 +348,7 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("cordon_only", c.CordonOnly).
 		Bool("taint_node", c.TaintNode).
 		Str("taint_effect", c.TaintEffect).
+		Bool("enable_out_of_service_taint", c.EnableOutOfServiceTaint).
 		Bool("exclude_from_load_balancers", c.ExcludeFromLoadBalancers).
 		Bool("json_logging", c.JsonLogging).
 		Str("log_level", c.LogLevel).
@@ -395,6 +400,7 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tcordon-only: %t,\n"+
 			"\ttaint-node: %t,\n"+
 			"\ttaint-effect: %s,\n"+
+			"\tenable-out-of-service-taint: %t,\n"+
 			"\texclude-from-load-balancers: %t,\n"+
 			"\tjson-logging: %t,\n"+
 			"\tlog-level: %s,\n"+
@@ -437,6 +443,7 @@ func (c Config) PrintHumanConfigArgs() {
 		c.CordonOnly,
 		c.TaintNode,
 		c.TaintEffect,
+		c.EnableOutOfServiceTaint,
 		c.ExcludeFromLoadBalancers,
 		c.JsonLogging,
 		c.LogLevel,
