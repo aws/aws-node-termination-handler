@@ -6,7 +6,7 @@ on:
 
 jobs:
   stale:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # 15+5 day stale policy for PRs
       # * Except PRs marked as "stalebot-ignore"
