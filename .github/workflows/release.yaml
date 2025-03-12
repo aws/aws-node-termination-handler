@@ -17,7 +17,7 @@ env:
 jobs:
   releaseLinux:
     name: Release Linux
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
@@ -64,7 +64,7 @@ jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: [releaseLinux, releaseWindows]
     steps:
     - name: Set up Go 1.x
