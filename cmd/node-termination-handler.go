@@ -43,11 +43,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/zerologr"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -91,6 +93,8 @@ func main() {
 	case "error":
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	}
+
+	klog.SetLogger(zerologr.New(&log.Logger))
 
 	log.Info().Msgf("Using log format version %d", nthConfig.LogFormatVersion)
 	if err = logging.SetFormatVersion(nthConfig.LogFormatVersion); err != nil {
