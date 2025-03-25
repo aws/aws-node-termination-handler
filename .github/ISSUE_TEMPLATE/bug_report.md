@@ -22,8 +22,8 @@ The log output when experiencing the issue.
 
 **Environment**
 
-* NTH App Version:
+* NTH App Version: 
 * NTH Mode (IMDS/Queue processor): 
-* OS/Arch:
+* OS/Arch: 
 * Kubernetes version: 
-* Installation method:
+* Installation method: 
