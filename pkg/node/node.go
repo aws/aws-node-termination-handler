@@ -89,6 +89,18 @@ type Node struct {
 	uptime      uptime.UptimeFuncType
 }
 
+type ZerologWriter struct {
+	logger zerolog.Logger
+}
+
+type StdWriter struct {
+	*ZerologWriter
+}
+
+type ErrWriter struct {
+	*ZerologWriter
+}
+
 // New will construct a node struct to perform various node function through the kubernetes api server
 func New(nthConfig config.Config, clientset *kubernetes.Clientset) (*Node, error) {
 	drainHelper, err := getDrainHelper(nthConfig, clientset)
@@ -737,8 +749,8 @@ func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*
 		AdditionalFilters:   []drain.PodFilter{filterPodForDeletion(nthConfig.PodName, nthConfig.PodNamespace)},
 		DeleteEmptyDirData:  nthConfig.DeleteLocalData,
 		Timeout:             time.Duration(nthConfig.NodeTerminationGracePeriod) * time.Second,
-		Out:                 log.Logger,
-		ErrOut:              log.Logger,
+		Out:                 &StdWriter{&ZerologWriter{logger: log.Logger}},
+		ErrOut:              &ErrWriter{&ZerologWriter{logger: log.Logger}},
 	}
 
 	if nthConfig.DryRun {
@@ -925,6 +937,18 @@ func isDaemonSetPod(pod corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func (w *StdWriter) Write(p []byte) (n int, err error) {
+	msg := strings.TrimRight(string(p), "\n")
+	w.logger.Info().Msg(msg)
+	return len(p), nil
+}
+
+func (w *ErrWriter) Write(p []byte) (n int, err error) {
+	msg := strings.TrimRight(string(p), "\n")
+	w.logger.Error().Msg(msg)
+	return len(p), nil
 }
 
 type recorderInterface interface {
