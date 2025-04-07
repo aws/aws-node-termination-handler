@@ -141,7 +141,7 @@ func (n Node) CordonAndDrain(nodeName string, reason string, recorder recorderIn
 	}
 	var pods *corev1.PodList
 	// Delete all pods on the node
-	log.Info().Msg("Draining the node")
+	log.Info().Str("node_name", nodeName).Msg("Draining the node")
 	// Emit events for all pods that will be evicted
 	if recorder != nil {
 		pods, err = n.fetchAllPods(node.Name)
