@@ -7,6 +7,7 @@ toolchain go1.22.2
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/aws/aws-sdk-go v1.55.4
+	github.com/go-logr/zerologr v1.2.3
 	github.com/prometheus/client_golang v1.20.1
 	github.com/rs/zerolog v1.29.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.47.0
@@ -19,6 +20,7 @@ require (
 	k8s.io/api v0.30.4
 	k8s.io/apimachinery v0.30.4
 	k8s.io/client-go v0.30.4
+	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.30.4
 )
 
@@ -98,7 +100,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/cli-runtime v0.30.4 // indirect
 	k8s.io/component-base v0.30.4 // indirect
-	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
