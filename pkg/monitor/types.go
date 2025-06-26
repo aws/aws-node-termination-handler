@@ -61,6 +61,7 @@ type InterruptionEvent struct {
 	InProgress           bool
 	PreDrainTask         DrainTask `json:"-"`
 	PostDrainTask        DrainTask `json:"-"`
+	CancelDrainTask      DrainTask `json:"-"`
 }
 
 // TimeUntilEvent returns the duration until the event start time

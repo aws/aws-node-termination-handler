@@ -111,6 +111,9 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 	}
 
 	if err != nil {
+		if drainEvent.CancelDrainTask != nil {
+			h.commonHandler.RunCancelDrainTask(nodeName, drainEvent)
+		}
 		h.commonHandler.InterruptionEventStore.CancelInterruptionEvent(drainEvent.EventID)
 	} else {
 		h.commonHandler.InterruptionEventStore.MarkAllAsProcessed(nodeName)

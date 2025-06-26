@@ -56,6 +56,10 @@ const (
 	PostDrainErrMsgFmt      = "There was a problem executing the post-drain task: %s"
 	PostDrainReason         = "PostDrain"
 	PostDrainMsg            = "Post-drain task successfully executed"
+	CancelDrainErrReason    = "CancelDrainError"
+	CancelDrainErrMsgFmt    = "There was a problem executing the early exit task: %s"
+	CancelDrainReason       = "CancelDrain"
+	CancelDrainMsg          = "Early exit task successfully executed"
 )
 
 // Interruption event reasons
