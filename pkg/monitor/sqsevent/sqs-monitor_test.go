@@ -188,6 +188,7 @@ func TestMonitor_EventBridgeSuccess(t *testing.T) {
 			h.Equals(t, result.NodeName, dnsNodeName)
 			h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 			h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+			if event.ID == asgLifecycleEvent.ID { h.Assert(t, result.CancelDrainTask != nil, "CancelDrainTask should have been set") }
 			err = result.PostDrainTask(result, node.Node{})
 			h.Ok(t, err)
 		default:
@@ -273,6 +274,7 @@ func TestMonitor_AsgDirectToSqsSuccess(t *testing.T) {
 		h.Equals(t, result.NodeName, dnsNodeName)
 		h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 		h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+		h.Assert(t, result.CancelDrainTask != nil, "CancelDrainTask should have been set")
 		err = result.PostDrainTask(result, node.Node{})
 		h.Ok(t, err)
 	default:
@@ -365,6 +367,7 @@ func TestMonitor_DrainTasks(t *testing.T) {
 			h.Equals(st, result.NodeName, dnsNodeName)
 			h.Assert(st, result.PostDrainTask != nil, "PostDrainTask should have been set")
 			h.Assert(st, result.PreDrainTask != nil, "PreDrainTask should have been set")
+			if event.ID == asgLifecycleEvent.ID { h.Assert(t, result.CancelDrainTask != nil, "CancelDrainTask should have been set") }
 			err := result.PostDrainTask(result, node.Node{})
 			h.Ok(st, err)
 		})
@@ -466,6 +469,7 @@ func TestMonitor_DrainTasks_Errors(t *testing.T) {
 			h.Equals(t, result.NodeName, dnsNodeName)
 			h.Assert(t, result.PostDrainTask != nil, "PostDrainTask should have been set")
 			h.Assert(t, result.PreDrainTask != nil, "PreDrainTask should have been set")
+			if i == 1 { h.Assert(t, result.CancelDrainTask != nil, "CancelDrainTask should have been set") }
 			err := result.PostDrainTask(result, node.Node{})
 			h.Ok(t, err)
 		default:
@@ -909,32 +913,39 @@ func TestMonitor_InstanceNotManaged(t *testing.T) {
 }
 
 func TestSendHeartbeats_EarlyClosure(t *testing.T) {
-	err := heartbeatTestHelper(nil, 3500, 1, 5)
+	err := heartbeatTestHelper(nil, 3500, 1, 5, false)
 	h.Ok(t, err)
 	h.Assert(t, h.HeartbeatCallCount == 3, "3 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 func TestSendHeartbeats_HeartbeatUntilExpire(t *testing.T) {
-	err := heartbeatTestHelper(nil, 8000, 1, 5)
+	err := heartbeatTestHelper(nil, 8000, 1, 5, false)
 	h.Ok(t, err)
 	h.Assert(t, h.HeartbeatCallCount == 5, "5 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 func TestSendHeartbeats_ErrThrottlingASG(t *testing.T) {
 	RecordLifecycleActionHeartbeatErr := awserr.New("Throttling", "Rate exceeded", nil)
-	err := heartbeatTestHelper(RecordLifecycleActionHeartbeatErr, 8000, 1, 6)
+	err := heartbeatTestHelper(RecordLifecycleActionHeartbeatErr, 8000, 1, 6, false)
 	h.Ok(t, err)
 	h.Assert(t, h.HeartbeatCallCount == 6, "6 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
 func TestSendHeartbeats_ErrInvalidTarget(t *testing.T) {
 	RecordLifecycleActionHeartbeatErr := awserr.New("ValidationError", "No active Lifecycle Action found", nil)
-	err := heartbeatTestHelper(RecordLifecycleActionHeartbeatErr, 6000, 1, 4)
+	err := heartbeatTestHelper(RecordLifecycleActionHeartbeatErr, 6000, 1, 4, false)
 	h.Ok(t, err)
 	h.Assert(t, h.HeartbeatCallCount == 1, "1 Heartbeat Expected, got %d", h.HeartbeatCallCount)
 }
 
-func heartbeatTestHelper(RecordLifecycleActionHeartbeatErr error, sleepMilliSeconds int, heartbeatInterval int, heartbeatUntil int) error {
+
+func TestSendHeartbeats_CancelHeartbeat(t *testing.T) {
+	err := heartbeatTestHelper(nil, 6000, 1, 4, true)
+	h.Ok(t, err)
+	h.Assert(t, h.HeartbeatCallCount == 2, "2 Heartbeat Expected, got %d", h.HeartbeatCallCount)
+}
+
+func heartbeatTestHelper(RecordLifecycleActionHeartbeatErr error, sleepMilliSeconds int, heartbeatInterval int, heartbeatUntil int, cancelDrain bool) error {
 	h.HeartbeatCallCount = 0
 
 	msg, err := getSQSMessageFromEvent(asgLifecycleEvent)
@@ -984,6 +995,16 @@ func heartbeatTestHelper(RecordLifecycleActionHeartbeatErr error, sleepMilliSeco
 	}
 	if err := result.PreDrainTask(result, *testNode); err != nil {
 		return err
+	}
+
+	if cancelDrain == true {
+		if result.CancelDrainTask == nil {
+			return fmt.Errorf("CancelDrainTask should have been set")
+		}
+		time.Sleep(2100 * time.Millisecond)
+		if err := result.CancelDrainTask(result, *testNode); err != nil {
+			return err
+		}
 	}
 
 	if result.PostDrainTask == nil {

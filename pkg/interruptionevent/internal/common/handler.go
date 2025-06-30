@@ -55,6 +55,16 @@ func (h *Handler) RunPreDrainTask(nodeName string, drainEvent *monitor.Interrupt
 	h.Metrics.NodeActionsInc("pre-drain", nodeName, drainEvent.EventID, err)
 }
 
+func (h *Handler) RunCancelDrainTask(nodeName string, drainEvent *monitor.InterruptionEvent) {
+	err := drainEvent.CancelDrainTask(*drainEvent, h.Node)
+	if err != nil {
+		log.Err(err).Msg("There was a problem executing the early exit task")
+		h.Recorder.Emit(nodeName, observability.Warning, observability.CancelDrainErrReason, observability.CancelDrainErrMsgFmt, err.Error())
+	} else {
+		h.Recorder.Emit(nodeName, observability.Normal, observability.CancelDrainReason, observability.CancelDrainMsg)
+	}
+}
+
 func (h *Handler) RunPostDrainTask(nodeName string, drainEvent *monitor.InterruptionEvent) {
 	err := drainEvent.PostDrainTask(*drainEvent, h.Node)
 	if err != nil {

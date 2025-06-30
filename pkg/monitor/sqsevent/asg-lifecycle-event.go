@@ -99,6 +99,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 	}
 
 	stopHeartbeatCh := make(chan struct{})
+	cancelHeartbeatCh := make(chan struct{})
 
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, _ node.Node) error {
 
@@ -111,13 +112,18 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		close(stopHeartbeatCh)
 		return m.deleteMessage(message)
 	}
+	
+	interruptionEvent.CancelDrainTask = func(_ monitor.InterruptionEvent, _ node.Node) error {
+		close(cancelHeartbeatCh)
+		return nil
+	}
 
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 		nthConfig := n.GetNthConfig()
 		// If only HeartbeatInterval is set, HeartbeatUntil will default to 172800.
 		if nthConfig.HeartbeatInterval != -1 && nthConfig.HeartbeatUntil != -1 {
 			go m.checkHeartbeatTimeout(nthConfig.HeartbeatInterval, lifecycleDetail)
-			go m.SendHeartbeats(nthConfig.HeartbeatInterval, nthConfig.HeartbeatUntil, lifecycleDetail, stopHeartbeatCh)
+			go m.SendHeartbeats(nthConfig.HeartbeatInterval, nthConfig.HeartbeatUntil, lifecycleDetail, stopHeartbeatCh, cancelHeartbeatCh)
 		}
 
 		err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)
@@ -167,13 +173,20 @@ func (m SQSMonitor) checkHeartbeatTimeout(heartbeatInterval int, lifecycleDetail
 }
 
 // Issue lifecycle heartbeats to reset the heartbeat timeout timer in ASG
-func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, lifecycleDetail *LifecycleDetail, stopCh <-chan struct{}) {
+func (m SQSMonitor) SendHeartbeats(heartbeatInterval int, heartbeatUntil int, lifecycleDetail *LifecycleDetail, stopCh <-chan struct{}, cancelCh <-chan struct{}) {
 	ticker := time.NewTicker(time.Duration(heartbeatInterval) * time.Second)
 	defer ticker.Stop()
 	timeout := time.After(time.Duration(heartbeatUntil) * time.Second)
 
 	for {
 		select {
+		case <-cancelCh:
+			log.Info().Str("asgName", lifecycleDetail.AutoScalingGroupName).
+				Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
+				Str("lifecycleActionToken", lifecycleDetail.LifecycleActionToken).
+				Str("instanceID", lifecycleDetail.EC2InstanceID).
+				Msg("Failed to cordon and drain the node, stopping heartbeat")
+			return
 		case <-stopCh:
 			log.Info().Str("asgName", lifecycleDetail.AutoScalingGroupName).
 				Str("lifecycleHookName", lifecycleDetail.LifecycleHookName).
