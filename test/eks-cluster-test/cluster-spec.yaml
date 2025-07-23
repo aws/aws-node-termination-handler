@@ -22,4 +22,4 @@ nodeGroups:
     minSize: 1
     maxSize: 1
     volumeSize: 100
-    amiFamily: WindowsServer2019FullContainer
+    amiFamily: WindowsServer2022FullContainer

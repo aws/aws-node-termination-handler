@@ -22,9 +22,8 @@ SUPPORTED_PLATFORMS_LINUX ?= "linux/amd64,linux/arm64"
 # needs to happen on a separate GitHub runner
 # A windows version is specified by major-minor-build-revision. 
 # The build number of the OS must match the build number of the container image
-# The revision does not matter for windows 2019 and 2022.
+# The revision does not matter for windows 2022.
 # Reference: https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/version-compatibility
-WINDOWS_2019 ?= "windows-10.0.17763.6189/amd64"
 WINDOWS_2022 ?= "windows-10.0.20348.2582/amd64"
 
 BINARY_NAME ?= "node-termination-handler"
@@ -57,9 +56,6 @@ docker-run:
 build-docker-images:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${SUPPORTED_PLATFORMS_LINUX} -r ${IMG} -v ${VERSION}
 
-build-docker-images-windows-2019:
-	${MAKEFILE_PATH}/scripts/build-docker-images -p ${WINDOWS_2019} -r ${IMG} -v ${VERSION}
-
 build-docker-images-windows-2022:
 	${MAKEFILE_PATH}/scripts/build-docker-images -p ${WINDOWS_2022} -r ${IMG} -v ${VERSION}
 
@@ -73,11 +69,6 @@ push-docker-images:
 
 amazon-ecr-credential-helper:
 	bash ${MAKEFILE_PATH}/scripts/install-amazon-ecr-credential-helper $(AMAZON_ECR_CREDENTIAL_HELPER_VERSION)
-
-push-docker-images-windows-2019:
-	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${WINDOWS_2019} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
-	bash ${MAKEFILE_PATH}/scripts/install-amazon-ecr-credential-helper $(AMAZON_ECR_CREDENTIAL_HELPER_VERSION)
-	${MAKEFILE_PATH}/scripts/push-docker-images -p ${WINDOWS_2019} -r ${ECR_REPO} -v ${VERSION} -m
 
 push-docker-images-windows-2022:
 	${MAKEFILE_PATH}/scripts/retag-docker-images -p ${WINDOWS_2022} -v ${VERSION} -o ${IMG} -n ${ECR_REPO}
@@ -145,9 +136,6 @@ helm-validate-chart-versions:
 build-binaries:
 	${MAKEFILE_PATH}/scripts/build-binaries -p ${SUPPORTED_PLATFORMS_LINUX} -v ${VERSION}
 
-build-binaries-windows-2019:
-	${MAKEFILE_PATH}/scripts/build-binaries -p ${WINDOWS_2019} -v ${VERSION}
-
 build-binaries-windows-2022:
 	${MAKEFILE_PATH}/scripts/build-binaries -p ${WINDOWS_2022} -v ${VERSION}
 
@@ -190,8 +178,6 @@ eks-cluster-test:
 	${MAKEFILE_PATH}/test/eks-cluster-test/run-test
 
 release: build-binaries build-docker-images push-docker-images generate-k8s-yaml upload-resources-to-github
-
-release-windows-2019: build-binaries-windows-2019 build-docker-images-windows-2019 push-docker-images-windows-2019
 
 release-windows-2022: build-binaries-windows-2022 build-docker-images-windows-2022 push-docker-images-windows-2022
 
