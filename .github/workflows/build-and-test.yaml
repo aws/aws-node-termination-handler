@@ -126,7 +126,7 @@ jobs:
     name: Build Windows Binaries
     strategy:
       matrix:
-        version: [2019, 2022]
+        version: [2022]
     runs-on: windows-${{matrix.version}}
     steps:
     - name: Set up Go 1.x
@@ -158,7 +158,7 @@ jobs:
     name: Build Windows Docker Images
     strategy:
       matrix:
-        version: [2019, 2022]
+        version: [2022]
     runs-on: windows-${{matrix.version}}
     steps:
     - name: Set up Go 1.x
