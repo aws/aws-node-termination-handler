@@ -40,6 +40,8 @@ The aws-node-termination-handler **Queue Processor** will monitor an SQS queue o
 
 You can run the termination handler on any Kubernetes cluster running on AWS, including self-managed clusters and those created with Amazon [Elastic Kubernetes Service](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html). If you're using [EKS managed node groups](https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html), you don't need the aws-node-termination-handler.
 
+> Notice: Windows Server 2019 support has been removed to align with GitHub's deprecation schedule (end date: June 30, 2025). You can continue using other supported Windows versions.
+
 ## Major Features
 
 Both modes (IMDS and Queue Processor) monitor for events affecting your EC2 instances, but each supports different types of events. Both modes have the following:
