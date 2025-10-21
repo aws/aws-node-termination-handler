@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "0 17 * * *"  # Runs every day at 12:00PM CST
 
+permissions:
+  issues: write
+  pull-requests: write
+
 jobs:
   stale:
     runs-on: ubuntu-24.04
