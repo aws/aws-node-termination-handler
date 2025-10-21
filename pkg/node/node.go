@@ -444,7 +444,7 @@ func (n Node) GetNodeNameFromProviderID(providerId string) (string, error) {
 		Msg("Retrieved nodes from API")
 
 	for _, n := range nodes.Items {
-		log.Trace().
+		log.Debug().
 			Str("node_name", n.GetObjectMeta().GetName()).
 			Str("node_provider_id", n.Spec.ProviderID).
 			Str("comparing_to", providerId).
