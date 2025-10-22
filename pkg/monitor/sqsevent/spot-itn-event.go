@@ -80,7 +80,19 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 		return nil
 	}
 	interruptionEvent.PreDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
-		err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
+		// Use provider ID to resolve the actual Kubernetes node name if UseProviderId is configured
+		nthConfig := n.GetNthConfig()
+		nodeName := interruptionEvent.NodeName
+		if nthConfig.UseProviderId && interruptionEvent.ProviderID != "" {
+			resolvedNodeName, err := n.GetNodeNameFromProviderID(interruptionEvent.ProviderID)
+			if err != nil {
+				log.Warn().Err(err).Str("provider_id", interruptionEvent.ProviderID).Msg("Failed to resolve node name from provider ID, falling back to NodeName from event")
+			} else {
+				nodeName = resolvedNodeName
+			}
+		}
+
+		err := n.TaintSpotItn(nodeName, interruptionEvent.EventID)
 		if err != nil {
 			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.SpotInterruptionTaint, interruptionEvent.EventID)
 		}

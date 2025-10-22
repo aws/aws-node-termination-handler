@@ -696,6 +696,7 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 			},
 		},
 	}
+
 	listOptions := metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)}
 
 	log.Debug().
