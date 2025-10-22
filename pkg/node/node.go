@@ -427,52 +427,25 @@ func (n Node) GetNodeNameFromProviderID(providerId string) (string, error) {
 		return "", nil
 	}
 
-	log.Debug().
-		Str("target_provider_id", providerId).
-		Msg("Looking up node by ProviderID")
-
 	listOptions := metav1.ListOptions{}
 	nodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
 	if err != nil {
 		log.Err(err).Msgf("Error when trying to list nodes to find node with ProviderID")
+
 		return "", err
 	}
 
-	log.Debug().
-		Int("total_nodes", len(nodes.Items)).
-		Str("looking_for", providerId).
-		Msg("Retrieved nodes from API")
-
 	for _, n := range nodes.Items {
-		log.Trace().
-			Str("node_name", n.GetObjectMeta().GetName()).
-			Str("node_provider_id", n.Spec.ProviderID).
-			Str("comparing_to", providerId).
-			Bool("match", n.Spec.ProviderID == providerId).
-			Msg("Checking node")
-
 		if n.Spec.ProviderID == providerId {
 			labels := n.GetObjectMeta().GetLabels()
 
 			if hostname, ok := labels["kubernetes.io/hostname="]; ok {
-				log.Debug().
-					Str("found_hostname", hostname).
-					Msg("Returning hostname from label")
 				return hostname, nil
 			}
 
-			nodeName := n.GetObjectMeta().GetName()
-			log.Debug().
-				Str("found_node", nodeName).
-				Msg("Returning node name")
-			return nodeName, nil
+			return n.GetObjectMeta().GetName(), nil
 		}
 	}
-
-	log.Warn().
-		Str("provider_id_not_found", providerId).
-		Int("nodes_checked", len(nodes.Items)).
-		Msg("Node with ProviderID was not found in the cluster")
 
 	return "", fmt.Errorf("Node with ProviderID '%s' was not found in the cluster", providerId)
 }
@@ -679,14 +652,7 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	if n.nthConfig.DryRun {
 		return node, nil
 	}
-
 	shortNodeName := strings.Split(nodeName, ".")[0]
-
-	log.Debug().
-		Str("node_name", nodeName).
-		Str("short_node_name", shortNodeName).
-		Msg("Attempting to fetch Kubernetes node")
-
 	labelSelector := metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
@@ -698,47 +664,11 @@ func (n Node) fetchKubernetesNode(nodeName string) (*corev1.Node, error) {
 	}
 
 	listOptions := metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)}
-
-	log.Debug().
-		Str("label_selector", metav1.FormatLabelSelector(&labelSelector)).
-		Msg("Listing nodes with label selector")
-
 	matchingNodes, err := n.drainHelper.Client.CoreV1().Nodes().List(context.TODO(), listOptions)
-
 	if err != nil || len(matchingNodes.Items) == 0 {
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("node_name", nodeName).
-				Msg("Unable to list Nodes w/ label, falling back to direct Get lookup of node")
-		} else {
-			log.Warn().
-				Str("node_name", nodeName).
-				Str("label_selector", metav1.FormatLabelSelector(&labelSelector)).
-				Int("matching_nodes", 0).
-				Msg("No nodes found with label selector, falling back to direct Get lookup of node")
-		}
-
-		node, getErr := n.drainHelper.Client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if getErr != nil {
-			log.Error().
-				Err(getErr).
-				Str("node_name", nodeName).
-				Msg("Failed to get node directly")
-		} else {
-			log.Debug().
-				Str("node_name", nodeName).
-				Msg("Successfully fetched node via direct Get")
-		}
-		return node, getErr
+		log.Warn().Msgf("Unable to list Nodes w/ label, falling back to direct Get lookup of node")
+		return n.drainHelper.Client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	}
-
-	log.Debug().
-		Str("node_name", nodeName).
-		Int("matching_nodes", len(matchingNodes.Items)).
-		Str("selected_node", matchingNodes.Items[0].Name).
-		Msg("Found node(s) via label selector")
-
 	return &matchingNodes.Items[0], nil
 }
 
