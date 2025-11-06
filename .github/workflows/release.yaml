@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write # required for uploading releases
+  id-token: write
 
 env:
   DEFAULT_GO_VERSION: ^1.22.0
@@ -27,12 +28,15 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.WF_ROLE_ARN }}
+        role-session-name: "nth-release-linux-${{ github.run_id }}"
+        aws-region: us-east-1
+
     - name: Release Linux Assets
       run: make release
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
   releaseWindows:
     name: Release Windows
@@ -50,6 +54,13 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.WF_ROLE_ARN }}
+        role-session-name: "nth-release-windows-${{ github.run_id }}"
+        aws-region: us-east-1
+
     - name: Release Windows Assets
       run: |
         $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
@@ -57,10 +68,6 @@ jobs:
         refreshenv
 
         choco install make && choco install zip && make release-windows-${{matrix.version}}
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
   release:
     name: Release
@@ -74,24 +81,19 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.WF_ROLE_ARN }}
+        role-session-name: "nth-release-${{ github.run_id }}"
+        aws-region: us-east-1
     
     - name: Sync Helm Chart Catalog information
       run: make sync-catalog-information-for-helm-chart
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
     
     - name: Sync Helm Chart to ECR Public
       run: make push-helm-chart
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
     
     - name: Sync Readme to ECR Public
       run: make sync-readme-to-ecr-public
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
