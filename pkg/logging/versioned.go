@@ -30,14 +30,22 @@ func (versionedMsgsV1) ProblemMonitoringForEvents(monitorKind string, err error)
 	log.Warn().Str("event_type", monitorKind).Err(err).Msg("There was a problem monitoring for events")
 }
 
-func (versionedMsgsV1) RequestingInstanceDrain(event *monitor.InterruptionEvent) {
+func (versionedMsgsV1) ProcessingInterruptionEvent(event *monitor.InterruptionEvent) {
+	var message string
+	switch event.Kind {
+	case monitor.ASGLaunchLifecycleKind:
+		message = "Waiting for node to be ready before completing ASG launch lifecycle"
+	default:
+		message = "Requesting instance drain"
+	}
+
 	log.Info().
 		Str("event-id", event.EventID).
 		Str("kind", event.Kind).
 		Str("node-name", event.NodeName).
 		Str("instance-id", event.InstanceID).
 		Str("provider-id", event.ProviderID).
-		Msg("Requesting instance drain")
+		Msg(message)
 }
 
 func (versionedMsgsV1) SendingInterruptionEventToChannel(_ string) {
@@ -54,7 +62,15 @@ func (versionedMsgsV2) ProblemMonitoringForEvents(monitorKind string, err error)
 	log.Warn().Str("monitor_type", monitorKind).Err(err).Msg("There was a problem monitoring for events")
 }
 
-func (versionedMsgsV2) RequestingInstanceDrain(event *monitor.InterruptionEvent) {
+func (versionedMsgsV2) ProcessingInterruptionEvent(event *monitor.InterruptionEvent) {
+	var message string
+	switch event.Kind {
+	case monitor.ASGLaunchLifecycleKind:
+		message = "Waiting for node to be ready before completing ASG launch lifecycle"
+	default:
+		message = "Requesting instance drain"
+	}
+
 	log.Info().
 		Str("event-id", event.EventID).
 		Str("kind", event.Kind).
@@ -62,7 +78,7 @@ func (versionedMsgsV2) RequestingInstanceDrain(event *monitor.InterruptionEvent)
 		Str("node-name", event.NodeName).
 		Str("instance-id", event.InstanceID).
 		Str("provider-id", event.ProviderID).
-		Msg("Requesting instance drain")
+		Msg(message)
 }
 
 func (versionedMsgsV2) SendingInterruptionEventToChannel(eventKind string) {
@@ -72,7 +88,7 @@ func (versionedMsgsV2) SendingInterruptionEventToChannel(eventKind string) {
 var VersionedMsgs interface {
 	MonitoringStarted(monitorKind string)
 	ProblemMonitoringForEvents(monitorKind string, err error)
-	RequestingInstanceDrain(event *monitor.InterruptionEvent)
+	ProcessingInterruptionEvent(event *monitor.InterruptionEvent)
 	SendingInterruptionEventToChannel(eventKind string)
 } = versionedMsgsV1{}
 

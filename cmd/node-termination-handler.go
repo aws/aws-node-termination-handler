@@ -288,7 +288,7 @@ func main() {
 			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
 				select {
 				case interruptionEventStore.Workers <- 1:
-					logging.VersionedMsgs.RequestingInstanceDrain(event)
+					logging.VersionedMsgs.ProcessingInterruptionEvent(event)
 					event.InProgress = true
 					wg.Add(1)
 					recorder.Emit(event.NodeName, observability.Normal, observability.GetReasonForKind(event.Kind, event.Monitor), event.Description)
