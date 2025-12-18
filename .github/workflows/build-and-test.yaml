@@ -18,6 +18,9 @@ env:
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
 
+permissions:
+  contents: read
+
 jobs:
   fastTests:
     name: Fast Test
