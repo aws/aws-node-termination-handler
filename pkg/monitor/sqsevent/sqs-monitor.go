@@ -296,7 +296,7 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 // receiveQueueMessages checks the configured SQS queue for new messages
 func (m SQSMonitor) receiveQueueMessages(qURL string) ([]*sqs.Message, error) {
 	visibilityTimeout := m.SqsMsgVisibilityTimeoutSec
-	if visibilityTimeout == 0 {
+	if visibilityTimeout <= 0 {
 		visibilityTimeout = 20
 	}
 
