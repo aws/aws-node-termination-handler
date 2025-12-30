@@ -84,6 +84,7 @@ func TestParseCliArgsEnvSuccess(t *testing.T) {
 	h.Equals(t, true, nthConfig.UseAPIServerCacheToListPods)
 	h.Equals(t, 30, nthConfig.HeartbeatInterval)
 	h.Equals(t, 60, nthConfig.HeartbeatUntil)
+	h.Equals(t, 20, nthConfig.SqsMsgVisibilityTimeoutSec)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -153,6 +154,7 @@ func TestParseCliArgsSuccess(t *testing.T) {
 	h.Equals(t, true, nthConfig.UseAPIServerCacheToListPods)
 	h.Equals(t, 30, nthConfig.HeartbeatInterval)
 	h.Equals(t, 60, nthConfig.HeartbeatUntil)
+	h.Equals(t, 20, nthConfig.SqsMsgVisibilityTimeoutSec)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
@@ -186,6 +188,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	t.Setenv("CORDON_ONLY", "true")
 	t.Setenv("HEARTBEAT_INTERVAL", "3601")
 	t.Setenv("HEARTBEAT_UNTIL", "172801")
+	t.Setenv("SQS_MSG_VISIBILITY_TIMEOUT_SEC", "30")
 
 	os.Args = []string{
 		"cmd",
@@ -214,6 +217,7 @@ func TestParseCliArgsOverrides(t *testing.T) {
 		"--prometheus-server-port=2112",
 		"--heartbeat-interval=3600",
 		"--heartbeat-until=172800",
+		"--sqs-msg-visibility-timeout-sec=30",
 	}
 	nthConfig, err := config.ParseCliArgs()
 	h.Ok(t, err)
@@ -244,11 +248,15 @@ func TestParseCliArgsOverrides(t *testing.T) {
 	h.Equals(t, 2112, nthConfig.PrometheusPort)
 	h.Equals(t, 3600, nthConfig.HeartbeatInterval)
 	h.Equals(t, 172800, nthConfig.HeartbeatUntil)
+	h.Equals(t, 30, nthConfig.SqsMsgVisibilityTimeoutSec)
 
 	// Check that env vars were set
 	value, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST")
 	h.Equals(t, true, ok)
 	h.Equals(t, "KUBERNETES_SERVICE_HOST", value)
+	value, ok = os.LookupEnv("SQS_MSG_VISIBILITY_TIMEOUT_SEC")
+	h.Equals(t, true, ok)
+	h.Equals(t, "30", value)
 }
 
 func TestParseCliArgsWithGracePeriodSuccess(t *testing.T) {

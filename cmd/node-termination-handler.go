@@ -236,6 +236,7 @@ func main() {
 			ASG:                           autoscaling.New(sess),
 			EC2:                           ec2Client,
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
+			SqsMsgVisibilityTimeoutSec:    nthConfig.SqsMsgVisibilityTimeoutSec,
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}
