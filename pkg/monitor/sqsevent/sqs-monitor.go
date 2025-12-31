@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,6 +55,7 @@ type SQSMonitor struct {
 	CheckIfManaged                bool
 	ManagedTag                    string
 	BeforeCompleteLifecycleAction func()
+	SqsMsgVisibilityTimeoutSec    int
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
@@ -294,6 +296,11 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 
 // receiveQueueMessages checks the configured SQS queue for new messages
 func (m SQSMonitor) receiveQueueMessages(qURL string) ([]*sqs.Message, error) {
+	visibilityTimeout := m.SqsMsgVisibilityTimeoutSec
+	if visibilityTimeout <= 0 || visibilityTimeout >= 120 {
+		visibilityTimeout = config.SqsMsgVisibilityTimeoutSecDefault
+	}
+
 	result, err := m.SQS.ReceiveMessage(&sqs.ReceiveMessageInput{
 		AttributeNames: []*string{
 			aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
@@ -303,7 +310,7 @@ func (m SQSMonitor) receiveQueueMessages(qURL string) ([]*sqs.Message, error) {
 		},
 		QueueUrl:            &qURL,
 		MaxNumberOfMessages: aws.Int64(10),
-		VisibilityTimeout:   aws.Int64(20), // 20 seconds
+		VisibilityTimeout:   aws.Int64(int64(visibilityTimeout)),
 		WaitTimeSeconds:     aws.Int64(20), // Max long polling
 	})
 
