@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-sdk-go/aws"
@@ -296,8 +297,8 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 // receiveQueueMessages checks the configured SQS queue for new messages
 func (m SQSMonitor) receiveQueueMessages(qURL string) ([]*sqs.Message, error) {
 	visibilityTimeout := m.SqsMsgVisibilityTimeoutSec
-	if visibilityTimeout <= 0 {
-		visibilityTimeout = 20
+	if visibilityTimeout <= 0 || visibilityTimeout >= 120 {
+		visibilityTimeout = config.SqsMsgVisibilityTimeoutSecDefault
 	}
 
 	result, err := m.SQS.ReceiveMessage(&sqs.ReceiveMessageInput{

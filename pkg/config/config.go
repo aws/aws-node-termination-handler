@@ -119,7 +119,7 @@ const (
 	heartbeatUntilKey    = "HEARTBEAT_UNTIL"
 	// sqs monitor
 	sqsMsgVisibilityTimeoutSecConfigKey = "SQS_MSG_VISIBILITY_TIMEOUT_SEC"
-	sqsMsgVisibilityTimeoutSecDefault   = 20
+	SqsMsgVisibilityTimeoutSecDefault   = 20
 )
 
 // Config arguments set via CLI, environment variables, or defaults
@@ -245,7 +245,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.BoolVar(&config.UseAPIServerCacheToListPods, "use-apiserver-cache", getBoolEnv(useAPIServerCache, false), "If true, leverage the k8s apiserver's index on pod's spec.nodeName to list pods on a node, instead of doing an etcd quorum read.")
 	flag.IntVar(&config.HeartbeatInterval, "heartbeat-interval", getIntEnv(heartbeatIntervalKey, -1), "The time period in seconds between consecutive heartbeat signals. Valid range: 30-3600 seconds (30 seconds to 1 hour).")
 	flag.IntVar(&config.HeartbeatUntil, "heartbeat-until", getIntEnv(heartbeatUntilKey, -1), "The duration in seconds over which heartbeat signals are sent. Valid range: 60-172800 seconds (1 minute to 48 hours).")
-	flag.IntVar(&config.SqsMsgVisibilityTimeoutSec, "sqs-msg-visibility-timeout-sec", getIntEnv(sqsMsgVisibilityTimeoutSecConfigKey, sqsMsgVisibilityTimeoutSecDefault), "Duration in seconds that a message is hidden from other consumers after being retrieved from the SQS queue by sqs-monitor.")
+	flag.IntVar(&config.SqsMsgVisibilityTimeoutSec, "sqs-msg-visibility-timeout-sec", getIntEnv(sqsMsgVisibilityTimeoutSecConfigKey, SqsMsgVisibilityTimeoutSecDefault), "Duration in seconds that a message is hidden from other consumers after being retrieved from the SQS queue by sqs-monitor. Valid range: 1-119 seconds.")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
@@ -309,6 +309,10 @@ func ParseCliArgs() (config Config, err error) {
 	}
 	if config.HeartbeatInterval != -1 && config.HeartbeatUntil != -1 && config.HeartbeatInterval > config.HeartbeatUntil {
 		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval should be less than or equal to heartbeat-until")
+	}
+
+	if config.EnableSQSTerminationDraining && (config.SqsMsgVisibilityTimeoutSec <= 0 || config.SqsMsgVisibilityTimeoutSec >= 120) {
+		return config, fmt.Errorf("invalid SqsMsgVisibilityTimeoutSec configuration: SqsMsgVisibilityTimeoutSec valid range from 1 to 119")
 	}
 
 	// client-go expects these to be set in env vars
