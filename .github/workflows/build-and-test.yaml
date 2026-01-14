@@ -13,7 +13,7 @@ on:
     - cron: '0 19 * * 1-5'
 
 env:
-  DEFAULT_GO_VERSION: ^1.22.0
+  DEFAULT_GO_VERSION: ^1.25.0
   GITHUB_USERNAME: ${{ secrets.EC2_BOT_GITHUB_USERNAME }}
   GITHUB_TOKEN: ${{ secrets.EC2_BOT_GITHUB_TOKEN }}
   WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -71,7 +71,7 @@ jobs:
           cache: false
 
       - name: Set up golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: --timeout=5m
