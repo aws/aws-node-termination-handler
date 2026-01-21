@@ -327,7 +327,7 @@ func (n Node) addLabel(nodeName string, key string, value string, skipExisting b
 		return err
 	}
 	if skipExisting {
-		_, ok := node.ObjectMeta.Labels[key]
+		_, ok := node.Labels[key]
 		if ok {
 			return nil
 		}
@@ -394,7 +394,7 @@ func (n Node) removeLabelIfValueMatches(nodeName string, key string, matchValue 
 	if err != nil {
 		return err
 	}
-	val, ok := node.ObjectMeta.Labels[key]
+	val, ok := node.Labels[key]
 	if !ok || val == matchValue {
 		return nil
 	}
@@ -763,8 +763,8 @@ func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*
 }
 
 func jsonPatchEscape(value string) string {
-	value = strings.Replace(value, "~", "~0", -1)
-	return strings.Replace(value, "/", "~1", -1)
+	value = strings.ReplaceAll(value, "~", "~0")
+	return strings.ReplaceAll(value, "/", "~1")
 }
 
 func getTaintEffect(effect string) corev1.TaintEffect {

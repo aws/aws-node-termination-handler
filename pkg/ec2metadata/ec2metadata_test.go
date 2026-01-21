@@ -25,7 +25,7 @@ import (
 )
 
 func TestRequestV1(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.String() == "/latest/api/token" {
@@ -55,7 +55,7 @@ func TestRequestV1(t *testing.T) {
 }
 
 func TestRequestV2(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -89,7 +89,7 @@ func TestRequestV2(t *testing.T) {
 }
 
 func TestRequestFailure(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 	imds := ec2metadata.New("notadomain", 1)
 
 	_, err := imds.Request(requestPath)
@@ -97,7 +97,7 @@ func TestRequestFailure(t *testing.T) {
 }
 
 func TestRequest500(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.String() == "/latest/api/token" {
@@ -118,7 +118,7 @@ func TestRequest500(t *testing.T) {
 }
 
 func TestRequest401(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	tokenGenerationCounter := 0
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -161,7 +161,7 @@ func TestGetSpotITNEventSuccess(t *testing.T) {
 		time           = "2020-02-07T14:55:55Z"
 		instanceAction = "terminate"
 	)
-	var requestPath string = "/latest/meta-data/spot/instance-action"
+	var requestPath = "/latest/meta-data/spot/instance-action"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -173,10 +173,10 @@ func TestGetSpotITNEventSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		_, err := rw.Write([]byte(fmt.Sprintf(`{
+		_, err := fmt.Fprintf(rw, `{
 			"action": "%s",
 			"time": "%s"
-		}`, instanceAction, time)))
+		}`, instanceAction, time)
 		h.Ok(t, err)
 	}))
 	defer server.Close()
@@ -195,7 +195,7 @@ func TestGetSpotITNEventSuccess(t *testing.T) {
 }
 
 func TestGetSpotITNEvent404Success(t *testing.T) {
-	var requestPath string = "/latest/meta-data/spot/instance-action"
+	var requestPath = "/latest/meta-data/spot/instance-action"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -220,7 +220,7 @@ func TestGetSpotITNEvent404Success(t *testing.T) {
 }
 
 func TestGetSpotITNEventBadJSON(t *testing.T) {
-	var requestPath string = "/latest/meta-data/spot/instance-action"
+	var requestPath = "/latest/meta-data/spot/instance-action"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -245,7 +245,7 @@ func TestGetSpotITNEventBadJSON(t *testing.T) {
 }
 
 func TestGetSpotITNEvent500Failure(t *testing.T) {
-	var requestPath string = "/latest/meta-data/spot/instance-action"
+	var requestPath = "/latest/meta-data/spot/instance-action"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -285,7 +285,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 		eventId     = "instance-event-0d59937288b749b32"
 		state       = "active"
 	)
-	var requestPath string = "/latest/meta-data/events/maintenance/scheduled"
+	var requestPath = "/latest/meta-data/events/maintenance/scheduled"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -297,7 +297,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		_, err := rw.Write([]byte(fmt.Sprintf(`[
+		_, err := fmt.Fprintf(rw, `[
 			{
 			  "NotBefore" : "%s",
 			  "Code" : "%s",
@@ -306,7 +306,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 			  "NotAfter" : "%s",
 			  "State" : "%s"
 			}
-		  ]`, notBefore, code, description, eventId, notAfter, state)))
+		  ]`, notBefore, code, description, eventId, notAfter, state)
 		h.Ok(t, err)
 	}))
 	defer server.Close()
@@ -331,7 +331,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 }
 
 func TestGetScheduledMaintenanceEvents500Failure(t *testing.T) {
-	var requestPath string = "/latest/meta-data/events/maintenance/scheduled"
+	var requestPath = "/latest/meta-data/events/maintenance/scheduled"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -355,7 +355,7 @@ func TestGetScheduledMaintenanceEvents500Failure(t *testing.T) {
 }
 
 func TestGetScheduledMaintenanceEventsBadJSON(t *testing.T) {
-	var requestPath string = "/latest/meta-data/events/maintenance/scheduled"
+	var requestPath = "/latest/meta-data/events/maintenance/scheduled"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -403,9 +403,9 @@ func TestGetRebalanceRecommendationEventSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		_, err := rw.Write([]byte(fmt.Sprintf(`{
+		_, err := fmt.Fprintf(rw, `{
 			"noticeTime": "%s"
-		}`, noticeTime)))
+		}`, noticeTime)
 		h.Ok(t, err)
 	}))
 	defer server.Close()
@@ -590,7 +590,7 @@ func TestGetASGTargetLifecycleStateRequestFailure(t *testing.T) {
 }
 
 func TestGetMetadataServiceRequest404(t *testing.T) {
-	var requestPath string = "/latest/meta-data/instance-type"
+	var requestPath = "/latest/meta-data/instance-type"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -615,7 +615,7 @@ func TestGetMetadataServiceRequest404(t *testing.T) {
 }
 
 func TestGetMetadataServiceRequest404AllowMissing(t *testing.T) {
-	var requestPath string = "/latest/meta-data/instance-type"
+	var requestPath = "/latest/meta-data/instance-type"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -640,7 +640,7 @@ func TestGetMetadataServiceRequest404AllowMissing(t *testing.T) {
 }
 
 func TestGetMetadataServiceRequest500AllowMissing(t *testing.T) {
-	var requestPath string = "/latest/meta-data/instance-type"
+	var requestPath = "/latest/meta-data/instance-type"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -673,7 +673,7 @@ func TestGetMetadataServiceRequestFailure(t *testing.T) {
 }
 
 func TestGetMetadataServiceSuccess(t *testing.T) {
-	var requestPath string = "/latest/meta-data/instance-type"
+	var requestPath = "/latest/meta-data/instance-type"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")

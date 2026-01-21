@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.22-alpine as builder
+FROM golang:1.25-alpine as builder
 
 ## GOLANG env
 ARG GOPROXY="https://proxy.golang.org|direct"

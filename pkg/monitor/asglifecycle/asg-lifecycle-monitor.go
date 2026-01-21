@@ -78,7 +78,7 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 
 	// There's no EventID returned, so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
-	if _, err = hash.Write([]byte(fmt.Sprintf("%s:%s", state, interruptionTime))); err != nil {
+	if _, err = fmt.Fprintf(hash, "%s:%s", state, interruptionTime); err != nil {
 		return nil, fmt.Errorf("There was a problem creating an event ID from the event: %w", err)
 	}
 

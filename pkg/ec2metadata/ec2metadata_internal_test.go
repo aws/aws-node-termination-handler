@@ -27,8 +27,8 @@ import (
 )
 
 func TestRetry(t *testing.T) {
-	var numRetries int = 3
-	var errorMsg string = "Request failed"
+	var numRetries = 3
+	var errorMsg = "Request failed"
 	var requestCount int
 
 	request := func() (*http.Response, error) {
