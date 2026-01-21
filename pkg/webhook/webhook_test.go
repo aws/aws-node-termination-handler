@@ -64,7 +64,7 @@ func getExpectedMessage(t *testing.T, event *monitor.InterruptionEvent) string {
 }
 
 func TestPostSuccess(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	event := &monitor.InterruptionEvent{
 		EventID:     "instance-event-0d59937288b749b32",
@@ -181,7 +181,7 @@ func TestPostHeaderParseFail(t *testing.T) {
 }
 
 func TestPostTimeout(t *testing.T) {
-	var requestCount int = 0
+	var requestCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		requestCount++
 		time.Sleep(6 * time.Second)
@@ -201,7 +201,7 @@ func TestPostTimeout(t *testing.T) {
 }
 
 func TestPostBadResponseCode(t *testing.T) {
-	var requestCount int = 0
+	var requestCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		requestCount++
 		http.Error(rw, "404 page not found", http.StatusNotFound)

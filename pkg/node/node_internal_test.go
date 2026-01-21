@@ -104,7 +104,7 @@ func TestUncordonIfRebootedSystemNotRestarted(t *testing.T) {
 	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err = tNode.UncordonIfRebooted(nodeName)
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 	h.Ok(t, err)
 }
 
@@ -128,7 +128,7 @@ func TestUncordonIfRebootedFailureToRemoveLabel(t *testing.T) {
 	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err = tNode.UncordonIfRebooted(nodeName)
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error on UncordonIfReboted failure remove NTH Label")
 }
 
@@ -153,7 +153,7 @@ func TestUncordonIfRebootedFailureSuccess(t *testing.T) {
 	h.Ok(t, err)
 	tNode := getNode(t, getTestDrainHelper(client), getUptimeFromFile(testFile))
 	err = tNode.UncordonIfRebooted(nodeName)
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 	h.Ok(t, err)
 }
 

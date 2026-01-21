@@ -27,8 +27,8 @@ import (
 )
 
 func TestRetry(t *testing.T) {
-	var numRetries int = 3
-	var errorMsg string = "Request failed"
+	var numRetries = 3
+	var errorMsg = "Request failed"
 	var requestCount int
 
 	request := func() (*http.Response, error) {
@@ -42,7 +42,7 @@ func TestRetry(t *testing.T) {
 
 	resp, err := retry(numRetries, time.Microsecond, request)
 	h.Assert(t, err != nil, "Should have gotten a \"Request failed\" error")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	h.Equals(t, errorMsg, err.Error())
 	h.Equals(t, numRetries, requestCount)

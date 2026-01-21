@@ -118,7 +118,7 @@ func Post(additionalInfo ec2metadata.NodeMetadata, event *monitor.InterruptionEv
 		return
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
 		log.Warn().Int("status_code", response.StatusCode).Msg("Webhook Error: Received Non-Successful Status Code")
@@ -139,7 +139,7 @@ func ValidateWebhookConfig(nthConfig config.Config) error {
 	if nthConfig.WebhookTemplateFile != "" {
 		content, err := os.ReadFile(nthConfig.WebhookTemplateFile)
 		if err != nil {
-			return fmt.Errorf("Webhook Error: Could not read template file %w", err)
+			return fmt.Errorf("webhook error: could not read template file %w", err)
 		}
 		webhookTemplateContent = string(content)
 	} else {
@@ -148,13 +148,13 @@ func ValidateWebhookConfig(nthConfig config.Config) error {
 
 	webhookTemplate, err := template.New("message").Funcs(sprig.TxtFuncMap()).Parse(webhookTemplateContent)
 	if err != nil {
-		return fmt.Errorf("Unable to parse webhook template: %w", err)
+		return fmt.Errorf("unable to parse webhook template: %w", err)
 	}
 
 	var byteBuffer bytes.Buffer
 	err = webhookTemplate.Execute(&byteBuffer, &combinedDrainData{})
 	if err != nil {
-		return fmt.Errorf("Unable to execute webhook template: %w", err)
+		return fmt.Errorf("unable to execute webhook template: %w", err)
 	}
 	return nil
 }

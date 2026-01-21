@@ -63,7 +63,7 @@ func (m RebalanceRecommendationMonitor) Kind() string {
 func (m RebalanceRecommendationMonitor) checkForRebalanceRecommendation() (*monitor.InterruptionEvent, error) {
 	rebalanceRecommendation, err := m.IMDS.GetRebalanceRecommendationEvent()
 	if err != nil {
-		return nil, fmt.Errorf("There was a problem checking for rebalance recommendations: %w", err)
+		return nil, fmt.Errorf("there was a problem checking for rebalance recommendations: %w", err)
 	}
 	if rebalanceRecommendation == nil {
 		// if there are no rebalance recommendations and no errors
@@ -72,14 +72,14 @@ func (m RebalanceRecommendationMonitor) checkForRebalanceRecommendation() (*moni
 	nodeName := m.NodeName
 	noticeTime, err := time.Parse(time.RFC3339, rebalanceRecommendation.NoticeTime)
 	if err != nil {
-		return nil, fmt.Errorf("Could not parse time from rebalance recommendation metadata json: %w", err)
+		return nil, fmt.Errorf("could not parse time from rebalance recommendation metadata json: %w", err)
 	}
 
 	// There's no EventID returned so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
-	_, err = hash.Write([]byte(fmt.Sprintf("%v", rebalanceRecommendation)))
+	_, err = fmt.Fprintf(hash, "%v", rebalanceRecommendation)
 	if err != nil {
-		return nil, fmt.Errorf("There was a problem creating an event ID from the event: %w", err)
+		return nil, fmt.Errorf("there was a problem creating an event ID from the event: %w", err)
 	}
 
 	return &monitor.InterruptionEvent{
@@ -96,7 +96,7 @@ func (m RebalanceRecommendationMonitor) checkForRebalanceRecommendation() (*moni
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintRebalanceRecommendation(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.RebalanceRecommendationTaint, interruptionEvent.EventID, err)
+		return fmt.Errorf("unable to taint node with taint %s:%s: %w", node.RebalanceRecommendationTaint, interruptionEvent.EventID, err)
 	}
 
 	return nil

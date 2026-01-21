@@ -65,7 +65,7 @@ func (m ASGLifecycleMonitor) Kind() string {
 func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.InterruptionEvent, error) {
 	state, err := m.IMDS.GetASGTargetLifecycleState()
 	if err != nil {
-		return nil, fmt.Errorf("There was a problem checking for ASG target lifecycle state: %w", err)
+		return nil, fmt.Errorf("there was a problem checking for ASG target lifecycle state: %w", err)
 	}
 	if state != "Terminated" {
 		// if the state is not "Terminated", we can skip. State can also be empty (no hook configured).
@@ -78,8 +78,8 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 
 	// There's no EventID returned, so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
-	if _, err = hash.Write([]byte(fmt.Sprintf("%s:%s", state, interruptionTime))); err != nil {
-		return nil, fmt.Errorf("There was a problem creating an event ID from the event: %w", err)
+	if _, err = fmt.Fprintf(hash, "%s:%s", state, interruptionTime); err != nil {
+		return nil, fmt.Errorf("there was a problem creating an event ID from the event: %w", err)
 	}
 
 	return &monitor.InterruptionEvent{
@@ -96,7 +96,7 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.ASGLifecycleTerminationTaint, interruptionEvent.EventID, err)
+		return fmt.Errorf("unable to taint node with taint %s:%s: %w", node.ASGLifecycleTerminationTaint, interruptionEvent.EventID, err)
 	}
 
 	return nil
