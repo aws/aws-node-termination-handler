@@ -214,7 +214,7 @@ func SetReasonForKindVersion(version int) error {
 		return nil
 	default:
 		GetReasonForKind = getReasonForKindV1
-		return fmt.Errorf("Unrecognized 'reason for kind' version: %d, using version 1", version)
+		return fmt.Errorf("unrecognized 'reason for kind' version: %d, using version 1", version)
 	}
 }
 

@@ -38,7 +38,7 @@ var instanceActionResponse = []byte(`{
 }`)
 
 func TestMonitor_Success(t *testing.T) {
-	var requestPath string = ec2metadata.SpotInstanceActionPath
+	var requestPath = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -89,7 +89,7 @@ func TestMonitor_MetadataParseFailure(t *testing.T) {
 }
 
 func TestMonitor_404Response(t *testing.T) {
-	var requestPath string = ec2metadata.SpotInstanceActionPath
+	var requestPath = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -112,7 +112,7 @@ func TestMonitor_404Response(t *testing.T) {
 }
 
 func TestMonitor_500Response(t *testing.T) {
-	var requestPath string = ec2metadata.SpotInstanceActionPath
+	var requestPath = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -135,7 +135,7 @@ func TestMonitor_500Response(t *testing.T) {
 }
 
 func TestMonitor_InstanceActionDecodeFailure(t *testing.T) {
-	var requestPath string = ec2metadata.SpotInstanceActionPath
+	var requestPath = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -159,7 +159,7 @@ func TestMonitor_InstanceActionDecodeFailure(t *testing.T) {
 }
 
 func TestMonitor_TimeParseFailure(t *testing.T) {
-	var requestPath string = ec2metadata.SpotInstanceActionPath
+	var requestPath = ec2metadata.SpotInstanceActionPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {

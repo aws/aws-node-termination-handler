@@ -28,7 +28,7 @@ func TestUptimeFromFileSuccess(t *testing.T) {
 	h.Ok(t, err)
 
 	value, err := UptimeFromFile(testFile)
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 	h.Ok(t, err)
 	h.Equals(t, int64(350735), value)
 }
@@ -44,6 +44,6 @@ func TestUptimeFromFileBadData(t *testing.T) {
 	h.Ok(t, err)
 
 	_, err = UptimeFromFile(testFile)
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 	h.Assert(t, err != nil, "Failed to return error for int64 parse")
 }

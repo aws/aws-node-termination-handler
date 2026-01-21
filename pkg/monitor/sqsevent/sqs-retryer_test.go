@@ -103,10 +103,10 @@ func getSqsRetryer(t *testing.T) sqsevent.SqsRetryer {
 	h.Ok(t, err)
 
 	sqsClient := sqsevent.GetSqsClient(sess)
-	h.Assert(t, sqsClient.Client.Config.Region != nil, "Region should not be nil")
-	h.Equals(t, "us-east-1", *sqsClient.Client.Config.Region)
+	h.Assert(t, sqsClient.Config.Region != nil, "Region should not be nil")
+	h.Equals(t, "us-east-1", *sqsClient.Config.Region)
 
-	retryer, ok := sqsClient.Client.Config.Retryer.(sqsevent.SqsRetryer)
+	retryer, ok := sqsClient.Config.Retryer.(sqsevent.SqsRetryer)
 	h.Assert(t, ok, "Retryer should be of type SqsRetryer")
 	return retryer
 }

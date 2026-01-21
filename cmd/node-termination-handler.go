@@ -279,11 +279,12 @@ func main() {
 	asgLaunchHandler := launch.New(interruptionEventStore, *node, nthConfig, metrics, recorder, clientset)
 	drainCordonHander := draincordon.New(interruptionEventStore, *node, nthConfig, nodeMetadata, metrics, recorder)
 
+InterruptionLoop:
 	for range time.NewTicker(1 * time.Second).C {
 		select {
 		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
-			break
+			break InterruptionLoop
 		default:
 		EventLoop:
 			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {
@@ -320,7 +321,7 @@ func handleRebootUncordon(nodeName string, interruptionEventStore *interruptione
 	}
 	err = node.UncordonIfRebooted(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to complete node label actions: %w", err)
+		return fmt.Errorf("unable to complete node label actions: %w", err)
 	}
 	interruptionEventStore.IgnoreEvent(eventID)
 	return nil
