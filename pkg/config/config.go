@@ -316,8 +316,12 @@ func ParseCliArgs() (config Config, err error) {
 	}
 
 	// client-go expects these to be set in env vars
-	os.Setenv(kubernetesServiceHostConfigKey, config.KubernetesServiceHost)
-	os.Setenv(kubernetesServicePortConfigKey, config.KubernetesServicePort)
+	if err := os.Setenv(kubernetesServiceHostConfigKey, config.KubernetesServiceHost); err != nil {
+		return config, fmt.Errorf("failed to set %s environment variable: %w", kubernetesServiceHostConfigKey, err)
+	}
+	if err := os.Setenv(kubernetesServicePortConfigKey, config.KubernetesServicePort); err != nil {
+		return config, fmt.Errorf("failed to set %s environment variable: %w", kubernetesServicePortConfigKey, err)
+	}
 
 	return config, err
 }

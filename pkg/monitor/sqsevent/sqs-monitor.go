@@ -211,21 +211,23 @@ func (m SQSMonitor) processEventBridgeEvent(eventBridgeEvent *EventBridgeEvent, 
 			interruptionEvent, err = nil, fmt.Errorf("unmarshaling message, %s, from ASG lifecycle event: %w", *message.MessageId, err)
 			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 		}
-		if lifecycleEvent.LifecycleTransition == ASGLaunchingLifecycleTransition {
+		switch lifecycleEvent.LifecycleTransition {
+		case ASGLaunchingLifecycleTransition:
 			interruptionEvent, err = m.createAsgInstanceLaunchEvent(eventBridgeEvent, message)
 			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
-		} else if lifecycleEvent.LifecycleTransition == ASGTerminatingLifecycleTransition {
+		case ASGTerminatingLifecycleTransition:
 			interruptionEvent, err = m.asgTerminationToInterruptionEvent(eventBridgeEvent, message)
 			interruptionEventWrappers = append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
 		}
 		return interruptionEventWrappers
 
 	case "aws.ec2":
-		if eventBridgeEvent.DetailType == "EC2 Instance State-change Notification" {
+		switch eventBridgeEvent.DetailType {
+		case "EC2 Instance State-change Notification":
 			interruptionEvent, err = m.ec2StateChangeToInterruptionEvent(eventBridgeEvent, message)
-		} else if eventBridgeEvent.DetailType == "EC2 Spot Instance Interruption Warning" {
+		case "EC2 Spot Instance Interruption Warning":
 			interruptionEvent, err = m.spotITNTerminationToInterruptionEvent(eventBridgeEvent, message)
-		} else if eventBridgeEvent.DetailType == "EC2 Instance Rebalance Recommendation" {
+		case "EC2 Instance Rebalance Recommendation":
 			interruptionEvent, err = m.rebalanceRecommendationToInterruptionEvent(eventBridgeEvent, message)
 		}
 		return append(interruptionEventWrappers, InterruptionEventWrapper{interruptionEvent, err})
