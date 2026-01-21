@@ -54,7 +54,7 @@ func oneSecondAgo() time.Time {
 }
 
 func TestMonitor_Success(t *testing.T) {
-	var requestPath string = ec2metadata.ScheduledEventPath
+	var requestPath = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -103,7 +103,7 @@ func TestMonitor_Success(t *testing.T) {
 }
 
 func TestMonitor_CanceledEvent(t *testing.T) {
-	var requestPath string = ec2metadata.ScheduledEventPath
+	var requestPath = ec2metadata.ScheduledEventPath
 	var state = "canceled"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {
@@ -158,7 +158,7 @@ func TestMonitor_CanceledEvent(t *testing.T) {
 }
 
 func TestMonitor_MetadataParseFailure(t *testing.T) {
-	var requestPath string = ec2metadata.ScheduledEventPath
+	var requestPath = ec2metadata.ScheduledEventPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if imdsV2TokenPath == req.URL.String() {

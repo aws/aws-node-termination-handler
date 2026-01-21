@@ -225,11 +225,11 @@ func TestServeMetrics(t *testing.T) {
 	if err != nil {
 		t.Errorf("server is not listening on port %d: %v", mockDefaultPort, err)
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	conn, err = net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", mockClosedPort), time.Second)
 	if err == nil {
-		conn.Close()
+		_ = conn.Close()
 		t.Errorf("server should not be listening on port %d: %v", mockClosedPort, err)
 	}
 }

@@ -144,7 +144,7 @@ func (e *Service) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var scheduledEvents []ScheduledEventDetail
 	err = json.NewDecoder(resp.Body).Decode(&scheduledEvents)
 	if err != nil {
@@ -165,7 +165,7 @@ func (e *Service) GetSpotITNEvent() (instanceAction *InstanceAction, err error) 
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
 	if err != nil {
@@ -186,7 +186,7 @@ func (e *Service) GetRebalanceRecommendationEvent() (rebalanceRec *RebalanceReco
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	err = json.NewDecoder(resp.Body).Decode(&rebalanceRec)
 	if err != nil {

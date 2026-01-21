@@ -279,11 +279,12 @@ func main() {
 	asgLaunchHandler := launch.New(interruptionEventStore, *node, nthConfig, metrics, recorder, clientset)
 	drainCordonHander := draincordon.New(interruptionEventStore, *node, nthConfig, nodeMetadata, metrics, recorder)
 
+InterruptionLoop:
 	for range time.NewTicker(1 * time.Second).C {
 		select {
 		case <-signalChan:
 			// Exit interruption loop if a SIGTERM is received or the channel is closed
-			break
+			break InterruptionLoop
 		default:
 		EventLoop:
 			for event, ok := interruptionEventStore.GetActiveEvent(); ok; event, ok = interruptionEventStore.GetActiveEvent() {

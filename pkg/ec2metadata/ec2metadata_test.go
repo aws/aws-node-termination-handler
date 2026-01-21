@@ -25,7 +25,7 @@ import (
 )
 
 func TestRequestV1(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.String() == "/latest/api/token" {
@@ -55,7 +55,7 @@ func TestRequestV1(t *testing.T) {
 }
 
 func TestRequestV2(t *testing.T) {
-	var requestPath string = "/some/path"
+	var requestPath = "/some/path"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add("X-aws-ec2-metadata-token-ttl-seconds", "100")
@@ -173,10 +173,10 @@ func TestGetSpotITNEventSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		_, err := rw.Write([]byte(fmt.Sprintf(`{
+		_, err := fmt.Fprintf(rw, `{
 			"action": "%s",
 			"time": "%s"
-		}`, instanceAction, time)))
+		}`, instanceAction, time)
 		h.Ok(t, err)
 	}))
 	defer server.Close()
@@ -297,7 +297,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		_, err := rw.Write([]byte(fmt.Sprintf(`[
+		_, err := fmt.Fprintf(rw, `[
 			{
 			  "NotBefore" : "%s",
 			  "Code" : "%s",
@@ -306,7 +306,7 @@ func TestGetScheduledMaintenanceEventsSuccess(t *testing.T) {
 			  "NotAfter" : "%s",
 			  "State" : "%s"
 			}
-		  ]`, notBefore, code, description, eventId, notAfter, state)))
+		  ]`, notBefore, code, description, eventId, notAfter, state)
 		h.Ok(t, err)
 	}))
 	defer server.Close()
@@ -403,9 +403,9 @@ func TestGetRebalanceRecommendationEventSuccess(t *testing.T) {
 		}
 		h.Equals(t, req.Header.Get("X-aws-ec2-metadata-token"), "token")
 		h.Equals(t, req.URL.String(), requestPath)
-		_, err := rw.Write([]byte(fmt.Sprintf(`{
+		_, err := fmt.Fprintf(rw, `{
 			"noticeTime": "%s"
-		}`, noticeTime)))
+		}`, noticeTime)
 		h.Ok(t, err)
 	}))
 	defer server.Close()
