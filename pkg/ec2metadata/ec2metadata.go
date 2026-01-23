@@ -139,16 +139,16 @@ func New(metadataURL string, tries int) *Service {
 func (e *Service) GetScheduledMaintenanceEvents() ([]ScheduledEventDetail, error) {
 	resp, err := e.Request(ScheduledEventPath)
 	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("metadata request received http status code: %d", resp.StatusCode)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+		return nil, fmt.Errorf("unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var scheduledEvents []ScheduledEventDetail
 	err = json.NewDecoder(resp.Body).Decode(&scheduledEvents)
 	if err != nil {
-		return nil, fmt.Errorf("Could not decode json retrieved from imds: %w", err)
+		return nil, fmt.Errorf("could not decode json retrieved from imds: %w", err)
 	}
 	return scheduledEvents, nil
 }
@@ -160,16 +160,16 @@ func (e *Service) GetSpotITNEvent() (instanceAction *InstanceAction, err error) 
 	if resp != nil && resp.StatusCode == 404 {
 		return nil, nil
 	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("metadata request received http status code: %d", resp.StatusCode)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+		return nil, fmt.Errorf("unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	err = json.NewDecoder(resp.Body).Decode(&instanceAction)
 	if err != nil {
-		return nil, fmt.Errorf("Could not decode instance action response: %w", err)
+		return nil, fmt.Errorf("could not decode instance action response: %w", err)
 	}
 	return instanceAction, nil
 }
@@ -181,16 +181,16 @@ func (e *Service) GetRebalanceRecommendationEvent() (rebalanceRec *RebalanceReco
 	if resp != nil && resp.StatusCode == 404 {
 		return nil, nil
 	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return nil, fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("metadata request received http status code: %d", resp.StatusCode)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+		return nil, fmt.Errorf("unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	err = json.NewDecoder(resp.Body).Decode(&rebalanceRec)
 	if err != nil {
-		return nil, fmt.Errorf("Could not decode rebalance recommendation response: %w", err)
+		return nil, fmt.Errorf("could not decode rebalance recommendation response: %w", err)
 	}
 	return rebalanceRec, nil
 }
@@ -203,16 +203,16 @@ func (e *Service) GetASGTargetLifecycleState() (state string, err error) {
 	if resp != nil && resp.StatusCode == 404 {
 		return "", nil
 	} else if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+		return "", fmt.Errorf("metadata request received http status code: %d", resp.StatusCode)
 	}
 	if err != nil {
-		return "", fmt.Errorf("Unable to parse metadata response: %w", err)
+		return "", fmt.Errorf("unable to parse metadata response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("Unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
+		return "", fmt.Errorf("unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
 	}
 	return string(body), nil
 }
@@ -222,19 +222,19 @@ func (e *Service) GetMetadataInfo(path string, allowMissing bool) (info string, 
 	metadataInfo := ""
 	resp, err := e.Request(path)
 	if err != nil {
-		return "", fmt.Errorf("Unable to parse metadata response: %w", err)
+		return "", fmt.Errorf("unable to parse metadata response: %w", err)
 	}
 	if resp != nil {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("Unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
+			return "", fmt.Errorf("unable to parse http response. Status code: %d. %w", resp.StatusCode, err)
 		}
 		metadataInfo = string(body)
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			if resp.StatusCode != 404 || !allowMissing {
 				log.Info().Msgf("Metadata response status code: %d. Body: %s", resp.StatusCode, metadataInfo)
-				return "", fmt.Errorf("Metadata request received http status code: %d", resp.StatusCode)
+				return "", fmt.Errorf("metadata request received http status code: %d", resp.StatusCode)
 			} else {
 				return "", nil
 			}
@@ -249,7 +249,7 @@ func (e *Service) GetMetadataInfo(path string, allowMissing bool) (info string, 
 func (e *Service) Request(contextPath string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, e.metadataURL+contextPath, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to construct an http get request to IDMS for %s: %w", e.metadataURL+contextPath, err)
+		return nil, fmt.Errorf("unable to construct an http get request to IDMS for %s: %w", e.metadataURL+contextPath, err)
 	}
 	var resp *http.Response
 	for i := 0; i < tokenRetryAttempts; i++ {
@@ -274,7 +274,7 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 		}
 		resp, err = retry(e.tries, 2*time.Second, httpReq)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to get a response from IMDS: %w", err)
+			return nil, fmt.Errorf("unable to get a response from IMDS: %w", err)
 		}
 		if resp != nil && resp.StatusCode == 401 {
 			e.Lock()
@@ -297,7 +297,7 @@ func (e *Service) Request(contextPath string) (*http.Response, error) {
 func (e *Service) getV2Token() (string, int, error) {
 	req, err := http.NewRequest(http.MethodPut, e.metadataURL+tokenRefreshPath, nil)
 	if err != nil {
-		return "", -1, fmt.Errorf("Unable to construct http put request to retrieve imdsv2 token: %w", err)
+		return "", -1, fmt.Errorf("unable to construct http put request to retrieve imdsv2 token: %w", err)
 	}
 	req.Header.Add(tokenTTLHeader, strconv.Itoa(tokenTTL))
 	httpReq := func() (*http.Response, error) {
@@ -308,13 +308,13 @@ func (e *Service) getV2Token() (string, int, error) {
 	if err != nil {
 		return "", -1, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", -1, fmt.Errorf("Received an http status code %d", resp.StatusCode)
+		return "", -1, fmt.Errorf("received an http status code %d", resp.StatusCode)
 	}
 	token, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", -1, fmt.Errorf("Unable to read token response from IMDSv2: %w", err)
+		return "", -1, fmt.Errorf("unable to read token response from IMDSv2: %w", err)
 	}
 	ttl, err := ttlHeaderToInt(resp)
 	if err != nil {
@@ -327,7 +327,7 @@ func (e *Service) getV2Token() (string, int, error) {
 func ttlHeaderToInt(resp *http.Response) (int, error) {
 	ttl := resp.Header.Get(tokenTTLHeader)
 	if ttl == "" {
-		return -1, fmt.Errorf("No token TTL header found")
+		return -1, fmt.Errorf("no token TTL header found")
 	}
 	ttlInt, err := strconv.Atoi(ttl)
 	if err != nil {

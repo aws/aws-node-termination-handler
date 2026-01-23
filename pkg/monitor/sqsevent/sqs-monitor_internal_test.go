@@ -29,7 +29,7 @@ func TestGetTime_Success(t *testing.T) {
 	testTime, err := time.Parse(time.RFC3339, testTimeStr)
 	h.Ok(t, err)
 	asgLifecycleTime := EventBridgeEvent{Time: testTimeStr}.getTime()
-	h.Assert(t, testTime == asgLifecycleTime, "RFC3339 should be parsed correctly from event")
+	h.Assert(t, testTime.Equal(asgLifecycleTime), "RFC3339 should be parsed correctly from event")
 }
 
 func TestGetTime_Empty(t *testing.T) {

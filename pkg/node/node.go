@@ -201,7 +201,7 @@ func (n Node) Uncordon(nodeName string) error {
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("There was an error fetching the node in preparation for uncordoning: %w", err)
+		return fmt.Errorf("there was an error fetching the node in preparation for uncordoning: %w", err)
 	}
 	err = drain.RunCordonOrUncordon(n.drainHelper, node, false)
 	if err != nil {
@@ -227,7 +227,7 @@ func (n Node) IsUnschedulable(nodeName string) (bool, error) {
 func (n Node) MarkWithEventID(nodeName string, eventID string) error {
 	err := n.addLabel(nodeName, EventIDLabelKey, eventID, false)
 	if err != nil {
-		return fmt.Errorf("Unable to label node with event ID %s=%s: %w", EventIDLabelKey, eventID, err)
+		return fmt.Errorf("unable to label node with event ID %s=%s: %w", EventIDLabelKey, eventID, err)
 	}
 	return nil
 }
@@ -240,7 +240,7 @@ func (n Node) MaybeMarkForExclusionFromLoadBalancers(nodeName string) error {
 	}
 	err := n.addLabel(nodeName, ExcludeFromLoadBalancersLabelKey, ExcludeFromLoadBalancersLabelValue, true)
 	if err != nil {
-		return fmt.Errorf("Unable to label node for exclusion from load balancers: %w", err)
+		return fmt.Errorf("unable to label node for exclusion from load balancers: %w", err)
 	}
 	return nil
 }
@@ -250,12 +250,12 @@ func (n Node) RemoveNTHLabels(nodeName string) error {
 	for _, label := range []string{EventIDLabelKey, ActionLabelKey, ActionLabelTimeKey} {
 		err := n.removeLabel(nodeName, label)
 		if err != nil {
-			return fmt.Errorf("Unable to remove %s from node: %w", label, err)
+			return fmt.Errorf("unable to remove %s from node: %w", label, err)
 		}
 	}
 	err := n.removeLabelIfValueMatches(nodeName, ExcludeFromLoadBalancersLabelKey, ExcludeFromLoadBalancersLabelValue)
 	if err != nil {
-		return fmt.Errorf("Unable to remove %s from node: %w", ExcludeFromLoadBalancersLabelKey, err)
+		return fmt.Errorf("unable to remove %s from node: %w", ExcludeFromLoadBalancersLabelKey, err)
 	}
 	return nil
 }
@@ -264,7 +264,7 @@ func (n Node) RemoveNTHLabels(nodeName string) error {
 func (n Node) GetEventID(nodeName string) (string, error) {
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return "", fmt.Errorf("Could not get event ID label from node: %w", err)
+		return "", fmt.Errorf("could not get event ID label from node: %w", err)
 	}
 	val, ok := node.Labels[EventIDLabelKey]
 	if n.nthConfig.DryRun && !ok {
@@ -272,7 +272,7 @@ func (n Node) GetEventID(nodeName string) (string, error) {
 		return "", nil
 	}
 	if !ok {
-		return "", fmt.Errorf("Event ID Label %s was not found on the node", EventIDLabelKey)
+		return "", fmt.Errorf("event ID Label %s was not found on the node", EventIDLabelKey)
 	}
 	return val, nil
 }
@@ -282,7 +282,7 @@ func (n Node) MarkForUncordonAfterReboot(nodeName string) error {
 	// adds label to node so that the system will uncordon the node after the scheduled reboot has taken place
 	err := n.addLabel(nodeName, ActionLabelKey, UncordonAfterRebootLabelVal, false)
 	if err != nil {
-		return fmt.Errorf("Unable to label node with action to uncordon after system-reboot: %w", err)
+		return fmt.Errorf("unable to label node with action to uncordon after system-reboot: %w", err)
 	}
 	// adds label with the current time which is checked against the uptime of the node when processing labels on startup
 	err = n.addLabel(nodeName, ActionLabelTimeKey, strconv.FormatInt(time.Now().Unix(), 10), false)
@@ -293,7 +293,7 @@ func (n Node) MarkForUncordonAfterReboot(nodeName string) error {
 		if err != nil {
 			return fmt.Errorf("%s and unable to rollback action label \"%s\": %w", errMsg, ActionLabelKey, err)
 		}
-		return fmt.Errorf("Unable to label node with action time for uncordon after system-reboot: %w", err)
+		return fmt.Errorf("unable to label node with action time for uncordon after system-reboot: %w", err)
 	}
 	return nil
 }
@@ -320,14 +320,14 @@ func (n Node) addLabel(nodeName string, key string, value string, skipExisting b
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("An error occurred while marshalling the json to add a label to the node: %w", err)
+		return fmt.Errorf("an error occurred while marshalling the json to add a label to the node: %w", err)
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
 		return err
 	}
 	if skipExisting {
-		_, ok := node.ObjectMeta.Labels[key]
+		_, ok := node.Labels[key]
 		if ok {
 			return nil
 		}
@@ -338,7 +338,7 @@ func (n Node) addLabel(nodeName string, key string, value string, skipExisting b
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.StrategicMergePatchType, payloadBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("%v node Patch failed when adding a label to the node: %w", node.Name, err)
+		return fmt.Errorf("%v node patch failed when adding a label to the node: %w", node.Name, err)
 	}
 	return nil
 }
@@ -357,7 +357,7 @@ func (n Node) removeLabel(nodeName string, key string) error {
 	}
 	payload, err := json.Marshal(append(patchReqs, patchRemove))
 	if err != nil {
-		return fmt.Errorf("An error occurred while marshalling the json to remove a label from the node: %w", err)
+		return fmt.Errorf("an error occurred while marshalling the json to remove a label from the node: %w", err)
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
@@ -369,7 +369,7 @@ func (n Node) removeLabel(nodeName string, key string) error {
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("%v node Patch failed when removing a label from the node: %w", node.Name, err)
+		return fmt.Errorf("%v node patch failed when removing a label from the node: %w", node.Name, err)
 	}
 	return nil
 }
@@ -388,13 +388,13 @@ func (n Node) removeLabelIfValueMatches(nodeName string, key string, matchValue 
 	}
 	payload, err := json.Marshal(append(patchReqs, patchRemove))
 	if err != nil {
-		return fmt.Errorf("An error occurred while marshalling the json to remove a label from the node: %w", err)
+		return fmt.Errorf("an error occurred while marshalling the json to remove a label from the node: %w", err)
 	}
 	node, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
 		return err
 	}
-	val, ok := node.ObjectMeta.Labels[key]
+	val, ok := node.Labels[key]
 	if !ok || val == matchValue {
 		return nil
 	}
@@ -404,7 +404,7 @@ func (n Node) removeLabelIfValueMatches(nodeName string, key string, matchValue 
 	}
 	_, err = n.drainHelper.Client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("%v node Patch failed when removing a label from the node: %w", node.Name, err)
+		return fmt.Errorf("%v node patch failed when removing a label from the node: %w", node.Name, err)
 	}
 	return nil
 }
@@ -447,7 +447,7 @@ func (n Node) GetNodeNameFromProviderID(providerId string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("Node with ProviderID '%s' was not found in the cluster", providerId)
+	return "", fmt.Errorf("node with ProviderID '%s' was not found in the cluster", providerId)
 }
 
 // TaintSpotItn adds the spot termination notice taint onto a node
@@ -458,7 +458,7 @@ func (n Node) TaintSpotItn(nodeName string, eventID string) error {
 
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 
 	if len(eventID) > 63 {
@@ -476,7 +476,7 @@ func (n Node) TaintASGLifecycleTermination(nodeName string, eventID string) erro
 
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 
 	if len(eventID) > 63 {
@@ -494,7 +494,7 @@ func (n Node) TaintRebalanceRecommendation(nodeName string, eventID string) erro
 
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 
 	if len(eventID) > 63 {
@@ -536,7 +536,7 @@ func (n Node) TaintScheduledMaintenance(nodeName string, eventID string) error {
 
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 
 	if len(eventID) > 63 {
@@ -554,7 +554,7 @@ func (n Node) TaintOutOfService(nodeName string) error {
 
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 
 	return addTaint(k8sNode, n, OutOfServiceTaintKey, OutOfServiceTaintValue, OutOfServiceTaintEffectType)
@@ -568,7 +568,7 @@ func (n Node) RemoveNTHTaints(nodeName string) error {
 
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 
 	taints := []string{SpotInterruptionTaint, ScheduledMaintenanceTaint, ASGLifecycleTerminationTaint, RebalanceRecommendationTaint}
@@ -576,7 +576,7 @@ func (n Node) RemoveNTHTaints(nodeName string) error {
 	for _, taint := range taints {
 		_, err = removeTaint(k8sNode, n.drainHelper.Client, taint)
 		if err != nil {
-			return fmt.Errorf("Unable to clean taint %s from node %s", taint, nodeName)
+			return fmt.Errorf("unable to clean taint %s from node %s", taint, nodeName)
 		}
 	}
 
@@ -587,7 +587,7 @@ func (n Node) RemoveNTHTaints(nodeName string) error {
 func (n Node) IsLabeledWithAction(nodeName string) (bool, error) {
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return false, fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return false, fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 	_, actionLabelOK := k8sNode.Labels[ActionLabelKey]
 	_, eventIDLabelOK := k8sNode.Labels[EventIDLabelKey]
@@ -600,7 +600,7 @@ func (n Node) UncordonIfRebooted(nodeName string) error {
 	// w/ the ec2 api if the nodeName is not local.
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 	timeVal, ok := k8sNode.Labels[ActionLabelTimeKey]
 	if !ok {
@@ -609,7 +609,7 @@ func (n Node) UncordonIfRebooted(nodeName string) error {
 	}
 	timeValNum, err := strconv.ParseInt(timeVal, 10, 64)
 	if err != nil {
-		return fmt.Errorf("Cannot convert unix time: %w", err)
+		return fmt.Errorf("cannot convert unix time: %w", err)
 	}
 	secondsSinceLabel := time.Now().Unix() - timeValNum
 	switch actionVal := k8sNode.Labels[ActionLabelKey]; actionVal {
@@ -624,7 +624,7 @@ func (n Node) UncordonIfRebooted(nodeName string) error {
 		}
 		err = n.Uncordon(nodeName)
 		if err != nil {
-			return fmt.Errorf("Unable to uncordon node: %w", err)
+			return fmt.Errorf("unable to uncordon node: %w", err)
 		}
 		err = n.RemoveNTHLabels(nodeName)
 		if err != nil {
@@ -763,8 +763,8 @@ func getDrainHelper(nthConfig config.Config, clientset *kubernetes.Clientset) (*
 }
 
 func jsonPatchEscape(value string) string {
-	value = strings.Replace(value, "~", "~0", -1)
-	return strings.Replace(value, "/", "~1", -1)
+	value = strings.ReplaceAll(value, "~", "~0")
+	return strings.ReplaceAll(value, "/", "~1")
 }
 
 func getTaintEffect(effect string) corev1.TaintEffect {

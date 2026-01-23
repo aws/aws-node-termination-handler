@@ -102,6 +102,6 @@ func SetFormatVersion(version int) error {
 		return nil
 	default:
 		VersionedMsgs = versionedMsgsV1{}
-		return fmt.Errorf("Unrecognized log format version: %d, using version 1", version)
+		return fmt.Errorf("unrecognized log format version: %d, using version 1", version)
 	}
 }

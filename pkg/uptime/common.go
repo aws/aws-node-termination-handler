@@ -28,12 +28,12 @@ type UptimeFuncType func() (int64, error)
 func UptimeFromFile(filepath string) (int64, error) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
-		return 0, fmt.Errorf("Not able to read %s: %w", filepath, err)
+		return 0, fmt.Errorf("not able to read %s: %w", filepath, err)
 	}
 
 	uptime, err := strconv.ParseFloat(strings.Split(string(data), " ")[0], 64)
 	if err != nil {
-		return 0, fmt.Errorf("Not able to parse %s to int64: %w", filepath, err)
+		return 0, fmt.Errorf("not able to parse %s to int64: %w", filepath, err)
 	}
 	return int64(uptime), nil
 }

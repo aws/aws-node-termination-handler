@@ -78,7 +78,7 @@ func (m ScheduledEventMonitor) Kind() string {
 func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.InterruptionEvent, error) {
 	scheduledEvents, err := m.IMDS.GetScheduledMaintenanceEvents()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse metadata response: %w", err)
+		return nil, fmt.Errorf("unable to parse metadata response: %w", err)
 	}
 
 	events := make([]monitor.InterruptionEvent, 0)
@@ -89,14 +89,14 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.Interruption
 		}
 		notBefore, err := time.Parse(scheduledEventDateFormat, scheduledEvent.NotBefore)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse scheduled event start time: %w", err)
+			return nil, fmt.Errorf("unable to parse scheduled event start time: %w", err)
 		}
 		notAfter := notBefore
 		if len(scheduledEvent.NotAfter) > 0 {
 			notAfter, err = time.Parse(scheduledEventDateFormat, scheduledEvent.NotAfter)
 			if err != nil {
 				notAfter = notBefore
-				log.Err(err).Msg("Unable to parse scheduled event end time, continuing")
+				log.Err(err).Msg("unable to parse scheduled event end time, continuing")
 			}
 		}
 		events = append(events, monitor.InterruptionEvent{
@@ -118,12 +118,12 @@ func uncordonAfterRebootPreDrain(interruptionEvent monitor.InterruptionEvent, n 
 	nodeName := interruptionEvent.NodeName
 	err := n.MarkWithEventID(nodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to mark node with event ID: %w", err)
+		return fmt.Errorf("unable to mark node with event ID: %w", err)
 	}
 
 	err = n.TaintScheduledMaintenance(nodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.ScheduledMaintenanceTaint, interruptionEvent.EventID, err)
+		return fmt.Errorf("unable to taint node with taint %s:%s: %w", node.ScheduledMaintenanceTaint, interruptionEvent.EventID, err)
 	}
 
 	// if the node is already marked as unschedulable, then don't do anything
@@ -132,11 +132,11 @@ func uncordonAfterRebootPreDrain(interruptionEvent monitor.InterruptionEvent, n 
 		log.Debug().Msg("Node is already marked unschedulable, not taking any action to add uncordon label.")
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("Encountered an error while checking if the node is unschedulable. Not setting an uncordon label: %w", err)
+		return fmt.Errorf("encountered an error while checking if the node is unschedulable. not setting an uncordon label: %w", err)
 	}
 	err = n.MarkForUncordonAfterReboot(nodeName)
 	if err != nil {
-		return fmt.Errorf("Unable to mark the node for uncordon: %w", err)
+		return fmt.Errorf("unable to mark the node for uncordon: %w", err)
 	}
 	log.Info().Msg("Successfully applied uncordon after reboot action label to node.")
 	return nil

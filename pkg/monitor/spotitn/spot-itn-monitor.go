@@ -69,19 +69,19 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.Inte
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("There was a problem checking for spot ITNs: %w", err)
+		return nil, fmt.Errorf("there was a problem checking for spot ITNs: %w", err)
 	}
 	nodeName := m.NodeName
 	interruptionTime, err := time.Parse(time.RFC3339, instanceAction.Time)
 	if err != nil {
-		return nil, fmt.Errorf("Could not parse time from spot interruption notice metadata json: %w", err)
+		return nil, fmt.Errorf("could not parse time from spot interruption notice metadata json: %w", err)
 	}
 
 	// There's no EventID returned so we'll create it using a hash to prevent duplicates.
 	hash := sha256.New()
-	_, err = hash.Write([]byte(fmt.Sprintf("%v", instanceAction)))
+	_, err = fmt.Fprintf(hash, "%v", instanceAction)
 	if err != nil {
-		return nil, fmt.Errorf("There was a problem creating an event ID from the event: %w", err)
+		return nil, fmt.Errorf("there was a problem creating an event ID from the event: %w", err)
 	}
 
 	return &monitor.InterruptionEvent{
@@ -98,7 +98,7 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.Inte
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {
-		return fmt.Errorf("Unable to taint node with taint %s:%s: %w", node.SpotInterruptionTaint, interruptionEvent.EventID, err)
+		return fmt.Errorf("unable to taint node with taint %s:%s: %w", node.SpotInterruptionTaint, interruptionEvent.EventID, err)
 	}
 
 	return nil
