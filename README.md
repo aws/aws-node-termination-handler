@@ -169,6 +169,7 @@ helm upgrade --install aws-node-termination-handler \
 |                                      NTH Release                                      | K8s v1.32 | K8s v1.31 | K8s v1.30 | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 |
 | :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
 |  [v1.25.4](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.4)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.3](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.3)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
 |  [v1.25.2](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.2)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
 |  [v1.25.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.1)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
 |  [v1.25.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
