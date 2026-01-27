@@ -541,3 +541,222 @@ func TestTaintOutOfService(t *testing.T) {
 	}
 	h.Equals(t, true, taintFound)
 }
+
+func TestSetDrainingConditionSuccess(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	err = tNode.SetDrainingCondition(nodeName, "SpotInterruption", "Node is being drained due to spot interruption")
+	h.Ok(t, err)
+
+	updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+
+	conditionFound := false
+	for _, condition := range updatedNode.Status.Conditions {
+		if condition.Type == node.TerminationHandlerDrainingConditionType {
+			h.Equals(t, corev1.ConditionTrue, condition.Status)
+			h.Equals(t, "SpotInterruption", condition.Reason)
+			h.Equals(t, "Node is being drained due to spot interruption", condition.Message)
+			conditionFound = true
+			break
+		}
+	}
+	h.Equals(t, true, conditionFound)
+}
+
+func TestSetDrainingConditionNodeNotFound(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	tNode, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	err = tNode.SetDrainingCondition(nodeName, "SpotInterruption", "Node is being drained")
+	h.Assert(t, err != nil, "Expected error when node not found")
+}
+
+func TestSetDrainingConditionDryRun(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{DryRun: true}, client)
+	h.Ok(t, err)
+
+	err = tNode.SetDrainingCondition(nodeName, "SpotInterruption", "Node is being drained")
+	h.Ok(t, err)
+
+	// Verify condition was NOT added in dry-run mode
+	updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+
+	conditionFound := false
+	for _, condition := range updatedNode.Status.Conditions {
+		if condition.Type == node.TerminationHandlerDrainingConditionType {
+			conditionFound = true
+			break
+		}
+	}
+	h.Equals(t, false, conditionFound)
+}
+
+func TestRemoveDrainingConditionSuccess(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			Status: v1.NodeStatus{
+				Conditions: []v1.NodeCondition{
+					{
+						Type:    node.TerminationHandlerDrainingConditionType,
+						Status:  corev1.ConditionTrue,
+						Reason:  "SpotInterruption",
+						Message: "Node is being drained",
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	err = tNode.RemoveDrainingCondition(nodeName)
+	h.Ok(t, err)
+
+	updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+
+	conditionFound := false
+	for _, condition := range updatedNode.Status.Conditions {
+		if condition.Type == node.TerminationHandlerDrainingConditionType {
+			conditionFound = true
+			break
+		}
+	}
+	h.Equals(t, false, conditionFound)
+}
+
+func TestRemoveDrainingConditionNotPresent(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	// Should not error when condition is not present
+	err = tNode.RemoveDrainingCondition(nodeName)
+	h.Ok(t, err)
+}
+
+func TestRemoveDrainingConditionNodeNotFound(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	tNode, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	err = tNode.RemoveDrainingCondition(nodeName)
+	h.Assert(t, err != nil, "Expected error when node not found")
+}
+
+func TestRemoveDrainingConditionDryRun(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			Status: v1.NodeStatus{
+				Conditions: []v1.NodeCondition{
+					{
+						Type:    node.TerminationHandlerDrainingConditionType,
+						Status:  corev1.ConditionTrue,
+						Reason:  "SpotInterruption",
+						Message: "Node is being drained",
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{DryRun: true}, client)
+	h.Ok(t, err)
+
+	err = tNode.RemoveDrainingCondition(nodeName)
+	h.Ok(t, err)
+
+	// Verify condition was NOT removed in dry-run mode
+	updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+
+	conditionFound := false
+	for _, condition := range updatedNode.Status.Conditions {
+		if condition.Type == node.TerminationHandlerDrainingConditionType {
+			conditionFound = true
+			break
+		}
+	}
+	h.Equals(t, true, conditionFound)
+}
+
+func TestSetDrainingConditionUpdateExisting(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(
+		context.Background(),
+		&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			Status: v1.NodeStatus{
+				Conditions: []v1.NodeCondition{
+					{
+						Type:    node.TerminationHandlerDrainingConditionType,
+						Status:  corev1.ConditionTrue,
+						Reason:  "OldReason",
+						Message: "Old message",
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+
+	tNode, err := newNode(config.Config{}, client)
+	h.Ok(t, err)
+
+	err = tNode.SetDrainingCondition(nodeName, "NewReason", "New message")
+	h.Ok(t, err)
+
+	updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+
+	conditionFound := false
+	for _, condition := range updatedNode.Status.Conditions {
+		if condition.Type == node.TerminationHandlerDrainingConditionType {
+			h.Equals(t, corev1.ConditionTrue, condition.Status)
+			h.Equals(t, "NewReason", condition.Reason)
+			h.Equals(t, "New message", condition.Message)
+			conditionFound = true
+			break
+		}
+	}
+	h.Equals(t, true, conditionFound)
+}

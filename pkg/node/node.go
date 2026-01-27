@@ -52,6 +52,11 @@ const (
 )
 
 const (
+	// TerminationHandlerDrainingConditionType is a node condition type indicating the node is being drained
+	TerminationHandlerDrainingConditionType = "TerminationHandlerDraining"
+)
+
+const (
 	// SpotInterruptionTaint is a taint used to make spot instance unschedulable
 	SpotInterruptionTaint = "aws-node-termination-handler/spot-itn"
 	// ScheduledMaintenanceTaint is a taint used to make spot instance unschedulable
@@ -581,6 +586,154 @@ func (n Node) RemoveNTHTaints(nodeName string) error {
 	}
 
 	return nil
+}
+
+// SetDrainingCondition adds a condition to the node indicating it is being drained by NTH
+func (n Node) SetDrainingCondition(nodeName string, reason string, message string) error {
+	if n.nthConfig.DryRun {
+		log.Info().Str("node_name", nodeName).Str("reason", reason).Msg("Would have set draining condition on node, but dry-run flag was set")
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	return n.setNodeCondition(k8sNode, TerminationHandlerDrainingConditionType, corev1.ConditionTrue, reason, message)
+}
+
+// RemoveDrainingCondition removes the draining condition from the node
+func (n Node) RemoveDrainingCondition(nodeName string) error {
+	if n.nthConfig.DryRun {
+		log.Info().Str("node_name", nodeName).Msg("Would have removed draining condition from node, but dry-run flag was set")
+		return nil
+	}
+
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return fmt.Errorf("Unable to fetch kubernetes node from API: %w", err)
+	}
+
+	return n.removeNodeCondition(k8sNode, TerminationHandlerDrainingConditionType)
+}
+
+// setNodeCondition adds or updates a condition on the node
+func (n Node) setNodeCondition(node *corev1.Node, conditionType corev1.NodeConditionType, status corev1.ConditionStatus, reason string, message string) error {
+	retryDeadline := time.Now().Add(maxRetryDeadline)
+	freshNode := node.DeepCopy()
+	client := n.drainHelper.Client
+	var err error
+	refresh := false
+
+	for {
+		if refresh {
+			freshNode, err = client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
+			if err != nil || freshNode == nil {
+				return fmt.Errorf("failed to get node %v: %w", node.Name, err)
+			}
+		}
+
+		now := metav1.Now()
+		newCondition := corev1.NodeCondition{
+			Type:               conditionType,
+			Status:             status,
+			Reason:             reason,
+			Message:            message,
+			LastTransitionTime: now,
+			LastHeartbeatTime:  now,
+		}
+
+		conditionExists := false
+		for i, condition := range freshNode.Status.Conditions {
+			if condition.Type == conditionType {
+				freshNode.Status.Conditions[i] = newCondition
+				conditionExists = true
+				break
+			}
+		}
+		if !conditionExists {
+			freshNode.Status.Conditions = append(freshNode.Status.Conditions, newCondition)
+		}
+
+		_, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), freshNode, metav1.UpdateOptions{})
+		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
+			refresh = true
+			time.Sleep(conflictRetryInterval)
+			continue
+		}
+
+		if err != nil {
+			log.Err(err).
+				Str("condition_type", string(conditionType)).
+				Str("node_name", node.Name).
+				Msg("Error while setting condition on node")
+			return err
+		}
+		log.Info().
+			Str("condition_type", string(conditionType)).
+			Str("reason", reason).
+			Str("node_name", node.Name).
+			Msg("Successfully set condition on node")
+		return nil
+	}
+}
+
+// removeNodeCondition removes a condition from the node
+func (n Node) removeNodeCondition(node *corev1.Node, conditionType corev1.NodeConditionType) error {
+	retryDeadline := time.Now().Add(maxRetryDeadline)
+	freshNode := node.DeepCopy()
+	client := n.drainHelper.Client
+	var err error
+	refresh := false
+
+	for {
+		if refresh {
+			freshNode, err = client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
+			if err != nil || freshNode == nil {
+				return fmt.Errorf("failed to get node %v: %w", node.Name, err)
+			}
+		}
+
+		newConditions := make([]corev1.NodeCondition, 0)
+		found := false
+		for _, condition := range freshNode.Status.Conditions {
+			if condition.Type == conditionType {
+				found = true
+				continue
+			}
+			newConditions = append(newConditions, condition)
+		}
+
+		if !found {
+			if !refresh {
+				refresh = true
+				continue
+			}
+			return nil
+		}
+
+		freshNode.Status.Conditions = newConditions
+		_, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), freshNode, metav1.UpdateOptions{})
+		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
+			refresh = true
+			time.Sleep(conflictRetryInterval)
+			continue
+		}
+
+		if err != nil {
+			log.Err(err).
+				Str("condition_type", string(conditionType)).
+				Str("node_name", node.Name).
+				Msg("Error while removing condition from node")
+			return err
+		}
+		log.Info().
+			Str("condition_type", string(conditionType)).
+			Str("node_name", node.Name).
+			Msg("Successfully removed condition from node")
+		return nil
+	}
 }
 
 // IsLabeledWithAction will return true if the current node is labeled with NTH action labels

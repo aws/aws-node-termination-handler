@@ -73,6 +73,23 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 		Description:          fmt.Sprintf("Spot Interruption notice for instance %s was sent at %s \n", spotInterruptionDetail.InstanceID, event.getTime()),
 	}
 	interruptionEvent.PostDrainTask = func(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
+		// Use provider ID to resolve the actual Kubernetes node name if UseProviderId is configured
+		nthConfig := n.GetNthConfig()
+		nodeName := interruptionEvent.NodeName
+		if nthConfig.UseProviderId && interruptionEvent.ProviderID != "" {
+			resolvedNodeName, err := n.GetNodeNameFromProviderID(interruptionEvent.ProviderID)
+			if err != nil {
+				log.Warn().Err(err).Str("provider_id", interruptionEvent.ProviderID).Msg("Failed to resolve node name from provider ID, falling back to NodeName from event")
+			} else {
+				nodeName = resolvedNodeName
+			}
+		}
+
+		// Remove the draining condition from the node
+		if err := n.RemoveDrainingCondition(nodeName); err != nil {
+			log.Err(err).Str("node_name", nodeName).Msg("Unable to remove draining condition from node")
+		}
+
 		errs := m.deleteMessages([]*sqs.Message{message})
 		if errs != nil {
 			return errs[0]
@@ -90,6 +107,11 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 			} else {
 				nodeName = resolvedNodeName
 			}
+		}
+
+		// Set the draining condition on the node
+		if err := n.SetDrainingCondition(nodeName, "SpotInterruption", interruptionEvent.Description); err != nil {
+			log.Err(err).Str("node_name", nodeName).Msg("Unable to set draining condition on node")
 		}
 
 		err := n.TaintSpotItn(nodeName, interruptionEvent.EventID)
