@@ -48,7 +48,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
 
@@ -110,9 +110,9 @@ func main() {
 		log.Fatal().Err(err).Msg("Webhook validation failed,")
 	}
 
-	clusterConfig, err := rest.InClusterConfig()
+	clusterConfig, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 	if err != nil {
-		log.Fatal().Err(err).Msgf("retreiving cluster config")
+		log.Fatal().Err(err).Msg("retrieving cluster config")
 	}
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
