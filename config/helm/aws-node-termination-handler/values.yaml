@@ -44,6 +44,9 @@ securityContext:
 
 terminationGracePeriodSeconds:
 
+# Container restart policy when CPU or memory resources are resized in-place
+resizePolicy: []
+
 resources: {}
 
 nodeSelector: {}
