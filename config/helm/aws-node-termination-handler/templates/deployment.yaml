@@ -190,6 +190,10 @@ spec:
           {{- end }}
           livenessProbe:
             {{- toYaml .Values.probes | nindent 12 }}
+          {{- with .Values.resizePolicy }}
+          resizePolicy:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
