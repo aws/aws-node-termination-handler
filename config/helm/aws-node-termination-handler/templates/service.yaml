@@ -1,15 +1,30 @@
-{{- if and .Values.enableSqsTerminationDraining .Values.enablePrometheusServer -}}
+{{- if and .Values.enablePrometheusServer (or .Values.enableSqsTerminationDraining .Values.service.create) -}}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "aws-node-termination-handler.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
+    {{- if .Values.enableSqsTerminationDraining }}
     {{- include "aws-node-termination-handler.labelsDeployment" . | nindent 4 }}
+    {{- else }}
+    {{- include "aws-node-termination-handler.labelsDaemonset" . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: ClusterIP
+  {{- if not .Values.enableSqsTerminationDraining }}
+  clusterIP: None
+  {{- end }}
   selector:
+    {{- if .Values.enableSqsTerminationDraining }}
     {{- include "aws-node-termination-handler.selectorLabelsDeployment" . | nindent 4 }}
+    {{- else }}
+    {{- include "aws-node-termination-handler.selectorLabelsDaemonset" . | nindent 4 }}
+    {{- end }}
   ports:
     - name: http-metrics
       port: {{ .Values.prometheusServerPort }}
