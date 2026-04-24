@@ -155,6 +155,20 @@ strategy: {}
 podDisruptionBudget: {}
 #  maxUnavailable: 1
 
+service:
+  # Controls Service creation for the metrics server.
+  # - In SQS mode (enableSqsTerminationDraining=true): a Service is auto-created
+  #   when enablePrometheusServer=true (legacy behavior, unchanged by this value).
+  # - In IMDS mode (enableSqsTerminationDraining=false): opt in by setting
+  #   service.create=true. Creates a headless Service (clusterIP: None) pointing
+  #   at DaemonSet pods, for Prometheus scrape discovery via Kubernetes endpoint
+  #   slices.
+  # When enablePrometheusServer=false, no Service is created regardless.
+  create: false
+  # Annotations to add to the Service metadata. Useful for attaching
+  # prometheus.io/* annotations for endpoint-based scrape discovery.
+  annotations: {}
+
 serviceMonitor:
   # Specifies whether ServiceMonitor should be created
   # this needs enableSqsTerminationDraining: true
