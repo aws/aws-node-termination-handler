@@ -166,22 +166,22 @@ helm upgrade --install aws-node-termination-handler \
 
 ### Kubernetes Compatibility
 
-|                                      NTH Release                                      | K8s v1.32 | K8s v1.31 | K8s v1.30 | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 |
-| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
-|  [v1.25.6](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.6)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.25.5](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.5)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.25.4](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.4)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.25.3](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.3)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.25.2](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.2)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.25.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.1)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.25.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.0)  |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.24.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.24.0)  |     ❌    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.23.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.1)  |     ❌    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
-|  [v1.23.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.0)  |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.22.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.1)  |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.22.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.0)  |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
-|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |
+|                                      NTH Release                                      | K8s v1.35 | K8s v1.34 | K8s v1.33 | K8s v1.32 | K8s v1.31 | K8s v1.30 | K8s v1.29 | K8s v1.28 | K8s v1.27 | K8s v1.26 | K8s v1.25 |
+| :-----------------------------------------------------------------------------------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: | :-------: |
+|  [v1.25.6](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.6)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.5](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.5)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.4](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.4)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.3](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.3)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.2](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.2)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.1)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.25.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.25.0)  |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.24.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.24.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.23.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.1)  |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ❌    |     ❌    |     ❌    |     ❌    |
+|  [v1.23.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.23.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.22.1](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.1)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.22.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.22.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.21.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.21.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |
+|  [v1.20.0](https://github.com/aws/aws-node-termination-handler/releases/tag/v1.20.0)  |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ❌    |     ✅    |     ✅    |     ✅    |     ✅    |
 
 A ✅ indicates that a specific aws-node-termination-handler release has been tested with a specific Kubernetes version. A ❌ indicates that a specific aws-node-termination-handler release has not been tested with a specific Kubernetes version.
 
