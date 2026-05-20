@@ -77,8 +77,8 @@ const (
 )
 
 var (
-	maxRetryDeadline      time.Duration = 5 * time.Second
-	conflictRetryInterval time.Duration = 750 * time.Millisecond
+	maxRetryDeadline      time.Duration = 15 * time.Second
+	conflictRetryInterval time.Duration = 500 * time.Millisecond
 	instanceIDRegex                     = regexp.MustCompile(`^i-.*`)
 )
 
@@ -789,35 +789,31 @@ func addTaint(node *corev1.Node, nth Node, taintKey string, taintValue string, e
 	}
 
 	retryDeadline := time.Now().Add(maxRetryDeadline)
-	freshNode := node.DeepCopy()
 	client := nth.drainHelper.Client
-	var err error
-	refresh := false
+
 	for {
-		if refresh {
-			// Get the newest version of the node.
-			freshNode, err = client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
-			if err != nil || freshNode == nil {
-				nodeErr := fmt.Errorf("failed to get node %v: %w", node.Name, err)
-				log.Err(nodeErr).
-					Str("taint_key", taintKey).
-					Str("node_name", node.Name).
-					Msg("Error while adding taint on node")
-				return nodeErr
-			}
+		freshNode, err := client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
+		if err != nil || freshNode == nil {
+			nodeErr := fmt.Errorf("failed to get node %v: %w", node.Name, err)
+			log.Err(nodeErr).
+				Str("taint_key", taintKey).
+				Str("node_name", node.Name).
+				Msg("Error while adding taint on node")
+			return nodeErr
 		}
 
 		if !addTaintToSpec(freshNode, taintKey, taintValue, effect) {
-			if !refresh {
-				// Make sure we have the latest version before skipping update.
-				refresh = true
-				continue
-			}
 			return nil
 		}
-		_, err = client.CoreV1().Nodes().Update(context.TODO(), freshNode, metav1.UpdateOptions{})
+
+		taintsJSON, err := json.Marshal(freshNode.Spec.Taints)
+		if err != nil {
+			return fmt.Errorf("failed to marshal taints for node %s: %w", node.Name, err)
+		}
+		patchData := []byte(fmt.Sprintf(`{"spec":{"taints":%s}}`, taintsJSON))
+
+		_, err = client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 		if err != nil && errors.IsConflict(err) && time.Now().Before(retryDeadline) {
-			refresh = true
 			time.Sleep(conflictRetryInterval)
 			continue
 		}
