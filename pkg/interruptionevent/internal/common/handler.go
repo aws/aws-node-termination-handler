@@ -44,7 +44,7 @@ func (h *Handler) GetNodeName(drainEvent *monitor.InterruptionEvent) (string, er
 	return nodeName, nil
 }
 
-func (h *Handler) RunPreDrainTask(nodeName string, drainEvent *monitor.InterruptionEvent) {
+func (h *Handler) RunPreDrainTask(nodeName string, drainEvent *monitor.InterruptionEvent) error {
 	err := drainEvent.PreDrainTask(*drainEvent, h.Node)
 	if err != nil {
 		log.Err(err).Msg("There was a problem executing the pre-drain task")
@@ -53,6 +53,7 @@ func (h *Handler) RunPreDrainTask(nodeName string, drainEvent *monitor.Interrupt
 		h.Recorder.Emit(nodeName, observability.Normal, observability.PreDrainReason, observability.PreDrainMsg)
 	}
 	h.Metrics.NodeActionsInc("pre-drain", nodeName, drainEvent.EventID, err)
+	return err
 }
 
 func (h *Handler) RunCancelDrainTask(nodeName string, drainEvent *monitor.InterruptionEvent) {
