@@ -96,7 +96,7 @@ func (m SQSMonitor) spotITNTerminationToInterruptionEvent(event *EventBridgeEven
 		if err != nil {
 			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.SpotInterruptionTaint, interruptionEvent.EventID)
 		}
-		return nil
+		return err
 	}
 	return &interruptionEvent, nil
 }
