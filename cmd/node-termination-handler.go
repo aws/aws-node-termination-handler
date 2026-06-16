@@ -114,6 +114,8 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("retreiving cluster config")
 	}
+	clusterConfig.QPS = float32(nthConfig.KubeApiQps)
+	clusterConfig.Burst = nthConfig.KubeApiBurst
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("creating new clientset with config: %v", err)
