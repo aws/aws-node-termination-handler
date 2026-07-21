@@ -40,6 +40,10 @@ const (
 	podTerminationGracePeriodDefault        = -1
 	nodeTerminationGracePeriodConfigKey     = "NODE_TERMINATION_GRACE_PERIOD"
 	nodeTerminationGracePeriodDefault       = 120
+	kubeApiQpsConfigKey                     = "KUBE_API_QPS"
+	kubeApiQpsDefault                       = 5
+	kubeApiBurstConfigKey                   = "KUBE_API_BURST"
+	kubeApiBurstDefault                     = 10
 	webhookURLConfigKey                     = "WEBHOOK_URL"
 	webhookURLDefault                       = ""
 	webhookProxyConfigKey                   = "WEBHOOK_PROXY"
@@ -135,6 +139,8 @@ type Config struct {
 	KubernetesServicePort               string
 	PodTerminationGracePeriod           int
 	NodeTerminationGracePeriod          int
+	KubeApiQps                          int
+	KubeApiBurst                        int
 	WebhookURL                          string
 	WebhookHeaders                      string
 	WebhookTemplate                     string
@@ -203,6 +209,8 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&gracePeriod, "grace-period", getIntEnv(gracePeriodConfigKey, podTerminationGracePeriodDefault), "[DEPRECATED] * Use pod-termination-grace-period instead * Period of time in seconds given to each pod to terminate gracefully. If negative, the default value specified in the pod will be used.")
 	flag.IntVar(&config.PodTerminationGracePeriod, "pod-termination-grace-period", getIntEnv(podTerminationGracePeriodConfigKey, podTerminationGracePeriodDefault), "Period of time in seconds given to each POD to terminate gracefully. If negative, the default value specified in the pod will be used.")
 	flag.IntVar(&config.NodeTerminationGracePeriod, "node-termination-grace-period", getIntEnv(nodeTerminationGracePeriodConfigKey, nodeTerminationGracePeriodDefault), "Period of time in seconds given to each NODE to terminate gracefully. Node draining will be scheduled based on this value to optimize the amount of compute time, but still safely drain the node before an event.")
+	flag.IntVar(&config.KubeApiQps, "kube-api-qps", getIntEnv(kubeApiQpsConfigKey, kubeApiQpsDefault), "QPS rate limit for the Kubernetes API client shared by all workers. Increase when running with high WORKERS count to avoid client-side throttling during correlated spot interruptions.")
+	flag.IntVar(&config.KubeApiBurst, "kube-api-burst", getIntEnv(kubeApiBurstConfigKey, kubeApiBurstDefault), "Burst rate limit for the Kubernetes API client. Should be >= kube-api-qps.")
 	flag.StringVar(&config.WebhookURL, "webhook-url", getEnv(webhookURLConfigKey, webhookURLDefault), "If specified, posts event data to URL upon instance interruption action.")
 	flag.StringVar(&config.WebhookProxy, "webhook-proxy", getEnv(webhookProxyConfigKey, webhookProxyDefault), "If specified, uses the HTTP(S) proxy to send webhooks. Example: --webhook-url='tcp://<ip-or-dns-to-proxy>:<port>'")
 	flag.StringVar(&config.WebhookHeaders, "webhook-headers", getEnv(webhookHeadersConfigKey, webhookHeadersDefault), "If specified, replaces the default webhook headers.")
@@ -351,6 +359,8 @@ func (c Config) PrintJsonConfigArgs() {
 		Bool("ignore_daemon_sets", c.IgnoreDaemonSets).
 		Int("pod_termination_grace_period", c.PodTerminationGracePeriod).
 		Int("node_termination_grace_period", c.NodeTerminationGracePeriod).
+		Int("kube_api_qps", c.KubeApiQps).
+		Int("kube_api_burst", c.KubeApiBurst).
 		Bool("enable_scheduled_event_draining", c.EnableScheduledEventDraining).
 		Bool("enable_spot_interruption_draining", c.EnableSpotInterruptionDraining).
 		Bool("enable_sqs_termination_draining", c.EnableSQSTerminationDraining).
