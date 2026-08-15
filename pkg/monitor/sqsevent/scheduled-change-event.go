@@ -127,6 +127,7 @@ func (m SQSMonitor) scheduledEventToInterruptionEvents(event *EventBridgeEvent, 
 
 			if err := n.TaintScheduledMaintenance(nodeName, interruptionEvent.EventID); err != nil {
 				log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.ScheduledMaintenanceTaint, interruptionEvent.EventID)
+				return err
 			}
 			return nil
 		}
