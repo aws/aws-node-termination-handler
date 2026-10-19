@@ -304,7 +304,7 @@ func (m SQSMonitor) receiveQueueMessages(qURL string) ([]*sqs.Message, error) {
 	}
 
 	result, err := m.SQS.ReceiveMessage(&sqs.ReceiveMessageInput{
-		AttributeNames: []*string{
+		MessageSystemAttributeNames: []*string{
 			aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
 		},
 		MessageAttributeNames: []*string{
