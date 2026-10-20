@@ -112,7 +112,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		close(stopHeartbeatCh)
 		return m.deleteMessage(message)
 	}
-	
+
 	interruptionEvent.CancelDrainTask = func(_ monitor.InterruptionEvent, _ node.Node) error {
 		close(cancelHeartbeatCh)
 		return nil
@@ -140,6 +140,7 @@ func (m SQSMonitor) asgTerminationToInterruptionEvent(event *EventBridgeEvent, m
 		err := n.TaintASGLifecycleTermination(nodeName, interruptionEvent.EventID)
 		if err != nil {
 			log.Err(err).Msgf("unable to taint node with taint %s:%s", node.ASGLifecycleTerminationTaint, interruptionEvent.EventID)
+			return err
 		}
 		return nil
 	}

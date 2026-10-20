@@ -93,6 +93,7 @@ func (m SQSMonitor) rebalanceRecommendationToInterruptionEvent(event *EventBridg
 		err := n.TaintRebalanceRecommendation(nodeName, interruptionEvent.EventID)
 		if err != nil {
 			log.Err(err).Msgf("Unable to taint node with taint %s:%s", node.RebalanceRecommendationTaint, interruptionEvent.EventID)
+			return err
 		}
 		return nil
 	}
