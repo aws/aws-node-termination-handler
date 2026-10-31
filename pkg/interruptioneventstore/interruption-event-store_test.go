@@ -72,7 +72,8 @@ func TestCancelInterruptionEvent(t *testing.T) {
 	}
 	store.AddInterruptionEvent(event)
 
-	store.CancelInterruptionEvent(event.EventID)
+	h.Equals(t, true, store.CancelInterruptionEvent(event.EventID))
+	h.Equals(t, false, store.CancelInterruptionEvent(event.EventID))
 
 	storedEvent, isActive := store.GetActiveEvent()
 	h.Equals(t, false, isActive)

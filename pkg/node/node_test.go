@@ -541,3 +541,33 @@ func TestTaintOutOfService(t *testing.T) {
 	}
 	h.Equals(t, true, taintFound)
 }
+
+func TestRemoveNTHLabelsRemovesOnlyItsOwnLoadBalancerExclusionLabel(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		value   string
+		removed bool
+	}{
+		{name: "set by NTH", value: node.ExcludeFromLoadBalancersLabelValue, removed: true},
+		{name: "set by someone else", value: "other", removed: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			_, err := client.CoreV1().Nodes().Create(context.Background(),
+				&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName, Labels: map[string]string{
+					node.EventIDLabelKey:                  "id",
+					node.ActionLabelKey:                   "action",
+					node.ActionLabelTimeKey:               "1",
+					node.ExcludeFromLoadBalancersLabelKey: tc.value,
+				}}},
+				metav1.CreateOptions{})
+			h.Ok(t, err)
+			tNode := getNode(t, getDrainHelper(client))
+			h.Ok(t, tNode.RemoveNTHLabels(nodeName))
+			n, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			h.Ok(t, err)
+			_, present := n.Labels[node.ExcludeFromLoadBalancersLabelKey]
+			h.Equals(t, !tc.removed, present)
+		})
+	}
+}

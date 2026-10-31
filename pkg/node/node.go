@@ -232,6 +232,15 @@ func (n Node) MarkWithEventID(nodeName string, eventID string) error {
 	return nil
 }
 
+// HasEventID reports whether the node is labeled with the given drain event ID
+func (n Node) HasEventID(nodeName string, eventID string) (bool, error) {
+	node, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return false, fmt.Errorf("could not get event ID label from node: %w", err)
+	}
+	return node.Labels[EventIDLabelKey] == eventID, nil
+}
+
 // MaybeMarkForExclusionFromLoadBalancers will activate the ServiceNodeExclusion feature flag to indicate that the node should be removed from load balancers
 func (n Node) MaybeMarkForExclusionFromLoadBalancers(nodeName string) error {
 	if !n.nthConfig.ExcludeFromLoadBalancers {
@@ -395,7 +404,7 @@ func (n Node) removeLabelIfValueMatches(nodeName string, key string, matchValue 
 		return err
 	}
 	val, ok := node.Labels[key]
-	if !ok || val == matchValue {
+	if !ok || val != matchValue {
 		return nil
 	}
 	if n.nthConfig.DryRun {
