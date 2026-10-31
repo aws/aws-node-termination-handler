@@ -1,4 +1,5 @@
 {{- if .Values.enableSqsTerminationDraining }}
+{{- include "aws-node-termination-handler.validateClusterTagIsolation" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -176,6 +177,18 @@ spec:
               value: {{ .Values.heartbeatUntil | quote }}
             - name: SQS_MSG_VISIBILITY_TIMEOUT_SEC
               value: {{ .Values.sqsMsgVisibilityTimeoutSec | quote }}
+            {{- with .Values.clusterName }}
+            - name: CLUSTER_NAME
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.clusterTagKey }}
+            - name: CLUSTER_TAG_KEY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if and .Values.clusterTagIsolation (ne .Values.clusterTagIsolation "disable") }}
+            - name: CLUSTER_TAG_ISOLATION
+              value: {{ .Values.clusterTagIsolation | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

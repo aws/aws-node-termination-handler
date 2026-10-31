@@ -88,7 +88,11 @@ func InitMetrics(enabled bool, port int) (Metrics, error) {
 
 func (m Metrics) InitNodeMetrics(nthConfig config.Config, node *node.Node, ec2 ec2iface.EC2API) {
 	m.nthConfig = nthConfig
-	m.ec2Helper = ec2helper.New(ec2)
+	if nthConfig.ClusterTagIsolation == config.ClusterTagIsolationEnforce {
+		m.ec2Helper = ec2helper.NewWithClusterTag(ec2, nthConfig.ClusterTagKey, nthConfig.ClusterName)
+	} else {
+		m.ec2Helper = ec2helper.New(ec2)
+	}
 	m.node = node
 
 	// Run a periodic task

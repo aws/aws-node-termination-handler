@@ -355,8 +355,13 @@ cat << EOF > /tmp/queue-attributes.json
 }
 EOF
 
-aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json
+aws sqs create-queue --queue-name "${SQS_QUEUE_NAME}" --attributes file:///tmp/queue-attributes.json \
+  --tags "eks:eks-cluster-name=${CLUSTER_NAME}"
 ```
+
+The `eks:eks-cluster-name` tag, set to your cluster's name, is what lets the tag-based IAM policy in [step 5](#5-create-an-iam-role-for-the-pods) allow this cluster's NTH to use the queue.
+Without it, NTH receives no events and logs `AccessDenied` on every poll.
+To tag an existing queue: `aws sqs tag-queue --queue-url "${QUEUE_URL}" --tags "eks:eks-cluster-name=${CLUSTER_NAME}"`.
 
 If you are sending Lifecycle termination events from ASG directly to SQS, instead of through EventBridge, then you will also need to create an IAM service role to give Amazon EC2 Auto Scaling access to your SQS queue. Please follow [these linked instructions to create the IAM service role: link.](https://docs.aws.amazon.com/autoscaling/ec2/userguide/configuring-lifecycle-hook-notifications.html#sqs-notifications)
 Note the ARNs for the SQS queue and the associated IAM role for Step 2.
@@ -467,34 +472,48 @@ aws events put-targets --rule MyK8sScheduledChangeRule \
 
 #### 5. Create an IAM Role for the Pods
 
-There are many different ways to allow the aws-node-termination-handler pods to assume a role:
+> [!IMPORTANT]
+> These steps are for new clusters.
+> In an existing cluster, tag the queue, the Auto Scaling groups and the running instances first; see [Existing clusters](docs/cluster_tag_isolation.md#existing-clusters).
 
-1. [Amazon EKS IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
-2. [IAM Instance Profiles for EC2](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html)
-3. [Kiam](https://github.com/uswitch/kiam)
-4. [kube2iam](https://github.com/jtblin/kube2iam)
+NTH uses a tag-based IAM policy: each cluster's NTH can use only the queue and Auto Scaling groups tagged `eks:eks-cluster-name=<cluster name>`.
+Tag the queue and the Auto Scaling groups (with `PropagateAtLaunch=true`) first.
+See [Cluster tag isolation](docs/cluster_tag_isolation.md) for the details.
 
-IAM Policy for aws-node-termination-handler Deployment:
+##### Amazon EKS: EKS Pod Identity (Recommended)
 
-```
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "autoscaling:CompleteLifecycleAction",
-                "autoscaling:DescribeAutoScalingInstances",
-                "autoscaling:DescribeTags",
-                "ec2:DescribeInstances",
-                "sqs:DeleteMessage",
-                "sqs:ReceiveMessage"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-```
+[`config/iam/cluster-tag-pod-identity-policy.json`](config/iam/cluster-tag-pod-identity-policy.json) reads the cluster name from the session tags that [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) adds, so one role can be shared by every cluster in the account.
+
+1. Install the EKS Pod Identity Agent as an EKS add-on (`aws eks create-addon --cluster-name my-cluster --addon-name eks-pod-identity-agent`).
+   NTH itself is installed with Helm or the manifests as usual.
+2. Create a role with the [EKS Pod Identity trust policy](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-role.html), and attach `config/iam/cluster-tag-pod-identity-policy.json`.
+3. Associate the role with the NTH service account:
+
+   ```
+   aws eks create-pod-identity-association --cluster-name my-cluster --namespace kube-system \
+     --service-account aws-node-termination-handler --role-arn arn:aws:iam::111122223333:role/nth-cluster-tag
+   ```
+
+4. Install NTH with `--set clusterName=my-cluster --set clusterTagKey=eks:eks-cluster-name --set clusterTagIsolation=enforce` (flags: `--cluster-name=my-cluster --cluster-tag-key=eks:eks-cluster-name --cluster-tag-isolation=enforce`).
+
+##### Other credentials: IAM roles for service accounts
+
+With [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) (IRSA), the session has no cluster tags, so the cluster name is written into the policy.
+Create one role per cluster.
+
+1. Write your cluster's name into [`config/iam/cluster-tag-policy-template.json`](config/iam/cluster-tag-policy-template.json), which has the placeholder `${CLUSTER_NAME}`:
+
+   ```
+   CLUSTER_NAME=my-cluster envsubst '${CLUSTER_NAME}' < config/iam/cluster-tag-policy-template.json > nth-policy.json
+   ```
+
+2. Create an IRSA role for the `kube-system/aws-node-termination-handler` service account, and attach `nth-policy.json`.
+3. Install NTH with the role annotation and the cluster tag settings:
+
+   ```
+   --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::111122223333:role/my-cluster-nth \
+   --set clusterName=my-cluster --set clusterTagKey=eks:eks-cluster-name --set clusterTagIsolation=enforce
+   ```
 
 #### 1. Handle ASG Instance Launch Lifecycle Notifications (optional):
 

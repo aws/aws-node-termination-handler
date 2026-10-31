@@ -18,6 +18,7 @@ serviceAccount:
   # The name of the service account to use. If namenot set and create is true, a name is generated using fullname template
   name:
   annotations: {}
+  # IRSA only:
   #   eks.amazonaws.com/role-arn: arn:aws:iam::AWS_ACCOUNT_ID:role/IAM_ROLE_NAME
 
 rbac:
@@ -195,6 +196,25 @@ managedTag: "aws-node-termination-handler/managed"
 
 # If true, fetch node name through Kubernetes node spec ProviderID instead of AWS event PrivateDnsHostname.
 useProviderId: false
+
+# Cluster tag isolation (Queue Processor mode only). See docs/cluster_tag_isolation.md.
+# The handler never writes tags: an administrator tags this cluster's SQS queue, Auto Scaling groups and instances
+# with clusterTagKey=clusterName.
+
+# The name of the Kubernetes cluster this handler runs in, for example "my-cluster".
+clusterName: ""
+
+# The tag key whose value is the cluster name on this cluster's instances, Auto Scaling groups and SQS queue.
+# The tag-based IAM policies in config/iam/ use "eks:eks-cluster-name".
+clusterTagKey: ""
+
+# Set to match the IAM policy attached to the handler:
+#   disable - default. Events are handled without checking the cluster tag.
+#   enforce - tag-based IAM policy. Requires clusterName and clusterTagKey. Ignores (and deletes from the queue)
+#             events for instances whose clusterTagKey tag is missing or is not clusterName.
+# Setting enforce while enableSqsTerminationDraining is false fails the install: IMDS mode makes no AWS calls.
+# The value is a string; the chart fails to render any other value.
+clusterTagIsolation: "disable"
 
 # ---------------------------------------------------------------------------------------------------------------------
 # IMDS Mode

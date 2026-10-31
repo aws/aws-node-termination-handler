@@ -1,0 +1,43 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConsumeOwnClusterQueue",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage"
+      ],
+      "Resource": "arn:*:sqs:*:*:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/eks:eks-cluster-name": "${CLUSTER_NAME}",
+          "aws:ResourceAccount": "${aws:PrincipalAccount}"
+        }
+      }
+    },
+    {
+      "Sid": "CompleteOwnClusterLifecycleActions",
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:CompleteLifecycleAction",
+        "autoscaling:RecordLifecycleActionHeartbeat"
+      ],
+      "Resource": "arn:*:autoscaling:*:*:autoScalingGroup:*:autoScalingGroupName/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/eks:eks-cluster-name": "${CLUSTER_NAME}"
+        }
+      }
+    },
+    {
+      "Sid": "DescribeWithoutResourceLevelPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "autoscaling:DescribeLifecycleHooks"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

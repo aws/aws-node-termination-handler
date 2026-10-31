@@ -27,6 +27,7 @@ type IEC2Helper interface {
 
 type EC2Helper struct {
 	ec2ServiceClient ec2iface.EC2API
+	extraFilters     []*ec2.Filter
 }
 
 func New(ec2 ec2iface.EC2API) EC2Helper {
@@ -35,18 +36,33 @@ func New(ec2 ec2iface.EC2API) EC2Helper {
 	}
 }
 
+// NewWithClusterTag returns an EC2Helper that only lists instances tagged tagKey=clusterName
+func NewWithClusterTag(ec2Client ec2iface.EC2API, tagKey string, clusterName string) EC2Helper {
+	return EC2Helper{
+		ec2ServiceClient: ec2Client,
+		extraFilters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:" + tagKey),
+				Values: []*string{aws.String(clusterName)},
+			},
+		},
+	}
+}
+
 func (h EC2Helper) GetInstanceIdsByTagKey(tag string) ([]string, error) {
 	ids := []string{}
 	var nextToken string
 
 	for {
-		result, err := h.ec2ServiceClient.DescribeInstances(&ec2.DescribeInstancesInput{
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("tag-key"),
-					Values: []*string{aws.String(tag)},
-				},
+		filters := []*ec2.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []*string{aws.String(tag)},
 			},
+		}
+		filters = append(filters, h.extraFilters...)
+		result, err := h.ec2ServiceClient.DescribeInstances(&ec2.DescribeInstancesInput{
+			Filters:   filters,
 			NextToken: &nextToken,
 		})
 
