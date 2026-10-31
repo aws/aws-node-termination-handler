@@ -124,6 +124,14 @@ const (
 	// sqs monitor
 	sqsMsgVisibilityTimeoutSecConfigKey = "SQS_MSG_VISIBILITY_TIMEOUT_SEC"
 	SqsMsgVisibilityTimeoutSecDefault   = 20
+	// cluster tag isolation
+	clusterNameConfigKey         = "CLUSTER_NAME"
+	clusterTagKeyConfigKey       = "CLUSTER_TAG_KEY"
+	clusterTagIsolationConfigKey = "CLUSTER_TAG_ISOLATION"
+	// ClusterTagIsolationDisable is the default cluster tag isolation state: events are handled as if no cluster tag were configured
+	ClusterTagIsolationDisable = "disable"
+	// ClusterTagIsolationEnforce ignores events for instances whose cluster tag value is not the configured cluster name
+	ClusterTagIsolationEnforce = "enforce"
 )
 
 // Config arguments set via CLI, environment variables, or defaults
@@ -184,6 +192,9 @@ type Config struct {
 	HeartbeatInterval                   int
 	HeartbeatUntil                      int
 	SqsMsgVisibilityTimeoutSec          int
+	ClusterName                         string
+	ClusterTagKey                       string
+	ClusterTagIsolation                 string
 }
 
 // ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -254,6 +265,9 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.HeartbeatInterval, "heartbeat-interval", getIntEnv(heartbeatIntervalKey, -1), "The time period in seconds between consecutive heartbeat signals. Valid range: 30-3600 seconds (30 seconds to 1 hour).")
 	flag.IntVar(&config.HeartbeatUntil, "heartbeat-until", getIntEnv(heartbeatUntilKey, -1), "The duration in seconds over which heartbeat signals are sent. Valid range: 60-172800 seconds (1 minute to 48 hours).")
 	flag.IntVar(&config.SqsMsgVisibilityTimeoutSec, "sqs-msg-visibility-timeout-sec", getIntEnv(sqsMsgVisibilityTimeoutSecConfigKey, SqsMsgVisibilityTimeoutSecDefault), "Duration in seconds that a message is hidden from other consumers after being retrieved from the SQS queue by sqs-monitor. Valid range: 1-119 seconds.")
+	flag.StringVar(&config.ClusterName, "cluster-name", getEnv(clusterNameConfigKey, ""), "The name of the Kubernetes cluster this handler runs in. Queue Processor mode only. Used with cluster-tag-key and cluster-tag-isolation.")
+	flag.StringVar(&config.ClusterTagKey, "cluster-tag-key", getEnv(clusterTagKeyConfigKey, ""), "The tag key whose value is the cluster name on the instances, Auto Scaling groups and SQS queue of this cluster. Queue Processor mode only. The handler never writes this tag; an administrator applies it.")
+	flag.StringVar(&config.ClusterTagIsolation, "cluster-tag-isolation", getEnv(clusterTagIsolationConfigKey, ClusterTagIsolationDisable), "Set to match the IAM policy attached to the handler. Queue Processor mode only. One of: disable (default; events are handled without checking the cluster tag), enforce (tag-based policy; requires cluster-name and cluster-tag-key; ignores and deletes queue events for instances whose cluster-tag-key tag is not cluster-name).")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
@@ -319,6 +333,10 @@ func ParseCliArgs() (config Config, err error) {
 		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval should be less than or equal to heartbeat-until")
 	}
 
+	if err := validateClusterTagIsolation(&config); err != nil {
+		return config, err
+	}
+
 	if config.EnableSQSTerminationDraining && (config.SqsMsgVisibilityTimeoutSec <= 0 || config.SqsMsgVisibilityTimeoutSec >= 120) {
 		return config, fmt.Errorf("invalid SqsMsgVisibilityTimeoutSec configuration: SqsMsgVisibilityTimeoutSec valid range from 1 to 119")
 	}
@@ -332,6 +350,64 @@ func ParseCliArgs() (config Config, err error) {
 	}
 
 	return config, err
+}
+
+// LogClusterTagSettings logs the cluster tag isolation settings once at startup. NTH has no backfill, so there is no
+// backfill interval.
+func (c Config) LogClusterTagSettings() {
+	log.Info().
+		Str("clusterName", c.ClusterName).
+		Str("tagKey", c.ClusterTagKey).
+		Str("clusterTagIsolation", c.ClusterTagIsolation).
+		Msg("cluster tag isolation settings")
+}
+
+// ParseClusterTagIsolation accepts exactly "", disable and enforce; an empty value means disable. The value is not
+// trimmed or lowercased. NTH has no backfill state.
+func ParseClusterTagIsolation(v string) (string, error) {
+	switch v {
+	case "":
+		return ClusterTagIsolationDisable, nil
+	case ClusterTagIsolationDisable, ClusterTagIsolationEnforce:
+		return v, nil
+	}
+	return "", fmt.Errorf(`invalid --cluster-tag-isolation %q: must be "disable" or "enforce"`, v)
+}
+
+// validateClusterTagIsolation checks the cluster-name, cluster-tag-key and cluster-tag-isolation settings
+func validateClusterTagIsolation(config *Config) error {
+	isolation, err := ParseClusterTagIsolation(config.ClusterTagIsolation)
+	if err != nil {
+		return err
+	}
+	config.ClusterTagIsolation = isolation
+
+	if !config.EnableSQSTerminationDraining {
+		if config.ClusterTagIsolation != ClusterTagIsolationDisable {
+			return fmt.Errorf("currently using IMDS mode. cluster-tag-isolation=%s is only supported for Queue Processor mode", config.ClusterTagIsolation)
+		}
+		if config.ClusterName != "" || config.ClusterTagKey != "" {
+			log.Warn().Msg("cluster-name and cluster-tag-key have no effect in IMDS mode. They are only used in Queue Processor mode")
+		}
+		return nil
+	}
+
+	hasName := strings.TrimSpace(config.ClusterName) != ""
+	hasKey := strings.TrimSpace(config.ClusterTagKey) != ""
+	if hasKey && strings.HasPrefix(config.ClusterTagKey, "aws:") {
+		return fmt.Errorf("invalid cluster-tag-key %q: the aws: prefix is reserved for tags that AWS applies", config.ClusterTagKey)
+	}
+	if config.ClusterTagIsolation == ClusterTagIsolationEnforce {
+		if !hasName {
+			return fmt.Errorf("cluster-tag-isolation=%s requires cluster-name (env %s)", config.ClusterTagIsolation, clusterNameConfigKey)
+		}
+		if !hasKey {
+			return fmt.Errorf("cluster-tag-isolation=%s requires cluster-tag-key (env %s)", config.ClusterTagIsolation, clusterTagKeyConfigKey)
+		}
+	} else if hasName != hasKey {
+		log.Warn().Msg("only one of cluster-name and cluster-tag-key is set; cluster-tag-isolation=enforce requires both")
+	}
+	return nil
 }
 
 // Print uses the JSON log setting to print either JSON formatted config value logs or human-readable config values
@@ -391,6 +467,9 @@ func (c Config) PrintJsonConfigArgs() {
 		Int("heartbeat_interval", c.HeartbeatInterval).
 		Int("heartbeat_until", c.HeartbeatUntil).
 		Int("sqs_msg_visibility_timeout_sec", c.SqsMsgVisibilityTimeoutSec).
+		Str("cluster_name", c.ClusterName).
+		Str("cluster_tag_key", c.ClusterTagKey).
+		Str("cluster_tag_isolation", c.ClusterTagIsolation).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -446,7 +525,10 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tuse-apiserver-cache: %t,\n"+
 			"\theartbeat-interval: %d,\n"+
 			"\theartbeat-until: %d\n"+
-			"\tsqs-msg-visibility-timeout-sec: %d\n",
+			"\tsqs-msg-visibility-timeout-sec: %d,\n"+
+			"\tcluster-name: %s,\n"+
+			"\tcluster-tag-key: %s,\n"+
+			"\tcluster-tag-isolation: %s\n",
 		c.DryRun,
 		c.NodeName,
 		c.PodName,
@@ -491,6 +573,9 @@ func (c Config) PrintHumanConfigArgs() {
 		c.HeartbeatInterval,
 		c.HeartbeatUntil,
 		c.SqsMsgVisibilityTimeoutSec,
+		c.ClusterName,
+		c.ClusterTagKey,
+		c.ClusterTagIsolation,
 	)
 }
 

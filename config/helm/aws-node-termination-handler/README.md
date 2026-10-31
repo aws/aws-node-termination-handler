@@ -124,6 +124,9 @@ The configuration in this table applies to AWS Node Termination Handler in queue
 | `heartbeatInterval`  | The time period in seconds between consecutive heartbeat signals. Valid range: 30-3600 seconds (30 seconds to 1 hour). | `-1`                                   |
 | `heartbeatUntil`  | The duration in seconds over which heartbeat signals are sent. Valid range: 60-172800 seconds (1 minute to 48 hours). | `-1`                                   |
 | `sqsMsgVisibilityTimeoutSec`  | Duration in seconds that a message is hidden from other consumers after being retrieved from the SQS queue by sqs-monitor. Valid range: 1-119 seconds. | `20`                                   |
+| `clusterName`                | The name of the Kubernetes cluster this handler runs in. Used with `clusterTagKey` and `clusterTagIsolation`. See [cluster tag isolation](https://github.com/aws/aws-node-termination-handler/blob/main/docs/cluster_tag_isolation.md). | `""`                                   |
+| `clusterTagKey`              | The tag key whose value is the cluster name on this cluster's instances, Auto Scaling groups and SQS queue. The handler never writes it; an administrator applies it. The tag-based IAM policy uses `eks:eks-cluster-name`. | `""`                                   |
+| `clusterTagIsolation`        | Set to match the IAM policy attached to the handler. `disable` (default): events are handled without checking the cluster tag. `enforce`: tag-based policy; requires `clusterName` and `clusterTagKey`; ignores and deletes queue events for instances whose `clusterTagKey` tag is missing or is not `clusterName`. `enforce` fails the install in IMDS mode. The value is a string. | `disable`                              |
 
 ### IMDS Mode Configuration
 

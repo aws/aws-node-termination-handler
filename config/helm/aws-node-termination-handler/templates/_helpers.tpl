@@ -122,3 +122,33 @@ The image to use
     {{- print "policy/v1beta1" -}}
   {{- end -}}
 {{- end -}}
+
+{{/*
+Validate the cluster tag isolation values
+*/}}
+{{- define "aws-node-termination-handler.validateClusterTagIsolation" -}}
+{{- $isolation := .Values.clusterTagIsolation -}}
+{{- if kindIs "invalid" $isolation -}}
+{{- $isolation = "disable" -}}
+{{- end -}}
+{{- if not (kindIs "string" $isolation) -}}
+{{- fail (printf "clusterTagIsolation must be one of \"disable\" or \"enforce\", got the %s %v" (kindOf $isolation) $isolation) -}}
+{{- end -}}
+{{- if not (has $isolation (list "" "disable" "enforce")) -}}
+{{- fail (printf "clusterTagIsolation must be \"disable\" or \"enforce\", got %q" $isolation) -}}
+{{- end -}}
+{{- if eq $isolation "enforce" -}}
+{{- if not .Values.enableSqsTerminationDraining -}}
+{{- fail "clusterTagIsolation=enforce requires enableSqsTerminationDraining=true: IMDS mode makes no AWS calls" -}}
+{{- end -}}
+{{- if not (trim (toString (.Values.clusterName | default ""))) -}}
+{{- fail "clusterTagIsolation=enforce requires clusterName" -}}
+{{- end -}}
+{{- if not (trim (toString (.Values.clusterTagKey | default ""))) -}}
+{{- fail "clusterTagIsolation=enforce requires clusterTagKey" -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.enableSqsTerminationDraining (hasPrefix "aws:" (toString (.Values.clusterTagKey | default ""))) -}}
+{{- fail (printf "clusterTagKey %q is invalid: the aws: prefix is reserved for tags that AWS applies" .Values.clusterTagKey) -}}
+{{- end -}}
+{{- end -}}

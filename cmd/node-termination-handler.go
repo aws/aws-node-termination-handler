@@ -167,6 +167,7 @@ func main() {
 	}
 
 	nthConfig.Print()
+	nthConfig.LogClusterTagSettings()
 
 	if !imdsDisabled && nthConfig.EnableScheduledEventDraining {
 		//will retry 4 times with an interval of 2 seconds.
@@ -239,6 +240,9 @@ func main() {
 			EC2:                           ec2Client,
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
 			SqsMsgVisibilityTimeoutSec:    nthConfig.SqsMsgVisibilityTimeoutSec,
+			ClusterTagIsolation:           nthConfig.ClusterTagIsolation,
+			ClusterTagKey:                 nthConfig.ClusterTagKey,
+			ClusterName:                   nthConfig.ClusterName,
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}

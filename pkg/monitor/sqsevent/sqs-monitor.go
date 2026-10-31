@@ -56,6 +56,11 @@ type SQSMonitor struct {
 	ManagedTag                    string
 	BeforeCompleteLifecycleAction func()
 	SqsMsgVisibilityTimeoutSec    int
+	// ClusterTagIsolation is config.ClusterTagIsolationDisable or config.ClusterTagIsolationEnforce.
+	// With enforce, events for instances whose ClusterTagKey tag value is not ClusterName are ignored.
+	ClusterTagIsolation string
+	ClusterTagKey       string
+	ClusterName         string
 }
 
 // InterruptionEventWrapper is a convenience wrapper for associating an interruption event with its error, if any
@@ -75,6 +80,21 @@ func (s skip) Error() string {
 
 func (s skip) Unwrap() error {
 	return s.err
+}
+
+// notInCluster is returned for an instance that is not tagged for this cluster while cluster tag isolation is enforced
+type notInCluster struct {
+	instanceID string
+	tagKey     string
+	tagValue   string
+	hasTag     bool
+}
+
+func (n notInCluster) Error() string {
+	if !n.hasTag {
+		return fmt.Sprintf("instance %s has no %s tag", n.instanceID, n.tagKey)
+	}
+	return fmt.Sprintf("instance %s has %s=%s", n.instanceID, n.tagKey, n.tagValue)
 }
 
 // Kind denotes the kind of monitor
@@ -247,9 +267,20 @@ func (m SQSMonitor) processInterruptionEvents(interruptionEventWrappers []Interr
 	dropMessageSuggestionCount := 0
 	failedInterruptionEventsCount := 0
 	var skipErr skip
+	var notInClusterErr notInCluster
 
 	for _, eventWrapper := range interruptionEventWrappers {
 		switch {
+		case errors.As(eventWrapper.Err, &notInClusterErr):
+			// cluster tag isolation is enforced and the instance belongs to another cluster, or is not tagged yet
+			log.Info().
+				Str("resource", notInClusterErr.instanceID).
+				Str("tagKey", notInClusterErr.tagKey).
+				Str("clusterName", m.ClusterName).
+				Str("tagValue", notInClusterErr.tagValue).
+				Msg("ignoring resource not tagged for this cluster")
+			dropMessageSuggestionCount++
+
 		case errors.As(eventWrapper.Err, &skipErr):
 			log.Warn().Err(skipErr).Msg("dropping event")
 			dropMessageSuggestionCount++
@@ -432,6 +463,13 @@ func (m SQSMonitor) getNodeInfo(instanceID string) (*NodeInfo, error) {
 		nodeInfo.Tags[*t.Key] = *t.Value
 		if *t.Key == ASGTagName {
 			nodeInfo.AsgName = *t.Value
+		}
+	}
+
+	if m.ClusterTagIsolation == config.ClusterTagIsolationEnforce {
+		value, ok := nodeInfo.Tags[m.ClusterTagKey]
+		if !ok || value != m.ClusterName {
+			return nil, notInCluster{instanceID: instanceID, tagKey: m.ClusterTagKey, tagValue: value, hasTag: ok}
 		}
 	}
 
