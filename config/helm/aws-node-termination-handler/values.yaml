@@ -18,6 +18,7 @@ serviceAccount:
   # The name of the service account to use. If namenot set and create is true, a name is generated using fullname template
   name:
   annotations: {}
+  # IRSA only:
   #   eks.amazonaws.com/role-arn: arn:aws:iam::AWS_ACCOUNT_ID:role/IAM_ROLE_NAME
 
 rbac:
@@ -216,6 +217,30 @@ updateStrategy:
     maxUnavailable: 25%
 
 daemonsetPriorityClassName: system-node-critical
+
+# IMDS event controller (IMDS mode only). See docs/imds_event_controller.md.
+# When enabled, the DaemonSet only writes the IMDS events of its node to an annotation on its own Node object, and a
+# ValidatingAdmissionPolicy allows it nothing else: it has no permissions on other nodes. A Deployment, the IMDS event
+# controller, cordons and drains the nodes. Requires Kubernetes 1.30 or later.
+# When disabled, the DaemonSet cordons and drains its node itself, with a service account that can cordon and drain
+# every node in the cluster.
+imdsEventController:
+  enabled: true
+  # Replicas use leader election: one handles events, the others wait.
+  replicas: 1
+  priorityClassName: system-cluster-critical
+  podLabels: {}
+  podAnnotations: {}
+  resources: {}
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  # The service account of the DaemonSet. The Deployment uses serviceAccount.
+  nodeServiceAccount:
+    # If not set and serviceAccount.create is true, "<fullname>-node" is used. Required when serviceAccount.create is
+    # false.
+    name:
+    annotations: {}
 
 podMonitor:
   # Specifies whether PodMonitor should be created

@@ -79,7 +79,30 @@ type K8sEventRecorder struct {
 	clientSet   *kubernetes.Clientset
 	enabled     bool
 	sqsMode     bool
+	// nodeMetadata, when set, returns the metadata of a node to annotate its events with, in place of its labels and
+	// addresses. Only used in sqsMode.
+	nodeMetadata func(*corev1.Node) ec2metadata.NodeMetadata
 	record.EventRecorder
+}
+
+// WithNodeMetadata returns the recorder annotating the events of a node with the metadata nodeMetadata returns for it,
+// like in IMDS mode, instead of with its labels and addresses
+func (r K8sEventRecorder) WithNodeMetadata(nodeMetadata func(*corev1.Node) ec2metadata.NodeMetadata) K8sEventRecorder {
+	r.nodeMetadata = nodeMetadata
+	return r
+}
+
+// setMetadataAnnotations sets the annotations of the IMDS mode from nodeMetadata
+func setMetadataAnnotations(annotations map[string]string, nodeMetadata ec2metadata.NodeMetadata) {
+	annotations["availability-zone"] = nodeMetadata.AvailabilityZone
+	annotations["instance-id"] = nodeMetadata.InstanceID
+	annotations["instance-life-cycle"] = nodeMetadata.InstanceLifeCycle
+	annotations["instance-type"] = nodeMetadata.InstanceType
+	annotations["local-hostname"] = nodeMetadata.LocalHostname
+	annotations["local-ipv4"] = nodeMetadata.LocalIP
+	annotations["public-hostname"] = nodeMetadata.PublicHostname
+	annotations["public-ipv4"] = nodeMetadata.PublicIP
+	annotations["region"] = nodeMetadata.Region
 }
 
 // InitK8sEventRecorder creates a Kubernetes event recorder
@@ -91,15 +114,7 @@ func InitK8sEventRecorder(enabled bool, nodeName string, sqsMode bool, nodeMetad
 	annotations := make(map[string]string)
 	annotations["account-id"] = nodeMetadata.AccountId
 	if !sqsMode {
-		annotations["availability-zone"] = nodeMetadata.AvailabilityZone
-		annotations["instance-id"] = nodeMetadata.InstanceID
-		annotations["instance-life-cycle"] = nodeMetadata.InstanceLifeCycle
-		annotations["instance-type"] = nodeMetadata.InstanceType
-		annotations["local-hostname"] = nodeMetadata.LocalHostname
-		annotations["local-ipv4"] = nodeMetadata.LocalIP
-		annotations["public-hostname"] = nodeMetadata.PublicHostname
-		annotations["public-ipv4"] = nodeMetadata.PublicIP
-		annotations["region"] = nodeMetadata.Region
+		setMetadataAnnotations(annotations, nodeMetadata)
 	}
 
 	var err error
@@ -143,7 +158,20 @@ func (r K8sEventRecorder) Emit(nodeName string, eventType, eventReason, eventMsg
 				log.Err(err).Msg("Emitting Kubernetes event failed")
 				return
 			}
-			annotations = generateNodeAnnotations(node, r.annotations)
+			if r.nodeMetadata != nil {
+				annotations = make(map[string]string, len(r.annotations))
+				for k, v := range r.annotations {
+					annotations[k] = v
+				}
+				nodeMetadata := r.nodeMetadata(node)
+				setMetadataAnnotations(annotations, nodeMetadata)
+				// the account of this handler is the account of the node too, if the node didn't report it
+				if nodeMetadata.AccountId != "" {
+					annotations["account-id"] = nodeMetadata.AccountId
+				}
+			} else {
+				annotations = generateNodeAnnotations(node, r.annotations)
+			}
 		} else {
 			node = &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{

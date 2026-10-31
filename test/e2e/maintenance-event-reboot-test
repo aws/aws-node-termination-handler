@@ -27,6 +27,7 @@ anth_helm_args=(
   --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set imdsEventController.enabled=false
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
@@ -156,6 +157,7 @@ anth_helm_args=(
   --namespace kube-system
   "$CLUSTER_NAME-anth"
   "$SCRIPTPATH/../../config/helm/aws-node-termination-handler/"
+  --set imdsEventController.enabled=false
   --set instanceMetadataURL="${INSTANCE_METADATA_URL:-"http://$AEMM_URL:$IMDS_PORT"}"
   --set image.repository="$NODE_TERMINATION_HANDLER_DOCKER_REPO"
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"

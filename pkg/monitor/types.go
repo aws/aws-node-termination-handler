@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 )
 
@@ -59,9 +60,16 @@ type InterruptionEvent struct {
 	EndTime              time.Time
 	NodeProcessed        bool
 	InProgress           bool
-	PreDrainTask         DrainTask `json:"-"`
-	PostDrainTask        DrainTask `json:"-"`
-	CancelDrainTask      DrainTask `json:"-"`
+	// ScheduledEventCode and ScheduledEventNotBefore are the code and the start of the window of a scheduled event. The
+	// IMDS event controller generates the description of a reported scheduled event from them.
+	ScheduledEventCode      string
+	ScheduledEventNotBefore time.Time
+	// NodeMetadata is the IMDS metadata of the node, when it differs from the metadata of the node NTH runs on. The IMDS
+	// event controller sets it from the node's report.
+	NodeMetadata    *ec2metadata.NodeMetadata `json:"-"`
+	PreDrainTask    DrainTask                 `json:"-"`
+	PostDrainTask   DrainTask                 `json:"-"`
+	CancelDrainTask DrainTask                 `json:"-"`
 }
 
 // TimeUntilEvent returns the duration until the event start time

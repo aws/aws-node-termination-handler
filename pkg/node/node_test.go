@@ -542,6 +542,99 @@ func TestTaintOutOfService(t *testing.T) {
 	h.Equals(t, true, taintFound)
 }
 
+func TestUncordonIfRebootedResultUsesBootID(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		currentBootID string
+		uncordoned    bool
+	}{
+		{name: "same boot", currentBootID: "boot-1", uncordoned: false},
+		{name: "boot ID not reported yet", currentBootID: "", uncordoned: false},
+		{name: "rebooted", currentBootID: "boot-2", uncordoned: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			_, err := client.CoreV1().Nodes().Create(context.Background(),
+				&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeName,
+						Labels: map[string]string{
+							node.ActionLabelKey:       node.UncordonAfterRebootLabelVal,
+							node.ActionLabelTimeKey:   strconv.FormatInt(time.Now().Unix(), 10),
+							node.ActionBootIDLabelKey: "boot-1",
+							node.EventIDLabelKey:      "instance-event-1",
+						},
+					},
+					Spec:   v1.NodeSpec{Unschedulable: true},
+					Status: v1.NodeStatus{NodeInfo: v1.NodeSystemInfo{BootID: tc.currentBootID}},
+				},
+				metav1.CreateOptions{})
+			h.Ok(t, err)
+			// the IMDS event controller cannot read the uptime of the node, so the boot ID label decides
+			tNode, err := node.NewWithValues(config.Config{}, getDrainHelper(client), func() (int64, error) { return 0, fmt.Errorf("no uptime") })
+			h.Ok(t, err)
+			uncordoned, err := tNode.UncordonIfRebootedResult(nodeName)
+			h.Ok(t, err)
+			h.Equals(t, tc.uncordoned, uncordoned)
+			n, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			h.Ok(t, err)
+			h.Equals(t, !tc.uncordoned, n.Spec.Unschedulable)
+			_, hasBootIDLabel := n.Labels[node.ActionBootIDLabelKey]
+			h.Equals(t, !tc.uncordoned, hasBootIDLabel)
+		})
+	}
+}
+
+func TestUncordonIfRebootedResultPrefersUptime(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		uptime     int64
+		uncordoned bool
+	}{
+		{name: "uptime shows a reboot", uptime: 0, uncordoned: true},
+		{name: "uptime shows no reboot", uptime: 1000000, uncordoned: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			_, err := client.CoreV1().Nodes().Create(context.Background(),
+				&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeName,
+						Labels: map[string]string{
+							node.ActionLabelKey:       node.UncordonAfterRebootLabelVal,
+							node.ActionLabelTimeKey:   strconv.FormatInt(time.Now().Unix()-10, 10),
+							node.ActionBootIDLabelKey: "boot-1",
+							node.EventIDLabelKey:      "instance-event-1",
+						},
+					},
+					Spec:   v1.NodeSpec{Unschedulable: true},
+					Status: v1.NodeStatus{NodeInfo: v1.NodeSystemInfo{BootID: "boot-1"}},
+				},
+				metav1.CreateOptions{})
+			h.Ok(t, err)
+			// a handler on the node reads the uptime, so an unchanged boot ID does not block the uncordon
+			tNode, err := node.NewWithValues(config.Config{}, getDrainHelper(client), func() (int64, error) { return tc.uptime, nil })
+			h.Ok(t, err)
+			uncordoned, err := tNode.UncordonIfRebootedResult(nodeName)
+			h.Ok(t, err)
+			h.Equals(t, tc.uncordoned, uncordoned)
+		})
+	}
+}
+
+func TestMarkForUncordonAfterRebootRecordsBootID(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	_, err := client.CoreV1().Nodes().Create(context.Background(),
+		&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}, Status: v1.NodeStatus{NodeInfo: v1.NodeSystemInfo{BootID: "boot-1"}}},
+		metav1.CreateOptions{})
+	h.Ok(t, err)
+	tNode := getNode(t, getDrainHelper(client))
+	h.Ok(t, tNode.MarkForUncordonAfterReboot(nodeName))
+	n, err := client.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	h.Ok(t, err)
+	h.Equals(t, "boot-1", n.Labels[node.ActionBootIDLabelKey])
+}
+
 func TestRemoveNTHLabelsRemovesOnlyItsOwnLoadBalancerExclusionLabel(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

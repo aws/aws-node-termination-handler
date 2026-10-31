@@ -1,0 +1,155 @@
+{{- if and (include "aws-node-termination-handler.imdsEventController" .) .Values.rbac.create }}
+{{- $nodeSA := include "aws-node-termination-handler.nodeServiceAccountName" . }}
+{{- $name := include "aws-node-termination-handler.fullname" . | trunc 48 | trimSuffix "-" }}
+{{- $lease := printf "%s-imds-event-controller" (include "aws-node-termination-handler.fullname" . | trunc 41 | trimSuffix "-") }}
+# The DaemonSet only writes the IMDS events of its node to an annotation of its own Node object. RBAC cannot limit a
+# permission to the caller's own node, so the ValidatingAdmissionPolicy below denies everything else.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $name }}-node
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+    - ""
+  resources:
+    - nodes
+  verbs:
+    - patch
+{{- if .Values.emitKubernetesEvents }}
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+    - patch
+{{- end }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $name }}-node
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}-node
+subjects:
+  - kind: ServiceAccount
+    name: {{ $nodeSA }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}-node
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["nodes", "nodes/status"]
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["events"]
+  matchConditions:
+    - name: node-service-account
+      expression: request.userInfo.username == "system:serviceaccount:{{ .Release.Namespace }}:{{ $nodeSA }}"
+  variables:
+    # the name of the node the pod that requested the service account token runs on
+    - name: nodeName
+      expression: >-
+        request.userInfo.?extra[?'authentication.kubernetes.io/node-name'].orValue([]).size() == 1 ?
+        request.userInfo.extra['authentication.kubernetes.io/node-name'][0] : ''
+    - name: isNode
+      expression: request.resource.resource == 'nodes'
+  validations:
+    - expression: variables.nodeName != ''
+      message: the service account token is not bound to a pod on a node
+    - expression: "!variables.isNode || (request.operation == 'UPDATE' && request.?subResource.orValue('') == '')"
+      message: the handler may only update its own Node object
+    - expression: "!variables.isNode || request.name == variables.nodeName"
+      messageExpression: "'the handler on node ' + variables.nodeName + ' may only modify its own Node object, not ' + request.name"
+    - expression: >-
+        !variables.isNode || request.operation != 'UPDATE' || (
+          object.spec == oldObject.spec &&
+          object.metadata.?labels.orValue({}) == oldObject.metadata.?labels.orValue({}) &&
+          object.metadata.?finalizers.orValue([]) == oldObject.metadata.?finalizers.orValue([]) &&
+          object.metadata.?ownerReferences.orValue([]) == oldObject.metadata.?ownerReferences.orValue([]) &&
+          object.metadata.?annotations.orValue({}).all(k, k == 'aws-node-termination-handler/imds-events' ||
+            (k in oldObject.metadata.?annotations.orValue({}) && oldObject.metadata.annotations[k] == object.metadata.annotations[k])) &&
+          oldObject.metadata.?annotations.orValue({}).all(k, k == 'aws-node-termination-handler/imds-events' ||
+            k in object.metadata.?annotations.orValue({}))
+        )
+      message: the handler may only change the aws-node-termination-handler/imds-events annotation of its own Node object
+    - expression: "variables.isNode || (object.involvedObject.kind == 'Node' && object.involvedObject.name == variables.nodeName)"
+      message: the handler may only record events about its own node
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}-node
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+spec:
+  policyName: {{ $name }}-node
+  validationActions: ["Deny"]
+---
+# leader election of the IMDS event controller, and the handler pods in the release namespace
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $name }}-leader-election
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - create
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  resourceNames:
+    - {{ $lease }}
+  verbs:
+    - get
+    - update
+# the controller acts on a node's report only while the handler pod that wrote it runs on the node
+- apiGroups:
+    - ""
+  resources:
+    - pods
+  verbs:
+    - get
+    - list
+    - watch
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $name }}-leader-election
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "aws-node-termination-handler.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

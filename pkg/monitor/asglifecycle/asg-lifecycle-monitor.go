@@ -94,6 +94,10 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 	}, nil
 }
 
+// PreDrainTask is the pre-drain task of ASG target lifecycle state events. The IMDS event controller runs it for events reported by
+// other nodes.
+var PreDrainTask monitor.DrainTask = setInterruptionTaint
+
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {

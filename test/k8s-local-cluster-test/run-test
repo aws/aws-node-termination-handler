@@ -67,9 +67,7 @@ function clean_up {
 }
 
 function exit_and_fail {
-    local pod_id
-    pod_id=$(get_nth_worker_pod || :)
-    kubectl logs "$pod_id" --namespace kube-system || :
+    get_nth_logs
     END=$(date +%s)
     echo "⏰ Took $((END - START))sec"
     echo "❌ NTH Integration Test FAILED $CLUSTER_NAME! ❌"
@@ -116,13 +114,35 @@ function remove_labels {
     fi
 }
 
+# The handler pod: the DaemonSet pod in IMDS mode, the Deployment pod in Queue Processor mode; never the IMDS event controller
 function get_nth_worker_pod {
     kubectl get pods -n kube-system \
-      --selector 'app.kubernetes.io/name=aws-node-termination-handler' \
+      --selector 'app.kubernetes.io/name=aws-node-termination-handler,app.kubernetes.io/component!=imds-event-controller' \
       --field-selector="status.phase=Running" \
       --sort-by=.metadata.creationTimestamp \
       -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
                                         | awk '$2 >= "'"${START_FOR_QUERYING//+0000/Z}"'" { print $1 }' | head -1
+}
+
+function get_nth_controller_pods {
+    kubectl get pods -n kube-system \
+      --selector 'app.kubernetes.io/name=aws-node-termination-handler,app.kubernetes.io/component=imds-event-controller' \
+      --field-selector="status.phase=Running" \
+      --sort-by=.metadata.creationTimestamp \
+      -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' \
+                                        | awk '$2 >= "'"${START_FOR_QUERYING//+0000/Z}"'" { print $1 }'
+}
+
+# The logs of the handlers that act on events: the DaemonSet pod on the worker and, when enabled, the IMDS event controller
+function get_nth_logs {
+    local pod_id
+    pod_id=$(get_nth_worker_pod || :)
+    if [[ -n "$pod_id" ]]; then
+        kubectl logs "$pod_id" --namespace kube-system || :
+    fi
+    for pod_id in $(get_nth_controller_pods || :); do
+        kubectl logs "$pod_id" --namespace kube-system || :
+    done
 }
 
 USAGE=$(cat << 'EOM'
@@ -257,6 +277,8 @@ export WEBHOOK_URL
 export -f timeout
 export -f relpath
 export -f get_nth_worker_pod
+export -f get_nth_controller_pods
+export -f get_nth_logs
 export NODE_TERMINATION_HANDLER_DOCKER_IMG
 export NODE_TERMINATION_HANDLER_DOCKER_REPO
 export NODE_TERMINATION_HANDLER_DOCKER_TAG

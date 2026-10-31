@@ -23,7 +23,17 @@ spec:
   {{- with .Values.podMonitor.sampleLimit }}
   sampleLimit: {{ . }}
   {{- end }}
+  # the DaemonSet pods and, with the IMDS event controller, the controller pods, which cordon and drain the nodes and so
+  # emit the node action metrics
   selector:
     matchLabels:
-      {{- include "aws-node-termination-handler.selectorLabelsDaemonset" . | nindent 6 }}
+      {{- include "aws-node-termination-handler.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - daemonset
+          {{- if include "aws-node-termination-handler.imdsEventController" . }}
+          - imds-event-controller
+          {{- end }}
 {{- end -}}

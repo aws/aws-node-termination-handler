@@ -95,6 +95,10 @@ func (m SpotInterruptionMonitor) checkForSpotInterruptionNotice() (*monitor.Inte
 	}, nil
 }
 
+// PreDrainTask is the pre-drain task of spot interruption events. The IMDS event controller runs it for events reported by
+// other nodes.
+var PreDrainTask monitor.DrainTask = setInterruptionTaint
+
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintSpotItn(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {

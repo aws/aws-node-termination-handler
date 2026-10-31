@@ -126,7 +126,11 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 	}
 
 	if h.commonHandler.NthConfig.WebhookURL != "" {
-		webhook.Post(h.nodeMetadata, drainEvent, h.commonHandler.NthConfig)
+		nodeMetadata := h.nodeMetadata
+		if drainEvent.NodeMetadata != nil {
+			nodeMetadata = *drainEvent.NodeMetadata
+		}
+		webhook.Post(nodeMetadata, drainEvent, h.commonHandler.NthConfig)
 	}
 
 	if err != nil {

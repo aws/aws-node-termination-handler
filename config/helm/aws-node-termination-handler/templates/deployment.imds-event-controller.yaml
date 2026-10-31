@@ -1,0 +1,126 @@
+{{- if include "aws-node-termination-handler.imdsEventController" . }}
+{{- include "aws-node-termination-handler.validateIMDSEventController" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aws-node-termination-handler.fullname" . | trunc 41 | trimSuffix "-" }}-imds-event-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+    app.kubernetes.io/component: imds-event-controller
+spec:
+  replicas: {{ .Values.imdsEventController.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aws-node-termination-handler.selectorLabelsIMDSEventController" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "aws-node-termination-handler.selectorLabelsIMDSEventController" . | nindent 8 }}
+        k8s-app: aws-node-termination-handler
+      {{- with .Values.imdsEventController.podLabels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imdsEventController.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aws-node-termination-handler.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imdsEventController.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
+      containers:
+        - name: aws-node-termination-handler
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "aws-node-termination-handler.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENABLE_PROBES_SERVER
+              value: "true"
+            - name: PROBES_SERVER_PORT
+              value: {{ .Values.probes.httpGet.port | quote }}
+            - name: PROBES_SERVER_ENDPOINT
+              value: {{ .Values.probes.httpGet.path | quote }}
+            - name: ENABLE_PROMETHEUS_SERVER
+              value: {{ .Values.enablePrometheusServer | quote }}
+            - name: PROMETHEUS_SERVER_PORT
+              value: {{ .Values.prometheusServerPort | quote }}
+            {{- include "aws-node-termination-handler.drainEnv" . | nindent 12 }}
+            - name: WORKERS
+              value: {{ .Values.workers | quote }}
+            - name: ENABLE_SQS_TERMINATION_DRAINING
+              value: "false"
+            - name: ENABLE_IMDS_EVENT_CONTROLLER
+              value: "true"
+            - name: IMDS_EVENT_CONTROLLER_LEASE_NAME
+              value: {{ include "aws-node-termination-handler.fullname" . | trunc 41 | trimSuffix "-" }}-imds-event-controller
+            {{- with .Values.extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+           - name: liveness-probe
+             protocol: TCP
+             containerPort: {{ .Values.probes.httpGet.port }}
+          {{- if .Values.enablePrometheusServer }}
+           - name: http-metrics
+             protocol: TCP
+             containerPort: {{ .Values.prometheusServerPort }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.probes | nindent 12 }}
+          {{- with .Values.imdsEventController.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
+          volumeMounts:
+            - name: webhook-template
+              mountPath: /config/
+          {{- end }}
+      {{- if and .Values.webhookTemplateConfigMapName .Values.webhookTemplateConfigMapKey }}
+      volumes:
+        - name: webhook-template
+          configMap:
+            name: {{ .Values.webhookTemplateConfigMapName }}
+      {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- with .Values.imdsEventController.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imdsEventController.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imdsEventController.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

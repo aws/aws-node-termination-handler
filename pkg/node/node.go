@@ -42,6 +42,8 @@ const (
 	ActionLabelKey = "aws-node-termination-handler/action"
 	// ActionLabelTimeKey is a k8s label key whose value is the secs since the epoch when an action label is added
 	ActionLabelTimeKey = "aws-node-termination-handler/action-time"
+	// ActionBootIDLabelKey is a k8s label key whose value is the node's boot ID when an action label is added
+	ActionBootIDLabelKey = "aws-node-termination-handler/action-boot-id"
 	// EventIDLabelKey is a k8s label key whose value is the drainable event id
 	EventIDLabelKey = "aws-node-termination-handler/event-id"
 	// Apply this label to enable the ServiceNodeExclusion feature gate for excluding nodes from load balancers
@@ -107,7 +109,14 @@ func New(nthConfig config.Config, clientset *kubernetes.Clientset) (*Node, error
 	if err != nil {
 		return nil, err
 	}
-	return NewWithValues(nthConfig, drainHelper, getUptimeFunc(nthConfig.UptimeFromFile))
+	uptimeFunc := getUptimeFunc(nthConfig.UptimeFromFile)
+	if nthConfig.EnableIMDSEventController {
+		// the IMDS event controller does not run on the nodes it handles; it detects reboots from the node's boot ID
+		uptimeFunc = func() (int64, error) {
+			return 0, fmt.Errorf("the IMDS event controller cannot read the uptime of other nodes; the node has no %s label", ActionBootIDLabelKey)
+		}
+	}
+	return NewWithValues(nthConfig, drainHelper, uptimeFunc)
 }
 
 // NewWithValues will construct a node struct with a drain helper and an uptime function
@@ -262,7 +271,17 @@ func (n Node) RemoveNTHLabels(nodeName string) error {
 			return fmt.Errorf("unable to remove %s from node: %w", label, err)
 		}
 	}
-	err := n.removeLabelIfValueMatches(nodeName, ExcludeFromLoadBalancersLabelKey, ExcludeFromLoadBalancersLabelValue)
+	// only nodes marked for uncordon after reboot by a recent NTH carry the boot ID label
+	node, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		return err
+	}
+	if _, ok := node.Labels[ActionBootIDLabelKey]; ok {
+		if err := n.removeLabel(nodeName, ActionBootIDLabelKey); err != nil {
+			return fmt.Errorf("unable to remove %s from node: %w", ActionBootIDLabelKey, err)
+		}
+	}
+	err = n.removeLabelIfValueMatches(nodeName, ExcludeFromLoadBalancersLabelKey, ExcludeFromLoadBalancersLabelValue)
 	if err != nil {
 		return fmt.Errorf("unable to remove %s from node: %w", ExcludeFromLoadBalancersLabelKey, err)
 	}
@@ -303,6 +322,17 @@ func (n Node) MarkForUncordonAfterReboot(nodeName string) error {
 			return fmt.Errorf("%s and unable to rollback action label \"%s\": %w", errMsg, ActionLabelKey, err)
 		}
 		return fmt.Errorf("unable to label node with action time for uncordon after system-reboot: %w", err)
+	}
+	// adds label with the node's boot ID, so that a handler that is not running on the node can detect the reboot
+	k8sNode, err := n.fetchKubernetesNode(nodeName)
+	if err != nil {
+		log.Warn().Err(err).Msg("Unable to read the node's boot ID; the reboot will be detected from the system uptime")
+		return nil
+	}
+	if bootID := k8sNode.Status.NodeInfo.BootID; bootID != "" {
+		if err := n.addLabel(nodeName, ActionBootIDLabelKey, bootID, false); err != nil {
+			log.Warn().Err(err).Msg("Unable to label node with its boot ID; the reboot will be detected from the system uptime")
+		}
 	}
 	return nil
 }
@@ -605,51 +635,65 @@ func (n Node) IsLabeledWithAction(nodeName string) (bool, error) {
 
 // UncordonIfRebooted will check for node labels to trigger an uncordon because of a system-reboot scheduled event
 func (n Node) UncordonIfRebooted(nodeName string) error {
-	// TODO: this logic needs to be updated to dynamically look up the last reboot
-	// w/ the ec2 api if the nodeName is not local.
+	_, err := n.UncordonIfRebootedResult(nodeName)
+	return err
+}
+
+// UncordonIfRebootedResult is UncordonIfRebooted, and also reports whether the node was uncordoned.
+//
+// The reboot is detected from the uptime of the system NTH runs on, which is only available when NTH runs on the node.
+// When the uptime is unavailable, as in the IMDS event controller, the reboot is detected from the node's boot ID,
+// recorded in the ActionBootIDLabelKey label.
+func (n Node) UncordonIfRebootedResult(nodeName string) (bool, error) {
 	k8sNode, err := n.fetchKubernetesNode(nodeName)
 	if err != nil {
-		return fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
+		return false, fmt.Errorf("unable to fetch kubernetes node from API: %w", err)
 	}
 	timeVal, ok := k8sNode.Labels[ActionLabelTimeKey]
 	if !ok {
 		log.Debug().Msgf("There was no %s label found requiring action label handling", ActionLabelTimeKey)
-		return nil
+		return false, nil
 	}
 	timeValNum, err := strconv.ParseInt(timeVal, 10, 64)
 	if err != nil {
-		return fmt.Errorf("cannot convert unix time: %w", err)
+		return false, fmt.Errorf("cannot convert unix time: %w", err)
 	}
 	secondsSinceLabel := time.Now().Unix() - timeValNum
 	switch actionVal := k8sNode.Labels[ActionLabelKey]; actionVal {
 	case UncordonAfterRebootLabelVal:
-		uptime, err := n.uptime()
-		if err != nil {
-			return err
-		}
-		if secondsSinceLabel < uptime {
-			log.Debug().Msg("The system has not restarted yet.")
-			return nil
+		if uptime, err := n.uptime(); err == nil {
+			if secondsSinceLabel < uptime {
+				log.Debug().Msg("The system has not restarted yet.")
+				return false, nil
+			}
+		} else if bootID, ok := k8sNode.Labels[ActionBootIDLabelKey]; ok {
+			if k8sNode.Status.NodeInfo.BootID == "" || k8sNode.Status.NodeInfo.BootID == bootID {
+				log.Debug().Msg("The system has not restarted yet.")
+				return false, nil
+			}
+		} else {
+			return false, err
 		}
 		err = n.Uncordon(nodeName)
 		if err != nil {
-			return fmt.Errorf("unable to uncordon node: %w", err)
+			return false, fmt.Errorf("unable to uncordon node: %w", err)
 		}
 		err = n.RemoveNTHLabels(nodeName)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		err = n.RemoveNTHTaints(nodeName)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		log.Info().Msgf("Successfully completed action %s.", UncordonAfterRebootLabelVal)
+		return true, nil
 	default:
 		log.Debug().Msg("There are no label actions to handle.")
 	}
-	return nil
+	return false, nil
 }
 
 // fetchKubernetesNode will send an http request to the k8s api server and return the corev1 model node
