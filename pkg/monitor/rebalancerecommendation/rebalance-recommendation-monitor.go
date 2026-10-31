@@ -93,6 +93,10 @@ func (m RebalanceRecommendationMonitor) checkForRebalanceRecommendation() (*moni
 	}, nil
 }
 
+// PreDrainTask is the pre-drain task of rebalance recommendation events. The IMDS event controller runs it for events reported by
+// other nodes.
+var PreDrainTask monitor.DrainTask = setInterruptionTaint
+
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintRebalanceRecommendation(interruptionEvent.NodeName, interruptionEvent.EventID)
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -243,4 +244,13 @@ func waitFor(cond func() bool) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 	return context.DeadlineExceeded
+}
+
+func TestCachesSynced(t *testing.T) {
+	nodes := reflect.TypeOf(&v1.Node{})
+	pods := reflect.TypeOf(&v1.Pod{})
+	h.Equals(t, true, cachesSynced(map[reflect.Type]bool{nodes: true}, map[reflect.Type]bool{pods: true}))
+	h.Equals(t, true, cachesSynced())
+	h.Equals(t, false, cachesSynced(map[reflect.Type]bool{nodes: true}, map[reflect.Type]bool{pods: false}))
+	h.Equals(t, false, cachesSynced(map[reflect.Type]bool{nodes: false, pods: true}))
 }

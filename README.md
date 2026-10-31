@@ -34,7 +34,8 @@ This project ensures that the Kubernetes control plane responds appropriately to
 
 The aws-node-termination-handler (NTH) can operate in two different modes: Instance Metadata Service (IMDS) or the Queue Processor.
 
-The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events` and react accordingly to drain and/or cordon the corresponding node.
+The aws-node-termination-handler **[Instance Metadata Service](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) Monitor** will run a small pod on each host to perform monitoring of IMDS paths like `/spot` or `/events`.
+By default, each pod reports its node's events to the **IMDS event controller**, a Deployment, which reacts accordingly to drain and/or cordon the corresponding node; the pods on the hosts have no permissions on other nodes.
 
 The aws-node-termination-handler **Queue Processor** will monitor an SQS queue of events from Amazon EventBridge for ASG lifecycle events, EC2 status change events, Spot Interruption Termination Notice events, and Spot Rebalance Recommendation events. When NTH detects an instance is going down, we use the Kubernetes API to cordon the node to ensure no new work is scheduled there, then drain it, removing any existing work. The termination handler **Queue Processor** requires AWS IAM permissions to monitor and manage the SQS queue and to query the EC2 API.
 
@@ -52,6 +53,8 @@ Both modes (IMDS and Queue Processor) monitor for events affecting your EC2 inst
 
 ### Instance Metadata Service (IMDS) Processor
 Must be deployed as a Kubernetes **DaemonSet**.
+By default, the DaemonSet only reports the IMDS events of its node, and the **IMDS event controller**, a Deployment, cordons and drains the nodes; the DaemonSet has no permissions on other nodes.
+See [IMDS event controller](docs/imds_event_controller.md).
 
 - Monitors EC2 Instance Metadata for:
    - [Spot Instance Termination Notifications](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-instance-termination-notices.html)
@@ -210,7 +213,10 @@ The `enableSqsTerminationDraining` flag turns on Queue Processor Mode. When Queu
 
 ### Installation and Configuration
 
-The termination handler DaemonSet installs into your cluster a [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/), [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [ClusterRoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), and a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/). All four of these Kubernetes constructs are required for the termination handler to run properly.
+The termination handler installs into your cluster a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/) that watches IMDS on every node, and a [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/), the IMDS event controller, that cordons and drains the nodes.
+Each has its own [ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) and [ClusterRole](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
+A [ValidatingAdmissionPolicy](https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/) limits the DaemonSet to one annotation on its own Node object, so a node cannot cordon, drain or relabel another node.
+This requires Kubernetes 1.30 or later; see [IMDS event controller](docs/imds_event_controller.md).
 
 #### Pod Security Admission
 

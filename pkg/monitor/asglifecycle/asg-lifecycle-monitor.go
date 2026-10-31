@@ -89,10 +89,14 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 		Monitor:      ASGLifecycleMonitorKind,
 		StartTime:    interruptionTime,
 		NodeName:     nodeName,
-		Description:  "AST target lifecycle state received. Instance will be terminated\n",
+		Description:  "ASG target lifecycle state received. Instance will be terminated\n",
 		PreDrainTask: setInterruptionTaint,
 	}, nil
 }
+
+// PreDrainTask is the pre-drain task of ASG target lifecycle state events. The IMDS event controller runs it for events reported by
+// other nodes.
+var PreDrainTask monitor.DrainTask = setInterruptionTaint
 
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)
