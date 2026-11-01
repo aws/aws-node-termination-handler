@@ -15,6 +15,10 @@ rules:
     - list
     - patch
     - update
+    {{- if include "aws-node-termination-handler.imdsEventController" . }}
+    # the IMDS event controller watches the nodes for the events their handlers report
+    - watch
+    {{- end }}
 - apiGroups:
     - ""
   resources:

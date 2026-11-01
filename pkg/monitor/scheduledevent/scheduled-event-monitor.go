@@ -109,10 +109,17 @@ func (m ScheduledEventMonitor) checkForScheduledEvents() ([]monitor.Interruption
 			StartTime:    time.Now(),
 			EndTime:      notAfter,
 			PreDrainTask: preDrainFunc,
+
+			ScheduledEventCode:      scheduledEvent.Code,
+			ScheduledEventNotBefore: notBefore,
 		})
 	}
 	return events, nil
 }
+
+// UncordonAfterRebootPreDrain is the pre-drain task of scheduled reboot events. The IMDS event controller runs it for
+// events reported by other nodes.
+var UncordonAfterRebootPreDrain monitor.DrainTask = uncordonAfterRebootPreDrain
 
 func uncordonAfterRebootPreDrain(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	nodeName := interruptionEvent.NodeName

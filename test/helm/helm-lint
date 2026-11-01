@@ -6,6 +6,8 @@ TMP_DIR="$SCRIPTPATH/../../build"
 PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
 HELM_VERSION="3.7.1"
 HELM_DIR="${SCRIPTPATH}/../../config/helm"
+# Without a cluster, helm renders for v1.20, and the IMDS event controller requires 1.30 or later
+KUBE_VERSION="1.32.0"
 
 mkdir -p $TMP_DIR
 
@@ -29,24 +31,24 @@ echo "==========================================================================
 echo "             Generate Template from Helm Chart with default values"
 echo "=============================================================================="
 
-helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --debug > /dev/null
+helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --kube-version="${KUBE_VERSION}" --debug > /dev/null
 
 echo "=============================================================================="
 echo "              Generate Template from Helm Chart with queue-proccessor values"
 echo "=============================================================================="
 
-helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-queue.yaml" > /dev/null
+helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --kube-version="${KUBE_VERSION}" --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-queue.yaml" > /dev/null
 
 echo "=============================================================================="
 echo "              Generate Template from Helm Chart with Linux IMDS values"
 echo "=============================================================================="
 
-helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-imds-linux.yaml" > /dev/null
+helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --kube-version="${KUBE_VERSION}" --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-imds-linux.yaml" > /dev/null
 
 echo "=============================================================================="
 echo "              Generate Template from Helm Chart with Windows IMDS values"
 echo "=============================================================================="
 
-helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-imds-windows.yaml" > /dev/null
+helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --kube-version="${KUBE_VERSION}" --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-imds-windows.yaml" > /dev/null
 
 echo "✅ Helm template generation has successfully completed!"

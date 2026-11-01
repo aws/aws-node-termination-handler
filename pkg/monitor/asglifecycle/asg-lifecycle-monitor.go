@@ -76,9 +76,10 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 	// there is no time in the response, we just set time to the latest check
 	interruptionTime := time.Now()
 
-	// There's no EventID returned, so we'll create it using a hash to prevent duplicates.
+	// There's no EventID returned, so we'll create it using a hash to prevent duplicates. The hash must not change between
+	// polls: the state is terminal, so the same node reports the same event until it terminates.
 	hash := sha256.New()
-	if _, err = fmt.Fprintf(hash, "%s:%s", state, interruptionTime); err != nil {
+	if _, err = fmt.Fprintf(hash, "%s:%s", state, nodeName); err != nil {
 		return nil, fmt.Errorf("there was a problem creating an event ID from the event: %w", err)
 	}
 
@@ -92,6 +93,10 @@ func (m ASGLifecycleMonitor) checkForASGTargetLifecycleStateNotice() (*monitor.I
 		PreDrainTask: setInterruptionTaint,
 	}, nil
 }
+
+// PreDrainTask is the pre-drain task of ASG target lifecycle state events. The IMDS event controller runs it for events reported by
+// other nodes.
+var PreDrainTask monitor.DrainTask = setInterruptionTaint
 
 func setInterruptionTaint(interruptionEvent monitor.InterruptionEvent, n node.Node) error {
 	err := n.TaintASGLifecycleTermination(interruptionEvent.NodeName, interruptionEvent.EventID)

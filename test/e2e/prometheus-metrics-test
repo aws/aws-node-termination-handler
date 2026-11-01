@@ -56,6 +56,7 @@ anth_helm_args=(
   --set image.tag="$NODE_TERMINATION_HANDLER_DOCKER_TAG"
   --set enableScheduledEventDraining="false"
   --set enableSpotInterruptionDraining="true"
+  --set enableASGLifecycleDraining="false"
   --set taintNode="true"
   --set enablePrometheusServer="true"
   --set podMonitor.create="true"
@@ -140,37 +141,68 @@ if [[ $EXIT_STATUS -eq 3 ]];then
 fi
 
 
-POD_NAME=$(get_nth_worker_pod)
-echo "✅ Fetched the pod $POD_NAME "
+# With the IMDS event controller, the controller cordons and drains the node, so it emits the node action metrics, and
+# the DaemonSet pod only reports events. Without it, the DaemonSet pod does both.
+WORKER_POD=$(get_nth_worker_pod)
+echo "✅ Fetched the DaemonSet pod $WORKER_POD"
+CONTROLLER_POD=$(get_nth_controller_pods | head -1)
+if [[ -n $CONTROLLER_POD ]]; then
+    echo "✅ Fetched the IMDS event controller pod $CONTROLLER_POD"
+    ACTIONS_POD=$CONTROLLER_POD
+else
+    ACTIONS_POD=$WORKER_POD
+fi
 
-kubectl -n kube-system port-forward "$POD_NAME" 7000:9092 &
-PORT_FORWARD_PID=$!
-trap 'kill ${PORT_FORWARD_PID}' EXIT SIGINT SIGTERM ERR
-echo "✅ Port-forwarded pod $POD_NAME"
+kubectl -n kube-system port-forward "$ACTIONS_POD" 7000:9092 &
+PORT_FORWARD_PIDS=$!
+if [[ -n $CONTROLLER_POD ]]; then
+    kubectl -n kube-system port-forward "$WORKER_POD" 7001:9092 &
+    PORT_FORWARD_PIDS="$PORT_FORWARD_PIDS $!"
+fi
+trap 'kill ${PORT_FORWARD_PIDS}' EXIT SIGINT SIGTERM ERR
+echo "✅ Port-forwarded pod $ACTIONS_POD"
 
 sleep 10
 
-for i in $(seq 1 $TAINT_CHECK_CYCLES); do
-    METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
-    echo "✅ Fetched /metrics."
-    failed=""
-    for METRIC in cordon-and-drain pre-drain runtime_go_gc runtime_go_goroutines runtime_go_mem; do
-        if [[ $METRICS_RESPONSE == *"$METRIC"* ]]; then
-            echo "✅ Metric $METRIC!"
-        else
-            echo "⚠️  Metric $METRIC"
-            failed=$METRIC
-            break
+# wait_for_metrics fetches the metrics on the local port until each of the given metrics is present
+function wait_for_metrics {
+    local port=$1 metric
+    shift
+    for i in $(seq 1 $TAINT_CHECK_CYCLES); do
+        METRICS_RESPONSE=$(curl -L "localhost:$port/metrics")
+        echo "✅ Fetched /metrics on port $port."
+        failed=""
+        for metric in "$@"; do
+            if [[ $METRICS_RESPONSE == *"$metric"* ]]; then
+                echo "✅ Metric $metric!"
+            else
+                echo "⚠️  Metric $metric"
+                failed=$metric
+                break
+            fi
+        done
+        if [[ -z $failed ]]; then
+            return 0
         fi
+        echo "Metrics Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
+        sleep $TAINT_CHECK_SLEEP
     done
-    if [ -z $failed ]; then
-        break
-    fi
-    echo "Metrics Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
-    sleep $TAINT_CHECK_SLEEP
-done
+    return 1
+}
 
-if [[ -n $failed ]];then
+if [[ -n $CONTROLLER_POD ]]; then
+    # the DaemonSet pod reports events and takes no node action
+    if ! wait_for_metrics 7001 runtime_go_gc runtime_go_goroutines runtime_go_mem; then
+        exit 4
+    fi
+    if [[ $METRICS_RESPONSE == *'node_action="cordon-and-drain"'* ]]; then
+        echo "❌ The DaemonSet pod recorded a cordon-and-drain action"
+        exit 5
+    fi
+    echo "✅ The DaemonSet pod took no node action"
+fi
+
+if ! wait_for_metrics 7000 cordon-and-drain pre-drain runtime_go_gc runtime_go_goroutines runtime_go_mem; then
     exit 4
 fi
 
@@ -179,7 +211,15 @@ for action in cordon-and-drain pre-drain; do
     labels='node_action="'$action'",node_status="success",otel_scope_name="aws.node.termination.handler",otel_scope_version=""'
     query="$metric_name{$labels}"
     counter_value=$(echo "$METRICS_RESPONSE" | grep -E "${query}[[:space:]]+[0-9]+" | awk '{print $NF}')
-    if (($counter_value <= 1)); then
+    counter_value=${counter_value:-0}
+    if [[ -n $CONTROLLER_POD ]]; then
+        # the DaemonSet reports one spot interruption notice, and the controller drains the node once
+        if ((counter_value != 1)); then
+            echo "❌ Failed counter count $counter_value for metric action:$action, expected 1"
+            exit 5
+        fi
+    # amazon-ec2-metadata-mock returns a new interruption time on every request, so the DaemonSet drains more than once
+    elif ((counter_value <= 1)); then
         echo "❌ Failed counter count for metric action:$action"
         exit 5
     fi

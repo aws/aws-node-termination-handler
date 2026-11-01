@@ -28,6 +28,14 @@ function get_squid_worker_pod() {
     jq '.items[] | select( .metadata.name | contains("squid") ) | .metadata.name as $name | select( .spec.nodeName | contains("worker") ) | .spec.nodeName as $nodename | $name' -r 2> /dev/null || echo ""
 }
 
+# The IMDS event controller can reach any squid pod through the service, not only the one on the worker
+function squid_access_logs() {
+  local pod
+  for pod in $(kubectl get pods -o name | grep squid); do
+    kubectl exec -i "$pod" -- cat /var/log/squid/access.log || :
+  done
+}
+
 function start_squid() {
   kubectl delete configmap squid-config || :
   kubectl create configmap squid-config --from-file="${SCRIPTPATH}/../assets/squid.conf"
@@ -171,16 +179,15 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
   if [[ $cordoned -eq 1 && $evicted -eq 0 && $(kubectl get deployments regular-pod-test -o=jsonpath='{.status.unavailableReplicas}') -eq 1 ]]; then
       echo "✅ Verified the regular-pod-test pod was evicted!"
       evicted=1
-      pod_id=$(get_nth_worker_pod)
   fi
 
-  if [[ $evicted -eq 1 && $sent -eq 0 ]] && kubectl logs "${pod_id}" -n kube-system | grep 'Webhook Success' >/dev/null; then
+  if [[ $evicted -eq 1 && $sent -eq 0 ]] && get_nth_logs | grep 'Webhook Success' >/dev/null; then
     echo "✅ Verified that webhook successfully sent"
     sent=1
   fi
 
   webhook_hostname=$(echo "${WEBHOOK_URL}" | sed -e 's@^[^/]*//@@' -e 's@/.*$@@')
-  if [[ $sent -eq 1 ]] && kubectl exec -i "$(echo "${squid_worker_pods}" | cut -d' ' -f1)" -- cat /var/log/squid/access.log | grep "${webhook_hostname}" >/dev/null; then
+  if [[ $sent -eq 1 ]] && squid_access_logs | grep "${webhook_hostname}" >/dev/null; then
      echo "✅ Verified the webhook POST used the http proxy"
         exit 0
   fi
@@ -199,7 +206,7 @@ else
 fi
 
 echo "=====================================   SQUID LOGS   ===================================================="
-kubectl exec -i "$(echo "${squid_worker_pods}" | cut -d' ' -f1)" -- cat /var/log/squid/access.log
+squid_access_logs
 echo "===================================== END SQUID LOGS ===================================================="
 
 fail_and_exit 1
