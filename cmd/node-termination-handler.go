@@ -341,8 +341,22 @@ func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, int
 		interruptionEvent := <-cancelChan
 		nodeName := interruptionEvent.NodeName
 		eventID := interruptionEvent.EventID
-		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
-		if interruptionEventStore.ShouldUncordonNode(nodeName) {
+		// The IMDS monitors report a canceled event on every poll. A cancellation uncordons the node only when NTH acted
+		// on the event, so that a node cordoned for another reason stays cordoned: the event is in the event store, or,
+		// when NTH restarted since it acted, the node is still labeled with the event ID.
+		inStore := interruptionEventStore.CancelInterruptionEvent(eventID)
+		if !inStore {
+			labeled, err := node.HasEventID(nodeName, eventID)
+			if err != nil {
+				log.Warn().Err(err).Str("event_id", eventID).Msg("Unable to check whether the node is labeled with the canceled event")
+				continue
+			}
+			if !labeled {
+				log.Debug().Str("event_id", eventID).Msg("Ignoring the cancellation of an event NTH did not act on")
+				continue
+			}
+		}
+		if (inStore && interruptionEventStore.ShouldUncordonNode(nodeName)) || (!inStore && !interruptionEventStore.HasActiveEvent(nodeName)) {
 			log.Info().Msg("Uncordoning the node due to a cancellation event")
 			err := node.Uncordon(nodeName)
 			if err != nil {
