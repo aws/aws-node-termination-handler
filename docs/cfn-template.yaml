@@ -1,10 +1,19 @@
 AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ClusterName:
+    Type: String
+    Description: >-
+      The name of the cluster whose NTH uses the queue. The queue is tagged eks:eks-cluster-name with it, which the
+      tag-based IAM policies in config/iam/ require.
 Resources:
   Queue:
     Type: 'AWS::SQS::Queue'
     Properties:
       MessageRetentionPeriod: 300
       SqsManagedSseEnabled: true
+      Tags:
+        - Key: 'eks:eks-cluster-name'
+          Value: !Ref ClusterName
   QueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
     Properties:

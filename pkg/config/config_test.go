@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"flag"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
@@ -322,4 +323,205 @@ func TestPrint_JSON(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: &jsonBuf})
 	nthConfig.PrintJsonConfigArgs()
 	h.Assert(t, jsonBuf.String() == printBuf.String(), "Should have printed JSON formatted config values")
+}
+
+func TestClusterTagIsolationDefaultDisable(t *testing.T) {
+	resetFlagsForTest()
+	t.Setenv("NODE_NAME", "node")
+	t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "true")
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	h.Equals(t, config.ClusterTagIsolationDisable, nthConfig.ClusterTagIsolation)
+	h.Equals(t, "", nthConfig.ClusterName)
+	h.Equals(t, "", nthConfig.ClusterTagKey)
+}
+
+func TestClusterTagIsolationEnforceFromEnv(t *testing.T) {
+	resetFlagsForTest()
+	t.Setenv("NODE_NAME", "node")
+	t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "true")
+	t.Setenv("CLUSTER_NAME", "my-cluster")
+	t.Setenv("CLUSTER_TAG_KEY", "example.com/cluster")
+	t.Setenv("CLUSTER_TAG_ISOLATION", "enforce")
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	h.Equals(t, "my-cluster", nthConfig.ClusterName)
+	h.Equals(t, "example.com/cluster", nthConfig.ClusterTagKey)
+	h.Equals(t, config.ClusterTagIsolationEnforce, nthConfig.ClusterTagIsolation)
+}
+
+func TestClusterTagIsolationEnforceFromFlags(t *testing.T) {
+	resetFlagsForTest()
+	os.Args = []string{
+		"cmd",
+		"--node-name=node",
+		"--enable-sqs-termination-draining=true",
+		"--cluster-name=my-cluster",
+		"--cluster-tag-key=example.com/cluster",
+		"--cluster-tag-isolation=enforce",
+	}
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	h.Equals(t, "my-cluster", nthConfig.ClusterName)
+	h.Equals(t, "example.com/cluster", nthConfig.ClusterTagKey)
+	h.Equals(t, config.ClusterTagIsolationEnforce, nthConfig.ClusterTagIsolation)
+}
+
+func TestClusterTagIsolationErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		env     map[string]string
+		errPart string
+	}{
+		{
+			name:    "unknown state",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "strict"},
+			errPart: `invalid --cluster-tag-isolation "strict": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "false is not disable",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "false"},
+			errPart: `invalid --cluster-tag-isolation "false": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "true",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "true"},
+			errPart: `invalid --cluster-tag-isolation "true": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "on",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "on"},
+			errPart: `invalid --cluster-tag-isolation "on": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "uppercase OFF",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "OFF"},
+			errPart: `invalid --cluster-tag-isolation "OFF": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "leading space",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": " disable"},
+			errPart: `invalid --cluster-tag-isolation " disable": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "off is not a state",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "off"},
+			errPart: `invalid --cluster-tag-isolation "off": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "backfill is not a state of NTH",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "backfill"},
+			errPart: `invalid --cluster-tag-isolation "backfill": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "mixed-case Enforce",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "Enforce", "CLUSTER_NAME": "my-cluster", "CLUSTER_TAG_KEY": "example.com/cluster"},
+			errPart: `invalid --cluster-tag-isolation "Enforce": must be "disable" or "enforce"`,
+		},
+		{
+			name:    "enforce without cluster name",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "enforce", "CLUSTER_TAG_KEY": "example.com/cluster"},
+			errPart: "requires cluster-name",
+		},
+		{
+			name:    "enforce without cluster tag key",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "enforce", "CLUSTER_NAME": "my-cluster"},
+			errPart: "requires cluster-tag-key",
+		},
+		{
+			name:    "enforce with whitespace-only cluster name",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "enforce", "CLUSTER_NAME": "  ", "CLUSTER_TAG_KEY": "example.com/cluster"},
+			errPart: "requires cluster-name",
+		},
+		{
+			name:    "enforce with whitespace-only cluster tag key",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "enforce", "CLUSTER_NAME": "my-cluster", "CLUSTER_TAG_KEY": " "},
+			errPart: "requires cluster-tag-key",
+		},
+		{
+			name:    "aws: tag key with enforce",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_TAG_ISOLATION": "enforce", "CLUSTER_NAME": "my-cluster", "CLUSTER_TAG_KEY": "aws:eks:cluster-name"},
+			errPart: `invalid cluster-tag-key "aws:eks:cluster-name"`,
+		},
+		{
+			name:    "aws: tag key with disable",
+			env:     map[string]string{"ENABLE_SQS_TERMINATION_DRAINING": "true", "CLUSTER_NAME": "my-cluster", "CLUSTER_TAG_KEY": "aws:eks:cluster-name"},
+			errPart: `invalid cluster-tag-key "aws:eks:cluster-name"`,
+		},
+		{
+			name:    "enforce in IMDS mode",
+			env:     map[string]string{"CLUSTER_TAG_ISOLATION": "enforce", "CLUSTER_NAME": "my-cluster", "CLUSTER_TAG_KEY": "example.com/cluster"},
+			errPart: "only supported for Queue Processor mode",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetFlagsForTest()
+			t.Setenv("NODE_NAME", "node")
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			_, err := config.ParseCliArgs()
+			h.Nok(t, err)
+			h.Assert(t, strings.Contains(err.Error(), tc.errPart), "error %q should contain %q", err.Error(), tc.errPart)
+		})
+	}
+}
+
+func TestClusterTagIsolationExplicitDisableAndEmpty(t *testing.T) {
+	for _, v := range []string{"disable", ""} {
+		resetFlagsForTest()
+		t.Setenv("NODE_NAME", "node")
+		t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "true")
+		t.Setenv("CLUSTER_TAG_ISOLATION", v)
+		nthConfig, err := config.ParseCliArgs()
+		h.Ok(t, err)
+		h.Equals(t, config.ClusterTagIsolationDisable, nthConfig.ClusterTagIsolation)
+	}
+}
+
+func TestClusterTagIsolationDisableWarnsWhenOnlyOneIsSet(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+		warn bool
+	}{
+		{name: "name only", env: map[string]string{"CLUSTER_NAME": "my-cluster"}, warn: true},
+		{name: "key only", env: map[string]string{"CLUSTER_TAG_KEY": "example.com/cluster"}, warn: true},
+		{name: "both", env: map[string]string{"CLUSTER_NAME": "my-cluster", "CLUSTER_TAG_KEY": "example.com/cluster"}, warn: false},
+		{name: "neither", env: map[string]string{}, warn: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			defer func(l zerolog.Logger) { log.Logger = l }(log.Logger)
+			log.Logger = zerolog.New(&buf)
+			resetFlagsForTest()
+			t.Setenv("NODE_NAME", "node")
+			t.Setenv("ENABLE_SQS_TERMINATION_DRAINING", "true")
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			nthConfig, err := config.ParseCliArgs()
+			h.Ok(t, err)
+			h.Equals(t, config.ClusterTagIsolationDisable, nthConfig.ClusterTagIsolation)
+			h.Equals(t, tc.warn, strings.Contains(buf.String(), "only one of cluster-name and cluster-tag-key is set"))
+		})
+	}
+}
+
+func TestLogClusterTagSettings(t *testing.T) {
+	var buf bytes.Buffer
+	defer func(l zerolog.Logger) { log.Logger = l }(log.Logger)
+	log.Logger = zerolog.New(&buf)
+	config.Config{ClusterName: "my-cluster", ClusterTagKey: "example.com/cluster", ClusterTagIsolation: config.ClusterTagIsolationEnforce}.LogClusterTagSettings()
+	h.Equals(t, `{"level":"info","clusterName":"my-cluster","tagKey":"example.com/cluster","clusterTagIsolation":"enforce","message":"cluster tag isolation settings"}`+"\n", buf.String())
+}
+
+func TestClusterNameInIMDSModeIsAccepted(t *testing.T) {
+	resetFlagsForTest()
+	t.Setenv("NODE_NAME", "node")
+	t.Setenv("CLUSTER_NAME", "my-cluster")
+	t.Setenv("CLUSTER_TAG_KEY", "example.com/cluster")
+	nthConfig, err := config.ParseCliArgs()
+	h.Ok(t, err)
+	h.Equals(t, config.ClusterTagIsolationDisable, nthConfig.ClusterTagIsolation)
 }
