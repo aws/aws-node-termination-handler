@@ -51,6 +51,7 @@ type InterruptionEvent struct {
 	NodeName             string
 	NodeLabels           map[string]string
 	Pods                 []string
+	PodDetails           []node.PodDetail `json:"-"`
 	InstanceID           string
 	ProviderID           string
 	InstanceType         string

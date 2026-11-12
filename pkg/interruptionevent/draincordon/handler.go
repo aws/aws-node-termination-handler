@@ -95,7 +95,8 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 		}
 	}
 
-	podNameList, err := h.commonHandler.Node.FetchPodNameList(nodeName)
+	podDetails, err := h.commonHandler.Node.FetchPodDetails(nodeName)
+	podNameList := node.PodNames(podDetails)
 	if err != nil {
 		log.Warn().
 			Err(err).
@@ -104,6 +105,7 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 			Msg("Failed to fetch pod names. Proceeding with fallback pod names")
 	} else {
 		drainEvent.Pods = podNameList
+		drainEvent.PodDetails = podDetails
 	}
 
 	err = h.commonHandler.Node.LogPods(podNameList, nodeName)

@@ -14,10 +14,13 @@
 package monitor_test
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 )
 
@@ -63,4 +66,18 @@ func TestIsRebalanceRecommendation_Failure(t *testing.T) {
 func TestIsRebalanceRecommendation_Empty_Failure(t *testing.T) {
 	event := &monitor.InterruptionEvent{}
 	h.Equals(t, false, event.IsRebalanceRecommendation())
+}
+
+func TestInterruptionEventJSONOmitsPodDetails(t *testing.T) {
+	event := monitor.InterruptionEvent{
+		Pods: []string{"agent-1"},
+		PodDetails: []node.PodDetail{
+			{Name: "agent-1", Annotations: map[string]string{"example.com/secret": "value"}},
+		},
+	}
+
+	eventJSON, err := json.Marshal(event)
+	h.Ok(t, err)
+	h.Assert(t, !strings.Contains(string(eventJSON), "PodDetails"), "PodDetails should not be serialized")
+	h.Assert(t, !strings.Contains(string(eventJSON), "example.com/secret"), "pod annotations should not be serialized")
 }

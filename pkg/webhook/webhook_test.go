@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/config"
 	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/node"
 	h "github.com/aws/aws-node-termination-handler/pkg/test"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
 	"github.com/rs/zerolog/log"
@@ -112,6 +113,49 @@ func TestPostSuccess(t *testing.T) {
 	nodeMetadata := ec2metadata.NodeMetadata{}
 
 	webhook.Post(nodeMetadata, event, nthconfig)
+}
+
+func TestPostPodDetails(t *testing.T) {
+	const podDetailsTemplate = `{{ range .PodDetails }}{{ if and (eq .Phase "Running") (ne .OwnerKind "DaemonSet") }}{{ .Namespace }}/{{ .Name }} {{ index .Labels "app" }} {{ index .Annotations "example.com/owner" }};{{ end }}{{ end }}`
+
+	event := &monitor.InterruptionEvent{
+		Pods: []string{"web-1", "ds-1", "done-1"},
+		PodDetails: []node.PodDetail{
+			{
+				Name:        "web-1",
+				Namespace:   "team-a",
+				Phase:       "Running",
+				OwnerKind:   "ReplicaSet",
+				Labels:      map[string]string{"app": "web"},
+				Annotations: map[string]string{"example.com/owner": "alice"},
+			},
+			{Name: "ds-1", Namespace: "kube-system", Phase: "Running", OwnerKind: "DaemonSet"},
+			{Name: "done-1", Namespace: "ci", Phase: "Succeeded"},
+		},
+	}
+
+	requestBody := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		body, err := io.ReadAll(req.Body)
+		h.Ok(t, err)
+		requestBody <- string(body)
+	}))
+	defer server.Close()
+
+	nthconfig := config.Config{
+		WebhookURL:      server.URL,
+		WebhookHeaders:  testWebhookHeaders,
+		WebhookTemplate: podDetailsTemplate,
+	}
+
+	webhook.Post(ec2metadata.NodeMetadata{}, event, nthconfig)
+
+	select {
+	case body := <-requestBody:
+		h.Equals(t, "team-a/web-1 web alice;", body)
+	default:
+		t.Fatal("webhook was not posted")
+	}
 }
 
 func TestPostTemplateParseError(t *testing.T) {

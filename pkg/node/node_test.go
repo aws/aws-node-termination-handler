@@ -16,6 +16,7 @@ package node_test
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -291,27 +292,60 @@ func TestMarkForUncordonAfterRebootAddActionLabelFailure(t *testing.T) {
 	h.Assert(t, err != nil, "Failed to return error on MarkForUncordonAfterReboot failing to add action Label")
 }
 
-func TestFetchPodsNameList(t *testing.T) {
+func TestFetchPodDetails(t *testing.T) {
+	isController := true
 	client := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "myPod",
-				Labels: map[string]string{
-					"spec.nodeName": nodeName,
+				Name:        "web-1",
+				Namespace:   "team-a",
+				Labels:      map[string]string{"app": "web"},
+				Annotations: map[string]string{"example.com/owner": "team-a"},
+				OwnerReferences: []metav1.OwnerReference{
+					{Kind: "ReplicaSet", Name: "web", Controller: &isController},
 				},
 			},
+			Spec:   v1.PodSpec{NodeName: nodeName},
+			Status: v1.PodStatus{Phase: v1.PodRunning},
 		},
-		&v1.Node{
+		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: nodeName,
+				Name:      "agent-1",
+				Namespace: "ci",
+				OwnerReferences: []metav1.OwnerReference{
+					{Kind: "ConfigMap", Name: "not-a-controller"},
+				},
 			},
+			Spec:   v1.PodSpec{NodeName: nodeName},
+			Status: v1.PodStatus{Phase: v1.PodSucceeded},
 		},
 	)
 
 	tNode := getNode(t, getDrainHelper(client))
-	podList, err := tNode.FetchPodNameList(nodeName)
+	podDetails, err := tNode.FetchPodDetails(nodeName)
 	h.Ok(t, err)
-	h.Equals(t, []string{"myPod"}, podList)
+	sort.Slice(podDetails, func(i, j int) bool { return podDetails[i].Name < podDetails[j].Name })
+	h.Equals(t, []node.PodDetail{
+		{
+			Name:      "agent-1",
+			Namespace: "ci",
+			Phase:     "Succeeded",
+			OwnerKind: "",
+		},
+		{
+			Name:        "web-1",
+			Namespace:   "team-a",
+			Phase:       "Running",
+			OwnerKind:   "ReplicaSet",
+			Labels:      map[string]string{"app": "web"},
+			Annotations: map[string]string{"example.com/owner": "team-a"},
+		},
+	}, podDetails)
+}
+
+func TestPodNames(t *testing.T) {
+	h.Equals(t, []string(nil), node.PodNames(nil))
+	h.Equals(t, []string{"a", "b"}, node.PodNames([]node.PodDetail{{Name: "a"}, {Name: "b"}}))
 }
 
 func TestLogPods(t *testing.T) {

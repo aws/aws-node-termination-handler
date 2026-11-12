@@ -89,6 +89,18 @@ type Node struct {
 	uptime      uptime.UptimeFuncType
 }
 
+// PodDetail holds details of a pod on a node, as exposed to the webhook template
+type PodDetail struct {
+	Name      string
+	Namespace string
+	Phase     string
+	// OwnerKind is the kind of the pod's controller (e.g. ReplicaSet, DaemonSet, Job), or "" for a bare pod
+	OwnerKind string
+	Labels    map[string]string
+	// Annotations can hold sensitive data; templates should select specific keys rather than render the whole map
+	Annotations map[string]string
+}
+
 type ZerologWriter struct {
 	logger zerolog.Logger
 }
@@ -515,17 +527,37 @@ func (n Node) LogPods(podList []string, nodeName string) error {
 	return nil
 }
 
-// FetchPodNameList fetches list of all the pods names running on given nodeName
-func (n Node) FetchPodNameList(nodeName string) ([]string, error) {
+// FetchPodDetails fetches details of all the pods on given nodeName
+func (n Node) FetchPodDetails(nodeName string) ([]PodDetail, error) {
 	podList, err := n.fetchAllPods(nodeName)
 	if err != nil {
 		return nil, err
 	}
-	var podNamesList []string
+	var podDetails []PodDetail
 	for _, pod := range podList.Items {
-		podNamesList = append(podNamesList, pod.Name)
+		ownerKind := ""
+		if owner := metav1.GetControllerOf(&pod); owner != nil {
+			ownerKind = owner.Kind
+		}
+		podDetails = append(podDetails, PodDetail{
+			Name:        pod.Name,
+			Namespace:   pod.Namespace,
+			Phase:       string(pod.Status.Phase),
+			OwnerKind:   ownerKind,
+			Labels:      pod.Labels,
+			Annotations: pod.Annotations,
+		})
 	}
-	return podNamesList, nil
+	return podDetails, nil
+}
+
+// PodNames returns the names of the given pods
+func PodNames(podDetails []PodDetail) []string {
+	var podNames []string
+	for _, pod := range podDetails {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames
 }
 
 // TaintScheduledMaintenance adds the scheduled maintenance taint onto a node
