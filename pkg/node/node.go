@@ -95,8 +95,9 @@ type PodDetail struct {
 	Namespace string
 	Phase     string
 	// OwnerKind is the kind of the pod's controller (e.g. ReplicaSet, DaemonSet, Job), or "" for a bare pod
-	OwnerKind   string
-	Labels      map[string]string
+	OwnerKind string
+	Labels    map[string]string
+	// Annotations can hold sensitive data; templates should select specific keys rather than render the whole map
 	Annotations map[string]string
 }
 
@@ -524,19 +525,6 @@ func (n Node) LogPods(podList []string, nodeName string) error {
 	log.Info().Array("pod_names", podNamesArr).Str("node_name", nodeName).Msg("Pods on node")
 
 	return nil
-}
-
-// FetchPodNameList fetches list of all the pods names running on given nodeName
-func (n Node) FetchPodNameList(nodeName string) ([]string, error) {
-	podList, err := n.fetchAllPods(nodeName)
-	if err != nil {
-		return nil, err
-	}
-	var podNamesList []string
-	for _, pod := range podList.Items {
-		podNamesList = append(podNamesList, pod.Name)
-	}
-	return podNamesList, nil
 }
 
 // FetchPodDetails fetches details of all the pods on given nodeName
