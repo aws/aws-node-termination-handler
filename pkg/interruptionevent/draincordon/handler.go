@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/interruptionevent/internal/common"
 	"github.com/aws/aws-node-termination-handler/pkg/interruptioneventstore"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/node"
 	"github.com/aws/aws-node-termination-handler/pkg/observability"
 	"github.com/aws/aws-node-termination-handler/pkg/webhook"
@@ -92,6 +93,13 @@ func (h *Handler) HandleEvent(drainEvent *monitor.InterruptionEvent) error {
 			}
 			
 			return err
+		}
+	}
+
+	if nodeFound && drainEvent.Monitor == scheduledevent.ScheduledEventMonitorKind {
+		// a cancellation of the event uncordons the node even when NTH restarted since: it finds the event by this label
+		if err := h.commonHandler.Node.MarkWithEventID(nodeName, drainEvent.EventID); err != nil {
+			log.Warn().Err(err).Str("nodeName", nodeName).Msg("Unable to label the node with the scheduled event ID; a cancellation after NTH restarts will not uncordon the node")
 		}
 	}
 

@@ -167,6 +167,7 @@ func main() {
 	}
 
 	nthConfig.Print()
+	nthConfig.LogClusterTagSettings()
 
 	if !imdsDisabled && nthConfig.EnableScheduledEventDraining {
 		//will retry 4 times with an interval of 2 seconds.
@@ -239,6 +240,9 @@ func main() {
 			EC2:                           ec2Client,
 			BeforeCompleteLifecycleAction: func() { <-time.After(completeLifecycleActionDelay) },
 			SqsMsgVisibilityTimeoutSec:    nthConfig.SqsMsgVisibilityTimeoutSec,
+			ClusterTagIsolation:           nthConfig.ClusterTagIsolation,
+			ClusterTagKey:                 nthConfig.ClusterTagKey,
+			ClusterName:                   nthConfig.ClusterName,
 		}
 		monitoringFns[sqsEvents] = sqsMonitor
 	}
@@ -336,36 +340,84 @@ func watchForInterruptionEvents(interruptionChan <-chan monitor.InterruptionEven
 	}
 }
 
+// maxHandledCancellations bounds the number of decided cancellation event IDs watchForCancellationEvents remembers
+const maxHandledCancellations = 1000
+
 func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
+	// handled holds the cancellation event IDs that were decided, so that the cancellations IMDS reports on every poll
+	// look up the node once per event. Only this goroutine uses it.
+	handled := map[string]struct{}{}
 	for {
 		interruptionEvent := <-cancelChan
-		nodeName := interruptionEvent.NodeName
-		eventID := interruptionEvent.EventID
-		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
-		if interruptionEventStore.ShouldUncordonNode(nodeName) {
-			log.Info().Msg("Uncordoning the node due to a cancellation event")
-			err := node.Uncordon(nodeName)
-			if err != nil {
-				log.Err(err).Msg("Uncordoning the node failed")
-				recorder.Emit(nodeName, observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, err.Error())
-			} else {
-				recorder.Emit(nodeName, observability.Normal, observability.UncordonReason, observability.UncordonMsg)
-			}
-			metrics.NodeActionsInc("uncordon", nodeName, eventID, err)
-
-			err = node.RemoveNTHLabels(nodeName)
-			if err != nil {
-				log.Warn().Err(err).Msg("There was an issue removing NTH labels from node")
-			}
-
-			err = node.RemoveNTHTaints(nodeName)
-			if err != nil {
-				log.Warn().Err(err).Msg("There was an issue removing NTH taints from node")
-			}
-		} else {
-			log.Info().Msg("Another interruption event is active, not uncordoning the node")
-		}
+		handleCancellationEvent(interruptionEvent, interruptionEventStore, node, metrics, recorder, handled)
 	}
+}
+
+func handleCancellationEvent(interruptionEvent monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics, recorder observability.K8sEventRecorder, handled map[string]struct{}) {
+	nodeName := interruptionEvent.NodeName
+	eventID := interruptionEvent.EventID
+	if _, ok := handled[eventID]; ok {
+		return
+	}
+	// The IMDS monitors report a canceled event on every poll. A cancellation uncordons the node only when NTH acted
+	// on the event, so that a node cordoned for another reason stays cordoned: the event is in the event store, or,
+	// when NTH restarted since it acted, the node is still labeled with the event ID.
+	inStore := interruptionEventStore.CancelInterruptionEvent(eventID)
+	if !inStore {
+		if interruptionEventStore.HasActiveEvent(nodeName) {
+			// the cancellation is decided on a later report, once no other event is active
+			log.Debug().Str("event_id", eventID).Msg("Another interruption event is active, not uncordoning the node")
+			return
+		}
+		labeled, err := node.HasEventID(nodeName, eventID)
+		if err != nil {
+			log.Warn().Err(err).Str("event_id", eventID).Msg("Unable to check whether the node is labeled with the canceled event")
+			return
+		}
+		if !labeled {
+			log.Debug().Str("event_id", eventID).Msg("Ignoring the cancellation of an event NTH did not act on")
+			markCancellationHandled(handled, eventID)
+			return
+		}
+	} else if !interruptionEventStore.ShouldUncordonNode(nodeName) {
+		// the event is no longer in the store, so a later report of the cancellation is decided from the node's label
+		log.Info().Msg("Another interruption event is active, not uncordoning the node")
+		return
+	}
+
+	log.Info().Msg("Uncordoning the node due to a cancellation event")
+	uncordonErr := node.Uncordon(nodeName)
+	if uncordonErr != nil {
+		log.Err(uncordonErr).Msg("Uncordoning the node failed")
+		recorder.Emit(nodeName, observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, uncordonErr.Error())
+	} else {
+		recorder.Emit(nodeName, observability.Normal, observability.UncordonReason, observability.UncordonMsg)
+	}
+	metrics.NodeActionsInc("uncordon", nodeName, eventID, uncordonErr)
+
+	err := node.RemoveNTHLabels(nodeName)
+	if err != nil {
+		log.Warn().Err(err).Msg("There was an issue removing NTH labels from node")
+	}
+
+	err = node.RemoveNTHTaints(nodeName)
+	if err != nil {
+		log.Warn().Err(err).Msg("There was an issue removing NTH taints from node")
+	}
+
+	// when the uncordon failed, a later report of the cancellation is decided from the node's label
+	if uncordonErr == nil {
+		markCancellationHandled(handled, eventID)
+	}
+}
+
+// markCancellationHandled records a decided cancellation event ID. When the map is full it is cleared: a forgotten
+// event ID costs one more node lookup on its next report and does not change the decision.
+func markCancellationHandled(handled map[string]struct{}, eventID string) {
+	if len(handled) >= maxHandledCancellations {
+		clear(handled)
+	}
+	handled[eventID] = struct{}{}
 }
 
 func processInterruptionEvent(interruptionEventStore *interruptioneventstore.Store, event *monitor.InterruptionEvent, eventHandlers []interruptionEventHandler, wg *sync.WaitGroup) {

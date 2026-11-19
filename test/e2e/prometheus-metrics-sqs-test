@@ -203,6 +203,18 @@ echo "✅ Port-forwarded pod $POD_NAME"
 
 sleep 10
 
+# metric_value prints the value of the series matching the query in $METRICS_RESPONSE, or 0 when it is missing
+function metric_value {
+    local value
+    value=$(echo "$METRICS_RESPONSE" | grep -E "${1}[[:space:]]+[0-9]+" | awk '{print $NF}' | head -1) || :
+    echo "${value:-0}"
+}
+
+# The tagged instance gauge is computed periodically, so its first values can be missing or incomplete: retry until
+# every metric is present with the expected value
+gauge="nth_tagged_instances"
+gauge_query=''$gauge'{otel_scope_name="aws.node.termination.handler",otel_scope_version=""}'
+metric_name="actions_total"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     METRICS_RESPONSE=$(curl -L localhost:7000/metrics)
     echo "✅ Fetched /metrics."
@@ -216,34 +228,40 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
             break
         fi
     done
-    if [ -z $failed ]; then
+    if [[ -z $failed ]]; then
+        for action in cordon-and-drain post-drain; do
+            labels='node_action="'$action'",node_status="success",otel_scope_name="aws.node.termination.handler",otel_scope_version=""'
+            counter_value=$(metric_value "$metric_name{$labels}")
+            if ((counter_value < 1)); then
+                echo "⚠️  Counter count $counter_value for metric action:$action"
+                failed="action:$action"
+                break
+            fi
+            echo "✅ Fetched counter:$counter_value for metric with action:$action"
+        done
+    fi
+    if [[ -z $failed ]]; then
+        counter_value=$(metric_value "$gauge_query")
+        if ((counter_value < 2)); then
+            echo "⚠️  Gauge count $counter_value for metric:$gauge"
+            failed="gauge:$gauge"
+        else
+            echo "✅ Fetched gauge:$counter_value for metric:$gauge"
+        fi
+    fi
+    if [[ -z $failed ]]; then
         break
     fi
     echo "Metrics Loop $i/$TAINT_CHECK_CYCLES, sleeping for $TAINT_CHECK_SLEEP seconds"
     sleep $TAINT_CHECK_SLEEP
 done
 
-if [[ -n $failed ]]; then
-    exit 4
-fi
-
-metric_name="actions_total"
-for action in cordon-and-drain post-drain; do
-    labels='node_action="'$action'",node_status="success",otel_scope_name="aws.node.termination.handler",otel_scope_version=""'
-    query="$metric_name{$labels}"
-    counter_value=$(echo "$METRICS_RESPONSE" | grep -E "${query}[[:space:]]+[0-9]+" | awk '{print $NF}')
-    if (($counter_value < 1)); then
-        echo "❌ Failed counter count for metric action:$action"
-        exit 5
-    fi
-    echo "✅ Fetched counter:$counter_value for metric with action:$action"
-done
-
-gauge="nth_tagged_instances"
-query=''$gauge'{otel_scope_name="aws.node.termination.handler",otel_scope_version=""}'
-counter_value=$(echo "$METRICS_RESPONSE" | grep -E "${query}[[:space:]]+[0-9]+" | awk '{print $NF}')
-if (($counter_value < 2)); then
+if [[ $failed == "gauge:$gauge" ]]; then
     echo "❌ Failed gauge count for metric:$gauge"
     exit 5
+elif [[ $failed == action:* ]]; then
+    echo "❌ Failed counter count for metric $failed"
+    exit 5
+elif [[ -n $failed ]]; then
+    exit 4
 fi
-echo "✅ Fetched gauge:$counter_value for metric:$gauge"

@@ -50,3 +50,49 @@ echo "==========================================================================
 helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system --debug -f "${HELM_DIR}/aws-node-termination-handler/example-values-imds-windows.yaml" > /dev/null
 
 echo "✅ Helm template generation has successfully completed!"
+
+echo "=============================================================================="
+echo "              Reject invalid cluster tag isolation values"
+echo "=============================================================================="
+
+# These cases mirror TestClusterTagIsolationErrors in pkg/config/config_test.go. Add a case to both when a rule changes.
+expect_template_failure() {
+    local want="$1"
+    shift
+    local out
+    if out=$(helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system "$@" 2>&1); then
+        echo "❌ helm template succeeded, expected an error containing: $want"
+        echo "   args: $*"
+        exit 1
+    fi
+    if [[ "$out" != *"$want"* ]]; then
+        echo "❌ helm template failed without the expected error: $want"
+        echo "   args: $*"
+        echo "$out"
+        exit 1
+    fi
+    echo "✅ rejected ($want): $*"
+}
+
+SQS=(--set enableSqsTerminationDraining=true --set queueURL=https://sqs.us-west-2.amazonaws.com/111122223333/nth)
+ENFORCE=(--set-string clusterTagIsolation=enforce)
+NAME=(--set-string clusterName=my-cluster)
+KEY=(--set-string clusterTagKey=example.com/cluster)
+INVALID_STATE='clusterTagIsolation must be "disable" or "enforce"'
+
+for state in strict false true on OFF " disable" off backfill Enforce; do
+    expect_template_failure "$INVALID_STATE" "${SQS[@]}" "${NAME[@]}" "${KEY[@]}" --set-string "clusterTagIsolation=$state"
+done
+expect_template_failure 'clusterTagIsolation must be one of "disable" or "enforce", got the bool' "${SQS[@]}" --set clusterTagIsolation=true
+expect_template_failure "clusterTagIsolation=enforce requires clusterName" "${SQS[@]}" "${ENFORCE[@]}" "${KEY[@]}"
+expect_template_failure "clusterTagIsolation=enforce requires clusterTagKey" "${SQS[@]}" "${ENFORCE[@]}" "${NAME[@]}"
+expect_template_failure "clusterTagIsolation=enforce requires clusterName" "${SQS[@]}" "${ENFORCE[@]}" "${KEY[@]}" --set-string "clusterName=  "
+expect_template_failure "clusterTagIsolation=enforce requires clusterTagKey" "${SQS[@]}" "${ENFORCE[@]}" "${NAME[@]}" --set-string "clusterTagKey= "
+expect_template_failure 'clusterTagKey "aws:eks:cluster-name" is invalid' "${SQS[@]}" "${ENFORCE[@]}" "${NAME[@]}" --set-string clusterTagKey=aws:eks:cluster-name
+expect_template_failure 'clusterTagKey "aws:eks:cluster-name" is invalid' "${SQS[@]}" "${NAME[@]}" --set-string clusterTagKey=aws:eks:cluster-name
+expect_template_failure "clusterTagIsolation=enforce requires enableSqsTerminationDraining=true" "${ENFORCE[@]}" "${NAME[@]}" "${KEY[@]}"
+
+helm template nth "${HELM_DIR}/aws-node-termination-handler" --namespace=kube-system "${SQS[@]}" "${ENFORCE[@]}" "${NAME[@]}" "${KEY[@]}" > /dev/null
+echo "✅ accepted: enforce with clusterName and clusterTagKey"
+
+echo "✅ Cluster tag isolation validation has successfully completed!"
