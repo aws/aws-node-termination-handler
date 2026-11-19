@@ -53,11 +53,13 @@ func New(nthConfig config.Config) *Store {
 	return store
 }
 
-// CancelInterruptionEvent removes an interruption event from the internal store
-func (s *Store) CancelInterruptionEvent(eventID string) {
+// CancelInterruptionEvent removes an interruption event from the internal store, and returns whether it was in the store
+func (s *Store) CancelInterruptionEvent(eventID string) bool {
 	s.Lock()
 	defer s.Unlock()
+	_, ok := s.interruptionEventStore[eventID]
 	delete(s.interruptionEventStore, eventID)
+	return ok
 }
 
 // AddInterruptionEvent adds an interruption event to the internal store
@@ -159,6 +161,18 @@ func (s *Store) ShouldUncordonNode(nodeName string) bool {
 	}
 
 	return true
+}
+
+// HasActiveEvent reports whether the store holds an event for the node that is not ignored
+func (s *Store) HasActiveEvent(nodeName string) bool {
+	s.RLock()
+	defer s.RUnlock()
+	for _, interruptionEvent := range s.interruptionEventStore {
+		if _, ignored := s.ignoredEvents[interruptionEvent.EventID]; !ignored && interruptionEvent.NodeName == nodeName {
+			return true
+		}
+	}
+	return false
 }
 
 // cleanPeriodically removes old events from the store every N times it is called
