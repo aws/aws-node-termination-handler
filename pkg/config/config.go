@@ -31,6 +31,7 @@ const (
 	nodeNameConfigKey                       = "NODE_NAME"
 	podNameConfigKey                        = "POD_NAME"
 	podNamespaceConfigKey                   = "NAMESPACE"
+	podUIDConfigKey                         = "POD_UID"
 	kubernetesServiceHostConfigKey          = "KUBERNETES_SERVICE_HOST"
 	kubernetesServicePortConfigKey          = "KUBERNETES_SERVICE_PORT"
 	deleteLocalDataConfigKey                = "DELETE_LOCAL_DATA"
@@ -124,6 +125,11 @@ const (
 	// sqs monitor
 	sqsMsgVisibilityTimeoutSecConfigKey = "SQS_MSG_VISIBILITY_TIMEOUT_SEC"
 	SqsMsgVisibilityTimeoutSecDefault   = 20
+	// IMDS event reporting and the IMDS event controller
+	imdsEventReportingConfigKey        = "IMDS_EVENT_REPORTING"
+	enableIMDSEventControllerConfigKey = "ENABLE_IMDS_EVENT_CONTROLLER"
+	imdsEventControllerLeaseConfigKey  = "IMDS_EVENT_CONTROLLER_LEASE_NAME"
+	imdsEventControllerLeaseDefault    = "aws-node-termination-handler-imds-event-controller"
 )
 
 // Config arguments set via CLI, environment variables, or defaults
@@ -132,6 +138,7 @@ type Config struct {
 	NodeName                            string
 	PodName                             string
 	PodNamespace                        string
+	PodUID                              string
 	MetadataURL                         string
 	IgnoreDaemonSets                    bool
 	DeleteLocalData                     bool
@@ -184,6 +191,9 @@ type Config struct {
 	HeartbeatInterval                   int
 	HeartbeatUntil                      int
 	SqsMsgVisibilityTimeoutSec          int
+	IMDSEventReporting                  bool
+	EnableIMDSEventController           bool
+	IMDSEventControllerLeaseName        string
 }
 
 // ParseCliArgs parses cli arguments and uses environment variables as fallback values
@@ -201,6 +211,7 @@ func ParseCliArgs() (config Config, err error) {
 	flag.StringVar(&config.NodeName, "node-name", getEnv(nodeNameConfigKey, ""), "The kubernetes node name")
 	flag.StringVar(&config.PodName, "pod-name", getEnv(podNameConfigKey, ""), "The kubernetes pod name")
 	flag.StringVar(&config.PodNamespace, "pod-namespace", getEnv(podNamespaceConfigKey, ""), "The kubernetes pod namespace")
+	flag.StringVar(&config.PodUID, "pod-uid", getEnv(podUIDConfigKey, ""), "The kubernetes pod UID. Required with imds-event-reporting.")
 	flag.StringVar(&config.MetadataURL, "metadata-url", getEnv(instanceMetadataURLConfigKey, defaultInstanceMetadataURL), "The URL of EC2 instance metadata. This shouldn't need to be changed unless you are testing.")
 	flag.BoolVar(&config.IgnoreDaemonSets, "ignore-daemon-sets", getBoolEnv(ignoreDaemonSetsConfigKey, true), "If true, ignore daemon sets and drain other pods when a spot interrupt is received.")
 	flag.BoolVar(&config.DeleteLocalData, "delete-local-data", getBoolEnv(deleteLocalDataConfigKey, true), "If true, do not drain pods that are using local node storage in emptyDir")
@@ -254,6 +265,9 @@ func ParseCliArgs() (config Config, err error) {
 	flag.IntVar(&config.HeartbeatInterval, "heartbeat-interval", getIntEnv(heartbeatIntervalKey, -1), "The time period in seconds between consecutive heartbeat signals. Valid range: 30-3600 seconds (30 seconds to 1 hour).")
 	flag.IntVar(&config.HeartbeatUntil, "heartbeat-until", getIntEnv(heartbeatUntilKey, -1), "The duration in seconds over which heartbeat signals are sent. Valid range: 60-172800 seconds (1 minute to 48 hours).")
 	flag.IntVar(&config.SqsMsgVisibilityTimeoutSec, "sqs-msg-visibility-timeout-sec", getIntEnv(sqsMsgVisibilityTimeoutSecConfigKey, SqsMsgVisibilityTimeoutSecDefault), "Duration in seconds that a message is hidden from other consumers after being retrieved from the SQS queue by sqs-monitor. Valid range: 1-119 seconds.")
+	flag.BoolVar(&config.IMDSEventReporting, "imds-event-reporting", getBoolEnv(imdsEventReportingConfigKey, false), "IMDS mode only. If true, write the IMDS events of this node to an annotation on this node's Node object and take no other action; the IMDS event controller (enable-imds-event-controller) cordons and drains the node. The handler then needs no permissions on other nodes.")
+	flag.BoolVar(&config.EnableIMDSEventController, "enable-imds-event-controller", getBoolEnv(enableIMDSEventControllerConfigKey, false), "If true, run the IMDS event controller: watch the IMDS events that handlers started with imds-event-reporting write to their Node objects, and cordon and drain those nodes. Cannot be combined with enable-sqs-termination-draining or imds-event-reporting.")
+	flag.StringVar(&config.IMDSEventControllerLeaseName, "imds-event-controller-lease-name", getEnv(imdsEventControllerLeaseConfigKey, imdsEventControllerLeaseDefault), "The name of the Lease, in pod-namespace, that the replicas of the IMDS event controller use for leader election.")
 	flag.Parse()
 
 	if isConfigProvided("pod-termination-grace-period", podTerminationGracePeriodConfigKey) && isConfigProvided("grace-period", gracePeriodConfigKey) {
@@ -317,6 +331,22 @@ func ParseCliArgs() (config Config, err error) {
 	}
 	if config.HeartbeatInterval != -1 && config.HeartbeatUntil != -1 && config.HeartbeatInterval > config.HeartbeatUntil {
 		return config, fmt.Errorf("invalid heartbeat configuration: heartbeat-interval should be less than or equal to heartbeat-until")
+	}
+
+	if config.EnableIMDSEventController && config.EnableSQSTerminationDraining {
+		return config, fmt.Errorf("enable-imds-event-controller cannot be combined with enable-sqs-termination-draining")
+	}
+	if config.EnableIMDSEventController && config.IMDSEventReporting {
+		return config, fmt.Errorf("enable-imds-event-controller cannot be combined with imds-event-reporting")
+	}
+	if config.IMDSEventReporting && config.EnableSQSTerminationDraining {
+		return config, fmt.Errorf("currently using Queue Processor mode. imds-event-reporting is only supported for IMDS mode")
+	}
+	if config.IMDSEventReporting && config.PodUID == "" {
+		return config, fmt.Errorf("imds-event-reporting requires pod-uid (env %s): the IMDS event controller only acts on reports of running handler pods", podUIDConfigKey)
+	}
+	if config.EnableIMDSEventController && config.PodNamespace == "" {
+		return config, fmt.Errorf("enable-imds-event-controller requires pod-namespace (env %s) for leader election", podNamespaceConfigKey)
 	}
 
 	if config.EnableSQSTerminationDraining && (config.SqsMsgVisibilityTimeoutSec <= 0 || config.SqsMsgVisibilityTimeoutSec >= 120) {
@@ -391,6 +421,9 @@ func (c Config) PrintJsonConfigArgs() {
 		Int("heartbeat_interval", c.HeartbeatInterval).
 		Int("heartbeat_until", c.HeartbeatUntil).
 		Int("sqs_msg_visibility_timeout_sec", c.SqsMsgVisibilityTimeoutSec).
+		Bool("imds_event_reporting", c.IMDSEventReporting).
+		Bool("enable_imds_event_controller", c.EnableIMDSEventController).
+		Str("imds_event_controller_lease_name", c.IMDSEventControllerLeaseName).
 		Msg("aws-node-termination-handler arguments")
 }
 
@@ -446,7 +479,10 @@ func (c Config) PrintHumanConfigArgs() {
 			"\tuse-apiserver-cache: %t,\n"+
 			"\theartbeat-interval: %d,\n"+
 			"\theartbeat-until: %d\n"+
-			"\tsqs-msg-visibility-timeout-sec: %d\n",
+			"\tsqs-msg-visibility-timeout-sec: %d,\n"+
+			"\timds-event-reporting: %t,\n"+
+			"\tenable-imds-event-controller: %t,\n"+
+			"\timds-event-controller-lease-name: %s\n",
 		c.DryRun,
 		c.NodeName,
 		c.PodName,
@@ -491,6 +527,9 @@ func (c Config) PrintHumanConfigArgs() {
 		c.HeartbeatInterval,
 		c.HeartbeatUntil,
 		c.SqsMsgVisibilityTimeoutSec,
+		c.IMDSEventReporting,
+		c.EnableIMDSEventController,
+		c.IMDSEventControllerLeaseName,
 	)
 }
 

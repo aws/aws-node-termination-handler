@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"sync"
 	"syscall"
@@ -31,6 +32,7 @@ import (
 	"github.com/aws/aws-node-termination-handler/pkg/logging"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/asglifecycle"
+	"github.com/aws/aws-node-termination-handler/pkg/monitor/imdsevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/rebalancerecommendation"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/scheduledevent"
 	"github.com/aws/aws-node-termination-handler/pkg/monitor/spotitn"
@@ -46,9 +48,15 @@ import (
 	"github.com/go-logr/zerologr"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 )
 
@@ -60,6 +68,7 @@ const (
 	sqsEvents               = "SQS Event"
 	timeFormat              = "2006/01/02 15:04:05"
 	duplicateErrThreshold   = 3
+	podUIDIndex             = "uid"
 )
 
 type interruptionEventHandler interface {
@@ -137,7 +146,9 @@ func main() {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to instantiate probes service,")
 	}
-	imdsDisabled := nthConfig.EnableSQSTerminationDraining
+	// the IMDS event controller handles the IMDS events of other nodes, so it does not read IMDS
+	imdsDisabled := nthConfig.EnableSQSTerminationDraining || nthConfig.EnableIMDSEventController
+	imdsEventReporting := !imdsDisabled && nthConfig.IMDSEventReporting
 
 	interruptionEventStore := interruptioneventstore.New(nthConfig)
 	var imds *ec2metadata.Service
@@ -160,15 +171,20 @@ func main() {
 		log.Fatal().Msgf("Unable to find the AWS region to process queue events.")
 	}
 
-	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, nthConfig.EnableSQSTerminationDraining, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations, clientset)
+	recorder, err := observability.InitK8sEventRecorder(nthConfig.EmitKubernetesEvents, nthConfig.NodeName, imdsDisabled, nodeMetadata, nthConfig.KubernetesEventsExtraAnnotations, clientset)
 	if err != nil {
 		nthConfig.Print()
 		log.Fatal().Err(err).Msg("Unable to create Kubernetes event recorder,")
 	}
+	if nthConfig.EnableIMDSEventController {
+		// annotate the events of a node like its own handler would in IMDS mode
+		recorder = recorder.WithNodeMetadata(imdsevent.NodeMetadataFromNode)
+	}
 
 	nthConfig.Print()
 
-	if !imdsDisabled && nthConfig.EnableScheduledEventDraining {
+	// with IMDS event reporting, the IMDS event controller uncordons the node after a reboot
+	if !imdsDisabled && !imdsEventReporting && nthConfig.EnableScheduledEventDraining {
 		//will retry 4 times with an interval of 2 seconds.
 		pollCtx, cancelPollCtx := context.WithTimeout(context.Background(), 8*time.Second)
 		err = wait.PollUntilContextCancel(pollCtx, 2*time.Second, true, func(context.Context) (done bool, err error) {
@@ -187,7 +203,9 @@ func main() {
 
 	interruptionChan := make(chan monitor.InterruptionEvent)
 	defer close(interruptionChan)
-	cancelChan := make(chan monitor.InterruptionEvent)
+	// cancellations are buffered: the IMDS event controller's monitor sends the cancellations of every node, and the
+	// cancellation handler makes API calls for each of them
+	cancelChan := make(chan monitor.InterruptionEvent, cancelChanBuffer)
 	defer close(cancelChan)
 
 	monitoringFns := map[string]monitor.Monitor{}
@@ -243,6 +261,29 @@ func main() {
 		monitoringFns[sqsEvents] = sqsMonitor
 	}
 
+	if imdsEventReporting {
+		reporter := imdsevent.NewReporter(clientset, nthConfig.NodeName, nodeMetadata, imdsevent.ReadBootID(), nthConfig.PodUID)
+		if err := reporter.Reset(); err != nil {
+			log.Err(err).Msg("Unable to reset the IMDS event report of this node")
+		}
+		startMonitors(monitoringFns, nthConfig, metrics, recorder)
+		log.Info().Msg("Kubernetes AWS Node Termination Handler has started successfully, reporting IMDS events to the IMDS event controller")
+		reportIMDSEvents(reporter, interruptionChan, cancelChan, signalChan)
+		log.Info().Msg("AWS Node Termination Handler is shutting down")
+		return
+	}
+
+	if nthConfig.EnableIMDSEventController {
+		runIMDSEventController(nthConfig, clientset, monitoringFns, interruptionChan, cancelChan, interruptionEventStore, node, nodeMetadata, metrics, recorder, signalChan)
+		return
+	}
+
+	startMonitors(monitoringFns, nthConfig, metrics, recorder)
+	runInterruptionLoop(nthConfig, clientset, interruptionChan, cancelChan, interruptionEventStore, node, nodeMetadata, metrics, recorder, signalChan)
+}
+
+// startMonitors polls every monitor every 2 seconds
+func startMonitors(monitoringFns map[string]monitor.Monitor, nthConfig config.Config, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
 	for _, fn := range monitoringFns {
 		go func(monitor monitor.Monitor) {
 			logging.VersionedMsgs.MonitoringStarted(monitor.Kind())
@@ -268,7 +309,10 @@ func main() {
 			}
 		}(fn)
 	}
+}
 
+// runInterruptionLoop handles the interruption events of the monitors until SIGTERM
+func runInterruptionLoop(nthConfig config.Config, clientset *kubernetes.Clientset, interruptionChan <-chan monitor.InterruptionEvent, cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, signalChan <-chan os.Signal) {
 	go watchForInterruptionEvents(interruptionChan, interruptionEventStore)
 	log.Info().Msg("Started watching for interruption events")
 	log.Info().Msg("Kubernetes AWS Node Termination Handler has started successfully!")
@@ -309,6 +353,132 @@ InterruptionLoop:
 	log.Debug().Msg("all event processors finished")
 }
 
+// reportIMDSEvents writes the events of the IMDS monitors to this node's IMDS event report until SIGTERM
+func reportIMDSEvents(reporter *imdsevent.Reporter, interruptionChan <-chan monitor.InterruptionEvent, cancelChan <-chan monitor.InterruptionEvent, signalChan <-chan os.Signal) {
+	for {
+		select {
+		case event := <-interruptionChan:
+			if err := reporter.Report(event); err != nil {
+				log.Err(err).Str("event_id", event.EventID).Msg("Unable to report an IMDS event to the IMDS event controller")
+			}
+		case event := <-cancelChan:
+			if err := reporter.ReportCancel(event); err != nil {
+				log.Err(err).Str("event_id", event.EventID).Msg("Unable to report an IMDS event cancellation to the IMDS event controller")
+			}
+		case <-signalChan:
+			return
+		}
+	}
+}
+
+// runIMDSEventController handles the IMDS events that the handlers on the nodes report, while this replica holds the
+// leader election lease, until SIGTERM
+func runIMDSEventController(nthConfig config.Config, clientset *kubernetes.Clientset, monitoringFns map[string]monitor.Monitor, interruptionChan chan monitor.InterruptionEvent, cancelChan chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, nodeMetadata ec2metadata.NodeMetadata, metrics observability.Metrics, recorder observability.K8sEventRecorder, signalChan <-chan os.Signal) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		<-signalChan
+		cancel()
+	}()
+
+	identity := nthConfig.PodName
+	if identity == "" {
+		identity, _ = os.Hostname()
+	}
+	lock := &resourcelock.LeaseLock{
+		LeaseMeta:  metav1.ObjectMeta{Name: nthConfig.IMDSEventControllerLeaseName, Namespace: nthConfig.PodNamespace},
+		Client:     clientset.CoordinationV1(),
+		LockConfig: resourcelock.ResourceLockConfig{Identity: identity},
+	}
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+		Lock:            lock,
+		ReleaseOnCancel: true,
+		LeaseDuration:   15 * time.Second,
+		RenewDeadline:   10 * time.Second,
+		RetryPeriod:     2 * time.Second,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				log.Info().Str("identity", identity).Msg("Started leading the IMDS event controller")
+				factory := informers.NewSharedInformerFactory(clientset, 0)
+				nodeLister := factory.Core().V1().Nodes().Lister()
+				// the handler pods on the nodes run in the controller's namespace
+				podFactory := informers.NewSharedInformerFactoryWithOptions(clientset, 0, informers.WithNamespace(nthConfig.PodNamespace))
+				podInformer := podFactory.Core().V1().Pods().Informer()
+				if err := podInformer.AddIndexers(cache.Indexers{podUIDIndex: func(obj interface{}) ([]string, error) {
+					return []string{string(obj.(*corev1.Pod).UID)}, nil
+				}}); err != nil {
+					log.Fatal().Err(err).Msg("Unable to index pods by UID")
+				}
+				factory.Start(ctx.Done())
+				podFactory.Start(ctx.Done())
+				if !cachesSynced(factory.WaitForCacheSync(ctx.Done()), podFactory.WaitForCacheSync(ctx.Done())) {
+					if ctx.Err() != nil {
+						log.Info().Str("identity", identity).Msg("Stopped leading the IMDS event controller before its caches synced")
+						return
+					}
+					// the monitor would act on caches that are missing nodes or pods, so exit and let the Deployment restart this replica
+					log.Fatal().Str("identity", identity).Msg("Unable to sync the node and pod caches of the IMDS event controller")
+				}
+				reporterRunning := func(nodeName string, podUID string) bool {
+					if podUID == "" {
+						return false
+					}
+					pods, err := podInformer.GetIndexer().ByIndex(podUIDIndex, podUID)
+					if err != nil || len(pods) != 1 {
+						return false
+					}
+					pod := pods[0].(*corev1.Pod)
+					return pod.Spec.NodeName == nodeName && pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp == nil
+				}
+
+				rebootHandler := func(nodeName string) (string, error) {
+					eventID, err := node.GetEventID(nodeName)
+					if err != nil {
+						return "", err
+					}
+					uncordoned, err := node.UncordonIfRebootedResult(nodeName)
+					if err != nil || !uncordoned {
+						return "", err
+					}
+					return eventID, nil
+				}
+				monitoringFns[imdsevent.MonitorKind] = imdsevent.NewMonitor(nodeLister, interruptionChan, cancelChan, rebootHandler, interruptionEventStore.IgnoreEvent, reporterRunning)
+				startMonitors(monitoringFns, nthConfig, metrics, recorder)
+
+				loopSignal := make(chan os.Signal, 1)
+				go func() {
+					<-ctx.Done()
+					loopSignal <- syscall.SIGTERM
+				}()
+				runInterruptionLoop(nthConfig, clientset, interruptionChan, cancelChan, interruptionEventStore, node, nodeMetadata, metrics, recorder, loopSignal)
+			},
+			OnStoppedLeading: func() {
+				if ctx.Err() != nil {
+					log.Info().Str("identity", identity).Msg("Stopped leading the IMDS event controller")
+					return
+				}
+				// the monitors cannot be stopped, so exit and let the Deployment restart this replica
+				log.Fatal().Str("identity", identity).Msg("Lost the IMDS event controller leader election lease")
+			},
+		},
+	})
+}
+
+// cachesSynced reports whether every informer of the shared informer factories synced
+func cachesSynced(results ...map[reflect.Type]bool) bool {
+	for _, result := range results {
+		for _, synced := range result {
+			if !synced {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// cancelChanBuffer is the number of cancellations the monitors can send before the cancellation handler receives them
+const cancelChanBuffer = 100
+
 func handleRebootUncordon(nodeName string, interruptionEventStore *interruptioneventstore.Store, node node.Node) error {
 	isLabeled, err := node.IsLabeledWithAction(nodeName)
 	if err != nil {
@@ -336,36 +506,84 @@ func watchForInterruptionEvents(interruptionChan <-chan monitor.InterruptionEven
 	}
 }
 
+// maxHandledCancellations bounds the number of decided cancellation event IDs watchForCancellationEvents remembers
+const maxHandledCancellations = 1000
+
 func watchForCancellationEvents(cancelChan <-chan monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics, recorder observability.K8sEventRecorder) {
+	// handled holds the cancellation event IDs that were decided, so that the cancellations IMDS reports on every poll
+	// look up the node once per event. Only this goroutine uses it.
+	handled := map[string]struct{}{}
 	for {
 		interruptionEvent := <-cancelChan
-		nodeName := interruptionEvent.NodeName
-		eventID := interruptionEvent.EventID
-		interruptionEventStore.CancelInterruptionEvent(interruptionEvent.EventID)
-		if interruptionEventStore.ShouldUncordonNode(nodeName) {
-			log.Info().Msg("Uncordoning the node due to a cancellation event")
-			err := node.Uncordon(nodeName)
-			if err != nil {
-				log.Err(err).Msg("Uncordoning the node failed")
-				recorder.Emit(nodeName, observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, err.Error())
-			} else {
-				recorder.Emit(nodeName, observability.Normal, observability.UncordonReason, observability.UncordonMsg)
-			}
-			metrics.NodeActionsInc("uncordon", nodeName, eventID, err)
-
-			err = node.RemoveNTHLabels(nodeName)
-			if err != nil {
-				log.Warn().Err(err).Msg("There was an issue removing NTH labels from node")
-			}
-
-			err = node.RemoveNTHTaints(nodeName)
-			if err != nil {
-				log.Warn().Err(err).Msg("There was an issue removing NTH taints from node")
-			}
-		} else {
-			log.Info().Msg("Another interruption event is active, not uncordoning the node")
-		}
+		handleCancellationEvent(interruptionEvent, interruptionEventStore, node, metrics, recorder, handled)
 	}
+}
+
+func handleCancellationEvent(interruptionEvent monitor.InterruptionEvent, interruptionEventStore *interruptioneventstore.Store, node *node.Node, metrics observability.Metrics, recorder observability.K8sEventRecorder, handled map[string]struct{}) {
+	nodeName := interruptionEvent.NodeName
+	eventID := interruptionEvent.EventID
+	if _, ok := handled[eventID]; ok {
+		return
+	}
+	// The IMDS monitors report a canceled event on every poll. A cancellation uncordons the node only when NTH acted
+	// on the event, so that a node cordoned for another reason stays cordoned: the event is in the event store, or,
+	// when NTH restarted since it acted, the node is still labeled with the event ID.
+	inStore := interruptionEventStore.CancelInterruptionEvent(eventID)
+	if !inStore {
+		if interruptionEventStore.HasActiveEvent(nodeName) {
+			// the cancellation is decided on a later report, once no other event is active
+			log.Debug().Str("event_id", eventID).Msg("Another interruption event is active, not uncordoning the node")
+			return
+		}
+		labeled, err := node.HasEventID(nodeName, eventID)
+		if err != nil {
+			log.Warn().Err(err).Str("event_id", eventID).Msg("Unable to check whether the node is labeled with the canceled event")
+			return
+		}
+		if !labeled {
+			log.Debug().Str("event_id", eventID).Msg("Ignoring the cancellation of an event NTH did not act on")
+			markCancellationHandled(handled, eventID)
+			return
+		}
+	} else if !interruptionEventStore.ShouldUncordonNode(nodeName) {
+		// the event is no longer in the store, so a later report of the cancellation is decided from the node's label
+		log.Info().Msg("Another interruption event is active, not uncordoning the node")
+		return
+	}
+
+	log.Info().Msg("Uncordoning the node due to a cancellation event")
+	uncordonErr := node.Uncordon(nodeName)
+	if uncordonErr != nil {
+		log.Err(uncordonErr).Msg("Uncordoning the node failed")
+		recorder.Emit(nodeName, observability.Warning, observability.UncordonErrReason, observability.UncordonErrMsgFmt, uncordonErr.Error())
+	} else {
+		recorder.Emit(nodeName, observability.Normal, observability.UncordonReason, observability.UncordonMsg)
+	}
+	metrics.NodeActionsInc("uncordon", nodeName, eventID, uncordonErr)
+
+	err := node.RemoveNTHLabels(nodeName)
+	if err != nil {
+		log.Warn().Err(err).Msg("There was an issue removing NTH labels from node")
+	}
+
+	err = node.RemoveNTHTaints(nodeName)
+	if err != nil {
+		log.Warn().Err(err).Msg("There was an issue removing NTH taints from node")
+	}
+
+	// when the uncordon failed, a later report of the cancellation is decided from the node's label
+	if uncordonErr == nil {
+		markCancellationHandled(handled, eventID)
+	}
+}
+
+// markCancellationHandled records a decided cancellation event ID. When the map is full it is cleared: a forgotten
+// event ID costs one more node lookup on its next report and does not change the decision.
+func markCancellationHandled(handled map[string]struct{}, eventID string) {
+	if len(handled) >= maxHandledCancellations {
+		clear(handled)
+	}
+	handled[eventID] = struct{}{}
 }
 
 func processInterruptionEvent(interruptionEventStore *interruptioneventstore.Store, event *monitor.InterruptionEvent, eventHandlers []interruptionEventHandler, wg *sync.WaitGroup) {

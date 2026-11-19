@@ -113,10 +113,9 @@ if [[ $deployed -eq 0 ]]; then
 fi
 
 logs=0
-pod_id=$(get_nth_worker_pod)
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
-  if [[ $logs -eq 0 && ! -z $(kubectl logs "${pod_id}" -n kube-system | grep -i -e 'would have been cordoned and drained') ]]; then
+  if [[ $logs -eq 0 && ! -z $(get_nth_logs | grep -i -e 'would have been cordoned and drained') ]]; then
       echo "✅ Verified the dryrun logs were executed"
       logs=1
   fi

@@ -176,12 +176,22 @@ export TEST_NODE
 echo "TEST_NODE=${TEST_NODE:?"not found"}"
 
 function get_nth_worker_pod {
-    kubectl get pods -n kube-system -l k8s-app=aws-node-termination-handler |
+    kubectl get pods -n kube-system -l 'k8s-app=aws-node-termination-handler,app.kubernetes.io/component!=imds-event-controller' |
         tail -n +2 |
         tr -s "\t" " " |
         cut -d " " -f 1 | head -1
 }
 export -f get_nth_worker_pod
+
+function get_nth_logs {
+    local pod_id
+    pod_id=$(get_nth_worker_pod || :)
+    if [[ -n "$pod_id" ]]; then
+        kubectl logs "$pod_id" --namespace kube-system || :
+    fi
+    kubectl logs --namespace kube-system --selector 'app.kubernetes.io/component=imds-event-controller' --tail=-1 || :
+}
+export -f get_nth_logs
 
 # shellcheck disable=SC2120
 function reset_cluster {

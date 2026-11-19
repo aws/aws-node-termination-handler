@@ -1,0 +1,19 @@
+{{- if and (include "aws-node-termination-handler.imdsEventController" .) (and .Values.imdsEventController.podDisruptionBudget (gt (int .Values.imdsEventController.replicas) 1)) }}
+apiVersion: {{ include "aws-node-termination-handler.pdb.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "aws-node-termination-handler.fullname" . | trunc 41 | trimSuffix "-" }}-imds-event-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-node-termination-handler.labels" . | nindent 4 }}
+    app.kubernetes.io/component: imds-event-controller
+spec:
+  selector:
+    matchLabels:
+      {{- include "aws-node-termination-handler.selectorLabelsIMDSEventController" . | nindent 6 }}
+  {{- $pdb := .Values.imdsEventController.podDisruptionBudget }}
+  {{- if not (kindIs "invalid" $pdb.maxUnavailable) }}
+  {{- $pdb = omit $pdb "minAvailable" }}
+  {{- end }}
+  {{- toYaml $pdb | nindent 2 }}
+{{- end }}

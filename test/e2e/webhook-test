@@ -112,7 +112,6 @@ if [[ $deployed -eq 0 ]]; then
 fi
 
 cordoned=0
-nth_pod_name=$(get_nth_worker_pod)
 test_node="${TEST_NODE:-$CLUSTER_NAME-worker}"
 for i in $(seq 1 $TAINT_CHECK_CYCLES); do
     if [[ $cordoned -eq 0 ]] && kubectl get nodes "${test_node}" | grep SchedulingDisabled >/dev/null; then
@@ -120,7 +119,7 @@ for i in $(seq 1 $TAINT_CHECK_CYCLES); do
         cordoned=1
     fi
 
-    if [[ $cordoned -eq 1 ]] && kubectl logs "${nth_pod_name}" -n kube-system | grep 'Webhook Success' >/dev/null; then
+    if [[ $cordoned -eq 1 ]] && get_nth_logs | grep 'Webhook Success' >/dev/null; then
         echo "✅ Verified the webhook message was sent!"
         echo "✅ Webhook Test Passed $CLUSTER_NAME! ✅"
         exit 0

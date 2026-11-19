@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"flag"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-node-termination-handler/pkg/config"
@@ -322,4 +323,38 @@ func TestPrint_JSON(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: &jsonBuf})
 	nthConfig.PrintJsonConfigArgs()
 	h.Assert(t, jsonBuf.String() == printBuf.String(), "Should have printed JSON formatted config values")
+}
+
+func TestIMDSEventFlags(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		env     map[string]string
+		errPart string
+	}{
+		{name: "reporting in IMDS mode", env: map[string]string{"IMDS_EVENT_REPORTING": "true", "POD_UID": "uid"}},
+		{name: "reporting without the pod UID", env: map[string]string{"IMDS_EVENT_REPORTING": "true"}, errPart: "imds-event-reporting requires pod-uid"},
+		{name: "controller", env: map[string]string{"ENABLE_IMDS_EVENT_CONTROLLER": "true", "NAMESPACE": "kube-system"}},
+		{name: "controller without namespace", env: map[string]string{"ENABLE_IMDS_EVENT_CONTROLLER": "true"}, errPart: "requires pod-namespace"},
+		{name: "controller with reporting", env: map[string]string{"ENABLE_IMDS_EVENT_CONTROLLER": "true", "IMDS_EVENT_REPORTING": "true", "NAMESPACE": "kube-system"}, errPart: "cannot be combined with imds-event-reporting"},
+		{name: "controller in queue mode", env: map[string]string{"ENABLE_IMDS_EVENT_CONTROLLER": "true", "ENABLE_SQS_TERMINATION_DRAINING": "true", "NAMESPACE": "kube-system"}, errPart: "cannot be combined with enable-sqs-termination-draining"},
+		{name: "reporting in queue mode", env: map[string]string{"IMDS_EVENT_REPORTING": "true", "POD_UID": "uid", "ENABLE_SQS_TERMINATION_DRAINING": "true"}, errPart: "imds-event-reporting is only supported for IMDS mode"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetFlagsForTest()
+			t.Setenv("NODE_NAME", "node")
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			nthConfig, err := config.ParseCliArgs()
+			if tc.errPart == "" {
+				h.Ok(t, err)
+				h.Equals(t, tc.env["IMDS_EVENT_REPORTING"] == "true", nthConfig.IMDSEventReporting)
+				h.Equals(t, tc.env["ENABLE_IMDS_EVENT_CONTROLLER"] == "true", nthConfig.EnableIMDSEventController)
+				h.Equals(t, "aws-node-termination-handler-imds-event-controller", nthConfig.IMDSEventControllerLeaseName)
+				return
+			}
+			h.Nok(t, err)
+			h.Assert(t, strings.Contains(err.Error(), tc.errPart), "error %q should contain %q", err.Error(), tc.errPart)
+		})
+	}
 }
